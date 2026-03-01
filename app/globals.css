@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── iOS-style safe area padding ───────────────────────────────────────────── */
+:root {
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h:       64px; /* bottom nav height */
+}
+
+html {
+  /* Prevent elastic scroll flash */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Space for fixed bottom nav */
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
+}
+
+/* Tabular numbers everywhere monetary */
+.tabnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Hide scrollbars on mobile (keep functional) */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Tap highlight reset */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Active state for tappable rows */
+.tap-row:active { background: rgba(255,255,255,0.06); }
