@@ -109,11 +109,6 @@ export type StockCategory =
   | 'Auto OEM'
   | 'Pharma'
 
-export const PORTFOLIO_SYMBOLS = [
-  'BEL', 'CAMS', 'DMART', 'HAL', 'IEX', 'ITC',
-  'NARAYANAHRU', 'POLYCAB', 'SBILIFE', 'TATAMOTORS', 'ZYDUSLIFE', 'LT',
-] as const
-
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   CAMS:        'Capital-light Market Infra/Services',
   IEX:         'Capital-light Market Infra/Services',
@@ -127,6 +122,17 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   ITC:         'FMCG',
   TATAMOTORS:  'Auto OEM',
   ZYDUSLIFE:   'Pharma',
+}
+
+export interface BuyTranche {
+  id: string
+  user_id: string
+  symbol: string
+  qty: number
+  price: number
+  allocated: boolean
+  sort_order: number
+  created_at?: string
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────

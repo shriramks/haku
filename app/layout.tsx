@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Folio',
+  title: 'Spend Stock',
   description: 'Personal Indian stock portfolio tracker',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Folio',
+    title: 'Spend Stock',
   },
 }
 

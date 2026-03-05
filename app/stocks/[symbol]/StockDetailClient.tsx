@@ -7,7 +7,7 @@ import { calculateBands, getBandSignal, trancheSuggestion } from '@/lib/band-cal
 import { BandSignalBadge, TradeTypeBadge, GateSignalIcon, InvestableBadge } from '@/components/SignalBadge'
 import BandRangeBar from '@/components/BandRangeBar'
 import { formatINR, formatPnL, formatPct, formatDate, todayISO } from '@/lib/formatter'
-import { PORTFOLIO_SYMBOLS, type StockCategory } from '@/lib/types'
+import { type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal } from '@/lib/types'
 
 interface Props {
@@ -526,9 +526,10 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
     if (data) { onSaved(data); setEditing(false) }
   }
 
-  const passes  = GATES.filter(g => (inv ?? draft)[g.key] === 'pass').length
-  const cautions = GATES.filter(g => (inv ?? draft)[g.key] === 'caution').length
-  const fails    = GATES.filter(g => (inv ?? draft)[g.key] === 'fail').length
+  const record   = (inv ?? draft) as unknown as Partial<Record<keyof Investability, unknown>>
+  const passes   = GATES.filter(g => record[g.key] === 'pass').length
+  const cautions = GATES.filter(g => record[g.key] === 'caution').length
+  const fails    = GATES.filter(g => record[g.key] === 'fail').length
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -568,7 +569,7 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
                     {(['pass', 'caution', 'fail'] as GateSignal[]).map(sig => (
                       <button key={sig} onClick={() => setDraft(d => ({ ...d, [gate.key]: sig }))}
                         className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          draft[gate.key] === sig
+                          (draft as Record<string, unknown>)[gate.key] === sig
                             ? sig === 'pass' ? 'bg-green-500 text-white'
                             : sig === 'caution' ? 'bg-orange-500 text-white'
                             : 'bg-red-500 text-white'
@@ -580,7 +581,7 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
                   </div>
                 </div>
                 <input type="text" placeholder="Note (optional)"
-                  value={(draft[gate.noteKey] as string) ?? ''}
+                  value={((draft as Record<string, unknown>)[gate.noteKey] as string) ?? ''}
                   onChange={e => setDraft(d => ({ ...d, [gate.noteKey]: e.target.value }))}
                   className="w-full px-2 py-1.5 rounded bg-white/5 text-white/60 text-xs border border-white/10 outline-none" />
               </div>
@@ -601,8 +602,9 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
           {/* Read mode */}
           <div className="space-y-1">
             {GATES.map(gate => {
-              const signal = (inv ?? draft)[gate.key] as GateSignal
-              const note   = (inv ?? draft)[gate.noteKey] as string
+              const rec    = (inv ?? draft) as unknown as Record<string, unknown>
+              const signal = rec[gate.key] as GateSignal
+              const note   = rec[gate.noteKey] as string
               return (
                 <div key={gate.key} className="flex items-start gap-3 py-2 border-b border-white/5">
                   <GateSignalIcon signal={signal} compact />

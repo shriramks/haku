@@ -1,8 +1,6 @@
-// Server-side data fetching helpers (used in Server Components)
+// Server-side data fetching helpers (used in Server Components only)
 import { createSupabaseServerClient } from './supabase-server'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability } from './types'
-import { getBandSignal } from './band-calculator'
-import type { StockRow } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche } from './types'
 
 export async function getFiscalYears(): Promise<FiscalYear[]> {
   const supabase = await createSupabaseServerClient()
@@ -46,52 +44,13 @@ export async function getInvestability(): Promise<Investability[]> {
   return data ?? []
 }
 
-// ── Computed helpers ─────────────────────────────────────────────────────────
-
-export function computeStockRows(
-  allocations: StockAllocation[],
-  transactions: Transaction[],
-  bands: BuyBand[],
-  totalBudget: number
-): StockRow[] {
-  return allocations.map(alloc => {
-    const txns  = transactions.filter(t => t.symbol === alloc.symbol)
-    const buys  = txns.filter(t => t.trade_type === 'buy')
-    const sells = txns.filter(t => t.trade_type === 'sell')
-
-    const totalBought   = buys.reduce((s, t)  => s + t.quantity, 0)
-    const totalBuyValue = buys.reduce((s, t)  => s + t.amount,   0)
-    const totalSold     = sells.reduce((s, t) => s + t.quantity,  0)
-
-    const qty     = Math.max(0, totalBought - totalSold)
-    const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
-    const spent   = buys.reduce((s, t) => s + t.amount, 0)
-                  - sells.reduce((s, t) => s + t.amount, 0)
-
-    const budget    = (alloc.allocation_pct / 100) * totalBudget
-    const remaining = budget - spent
-
-    const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
-    const cmp    = band?.manual_cmp ?? null
-    const signal = band ? getBandSignal(band) : 'unknown'
-
-    const unrealisedPnL    = cmp !== null ? (cmp - avgCost) * qty : null
-    const unrealisedPnLPct = (cmp !== null && avgCost > 0)
-      ? (cmp - avgCost) / avgCost * 100 : null
-
-    return {
-      symbol:          alloc.symbol,
-      allocationPct:   alloc.allocation_pct,
-      budget,
-      spent,
-      remaining,
-      pctRemaining:    budget > 0 ? (remaining / budget) * 100 : 100,
-      qty,
-      avgCost,
-      cmp,
-      unrealisedPnL,
-      unrealisedPnLPct,
-      bandSignal:      signal,
-    }
-  })
+export async function getBuyTranches(): Promise<BuyTranche[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase
+    .from('buy_tranches')
+    .select('*')
+    .order('symbol')
+    .order('sort_order')
+  return data ?? []
 }
+

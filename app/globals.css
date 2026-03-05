@@ -38,3 +38,12 @@ body {
 
 /* Active state for tappable rows */
 .tap-row:active { background: rgba(255,255,255,0.06); }
+
+/* Sheet slide-up animation */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+.animate-slide-up {
+  animation: slideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}

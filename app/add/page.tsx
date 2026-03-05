@@ -6,11 +6,10 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import BottomNav from '@/components/BottomNav'
 import { todayISO, formatINR } from '@/lib/formatter'
-import { PORTFOLIO_SYMBOLS } from '@/lib/types'
 
 export default function AddPage() {
   const router = useRouter()
-  const [symbol, setSymbol]     = useState('CAMS')
+  const [symbol, setSymbol]     = useState('')
   const [type, setType]         = useState<'buy' | 'sell'>('buy')
   const [date, setDate]         = useState(todayISO())
   const [qty, setQty]           = useState('')
@@ -24,7 +23,7 @@ export default function AddPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!qty || !price) return
+    if (!symbol || !qty || !price) return
     setLoading(true)
     setError(null)
 
@@ -82,19 +81,19 @@ export default function AddPage() {
         <form onSubmit={submit} className="px-4 space-y-4 pb-8">
           {/* Symbol + type — biggest decision, on one row */}
           <div className="flex gap-3">
-            {/* Symbol picker */}
+            {/* Symbol input */}
             <div className="flex-1">
               <label className="text-xs text-white/40 mb-1 block">Stock</label>
-              <select
+              <input
+                type="text"
+                placeholder="INFY, CAMS…"
                 value={symbol}
-                onChange={e => setSymbol(e.target.value)}
+                onChange={e => setSymbol(e.target.value.toUpperCase())}
+                autoCapitalize="characters"
+                required
                 className="w-full px-3 py-3 rounded-xl bg-white/10 text-white text-base font-bold
-                           border border-white/10 outline-none appearance-none"
-              >
-                {PORTFOLIO_SYMBOLS.map(s => (
-                  <option key={s} value={s} className="bg-black">{s}</option>
-                ))}
-              </select>
+                           border border-white/10 outline-none uppercase placeholder:normal-case placeholder:text-white/30"
+              />
             </div>
 
             {/* Buy / Sell toggle */}
@@ -187,7 +186,7 @@ export default function AddPage() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || !qty || !price}
+            disabled={loading || !symbol || !qty || !price}
             className={`w-full py-4 rounded-2xl font-bold text-lg transition-all active:scale-95
               disabled:opacity-40
               ${type === 'buy'

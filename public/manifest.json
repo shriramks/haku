@@ -1,6 +1,6 @@
 {
-  "name": "Folio",
-  "short_name": "Folio",
+  "name": "Spend Stock",
+  "short_name": "Spend Stock",
   "description": "Personal Indian stock portfolio tracker",
   "start_url": "/dashboard",
   "display": "standalone",

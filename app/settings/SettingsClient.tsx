@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
-import { DEFAULT_CATEGORY, PORTFOLIO_SYMBOLS, type StockCategory } from '@/lib/types'
+import { DEFAULT_CATEGORY, type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation } from '@/lib/types'
 
 interface Props {
