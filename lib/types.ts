@@ -129,6 +129,8 @@ export type StockCategory =
   | 'FMCG'
   | 'Auto OEM'
   | 'Pharma'
+  | 'IT/Technology'
+  | 'Index/ETF'
 
 export const ALL_CATEGORIES: StockCategory[] = [
   'Capital-light Market Infra/Services',
@@ -141,6 +143,8 @@ export const ALL_CATEGORIES: StockCategory[] = [
   'FMCG',
   'Auto OEM',
   'Pharma',
+  'IT/Technology',
+  'Index/ETF',
 ]
 
 /** Suggested category for well-known symbols — used as autocomplete hint only */

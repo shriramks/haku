@@ -1,5 +1,28 @@
 'use client'
 import { useState, useMemo } from 'react'
+
+const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive'> = {
+  'FMCG':                            'Defensive',
+  'Pharma':                          'Defensive',
+  'IT/Technology':                   'Defensive',
+  'Insurance':                       'Defensive',
+  'Auto OEM':                        'Cyclical',
+  'Electricals/Capital Goods':       'Cyclical',
+  'Asset-heavy Infra/Platforms':     'Cyclical',
+  'Defence':                         'Cyclical',
+  'Capital-light Market Infra/Services': 'Growth',
+  'Retail':                          'Growth',
+  'Hospitals':                       'Growth',
+  'Index/ETF':                       'Passive',
+}
+
+const SHORT_CAT: Record<string, string> = {
+  'Capital-light Market Infra/Services': 'Cap-light',
+  'Asset-heavy Infra/Platforms':         'Infra',
+  'Electricals/Capital Goods':           'Electricals',
+  'IT/Technology':                       'IT',
+  'Index/ETF':                           'ETF',
+}
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
@@ -49,21 +72,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h1 className="text-[28px] font-bold">Plan</h1>
-          <div className="flex items-center gap-2">
-          {tab === 'plan' && (
-            <button
-              onClick={() => setShowNewPlan(true)}
-              className="px-3 py-1.5 rounded-xl text-[14px] font-semibold"
-              style={{
-                color: '#0A84FF',
-                border: '1.5px solid #0A84FF',
-                background: 'transparent',
-              }}>
-              + New Plan
-            </button>
-          )}
           <UserMenu />
-          </div>
         </div>
 
         {/* Tab bar */}
@@ -93,6 +102,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
           totalBudget={totalBudget}
           onSwitchFY={switchFY}
           onAllocationsChange={setAllocations}
+          onNewPlan={() => setShowNewPlan(true)}
           onFYBudgetChange={(budget) => {
             if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
           }}
@@ -121,7 +131,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
 
 function PlanTab({
   fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget,
-  onSwitchFY, onAllocationsChange, onFYBudgetChange,
+  onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange,
 }: {
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
@@ -131,6 +141,7 @@ function PlanTab({
   totalBudget: number
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
+  onNewPlan: () => void
   onFYBudgetChange: (budget: number) => void
 }) {
   const [editBudget, setEditBudget] = useState(false)
@@ -211,21 +222,24 @@ function PlanTab({
 
   return (
     <div className="pb-6">
-      {/* FY selector */}
-      {fiscalYears.length > 1 && (
-        <div className="flex gap-2 px-4 pt-4">
-          {fiscalYears.map(fy => (
-            <button key={fy.id} onClick={() => onSwitchFY(fy)}
-              className="px-3 py-1.5 rounded-xl text-sm font-medium transition-colors"
-              style={{
-                background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
-                color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
-              }}>
-              {fy.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* FY selector + New Plan */}
+      <div className="flex items-center gap-2 px-4 pt-4">
+        {fiscalYears.map(fy => (
+          <button key={fy.id} onClick={() => onSwitchFY(fy)}
+            className="px-3 py-1.5 rounded-xl text-sm font-medium transition-colors"
+            style={{
+              background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
+              color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
+            }}>
+            {fy.label}
+          </button>
+        ))}
+        <button onClick={onNewPlan}
+          className="px-3 py-1.5 rounded-xl text-sm font-medium"
+          style={{ color: '#0A84FF', border: '1px solid rgba(10,132,255,0.4)', background: 'transparent' }}>
+          + Add Plan
+        </button>
+      </div>
 
       {selectedFY ? (
         <>
@@ -297,6 +311,47 @@ function PlanTab({
             </div>
           </div>
 
+          {/* Summary: by category + sector type */}
+          {allocations.length > 0 && (() => {
+            const byCat = allocations.reduce<Record<string, number>>((acc, a) => {
+              acc[a.category] = (acc[a.category] ?? 0) + a.allocation_pct
+              return acc
+            }, {})
+            const byType = allocations.reduce<Record<string, number>>((acc, a) => {
+              const t = SECTOR_TYPE[a.category] ?? 'Growth'
+              acc[t] = (acc[t] ?? 0) + a.allocation_pct
+              return acc
+            }, {})
+            const typeColors: Record<string, string> = {
+              Defensive: '#34C759', Cyclical: '#FF9F0A', Growth: '#0A84FF', Passive: '#8E8E93',
+            }
+            return (
+              <div className="mx-4 mt-3 p-3 rounded-2xl border space-y-2.5"
+                   style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                {/* By category */}
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
+                    <span key={cat} className="text-[11px] px-2 py-0.5 rounded-lg tabnum"
+                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
+                      {SHORT_CAT[cat] ?? cat.split(' ')[0]} {pct.toFixed(0)}%
+                    </span>
+                  ))}
+                </div>
+                {/* By sector type */}
+                <div className="flex gap-3 flex-wrap">
+                  {(['Defensive', 'Cyclical', 'Growth', 'Passive'] as const)
+                    .filter(t => byType[t])
+                    .map(t => (
+                      <span key={t} className="text-[12px] tabnum font-medium"
+                            style={{ color: typeColors[t] }}>
+                        {t} {(byType[t] ?? 0).toFixed(0)}%
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Actions row */}
           <div className="flex justify-end gap-2 px-4 mt-3 flex-wrap">
             <button onClick={generateAllBands} disabled={generatingAll || refreshingAll}
@@ -332,7 +387,7 @@ function PlanTab({
               </div>
 
               {showAddStock && (
-                <AddStockForm onAdd={addStock} />
+                <AddStockForm totalPct={totalPct} onAdd={addStock} />
               )}
 
               {[...allocations].sort((a, b) => a.symbol.localeCompare(b.symbol)).map(alloc => (
@@ -455,13 +510,16 @@ function StockAllocRow({ alloc, totalBudget, onPctChange, onCategoryChange, onRe
 
 // ── Add stock form ────────────────────────────────────────────────────────────
 
-function AddStockForm({ onAdd }: {
+function AddStockForm({ totalPct, onAdd }: {
+  totalPct: number
   onAdd: (symbol: string, category: StockCategory, pct: number) => Promise<void>
 }) {
   const [symbol, setSymbol]     = useState('')
   const [pct, setPct]           = useState('')
   const [category, setCategory] = useState<StockCategory>('Capital-light Market Infra/Services')
   const [saving, setSaving]     = useState(false)
+
+  const remaining = 100 - totalPct - (parseFloat(pct) || 0)
 
   async function submit() {
     if (!symbol || !pct) return
@@ -474,6 +532,14 @@ function AddStockForm({ onAdd }: {
   return (
     <div className="rounded-2xl border p-4 space-y-3"
          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+      {/* Remaining % indicator */}
+      <div className="flex items-center justify-between">
+        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Allocated so far: {totalPct.toFixed(1)}%</p>
+        <p className={`text-[12px] font-semibold tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
+           style={remaining > 0 ? { color: 'var(--text-2)' } : undefined}>
+          {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <input
           placeholder="Symbol (INFY)"
@@ -488,15 +554,16 @@ function AddStockForm({ onAdd }: {
             background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
             border: '1px solid var(--border)',
           }} />
-        <div className="flex items-center gap-1.5">
-          <input type="number" inputMode="decimal" placeholder="%"
+        <div className="relative">
+          <input type="number" inputMode="decimal" placeholder="10"
             value={pct} onChange={e => setPct(e.target.value)}
-            className="flex-1 px-3 py-3 rounded-xl text-[15px] tabnum outline-none"
+            className="w-full px-3 pr-8 py-3 rounded-xl text-[15px] tabnum outline-none"
             style={{
               background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
               border: '1px solid var(--border)',
             }} />
-          <span style={{ color: 'var(--text-muted)' }}>%</span>
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[15px] pointer-events-none"
+                style={{ color: 'var(--text-muted)' }}>%</span>
         </div>
       </div>
       <select value={category} onChange={e => setCategory(e.target.value as StockCategory)}
