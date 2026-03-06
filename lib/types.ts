@@ -19,6 +19,7 @@ export interface StockAllocation {
   allocation_pct: number
   category: string
   two_weak_quarters: boolean
+  two_strong_quarters: boolean
   is_hospital_ramp_phase: boolean
 }
 

@@ -21,8 +21,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [allocState, setAllocState] = useState(allocations)
   const [tranches, setTranches]     = useState(initialTranches)
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
-  const [refreshing, setRefreshing] = useState<Record<string, boolean>>({})
+  const [refreshing, setRefreshing]       = useState<Record<string, boolean>>({})
   const [refreshingAll, setRefreshingAll] = useState(false)
+  const [generating, setGenerating]       = useState<Record<string, boolean>>({})
+  const [generatingAll, setGeneratingAll] = useState(false)
+  const [genError, setGenError]           = useState<Record<string, string>>({})
 
   function toggle(symbol: string) {
     setExpanded(prev => {
@@ -62,26 +65,62 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setRefreshing(prev => ({ ...prev, [symbol]: false }))
   }
 
+  async function generateBands(symbol: string) {
+    setGenerating(prev => ({ ...prev, [symbol]: true }))
+    setGenError(prev => ({ ...prev, [symbol]: '' }))
+    try {
+      const res = await fetch(`/api/bands/generate/${symbol}`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        setGenError(prev => ({ ...prev, [symbol]: json.error ?? 'Generation failed' }))
+      } else if (json.band) {
+        // Preserve existing CMP — the generate route sets manual_cmp to null
+        const existing = bands.find(b => b.symbol === symbol)
+        const bandWithCmp = { ...json.band, manual_cmp: existing?.manual_cmp ?? json.band.manual_cmp }
+        setBands(prev => {
+          const filtered = prev.filter(b => b.symbol !== symbol)
+          return [...filtered, bandWithCmp]
+        })
+      }
+    } catch {
+      setGenError(prev => ({ ...prev, [symbol]: 'Network error' }))
+    }
+    setGenerating(prev => ({ ...prev, [symbol]: false }))
+  }
+
+  async function generateAllBands() {
+    setGeneratingAll(true)
+    await Promise.all(rows.map(r => generateBands(r.symbol)))
+    setGeneratingAll(false)
+  }
+
   async function refreshAllCMPs() {
     setRefreshingAll(true)
     await Promise.all(rows.map(r => refreshCMP(r.symbol)))
     setRefreshingAll(false)
   }
 
-  async function toggleWeakQuarters(symbol: string, value: boolean) {
+  async function toggleQuarters(symbol: string, field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
     const alloc = allocState.find(a => a.symbol === symbol)
     if (!alloc) return
     const sb = getSupabaseBrowser()
-    await sb.from('stock_allocations').update({ two_weak_quarters: value }).eq('id', alloc.id)
-    const updated = { ...alloc, two_weak_quarters: value }
+    // Mutually exclusive: turning one on turns the other off
+    const patch: Record<string, boolean> = { [field]: value }
+    if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
+    await sb.from('stock_allocations').update(patch).eq('id', alloc.id)
+    const updated = { ...alloc, ...patch }
     setAllocState(prev => prev.map(a => a.symbol === symbol ? updated : a))
+
+    const twoWeakQuarters   = field === 'two_weak_quarters'   ? value : (value ? false : alloc.two_weak_quarters)
+    const twoStrongQuarters = field === 'two_strong_quarters' ? value : (value ? false : alloc.two_strong_quarters)
 
     // Recalculate bands if financial data exists
     const band = bands.find(b => b.symbol === symbol)
     if (band && (band.eps || band.bvps || band.ebitda)) {
       const result = calculateBands({
         category: alloc.category as StockCategory,
-        twoWeakQuarters: value,
+        twoWeakQuarters,
+        twoStrongQuarters,
         isHospitalRampPhase: alloc.is_hospital_ramp_phase,
         eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
         netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
@@ -133,11 +172,19 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
   return (
     <div>
-      {/* Refresh all button */}
-      <div className="px-4 pt-3 pb-2 flex justify-end">
+      {/* Header actions */}
+      <div className="px-4 pt-3 pb-2 flex justify-end gap-2 flex-wrap">
+        <button
+          onClick={generateAllBands}
+          disabled={generatingAll || refreshingAll}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
+          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)' }}>
+          <SparkleIcon className={`w-3.5 h-3.5 ${generatingAll ? 'spin' : ''}`} />
+          {generatingAll ? 'Generating…' : 'Generate All Bands'}
+        </button>
         <button
           onClick={refreshAllCMPs}
-          disabled={refreshingAll}
+          disabled={refreshingAll || generatingAll}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
           style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'spin' : ''}`} />
@@ -163,6 +210,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const computed = (band && alloc) ? calculateBands({
             category: alloc.category as StockCategory,
             twoWeakQuarters: alloc.two_weak_quarters,
+            twoStrongQuarters: alloc.two_strong_quarters,
             isHospitalRampPhase: alloc.is_hospital_ramp_phase,
             eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
             netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
@@ -193,6 +241,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
                             style={{ background: 'rgba(255,159,10,0.15)', color: '#FF9F0A' }}>
                         Tightened
+                      </span>
+                    )}
+                    {alloc?.two_strong_quarters && !alloc?.two_weak_quarters && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
+                            style={{ background: 'rgba(10,132,255,0.15)', color: '#0A84FF' }}>
+                        Premium
                       </span>
                     )}
                   </div>
@@ -230,29 +284,49 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       />
                     </div>
                   ) : (
-                    <div className="px-4 pt-4 pb-2">
-                      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-                        No buy bands set. Add financial data in stock detail to generate bands.
+                    <div className="px-4 pt-4 pb-2 flex items-center gap-3 flex-wrap">
+                      <p className="text-[13px] flex-1" style={{ color: 'var(--text-muted)' }}>
+                        No bands yet
                       </p>
+                      <button
+                        onClick={() => generateBands(row.symbol)}
+                        disabled={generating[row.symbol]}
+                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                        style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+                        <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
+                        {generating[row.symbol] ? 'Generating…' : 'Generate Bands'}
+                      </button>
                     </div>
+                  )}
+                  {genError[row.symbol] && (
+                    <p className="px-4 pb-2 text-[12px] text-red-400">{genError[row.symbol]}</p>
                   )}
 
                   {/* Controls row */}
                   <div className="px-4 pb-3 flex items-center justify-between flex-wrap gap-2 mt-1">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {/* Two weak quarters toggle */}
+                    <div className="flex items-center gap-3 flex-wrap">
                       {alloc && (
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
-                               style={{ color: 'var(--text-2)' }}>
-                          <input type="checkbox"
-                            checked={alloc.two_weak_quarters}
-                            onChange={e => toggleWeakQuarters(row.symbol, e.target.checked)}
-                            className="w-4 h-4 rounded accent-orange-400"
-                          />
-                          2 Weak Qtrs
-                        </label>
+                        <>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
+                                 style={{ color: 'var(--text-2)' }}>
+                            <input type="checkbox"
+                              checked={alloc.two_weak_quarters}
+                              onChange={e => toggleQuarters(row.symbol, 'two_weak_quarters', e.target.checked)}
+                              className="w-4 h-4 rounded accent-orange-400"
+                            />
+                            2 Weak Qtrs
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
+                                 style={{ color: 'var(--text-2)' }}>
+                            <input type="checkbox"
+                              checked={alloc.two_strong_quarters}
+                              onChange={e => toggleQuarters(row.symbol, 'two_strong_quarters', e.target.checked)}
+                              className="w-4 h-4 rounded accent-blue-400"
+                            />
+                            2 Strong Qtrs
+                          </label>
+                        </>
                       )}
-                      {/* Hospital ramp phase */}
                       {alloc?.category === 'Hospitals' && (
                         <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
                                style={{ color: 'var(--text-2)' }}>
@@ -271,15 +345,27 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       )}
                     </div>
 
-                    {/* Refresh CMP */}
-                    <button
-                      onClick={() => refreshCMP(row.symbol)}
-                      disabled={isRefresh}
-                      className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                      style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
-                      <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
-                      {isRefresh ? 'Fetching…' : 'Refresh CMP'}
-                    </button>
+                    {/* Per-stock buttons */}
+                    <div className="flex gap-2">
+                      {hasBands && (
+                        <button
+                          onClick={() => generateBands(row.symbol)}
+                          disabled={generating[row.symbol]}
+                          className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+                          <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
+                          {generating[row.symbol] ? 'Generating…' : 'Regenerate'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => refreshCMP(row.symbol)}
+                        disabled={isRefresh}
+                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                        style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
+                        <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
+                        {isRefresh ? 'Fetching…' : 'Refresh CMP'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Tranches */}
@@ -517,6 +603,15 @@ function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
     </svg>
   )
 }

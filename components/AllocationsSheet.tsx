@@ -41,7 +41,7 @@ export default function AllocationsSheet({ fy, onClose }: Props) {
       fy_id: fy.id, user_id: user.id,
       symbol: symbol.toUpperCase(), exchange: 'NSE',
       allocation_pct: pct, category,
-      two_weak_quarters: false, is_hospital_ramp_phase: false,
+      two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
     }).select().single()
     if (data) setAllocations(prev => [...prev, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAdd(false)

@@ -47,13 +47,13 @@ export default function BandRangeBar({ buyLow, buyHigh, midLow, midHigh, trimPri
       {/* CMP pin */}
       {cmpPct !== null && (
         <div className="absolute bottom-0" style={{ left: `calc(${cmpPct}% - 1px)` }}>
-          <div className="w-0.5 bg-white" style={{ height }} />
+          <div className="w-0.5" style={{ height, background: 'var(--text-primary)' }} />
           {/* Triangle tip */}
           <div className="w-0 h-0 mx-auto"
                style={{
                  borderLeft: '4px solid transparent',
                  borderRight: '4px solid transparent',
-                 borderTop: '6px solid white',
+                 borderTop: '6px solid var(--text-primary)',
                }} />
         </div>
       )}

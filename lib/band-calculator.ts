@@ -25,6 +25,11 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Pharma':                              { buyLow: 16, buyHigh: 21, midLow: 22, midHigh: 27, trim: 28 },
 }
 
+/** Premium Leaders overlay — applied when twoStrongQuarters=true */
+const PREMIUM_PE: Partial<Record<StockCategory, Mult>> = {
+  'Capital-light Market Infra/Services': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
+}
+
 const EV: Partial<Record<StockCategory, Mult>> = {
   'Retail':                     { buyLow: 12,  buyHigh: 18,  midLow: 19, midHigh: 23, trim: 24  },
   'Defence':                    { buyLow: 15,  buyHigh: 22,  midLow: 23, midHigh: 27, trim: 28  },
@@ -83,6 +88,7 @@ function stricter(a: Raw | null, b: Raw | null): Raw | null {
 export interface BandInput {
   category: StockCategory
   twoWeakQuarters: boolean
+  twoStrongQuarters: boolean
   isHospitalRampPhase: boolean
   eps?: number | null
   bvps?: number | null
@@ -100,13 +106,18 @@ export interface BandResult {
   midHigh: number
   trimPrice: number
   isTightened: boolean
+  isPremium: boolean
 }
 
 export function calculateBands(input: BandInput): BandResult | null {
-  const tighten = input.twoWeakQuarters
+  // twoWeakQuarters takes precedence if both are set
+  const tighten  = input.twoWeakQuarters
+  const premium  = input.twoStrongQuarters && !tighten
 
   const tryPE = (): Raw | null => {
-    const m = PE[input.category]; const eps = input.eps
+    // Use premium multiples if applicable
+    const mTable = (premium && PREMIUM_PE[input.category]) ? PREMIUM_PE : PE
+    const m = mTable[input.category]; const eps = input.eps
     if (!m || !eps || eps <= 0) return null
     return fromPE(m, eps)
   }
@@ -165,16 +176,19 @@ export function calculateBands(input: BandInput): BandResult | null {
 
   if (!raw) return null
 
-  // Tightening: reduce all upper multiples 10% (trim unchanged)
+  // Tightening: reduce all band prices by 10% (trim unchanged)
   const f = tighten ? 0.90 : 1.0
+  const suffix = tighten ? ' (tightened)' : premium ? ' (premium)' : ''
+
   return {
-    anchorUsed:  raw.anchor + (tighten ? ' (tightened)' : ''),
+    anchorUsed:  raw.anchor + suffix,
     buyLow:      raw.buyLow  * (tighten ? 0.90 : 1),
     buyHigh:     raw.buyHigh * f,
     midLow:      raw.midLow  * f,
     midHigh:     raw.midHigh * f,
     trimPrice:   raw.trim,
     isTightened: tighten,
+    isPremium:   premium,
   }
 }
 

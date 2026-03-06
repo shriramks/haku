@@ -51,7 +51,12 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
           {tab === 'plan' && (
             <button
               onClick={() => setShowNewPlan(true)}
-              className="text-[#0A84FF] text-[15px] font-medium">
+              className="px-3 py-1.5 rounded-xl text-[14px] font-semibold"
+              style={{
+                color: '#0A84FF',
+                border: '1.5px solid #0A84FF',
+                background: 'transparent',
+              }}>
               + New Plan
             </button>
           )}
@@ -129,6 +134,7 @@ function PlanTab({
   const [savingBudget, setSavingBudget] = useState(false)
   const [showAddStock, setShowAddStock] = useState(false)
   const [refreshingAll, setRefreshingAll] = useState(false)
+  const [generatingAll, setGeneratingAll] = useState(false)
 
   async function saveBudget() {
     if (!selectedFY) return
@@ -165,7 +171,7 @@ function PlanTab({
       fy_id: selectedFY.id, user_id: user.id,
       symbol: symbol.toUpperCase(), exchange: 'NSE',
       allocation_pct: pct, category,
-      two_weak_quarters: false, is_hospital_ramp_phase: false,
+      two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
     }).select().single()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
@@ -185,6 +191,16 @@ function PlanTab({
       } catch {}
     }))
     setRefreshingAll(false)
+  }
+
+  async function generateAllBands() {
+    setGeneratingAll(true)
+    await Promise.all(allocations.map(async a => {
+      try {
+        await fetch(`/api/bands/generate/${a.symbol}`, { method: 'POST' })
+      } catch {}
+    }))
+    setGeneratingAll(false)
   }
 
   const pctOk = Math.abs(totalPct - 100) < 0.01
@@ -277,13 +293,19 @@ function PlanTab({
             </div>
           </div>
 
-          {/* Refresh all CMPs */}
-          <div className="flex justify-end px-4 mt-3">
-            <button onClick={refreshAllCMPs} disabled={refreshingAll}
+          {/* Actions row */}
+          <div className="flex justify-end gap-2 px-4 mt-3 flex-wrap">
+            <button onClick={generateAllBands} disabled={generatingAll || refreshingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
+              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)' }}>
+              <SparkleIcon className={`w-3.5 h-3.5 ${generatingAll ? 'spin' : ''}`} />
+              {generatingAll ? 'Generating…' : 'Generate All Bands'}
+            </button>
+            <button onClick={refreshAllCMPs} disabled={refreshingAll || generatingAll}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
               <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'spin' : ''}`} />
-              Refresh Buy Bands CMPs
+              Refresh All CMPs
             </button>
           </div>
 
@@ -309,7 +331,7 @@ function PlanTab({
                 <AddStockForm onAdd={addStock} />
               )}
 
-              {allocations.map(alloc => (
+              {[...allocations].sort((a, b) => a.symbol.localeCompare(b.symbol)).map(alloc => (
                 <StockAllocRow
                   key={alloc.id}
                   alloc={alloc}
@@ -734,6 +756,15 @@ function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
     </svg>
   )
 }

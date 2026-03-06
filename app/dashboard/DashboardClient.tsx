@@ -119,7 +119,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             Holdings
           </p>
           <div className="md:grid md:grid-cols-2 md:gap-3 md:px-4">
-            {rows.map(row => (
+            {[...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)).map(row => (
               <Link key={row.symbol} href={`/stocks/${row.symbol}`}
                     className="block tap-row border-b md:border md:rounded-2xl md:mb-0"
                     style={{ borderColor: 'var(--border-faint)' }}>
