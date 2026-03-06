@@ -23,6 +23,9 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'FMCG':                                { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
   'Auto OEM':                            { buyLow: 10, buyHigh: 12, midLow: 13, midHigh: 15, trim: 16 },
   'Pharma':                              { buyLow: 16, buyHigh: 21, midLow: 22, midHigh: 27, trim: 28 },
+  'IT/Technology':                       { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
+  // Index/ETF: PE-of-index thresholds; "eps" passed in = etfPrice / niftyPE (computed in generate route)
+  'Index/ETF':                           { buyLow: 16, buyHigh: 19, midLow: 20, midHigh: 23, trim: 25 },
 }
 
 /** Premium Leaders overlay — applied when twoStrongQuarters=true */
@@ -171,6 +174,15 @@ export function calculateBands(input: BandInput): BandResult | null {
 
     case 'Insurance':
       raw = tryPEV()
+      break
+
+    case 'IT/Technology':
+      raw = tryPE()
+      break
+
+    // Index/ETF: eps passed in = etfPrice/niftyPE — PE multiples give band prices in ₹ ETF terms
+    case 'Index/ETF':
+      raw = tryPE()
       break
   }
 

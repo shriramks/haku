@@ -1,66 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { categoryFromSector } from '@/lib/sector-map'
 import { calculateBands } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
-// Yahoo Finance quoteSummary modules we need
-const MODULES = 'financialData,defaultKeyStatistics,incomeStatementHistory,balanceSheetHistory,assetProfile'
+// ── Gemini helpers ────────────────────────────────────────────────────────────
 
-interface YahooFinancials {
-  eps: number | null
-  bvps: number | null
-  ebitdaInCr: number | null      // ₹Cr
-  netDebtInCr: number | null     // ₹Cr
-  sharesInCr: number | null      // Cr shares
-  sector: string
-  industry: string
+async function callGemini(prompt: string, key: string): Promise<string> {
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tools: [{ google_search: {} }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      }),
+    }
+  )
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
 
-async function fetchYahooFinancials(symbol: string): Promise<YahooFinancials | null> {
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}.NS?modules=${MODULES}`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
-    next: { revalidate: 3600 }, // cache 1h — financials don't change often
-  })
-  if (!res.ok) return null
-
-  const json = await res.json()
-  const result = json?.quoteSummary?.result?.[0]
-  if (!result) return null
-
-  const fd   = result.financialData ?? {}
-  const ks   = result.defaultKeyStatistics ?? {}
-  const is   = result.incomeStatementHistory?.incomeStatementHistory?.[0] ?? {}
-  const bs   = result.balanceSheetHistory?.balanceSheetHistory?.[0] ?? {}
-  const prof = result.assetProfile ?? {}
-
-  // EPS (trailing, in ₹)
-  const eps: number | null = ks.trailingEps?.raw ?? fd.epsTrailingTwelveMonths?.raw ?? null
-
-  // Book value per share (in ₹)
-  const bvps: number | null = ks.bookValue?.raw ?? null
-
-  // Shares outstanding — Yahoo gives in absolute count, convert to Cr
-  const sharesRaw: number | null = ks.sharesOutstanding?.raw ?? fd.sharesOutstanding?.raw ?? null
-  const sharesInCr = sharesRaw ? sharesRaw / 1e7 : null  // 1 Cr = 10^7
-
-  // EBITDA — Yahoo gives in absolute ₹, convert to ₹Cr
-  const ebitdaRaw: number | null = fd.ebitda?.raw ?? is.ebitda?.raw ?? null
-  const ebitdaInCr = ebitdaRaw ? ebitdaRaw / 1e7 : null
-
-  // Net Debt = totalDebt − totalCash (in ₹Cr)
-  const totalDebt: number | null  = bs.totalDebt?.raw ?? fd.totalDebt?.raw ?? null
-  const totalCash: number | null  = fd.totalCash?.raw ?? bs.cash?.raw ?? null
-  const netDebtInCr = (totalDebt !== null && totalCash !== null)
-    ? (totalDebt - totalCash) / 1e7
-    : (totalDebt !== null ? totalDebt / 1e7 : null)
-
-  const sector   = prof.sector   ?? fd.sector   ?? ''
-  const industry = prof.industry ?? fd.industry ?? ''
-
-  return { eps, bvps, ebitdaInCr, netDebtInCr, sharesInCr, sector, industry }
+function extractJSON(text: string): Record<string, unknown> {
+  const start = text.indexOf('{')
+  const end   = text.lastIndexOf('}')
+  if (start === -1 || end === -1) throw new Error('No JSON block found in response')
+  return JSON.parse(text.slice(start, end + 1))
 }
+
+function stockPrompt(symbol: string): string {
+  return `Search Screener.in for NSE:${symbol} consolidated financials.
+Extract from the most recent data (prefer TTM/trailing twelve months, else latest annual FY):
+1. EPS in ₹ — "EPS in Rs" row in the P&L table, most recent value
+2. Operating Profit in ₹Cr — "Operating Profit" row in the P&L table (this equals EBITDA for most companies)
+3. Borrowings in ₹Cr — "Borrowings" row in the Balance Sheet
+4. Cash & Cash Equivalents in ₹Cr — from the Balance Sheet
+5. Shares outstanding in Crore — from Key Ratios or company info section
+6. The period this data covers (e.g. "TTM Mar25" or "FY25")
+
+Return ONLY this JSON object with no other text, explanation, or markdown fences:
+{"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}`
+}
+
+function indexPrompt(symbol: string): string {
+  return `Find current Nifty 50 valuation data from NSE India or Moneycontrol or Tickertape:
+1. Current Nifty 50 PE ratio (Price to Earnings, trailing)
+2. Current Nifty 50 index level
+3. Current market price per unit of ETF NSE:${symbol} in ₹ (latest traded price)
+4. The date of this data
+
+Return ONLY this JSON object with no other text, explanation, or markdown fences:
+{"niftyPE":0,"niftyLevel":0,"etfPrice":0,"asOf":""}`
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(
   _req: NextRequest,
@@ -73,84 +68,124 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Fetch financial data from Yahoo Finance
-  const fin = await fetchYahooFinancials(upperSymbol)
-  if (!fin) return NextResponse.json({ error: 'Failed to fetch financials from Yahoo Finance' }, { status: 502 })
+  const geminiKey = process.env.GEMINI_API_KEY
+  if (!geminiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 })
 
-  // Auto-detect category from sector/industry
-  let category: StockCategory | null = categoryFromSector(fin.sector, fin.industry)
-
-  // If category can't be auto-detected, check if we have an existing allocation with one set
-  if (!category) {
-    const { data: alloc } = await supabase
-      .from('stock_allocations')
-      .select('category')
-      .eq('user_id', user.id)
-      .eq('symbol', upperSymbol)
-      .limit(1)
-      .single()
-    if (alloc?.category) category = alloc.category as StockCategory
-  }
-
-  if (!category) {
-    return NextResponse.json({
-      error: `Could not determine category for ${upperSymbol} (sector: "${fin.sector}", industry: "${fin.industry}"). Set category manually in Allocation.`,
-    }, { status: 422 })
-  }
-
-  // Fetch allocation flags (weak/strong quarters, hospital ramp phase)
+  // Fetch allocation for category + qualifier flags
   const { data: alloc } = await supabase
     .from('stock_allocations')
-    .select('two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+    .select('category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
     .limit(1)
     .single()
 
-  // Insurance: skip P/EV (no embedded value from free APIs), fall back to PE
-  // The band-calculator already handles this — Insurance case tries tryPEV() which returns null
-  // when embeddedValue is not provided, so it naturally returns null. We need to force PE fallback.
-  // We do this by temporarily treating Insurance as using PE if EPS is available.
-  let bandInput = {
-    category,
-    twoWeakQuarters:     alloc?.two_weak_quarters      ?? false,
-    twoStrongQuarters:   alloc?.two_strong_quarters     ?? false,
-    isHospitalRampPhase: alloc?.is_hospital_ramp_phase  ?? false,
-    eps:        fin.eps,
-    bvps:       fin.bvps,
-    ebitda:     fin.ebitdaInCr,
-    netDebt:    fin.netDebtInCr,
-    shares:     fin.sharesInCr,
-    embeddedValue: null, // never available from Yahoo Finance free API
+  if (!alloc?.category) {
+    return NextResponse.json({
+      error: `${upperSymbol} not found in your allocations. Add it to a plan first.`,
+    }, { status: 422 })
   }
 
-  let result = calculateBands(bandInput)
+  const category = alloc.category as StockCategory
+  const isIndex  = category === 'Index/ETF'
 
-  // Insurance fallback: if P/EV failed (no embedded value), try PE
-  if (!result && category === 'Insurance' && fin.eps && fin.eps > 0) {
-    // Use FMCG PE multiples as a proxy (high-quality financial company range)
-    // Actually per user decision: "fall back to PE if available" — use the PE table.
-    // band-calculator doesn't have Insurance in the PE table, so we override category temporarily.
-    result = calculateBands({ ...bandInput, category: 'FMCG' })
-    if (result) {
-      result = { ...result, anchorUsed: result.anchorUsed + ' [Insurance PE fallback]' }
+  // Call Gemini with search grounding
+  let geminiText: string
+  try {
+    geminiText = await callGemini(isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol), geminiKey)
+  } catch (e: unknown) {
+    return NextResponse.json({
+      error: `Gemini fetch failed: ${e instanceof Error ? e.message : String(e)}`,
+    }, { status: 502 })
+  }
+
+  // Parse JSON from Gemini text response
+  let parsed: Record<string, unknown>
+  try {
+    parsed = extractJSON(geminiText)
+  } catch {
+    return NextResponse.json({
+      error: 'Could not parse JSON from Gemini response',
+      raw: geminiText.slice(0, 600),
+    }, { status: 502 })
+  }
+
+  // Map parsed data to band inputs
+  let eps: number | null        = null
+  let opProfitCr: number | null = null
+  let borrowingsCr: number | null = null
+  let cashCr: number | null     = null
+  let sharesCr: number | null   = null
+  let asOf = String(parsed.asOf ?? '')
+
+  if (isIndex) {
+    const niftyPE   = Number(parsed.niftyPE)   || null
+    const etfPrice  = Number(parsed.etfPrice)   || null
+    const niftyLevel = Number(parsed.niftyLevel) || null
+
+    if (!niftyPE || !etfPrice) {
+      return NextResponse.json({
+        error: 'Gemini could not extract Nifty PE or ETF price',
+        raw: geminiText.slice(0, 600),
+      }, { status: 422 })
     }
+
+    // ETF EPS equivalent = etfPrice / niftyPE
+    // Applying PE band multiples (16x–25x) to this gives band prices in ₹ ETF terms
+    eps  = etfPrice / niftyPE
+    asOf = `Nifty ${niftyLevel?.toFixed(0)} @ ${niftyPE}x PE | ETF ₹${etfPrice} | ${asOf}`
+  } else {
+    eps          = Number(parsed.eps)          || null
+    opProfitCr   = Number(parsed.opProfitCr)   || null
+    borrowingsCr = Number(parsed.borrowingsCr) || null
+    cashCr       = Number(parsed.cashCr)       || null
+    sharesCr     = Number(parsed.sharesCr)     || null
+  }
+
+  const netDebtCr = (borrowingsCr !== null && cashCr !== null)
+    ? borrowingsCr - cashCr
+    : null
+
+  // Calculate bands
+  let result = calculateBands({
+    category,
+    twoWeakQuarters:     alloc.two_weak_quarters     ?? false,
+    twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
+    isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
+    eps,
+    bvps:         null,
+    ebitda:       opProfitCr,
+    netDebt:      netDebtCr,
+    shares:       sharesCr,
+    embeddedValue: null,
+  })
+
+  // Insurance fallback: P/EV needs embedded value (not available) — fall back to PE
+  if (!result && category === 'Insurance' && eps && eps > 0) {
+    result = calculateBands({
+      category:            'FMCG' as StockCategory,
+      twoWeakQuarters:     alloc.two_weak_quarters  ?? false,
+      twoStrongQuarters:   alloc.two_strong_quarters ?? false,
+      isHospitalRampPhase: false,
+      eps, bvps: null, ebitda: null, netDebt: null, shares: null, embeddedValue: null,
+    })
+    if (result) result = { ...result, anchorUsed: result.anchorUsed + ' [Insurance PE fallback]' }
   }
 
   if (!result) {
     return NextResponse.json({
-      error: `Insufficient financial data to compute bands for ${upperSymbol}. Available: EPS=${fin.eps}, BVPS=${fin.bvps}, EBITDA=${fin.ebitdaInCr}Cr, Shares=${fin.sharesInCr}Cr`,
+      error: `Not enough data to compute bands for ${upperSymbol}. Got: EPS=${eps}, OpProfit=${opProfitCr}Cr, Shares=${sharesCr}Cr`,
+      raw: geminiText.slice(0, 600),
     }, { status: 422 })
   }
 
-  // Determine anchor_type for DB
-  const anchorRaw = result.anchorUsed.toUpperCase()
+  const anchorRaw   = result.anchorUsed.toUpperCase()
   const anchor_type = anchorRaw.includes('EV/EBITDA') ? 'EV_EBITDA'
-    : anchorRaw.includes('P/EV')     ? 'P_EV'
-    : anchorRaw.includes('PB')       ? 'PB'
+    : anchorRaw.includes('P/EV') ? 'P_EV'
+    : anchorRaw.includes('PB')   ? 'PB'
     : 'PE'
 
-  // Mark existing current bands as not current
+  // Version the band — mark old as not current
   await supabase
     .from('buy_bands')
     .update({ is_current: false })
@@ -158,30 +193,29 @@ export async function POST(
     .eq('symbol', upperSymbol)
     .eq('is_current', true)
 
-  // Insert new band row
   const now = new Date().toISOString()
   const { data: newBand, error: insertError } = await supabase
     .from('buy_bands')
     .insert({
-      user_id:      user.id,
-      symbol:       upperSymbol,
+      user_id:    user.id,
+      symbol:     upperSymbol,
       anchor_type,
-      eps:          fin.eps,
-      bvps:         fin.bvps,
-      ebitda:       fin.ebitdaInCr,
-      net_debt:     fin.netDebtInCr,
-      shares:       fin.sharesInCr,
+      eps,
+      bvps:       null,
+      ebitda:     opProfitCr,
+      net_debt:   netDebtCr,
+      shares:     sharesCr,
       embedded_value: null,
-      buy_low:      result.buyLow,
-      buy_high:     result.buyHigh,
-      mid_low:      result.midLow,
-      mid_high:     result.midHigh,
-      trim_price:   result.trimPrice,
-      manual_cmp:   null,
-      notes:        result.anchorUsed,
+      buy_low:    result.buyLow,
+      buy_high:   result.buyHigh,
+      mid_low:    result.midLow,
+      mid_high:   result.midHigh,
+      trim_price: result.trimPrice,
+      manual_cmp: null,
+      notes:      `${result.anchorUsed} | ${asOf}`,
       last_updated_at: now,
-      generated_at: now,
-      is_current:   true,
+      generated_at:    now,
+      is_current:      true,
     })
     .select()
     .single()
@@ -193,16 +227,9 @@ export async function POST(
   return NextResponse.json({
     symbol: upperSymbol,
     category,
-    sector:   fin.sector,
-    industry: fin.industry,
-    financials: {
-      eps:        fin.eps,
-      bvps:       fin.bvps,
-      ebitdaCr:   fin.ebitdaInCr,
-      netDebtCr:  fin.netDebtInCr,
-      sharesCr:   fin.sharesInCr,
-    },
-    band: newBand,
+    financials: { eps, opProfitCr, borrowingsCr, cashCr, sharesCr, netDebtCr },
+    asOf,
+    band:   newBand,
     result,
   })
 }

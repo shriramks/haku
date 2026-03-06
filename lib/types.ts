@@ -7,6 +7,7 @@ export interface FiscalYear {
   start_date: string   // "YYYY-MM-DD"
   end_date: string
   total_budget_inr: number
+  unallocated_carryover_inr: number
   created_at?: string
 }
 
@@ -21,6 +22,7 @@ export interface StockAllocation {
   two_weak_quarters: boolean
   two_strong_quarters: boolean
   is_hospital_ramp_phase: boolean
+  carryover_inr: number
 }
 
 export interface Transaction {

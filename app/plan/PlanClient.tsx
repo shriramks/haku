@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive'> = {
   'FMCG':                            'Defensive',
@@ -116,6 +116,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
         <NewPlanSheet
           existingFYs={fiscalYears}
           latestAllocations={allocations}
+          sourceFYTotalBudget={totalBudget}
           onClose={() => setShowNewPlan(false)}
           onCreate={(fy, allocs) => {
             setShowNewPlan(false)
@@ -244,6 +245,12 @@ function PlanTab({
       {selectedFY ? (
         <>
           {/* Budget card */}
+          {(() => {
+            const stockCarryover = allocations.reduce((s, a) => s + (a.carryover_inr ?? 0), 0)
+            const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
+            const totalCarryover = stockCarryover + unallocCarryover
+            const effectiveBudget = totalBudget + totalCarryover
+            return (
           <div className="mx-4 mt-4 p-4 rounded-2xl border"
                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
             <div className="flex items-center justify-between mb-3">
@@ -264,7 +271,14 @@ function PlanTab({
                     />
                   </div>
                 ) : (
-                  <p className="text-[22px] font-bold tabnum mt-0.5">{formatINR(totalBudget)}</p>
+                  <div>
+                    <p className="text-[22px] font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
+                    {totalCarryover > 0 && (
+                      <p className="text-[11px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {formatINR(totalBudget)} base + {formatINR(totalCarryover)} carryover
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
               {editBudget ? (
@@ -310,6 +324,8 @@ function PlanTab({
               </span>
             </div>
           </div>
+            )
+          })()}
 
           {/* Summary: by category + sector type */}
           {allocations.length > 0 && (() => {
@@ -457,6 +473,9 @@ function StockAllocRow({ alloc, totalBudget, onPctChange, onCategoryChange, onRe
             <p className="font-bold text-[16px]">{alloc.symbol}</p>
             <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {alloc.category.split('/')[0]} · {formatINR(budget)}
+              {(alloc.carryover_inr ?? 0) > 0 && (
+                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr)} carry</span>
+              )}
             </p>
           </div>
         </button>
@@ -585,9 +604,10 @@ function AddStockForm({ totalPct, onAdd }: {
 
 // ── New Plan Sheet ────────────────────────────────────────────────────────────
 
-function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
+function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onClose, onCreate }: {
   existingFYs: FiscalYear[]
   latestAllocations: StockAllocation[]
+  sourceFYTotalBudget: number
   onClose: () => void
   onCreate: (fy: FiscalYear, allocs: StockAllocation[]) => void
 }) {
@@ -596,6 +616,7 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
   const [copyStocks, setCopyStocks] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError]       = useState('')
+  const [carryoverBySymbol, setCarryoverBySymbol] = useState<Record<string, number>>({})
 
   // Suggest next FY label
   const suggestedLabel = useMemo(() => {
@@ -607,6 +628,32 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
   }, [existingFYs])
 
   useState(() => { setLabel(suggestedLabel) })
+
+  // Compute carryover from source FY transactions
+  useEffect(() => {
+    if (latestAllocations.length === 0 || sourceFYTotalBudget <= 0) return
+    async function computeCarryover() {
+      const sb = getSupabaseBrowser()
+      const symbols = latestAllocations.map(a => a.symbol)
+      const { data: txns } = await sb
+        .from('transactions')
+        .select('symbol, trade_type, amount')
+        .in('symbol', symbols)
+      const netBySymbol: Record<string, number> = {}
+      for (const t of txns ?? []) {
+        const sign = t.trade_type === 'buy' ? 1 : -1
+        netBySymbol[t.symbol] = (netBySymbol[t.symbol] ?? 0) + sign * t.amount
+      }
+      const carryover: Record<string, number> = {}
+      for (const a of latestAllocations) {
+        const stockBudget = (a.allocation_pct / 100) * sourceFYTotalBudget
+        const spent = netBySymbol[a.symbol] ?? 0
+        carryover[a.symbol] = Math.max(0, stockBudget - spent)
+      }
+      setCarryoverBySymbol(carryover)
+    }
+    computeCarryover()
+  }, [latestAllocations, sourceFYTotalBudget])
 
   function fyDates(label: string): { start: string; end: string } | null {
     const match = label.match(/^FY(\d{2,4})$/)
@@ -632,12 +679,19 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setCreating(false); return }
 
+    // Compute unallocated carryover (from stocks NOT copied into new plan)
+    const allSymbols = latestAllocations.map(a => a.symbol)
+    const copiedSymbols = copyStocks ? allSymbols : []
+    const droppedSymbols = allSymbols.filter(s => !copiedSymbols.includes(s))
+    const unallocatedCarryover = droppedSymbols.reduce((sum, s) => sum + (carryoverBySymbol[s] ?? 0), 0)
+
     const { data: fy, error: fyErr } = await sb.from('fiscal_years').insert({
       user_id: user.id,
       label,
       start_date: dates.start,
       end_date: dates.end,
       total_budget_inr: parseFloat(budget),
+      unallocated_carryover_inr: unallocatedCarryover,
     }).select().single()
 
     if (fyErr || !fy) { setError(fyErr?.message ?? 'Failed to create plan'); setCreating(false); return }
@@ -649,6 +703,7 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
         symbol: a.symbol, exchange: a.exchange,
         allocation_pct: a.allocation_pct, category: a.category,
         two_weak_quarters: false, is_hospital_ramp_phase: a.is_hospital_ramp_phase,
+        carryover_inr: carryoverBySymbol[a.symbol] ?? 0,
       }))
       const { data } = await sb.from('stock_allocations').insert(inserts).select()
       newAllocs = data ?? []
@@ -657,6 +712,8 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
     setCreating(false)
     onCreate(fy, newAllocs)
   }
+
+  const totalCarryover = Object.values(carryoverBySymbol).reduce((s, v) => s + v, 0)
 
   return (
     <>
@@ -712,9 +769,36 @@ function NewPlanSheet({ existingFYs, latestAllocations, onClose, onCreate }: {
                 className="w-5 h-5 rounded accent-[#0A84FF]" />
               <div>
                 <p className="text-[15px]">Copy {latestAllocations.length} stocks from previous plan</p>
-                <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Allocation %s and categories are copied</p>
+                <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                  Allocation %s and categories are copied
+                  {copyStocks && totalCarryover > 0 && ` · ${formatINR(totalCarryover)} carryover carried in`}
+                  {!copyStocks && totalCarryover > 0 && ` · ${formatINR(totalCarryover)} goes to unallocated`}
+                </p>
               </div>
             </label>
+          )}
+
+          {totalCarryover > 0 && copyStocks && (
+            <div className="rounded-2xl p-3 space-y-1"
+                 style={{ background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)' }}>
+              <p className="text-[12px] font-semibold" style={{ color: '#30D158' }}>
+                Carryover from previous plan
+              </p>
+              {Object.entries(carryoverBySymbol)
+                .filter(([, v]) => v > 0)
+                .sort((a, b) => b[1] - a[1])
+                .map(([sym, amt]) => (
+                  <div key={sym} className="flex justify-between text-[12px] tabnum">
+                    <span style={{ color: 'var(--text-2)' }}>{sym}</span>
+                    <span style={{ color: '#30D158' }}>{formatINR(amt)}</span>
+                  </div>
+                ))}
+              <div className="flex justify-between text-[12px] font-semibold tabnum pt-1 border-t"
+                   style={{ borderColor: 'rgba(48,209,88,0.2)', color: '#30D158' }}>
+                <span>Total</span>
+                <span>{formatINR(totalCarryover)}</span>
+              </div>
+            </div>
           )}
         </div>
       </div>

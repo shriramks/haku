@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 export default function UserMenu() {
-  const [email, setEmail]       = useState<string | null>(null)
-  const [open, setOpen]         = useState(false)
+  const [email, setEmail]           = useState<string | null>(null)
+  const [open, setOpen]             = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const ref    = useRef<HTMLDivElement>(null)
   const router = useRouter()
