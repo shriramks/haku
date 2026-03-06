@@ -159,7 +159,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     const existing = tranches.filter(t => t.symbol === symbol)
     const { data } = await sb.from('buy_tranches').insert({
       user_id: user.id, symbol, qty, price, allocated: false,
-      sort_order: existing.length + 1,
+      sort_order: existing.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
   }

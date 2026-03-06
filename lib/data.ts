@@ -49,11 +49,12 @@ export async function getInvestability(): Promise<Investability[]> {
   return data ?? []
 }
 
-export async function getBuyTranches(): Promise<BuyTranche[]> {
+export async function getBuyTranches(fyId: string): Promise<BuyTranche[]> {
   const supabase = await createSupabaseServerClient()
   const { data } = await supabase
     .from('buy_tranches')
     .select('*')
+    .eq('fy_id', fyId)
     .order('symbol')
     .order('sort_order')
   return data ?? []

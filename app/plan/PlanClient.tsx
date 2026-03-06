@@ -411,6 +411,7 @@ function PlanTab({
                   key={alloc.id}
                   alloc={alloc}
                   totalBudget={totalBudget}
+                  totalPct={totalPct}
                   onPctChange={updateAllocPct}
                   onCategoryChange={updateAllocCategory}
                   onRemove={removeAlloc}
@@ -438,9 +439,10 @@ function PlanTab({
 
 // ── Stock allocation row ──────────────────────────────────────────────────────
 
-function StockAllocRow({ alloc, totalBudget, onPctChange, onCategoryChange, onRemove }: {
+function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryChange, onRemove }: {
   alloc: StockAllocation
   totalBudget: number
+  totalPct: number
   onPctChange: (a: StockAllocation, pct: number) => void
   onCategoryChange: (a: StockAllocation, cat: StockCategory) => void
   onRemove: (id: string) => void
@@ -449,6 +451,9 @@ function StockAllocRow({ alloc, totalBudget, onPctChange, onCategoryChange, onRe
   const [expanded, setExpanded] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const budget = (alloc.allocation_pct / 100) * totalBudget
+  const parsedPct = parseFloat(pct) || alloc.allocation_pct
+  const effectiveTotal = totalPct - alloc.allocation_pct + parsedPct
+  const remaining = 100 - effectiveTotal
 
   if (confirming) {
     return (
@@ -481,18 +486,26 @@ function StockAllocRow({ alloc, totalBudget, onPctChange, onCategoryChange, onRe
         </button>
 
         {/* Pct input */}
-        <div className="flex items-center gap-1">
-          <input
-            type="number" inputMode="decimal" value={pct}
-            onChange={e => setPct(e.target.value)}
-            onBlur={() => {
-              const val = parseFloat(pct)
-              if (val > 0 && val !== alloc.allocation_pct) onPctChange(alloc, val)
-            }}
-            className="w-14 px-2 py-1.5 rounded-xl text-[15px] tabnum text-right outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-          />
-          <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>%</span>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-1">
+            <input
+              type="number" inputMode="decimal" value={pct}
+              onChange={e => setPct(e.target.value)}
+              onBlur={() => {
+                const val = parseFloat(pct)
+                if (val > 0 && val !== alloc.allocation_pct) onPctChange(alloc, val)
+              }}
+              className="w-14 px-2 py-1.5 rounded-xl text-[15px] tabnum text-right outline-none"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            />
+            <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>%</span>
+          </div>
+          {parsedPct !== alloc.allocation_pct && (
+            <span className={`text-[10px] tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
+                  style={remaining > 0 ? { color: 'var(--text-muted)' } : undefined}>
+              {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
+            </span>
+          )}
         </div>
 
         <button onClick={() => setExpanded(v => !v)} style={{ color: 'var(--text-faint)' }}>

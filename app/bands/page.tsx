@@ -24,7 +24,7 @@ export default async function BandsPage({
     : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[fiscalYears.length - 1])
 
   const [allocations, transactions, bands, tranches] = fy
-    ? await Promise.all([getAllocations(fy.id), getTransactions(fy.id), getBuyBands(), getBuyTranches()])
+    ? await Promise.all([getAllocations(fy.id), getTransactions(fy.id), getBuyBands(), getBuyTranches(fy.id)])
     : [[], [], [], []]
 
   const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
