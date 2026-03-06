@@ -15,19 +15,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,       // prevent double-tap zoom
+  maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover',  // extend behind notch/home indicator
-  themeColor: '#000000',
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F2F2F7' },
+    { media: '(prefers-color-scheme: dark)',  color: '#000000' },
+  ],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
-        {/* iOS PWA icons */}
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        {/* Prevent iOS from auto-detecting phone numbers */}
         <meta name="format-detection" content="telephone=no" />
       </head>
       <body>{children}</body>

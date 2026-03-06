@@ -1,6 +1,6 @@
 // Server-side data fetching helpers (used in Server Components only)
 import { createSupabaseServerClient } from './supabase-server'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche, Playbook } from './types'
 
 export async function getFiscalYears(): Promise<FiscalYear[]> {
   const supabase = await createSupabaseServerClient()
@@ -32,9 +32,14 @@ export async function getTransactions(fyId?: string): Promise<Transaction[]> {
   return data ?? []
 }
 
+/** Returns only the current (most-recent) band per symbol. */
 export async function getBuyBands(): Promise<BuyBand[]> {
   const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.from('buy_bands').select('*')
+  const { data } = await supabase
+    .from('buy_bands')
+    .select('*')
+    .eq('is_current', true)
+    .order('generated_at', { ascending: false })
   return data ?? []
 }
 
@@ -54,3 +59,11 @@ export async function getBuyTranches(): Promise<BuyTranche[]> {
   return data ?? []
 }
 
+export async function getPlaybook(): Promise<Playbook | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase
+    .from('playbook')
+    .select('*')
+    .maybeSingle()
+  return data ?? null
+}

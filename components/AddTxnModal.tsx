@@ -27,7 +27,6 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { onClose(); return }
 
-    // Infer fy_id from trade date (Apr–Mar cycle)
     const d = new Date(date)
     const fyEndYear = (d.getMonth() + 1) >= 4 ? d.getFullYear() + 1 : d.getFullYear()
     const { data: fyRows } = await sb
@@ -51,16 +50,17 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
-      {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up
-                      bg-[#1C1C1E] rounded-t-[28px] max-h-[92vh] overflow-y-auto
-                      pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px] max-h-[92vh] overflow-y-auto"
+        style={{
+          background: 'var(--bg-secondary)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)',
+        }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full bg-white/20" />
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
         {/* Header */}
@@ -74,28 +74,26 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
           {/* Symbol + type */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <p className="text-[11px] text-white/40 mb-1.5 uppercase tracking-wide">Stock</p>
+              <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
               <input
-                type="text"
-                placeholder="INFY, CAMS…"
-                value={symbol}
-                onChange={e => setSymbol(e.target.value.toUpperCase())}
-                autoCapitalize="characters"
-                required
-                className="w-full px-3 py-3.5 rounded-2xl bg-[#2C2C2E] text-white text-[17px] font-semibold
-                           border border-white/8 outline-none uppercase placeholder:normal-case placeholder:text-white/25"
-              />
+                type="text" placeholder="INFY, CAMS…"
+                value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())}
+                autoCapitalize="characters" required
+                className="w-full px-3 py-3.5 rounded-2xl text-[17px] font-semibold outline-none uppercase placeholder:normal-case"
+                style={{
+                  background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                }} />
             </div>
             <div>
-              <p className="text-[11px] text-white/40 mb-1.5 uppercase tracking-wide">Type</p>
-              <div className="flex rounded-2xl overflow-hidden border border-white/8">
+              <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
+              <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
                 {(['buy', 'sell'] as const).map(t => (
                   <button key={t} type="button" onClick={() => setType(t)}
-                    className={`px-5 py-3.5 text-[15px] font-bold transition-colors ${
-                      type === t
-                        ? t === 'buy' ? 'bg-[#30D158] text-white' : 'bg-[#FF453A] text-white'
-                        : 'bg-[#2C2C2E] text-white/40'
-                    }`}>
+                    className="px-5 py-3.5 text-[15px] font-bold transition-colors"
+                    style={type === t
+                      ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                      : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
                     {t === 'buy' ? 'Buy' : 'Sell'}
                   </button>
                 ))}
@@ -105,10 +103,13 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
 
           {/* Date */}
           <div>
-            <p className="text-[11px] text-white/40 mb-1.5 uppercase tracking-wide">Date</p>
+            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-3.5 rounded-2xl bg-[#2C2C2E] text-white border border-white/8
-                         outline-none text-[17px] [color-scheme:dark]" />
+              className="w-full px-3 py-3.5 rounded-2xl text-[17px] outline-none"
+              style={{
+                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                border: '1px solid var(--border)', colorScheme: 'light dark',
+              }} />
           </div>
 
           {/* Qty × Price */}
@@ -118,20 +119,24 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
               { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50' },
             ].map(({ label, val, set, ph }) => (
               <div key={label}>
-                <p className="text-[11px] text-white/40 mb-1.5 uppercase tracking-wide">{label}</p>
+                <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <input type="number" inputMode="decimal" placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min="0.001"
-                  className="w-full px-3 py-3.5 rounded-2xl bg-[#2C2C2E] text-white text-[17px] tabnum
-                             border border-white/8 outline-none" />
+                  className="w-full px-3 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{
+                    background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                    border: '1px solid var(--border)',
+                  }} />
               </div>
             ))}
           </div>
 
           {/* Live total */}
           {amount > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-[#2C2C2E]">
-              <span className="text-white/50 text-[15px]">Total</span>
-              <span className={`font-bold tabnum text-[20px] ${type === 'buy' ? 'text-[#30D158]' : 'text-[#FF453A]'}`}>
+            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                 style={{ background: 'var(--bg-tertiary)' }}>
+              <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>Total</span>
+              <span className={`font-bold tabnum text-[20px] ${type === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
                 {formatINR(amount)}
               </span>
             </div>
@@ -139,19 +144,21 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
 
           {/* Notes */}
           <div>
-            <p className="text-[11px] text-white/40 mb-1.5 uppercase tracking-wide">Notes (optional)</p>
+            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Notes (optional)</p>
             <input type="text" placeholder="e.g. Pre-budget dip" value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full px-3 py-3.5 rounded-2xl bg-[#2C2C2E] text-white text-[17px]
-                         border border-white/8 outline-none placeholder:text-white/20" />
+              className="w-full px-3 py-3.5 rounded-2xl text-[17px] outline-none"
+              style={{
+                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+              }} />
           </div>
 
-          {error && <p className="text-[#FF453A] text-sm text-center">{error}</p>}
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
           <button type="submit" disabled={loading || !symbol || !qty || !price}
-            className={`w-full py-4 rounded-2xl font-bold text-[17px] transition-all active:scale-[0.98]
-              disabled:opacity-40 text-white
-              ${done ? 'bg-white/20' : type === 'buy' ? 'bg-[#30D158]' : 'bg-[#FF453A]'}`}>
+            className="w-full py-4 rounded-2xl font-bold text-[17px] transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+            style={{ background: done ? 'var(--border)' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol}`}
           </button>
         </form>

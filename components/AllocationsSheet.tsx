@@ -2,13 +2,7 @@
 import { useState, useEffect } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatPct } from '@/lib/formatter'
-import { DEFAULT_CATEGORY, type StockAllocation, type FiscalYear, type StockCategory } from '@/lib/types'
-
-const ALL_CATEGORIES: StockCategory[] = [
-  'Capital-light Market Infra/Services', 'Retail', 'Defence', 'Insurance',
-  'Electricals/Capital Goods', 'Asset-heavy Infra/Platforms',
-  'Hospitals', 'FMCG', 'Auto OEM', 'Pharma',
-]
+import { DEFAULT_CATEGORY, ALL_CATEGORIES, type StockAllocation, type FiscalYear, type StockCategory } from '@/lib/types'
 
 interface Props {
   fy: FiscalYear | null
@@ -53,30 +47,32 @@ export default function AllocationsSheet({ fy, onClose }: Props) {
     setShowAdd(false)
   }
 
-  const totalPct = allocations.reduce((s, a) => s + a.allocation_pct, 0)
+  const totalPct  = allocations.reduce((s, a) => s + a.allocation_pct, 0)
   const remaining = 100 - totalPct
 
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up
-                      bg-[#1C1C1E] rounded-t-[28px] max-h-[92vh] flex flex-col
-                      pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px] max-h-[92vh] flex flex-col"
+           style={{
+             background: 'var(--bg-secondary)',
+             paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)',
+           }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-9 h-1 rounded-full bg-white/20" />
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0 border-b border-white/8">
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0 border-b"
+             style={{ borderColor: 'var(--border)' }}>
           <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Done</button>
           <div className="text-center">
             <p className="font-semibold text-[17px]">Allocations</p>
-            {fy && <p className="text-[12px] text-white/40">{fy.label}</p>}
+            {fy && <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{fy.label}</p>}
           </div>
-          <button onClick={() => setShowAdd(v => !v)}
-            className="text-[#0A84FF] text-[17px]">
+          <button onClick={() => setShowAdd(v => !v)} className="text-[#0A84FF] text-[17px]">
             {showAdd ? 'Cancel' : '+ Add'}
           </button>
         </div>
@@ -84,21 +80,23 @@ export default function AllocationsSheet({ fy, onClose }: Props) {
         {/* Total bar */}
         <div className="px-5 py-3 flex-shrink-0">
           <div className="flex justify-between text-[13px] mb-1.5">
-            <span className="text-white/50">Allocated</span>
+            <span style={{ color: 'var(--text-muted)' }}>Allocated</span>
             <span className={`tabnum font-semibold ${
-              totalPct > 100 ? 'text-[#FF453A]' : totalPct === 100 ? 'text-[#30D158]' : 'text-white/70'
-            }`}>{formatPct(totalPct)} · {remaining >= 0 ? formatPct(remaining) + ' free' : 'over by ' + formatPct(-remaining)}</span>
+              totalPct > 100 ? 'text-red-400' : totalPct === 100 ? 'text-green-500' : ''
+            }`} style={totalPct <= 100 && totalPct !== 100 ? { color: 'var(--text-2)' } : undefined}>
+              {formatPct(totalPct)} · {remaining >= 0 ? formatPct(remaining) + ' free' : 'over by ' + formatPct(-remaining)}
+            </span>
           </div>
-          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
             <div className={`h-full rounded-full transition-all ${
-              totalPct > 100 ? 'bg-[#FF453A]' : totalPct === 100 ? 'bg-[#30D158]' : 'bg-[#0A84FF]'
+              totalPct > 100 ? 'bg-red-400' : totalPct === 100 ? 'bg-green-500' : 'bg-[#0A84FF]'
             }`} style={{ width: `${Math.min(100, totalPct)}%` }} />
           </div>
         </div>
 
         {/* Add form */}
         {showAdd && (
-          <div className="px-4 pb-3 flex-shrink-0 border-b border-white/8">
+          <div className="px-4 pb-3 flex-shrink-0 border-b" style={{ borderColor: 'var(--border)' }}>
             <AddAllocForm onAdd={addAlloc} />
           </div>
         )}
@@ -107,10 +105,11 @@ export default function AllocationsSheet({ fy, onClose }: Props) {
         <div className="overflow-y-auto flex-1 px-4 py-2 space-y-2">
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 rounded-full animate-spin"
+                   style={{ borderColor: 'var(--border)', borderTopColor: 'var(--text-primary)' }} />
             </div>
           ) : allocations.length === 0 ? (
-            <div className="text-center py-12 text-white/30">
+            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
               <p>No allocations yet</p>
               <p className="text-sm mt-1">Tap + Add to create one</p>
             </div>
@@ -125,80 +124,57 @@ export default function AllocationsSheet({ fy, onClose }: Props) {
   )
 }
 
-// ── Allocation row ────────────────────────────────────────────────────────────
-
 function AllocRow({ alloc, onSave, onDelete }: {
   alloc: StockAllocation
   onSave: (a: StockAllocation) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }) {
-  const [pct, setPct]         = useState(alloc.allocation_pct.toString())
+  const [pct, setPct]           = useState(alloc.allocation_pct.toString())
   const [category, setCategory] = useState(alloc.category)
-  const [twoWeak, setTwoWeak] = useState(alloc.two_weak_quarters)
-  const [ramp, setRamp]       = useState(alloc.is_hospital_ramp_phase)
-  const [saving, setSaving]   = useState(false)
+  const [saving, setSaving]     = useState(false)
   const [expanded, setExpanded] = useState(false)
 
   async function save() {
     setSaving(true)
-    await onSave({ ...alloc, allocation_pct: parseFloat(pct) || alloc.allocation_pct, category, two_weak_quarters: twoWeak, is_hospital_ramp_phase: ramp })
+    await onSave({ ...alloc, allocation_pct: parseFloat(pct) || alloc.allocation_pct, category })
     setSaving(false)
   }
 
   return (
-    <div className="rounded-2xl bg-[#2C2C2E] overflow-hidden">
-      {/* Main row */}
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
       <button onClick={() => setExpanded(v => !v)}
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
         <span className="font-bold text-[16px] flex-1">{alloc.symbol}</span>
-        <span className="text-white/40 text-[13px]">{alloc.category.split('/')[0]}</span>
+        <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{alloc.category.split('/')[0]}</span>
         <div className="flex items-center gap-1.5">
-          <input
-            type="number" inputMode="decimal" value={pct}
+          <input type="number" inputMode="decimal" value={pct}
             onChange={e => { e.stopPropagation(); setPct(e.target.value) }}
             onClick={e => e.stopPropagation()}
-            className="w-14 px-2 py-1 rounded-lg bg-white/10 text-white text-[15px] tabnum text-right
-                       border border-white/10 outline-none"
-          />
-          <span className="text-white/40 text-[15px]">%</span>
+            className="w-14 px-2 py-1 rounded-lg text-[15px] tabnum text-right outline-none"
+            style={{ background: 'var(--border)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+          <span style={{ color: 'var(--text-muted)' }}>%</span>
         </div>
-        <span className={`text-white/40 text-[12px] transition-transform ${expanded ? 'rotate-180' : ''}`}>▾</span>
+        <span className={`text-[12px] transition-transform inline-block ${expanded ? 'rotate-180' : ''}`}
+              style={{ color: 'var(--text-muted)' }}>▾</span>
       </button>
 
-      {/* Expanded options */}
       {expanded && (
-        <div className="px-4 pb-4 space-y-3 border-t border-white/8 pt-3">
+        <div className="px-4 pb-4 space-y-3 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
           <select value={category} onChange={e => setCategory(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 text-white/70 text-[14px]
-                       border border-white/10 outline-none">
-            {ALL_CATEGORIES.map(c => (
-              <option key={c} value={c} className="bg-[#1C1C1E]">{c}</option>
-            ))}
+            className="w-full px-3 py-2.5 rounded-xl text-[14px] outline-none"
+            style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+            {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-
-          <div className="flex gap-4 text-[13px] text-white/50">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={twoWeak} onChange={e => setTwoWeak(e.target.checked)}
-                className="w-4 h-4 rounded accent-[#FF9F0A]" />
-              2 Weak Quarters
-            </label>
-            {category === 'Hospitals' && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={ramp} onChange={e => setRamp(e.target.checked)}
-                  className="w-4 h-4 rounded accent-[#0A84FF]" />
-                Ramp Phase
-              </label>
-            )}
-          </div>
 
           <div className="flex gap-2">
             <button onClick={save} disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-[#0A84FF]/20 text-[#0A84FF] text-[15px]
-                         font-semibold disabled:opacity-40">
+              className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold text-[#0A84FF] disabled:opacity-40"
+              style={{ background: 'rgba(10,132,255,0.15)' }}>
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button onClick={() => onDelete(alloc.id)}
-              className="px-4 py-2.5 rounded-xl bg-[#FF453A]/10 text-[#FF453A] text-[15px]">
+              className="px-4 py-2.5 rounded-xl text-[15px] text-red-400"
+              style={{ background: 'rgba(255,59,48,0.10)' }}>
               Delete
             </button>
           </div>
@@ -208,15 +184,13 @@ function AllocRow({ alloc, onSave, onDelete }: {
   )
 }
 
-// ── Add allocation form ───────────────────────────────────────────────────────
-
 function AddAllocForm({ onAdd }: {
   onAdd: (symbol: string, pct: number, category: StockCategory) => Promise<void>
 }) {
-  const [symbol, setSymbol]   = useState('')
-  const [pct, setPct]         = useState('')
+  const [symbol, setSymbol]     = useState('')
+  const [pct, setPct]           = useState('')
   const [category, setCategory] = useState<StockCategory>('Capital-light Market Infra/Services')
-  const [saving, setSaving]   = useState(false)
+  const [saving, setSaving]     = useState(false)
 
   async function submit() {
     if (!symbol || !pct) return
@@ -234,23 +208,24 @@ function AddAllocForm({ onAdd }: {
             setSymbol(s)
             if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
           }}
-          className="px-3 py-3 rounded-2xl bg-[#2C2C2E] text-white text-[15px]
-                     border border-white/8 outline-none uppercase placeholder:normal-case placeholder:text-white/25" />
+          className="px-3 py-3 rounded-2xl text-[15px] outline-none uppercase placeholder:normal-case"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
         <div className="flex items-center gap-1.5">
           <input type="number" inputMode="decimal" placeholder="%" value={pct}
             onChange={e => setPct(e.target.value)}
-            className="flex-1 px-3 py-3 rounded-2xl bg-[#2C2C2E] text-white text-[15px] tabnum
-                       border border-white/8 outline-none" />
-          <span className="text-white/40">%</span>
+            className="flex-1 px-3 py-3 rounded-2xl text-[15px] tabnum outline-none"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+          <span style={{ color: 'var(--text-muted)' }}>%</span>
         </div>
       </div>
       <select value={category} onChange={e => setCategory(e.target.value as StockCategory)}
-        className="w-full px-3 py-2.5 rounded-xl bg-[#2C2C2E] text-white/60 text-[13px]
-                   border border-white/8 outline-none">
-        {ALL_CATEGORIES.map(c => <option key={c} value={c} className="bg-[#1C1C1E]">{c}</option>)}
+        className="w-full px-3 py-2.5 rounded-xl text-[13px] outline-none"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+        {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
       <button onClick={submit} disabled={saving || !symbol || !pct}
-        className="w-full py-3 rounded-2xl bg-white text-black font-bold text-[15px] disabled:opacity-30">
+        className="w-full py-3 rounded-2xl font-bold text-[15px] disabled:opacity-30"
+        style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
         {saving ? 'Adding…' : 'Add Stock'}
       </button>
     </div>

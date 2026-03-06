@@ -20,7 +20,6 @@ export default async function BandsPage() {
 
   const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
 
-  // Sort: buy first, then deep, then hold, then trim, then unknown
   const signalOrder: Record<string, number> = { buy: 0, deep: 1, hold: 2, trim: 3, unknown: 4 }
   const sorted = [...rows].sort((a, b) =>
     (signalOrder[a.bandSignal] ?? 4) - (signalOrder[b.bandSignal] ?? 4)
@@ -28,17 +27,29 @@ export default async function BandsPage() {
 
   return (
     <>
-      <div className="pt-[env(safe-area-inset-top,0px)]">
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-xl border-b border-white/10 px-4 pt-4 pb-3">
-          <h1 className="text-[28px] font-bold">Bands</h1>
-          {fy && <p className="text-white/40 text-sm mt-0.5">{fy.label} · sorted by signal</p>}
+        <div
+          className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pt-4 pb-3"
+          style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[28px] font-bold">Buy Bands</h1>
+              {fy && (
+                <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {fy.label} · sorted by signal
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <BandsClient
           rows={sorted}
           bands={bands}
+          allocations={allocations}
           initialTranches={tranches}
+          fyId={fy?.id ?? ''}
           fyLabel={fy?.label}
         />
       </div>

@@ -55,6 +55,8 @@ export interface BuyBand {
   trim_price: number | null
   manual_cmp: number | null
   last_updated_at: string
+  generated_at: string
+  is_current: boolean
   notes: string
 }
 
@@ -91,6 +93,24 @@ export interface Investability {
   notes: string
 }
 
+export interface BuyTranche {
+  id: string
+  user_id: string
+  symbol: string
+  qty: number
+  price: number
+  allocated: boolean
+  sort_order: number
+  created_at?: string
+}
+
+export interface Playbook {
+  id: string
+  user_id: string
+  content: string
+  updated_at: string
+}
+
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
 export type GateSignal = 'pass' | 'caution' | 'fail'
@@ -109,6 +129,20 @@ export type StockCategory =
   | 'Auto OEM'
   | 'Pharma'
 
+export const ALL_CATEGORIES: StockCategory[] = [
+  'Capital-light Market Infra/Services',
+  'Retail',
+  'Defence',
+  'Insurance',
+  'Electricals/Capital Goods',
+  'Asset-heavy Infra/Platforms',
+  'Hospitals',
+  'FMCG',
+  'Auto OEM',
+  'Pharma',
+]
+
+/** Suggested category for well-known symbols — used as autocomplete hint only */
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   CAMS:        'Capital-light Market Infra/Services',
   IEX:         'Capital-light Market Infra/Services',
@@ -122,17 +156,6 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   ITC:         'FMCG',
   TATAMOTORS:  'Auto OEM',
   ZYDUSLIFE:   'Pharma',
-}
-
-export interface BuyTranche {
-  id: string
-  user_id: string
-  symbol: string
-  qty: number
-  price: number
-  allocated: boolean
-  sort_order: number
-  created_at?: string
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────
