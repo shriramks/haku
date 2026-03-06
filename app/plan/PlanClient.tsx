@@ -72,7 +72,15 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h1 className="text-[28px] font-bold">Plan</h1>
-          <UserMenu />
+          <div className="flex items-center gap-3">
+            {tab === 'plan' && selectedFY && (
+              <span className={`text-[13px] tabnum font-medium ${totalPct > 100 ? 'text-red-400' : Math.abs(totalPct - 100) < 0.01 ? 'text-green-500' : ''}`}
+                    style={totalPct <= 100 && Math.abs(totalPct - 100) >= 0.01 ? { color: 'var(--text-muted)' } : undefined}>
+                {totalPct.toFixed(1)}% · {(100 - totalPct).toFixed(1)}% left
+              </span>
+            )}
+            <UserMenu />
+          </div>
         </div>
 
         {/* Tab bar */}
