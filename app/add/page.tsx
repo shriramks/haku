@@ -1,7 +1,7 @@
 'use client'
 // Primary action — optimised for speed. One-handed, minimal taps.
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import BottomNav from '@/components/BottomNav'
@@ -10,6 +10,7 @@ import { todayISO, formatINR } from '@/lib/formatter'
 export default function AddPage() {
   const router = useRouter()
   const [symbol, setSymbol]     = useState('')
+  const [planSymbols, setPlanSymbols] = useState<string[]>([])
   const [type, setType]         = useState<'buy' | 'sell'>('buy')
   const [date, setDate]         = useState(todayISO())
   const [qty, setQty]           = useState('')
@@ -18,6 +19,27 @@ export default function AddPage() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [done, setDone]         = useState(false)
+
+  useEffect(() => {
+    async function loadSymbols() {
+      const sb = getSupabaseBrowser()
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: fys } = await sb
+        .from('fiscal_years')
+        .select('id')
+        .lte('start_date', today)
+        .gte('end_date', today)
+        .limit(1)
+      if (!fys?.length) return
+      const { data: allocs } = await sb
+        .from('stock_allocations')
+        .select('symbol')
+        .eq('fy_id', fys[0].id)
+        .order('symbol')
+      if (allocs) setPlanSymbols(allocs.map(a => a.symbol))
+    }
+    loadSymbols()
+  }, [])
 
   const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
 
@@ -90,10 +112,14 @@ export default function AddPage() {
                 value={symbol}
                 onChange={e => setSymbol(e.target.value.toUpperCase())}
                 autoCapitalize="characters"
+                list="plan-symbols"
                 required
                 className="w-full px-3 py-3 rounded-xl bg-white/10 text-white text-base font-bold
                            border border-white/10 outline-none uppercase placeholder:normal-case placeholder:text-white/30"
               />
+              <datalist id="plan-symbols">
+                {planSymbols.map(s => <option key={s} value={s} />)}
+              </datalist>
             </div>
 
             {/* Buy / Sell toggle */}

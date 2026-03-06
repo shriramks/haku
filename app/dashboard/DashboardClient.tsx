@@ -40,7 +40,12 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   )
 
   const sortedRows = useMemo(() =>
-    [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    [...rows].sort((a, b) => {
+      const aFull = a.remaining <= 0
+      const bFull = b.remaining <= 0
+      if (aFull !== bFull) return aFull ? 1 : -1
+      return a.symbol.localeCompare(b.symbol)
+    }),
     [rows]
   )
 
@@ -130,7 +135,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 return (
                   <Link key={row.symbol} href={`/stocks/${row.symbol}`}
                         className="flex items-center gap-3 px-4 py-3 tap-row">
-                    <span className="font-semibold text-[13px] w-[76px] flex-shrink-0 truncate">{row.symbol}</span>
+                    <span className="font-semibold text-[13px] flex-shrink-0">{row.symbol}</span>
                     <div className="flex-1">
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div className={`h-full rounded-full ${
@@ -138,8 +143,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                         }`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 w-[68px]">
-                      <p className={`text-[13px] font-semibold tabnum ${row.remaining < 0 ? 'text-red-400' : ''}`}
+                    <div className="text-right flex-shrink-0 w-[72px]">
+                      <p className={`text-[14px] font-bold tabnum ${row.remaining < 0 ? 'text-red-400' : ''}`}
                          style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
                         {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
                       </p>
