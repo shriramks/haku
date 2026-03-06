@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate } from '@/lib/formatter'
 import type { Transaction } from '@/lib/types'
+import UserMenu from '@/components/UserMenu'
 
 export default function TransactionsClient({ transactions: initial }: { transactions: Transaction[] }) {
   const [txns, setTxns] = useState(initial)
@@ -20,10 +21,15 @@ export default function TransactionsClient({ transactions: initial }: { transact
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-5 pb-3"
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
-        <h1 className="text-[28px] font-bold pt-4">Transactions</h1>
-        {txns.length > 0 && (
-          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{txns.length} total</p>
-        )}
+        <div className="flex items-center justify-between pt-4">
+          <div>
+            <h1 className="text-[28px] font-bold">Transactions</h1>
+            {txns.length > 0 && (
+              <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{txns.length} total</p>
+            )}
+          </div>
+          <UserMenu />
+        </div>
       </div>
 
       {txns.length === 0 ? (

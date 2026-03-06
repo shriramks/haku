@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory, type Playbook } from '@/lib/types'
+import UserMenu from '@/components/UserMenu'
 
 const PLAYBOOK_PLACEHOLDER = `Paste or type your investment playbook here.
 
@@ -48,6 +49,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h1 className="text-[28px] font-bold">Plan</h1>
+          <div className="flex items-center gap-2">
           {tab === 'plan' && (
             <button
               onClick={() => setShowNewPlan(true)}
@@ -60,6 +62,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
               + New Plan
             </button>
           )}
+          <UserMenu />
+          </div>
         </div>
 
         {/* Tab bar */}

@@ -4,6 +4,7 @@ import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTra
 import { computeStockRows } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
+import UserMenu from '@/components/UserMenu'
 
 export default async function BandsPage() {
   const supabase = await createSupabaseServerClient()
@@ -41,6 +42,7 @@ export default async function BandsPage() {
                 </p>
               )}
             </div>
+            <UserMenu />
           </div>
         </div>
 

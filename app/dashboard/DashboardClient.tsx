@@ -7,6 +7,7 @@ import { computeStockRows } from '@/lib/compute'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR, formatPnL, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
+import UserMenu from '@/components/UserMenu'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -78,6 +79,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>
               Edit Plan
             </Link>
+            <UserMenu />
           </div>
         </div>
       </div>
