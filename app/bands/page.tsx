@@ -21,10 +21,12 @@ export default async function BandsPage() {
 
   const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
 
-  const signalOrder: Record<string, number> = { buy: 0, deep: 1, hold: 2, trim: 3, unknown: 4 }
-  const sorted = [...rows].sort((a, b) =>
-    (signalOrder[a.bandSignal] ?? 4) - (signalOrder[b.bandSignal] ?? 4)
-  )
+  const sorted = [...rows].sort((a, b) => {
+    const aPending = tranches.filter(t => t.symbol === a.symbol && !t.allocated).length
+    const bPending = tranches.filter(t => t.symbol === b.symbol && !t.allocated).length
+    if (bPending !== aPending) return bPending - aPending
+    return a.symbol.localeCompare(b.symbol)
+  })
 
   return (
     <>
@@ -38,7 +40,7 @@ export default async function BandsPage() {
               <h1 className="text-[28px] font-bold">Buy Bands</h1>
               {fy && (
                 <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  {fy.label} · sorted by signal
+                  {fy.label} · sorted by pending tranches
                 </p>
               )}
             </div>

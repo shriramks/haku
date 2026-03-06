@@ -7,7 +7,7 @@ export async function getFiscalYears(): Promise<FiscalYear[]> {
   const { data } = await supabase
     .from('fiscal_years')
     .select('*')
-    .order('start_date', { ascending: false })
+    .order('start_date', { ascending: true })
   return data ?? []
 }
 

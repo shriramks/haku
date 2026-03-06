@@ -1,11 +1,9 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { computeStockRows } from '@/lib/compute'
-import { BandSignalBadge } from '@/components/SignalBadge'
-import { formatINR, formatPnL, formatPct } from '@/lib/formatter'
+import { formatINR, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 
@@ -18,7 +16,6 @@ interface Props {
 }
 
 export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, bands }: Props) {
-  const router = useRouter()
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
@@ -40,6 +37,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const rows = useMemo(() =>
     computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0),
     [allocations, transactions, bands, selectedFY]
+  )
+
+  const sortedRows = useMemo(() =>
+    [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)),
+    [rows]
   )
 
   const totalBudget    = selectedFY?.total_budget_inr ?? 0
@@ -74,17 +76,12 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 ))}
               </div>
             )}
-            <Link href="/plan"
-              className="px-3 py-1 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>
-              Edit Plan
-            </Link>
             <UserMenu />
           </div>
         </div>
       </div>
 
-      {/* Summary card — full width */}
+      {/* Summary card */}
       {selectedFY && (
         <div className="mx-4 mt-4 p-4 rounded-2xl border"
              style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
@@ -109,84 +106,91 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       )}
 
-      {/* Stock list — single column mobile, two column on md+ */}
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-2 rounded-full animate-spin"
                style={{ borderColor: 'var(--border)', borderTopColor: 'var(--text-primary)' }} />
         </div>
+      ) : rows.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
+          <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
+        </div>
       ) : (
-        <div className="mt-3">
-          <p className="px-4 text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-            Holdings
-          </p>
-          <div className="md:grid md:grid-cols-2 md:gap-3 md:px-4">
-            {[...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)).map(row => (
-              <Link key={row.symbol} href={`/stocks/${row.symbol}`}
-                    className="block tap-row border-b md:border md:rounded-2xl md:mb-0"
-                    style={{ borderColor: 'var(--border-faint)' }}>
-                <div className="px-4 py-3 md:px-4 md:py-3.5">
-                  {/* Top row */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base">{row.symbol}</span>
-                      {(row.bandSignal === 'buy' || row.bandSignal === 'deep') && (
-                        <BandSignalBadge signal={row.bandSignal} />
-                      )}
+        <>
+          {/* Bar chart */}
+          <div className="mt-4">
+            <p className="px-4 text-[11px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              By Stock
+            </p>
+            <div className="mx-4 rounded-2xl overflow-hidden divide-y"
+                 style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
+              {sortedRows.map(row => {
+                const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
+                return (
+                  <Link key={row.symbol} href={`/stocks/${row.symbol}`}
+                        className="flex items-center gap-3 px-4 py-3 tap-row">
+                    <span className="font-semibold text-[13px] w-[76px] flex-shrink-0 truncate">{row.symbol}</span>
+                    <div className="flex-1">
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                        <div className={`h-full rounded-full ${
+                          pct > 95 ? 'bg-red-500' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
+                        }`} style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>alloc</span>
-                      <span className="text-xs tabnum" style={{ color: 'var(--text-muted)' }}>{formatPct(row.allocationPct)}</span>
+                    <div className="text-right flex-shrink-0 w-[68px]">
+                      <p className={`text-[13px] font-semibold tabnum ${row.remaining < 0 ? 'text-red-400' : ''}`}
+                         style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
+                        {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
+                      </p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+                        {row.remaining < 0 ? 'over' : 'left'}
+                      </p>
                     </div>
-                  </div>
-
-                  {/* Deployment bar */}
-                  <div className="h-1 rounded-full overflow-hidden mb-1.5" style={{ background: 'var(--border)' }}>
-                    <div
-                      className={`h-full rounded-full ${
-                        row.pctRemaining > 30 ? 'bg-green-500' :
-                        row.pctRemaining > 10 ? 'bg-orange-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${Math.min(100, Math.max(0, 100 - row.pctRemaining))}%` }}
-                    />
-                  </div>
-
-                  {/* Deploy stats */}
-                  <div className="flex items-center gap-1.5 text-[11px] tabnum mb-1.5">
-                    <span style={{ color: 'var(--text-2)' }}>{formatINR(row.spent)} deployed</span>
-                    <span style={{ color: 'var(--text-faint)' }}>·</span>
-                    <span className={row.remaining < 0 ? 'text-red-400' : ''} style={row.remaining >= 0 ? { color: 'var(--text-muted)' } : undefined}>
-                      {formatINR(Math.abs(row.remaining))} {row.remaining < 0 ? 'over' : 'left'}
-                    </span>
-                  </div>
-
-                  {/* Holdings row */}
-                  {row.qty > 0 && (
-                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                      <SmallMetric label="Held"  value={`${Math.round(row.qty)}`} />
-                      <SmallMetric label="Avg"   value={row.avgCost > 0 ? `₹${Math.round(row.avgCost)}` : '—'} />
-                      <SmallMetric label="CMP"   value={row.cmp ? `₹${Math.round(row.cmp)}` : '—'} />
-                      {row.unrealisedPnL !== null && (
-                        <SmallMetric
-                          label="P&L"
-                          value={formatPnL(row.unrealisedPnL)}
-                          color={row.unrealisedPnL >= 0 ? '#22c55e' : '#ef4444'}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                )
+              })}
+            </div>
           </div>
 
-          {rows.length === 0 && (
-            <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
-              <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
-              <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
+          {/* Details table */}
+          <div className="mt-4 pb-24">
+            <p className="px-4 text-[11px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Details
+            </p>
+            <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-b"
+                   style={{ borderColor: 'var(--border-faint)' }}>
+                {['Stock', 'Budget', 'Deployed', 'Left'].map(h => (
+                  <span key={h} className="text-[10px] uppercase tracking-wide text-right first:text-left"
+                        style={{ color: 'var(--text-faint)' }}>{h}</span>
+                ))}
+              </div>
+              {sortedRows.map((row, i) => (
+                <div key={row.symbol}
+                     className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 ${i < sortedRows.length - 1 ? 'border-b' : ''}`}
+                     style={{ borderColor: 'var(--border-faint)' }}>
+                  <div>
+                    <p className="font-semibold text-[13px]">{row.symbol}</p>
+                    {row.qty > 0 && (
+                      <p className="text-[10px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
+                    )}
+                  </div>
+                  <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+                    {formatINR(row.budget)}
+                  </p>
+                  <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+                    {formatINR(row.spent)}
+                  </p>
+                  <p className={`text-[13px] tabnum text-right self-center font-medium ${row.remaining < 0 ? 'text-red-400' : ''}`}
+                     style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
+                    {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
+                  </p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
@@ -199,15 +203,6 @@ function Metric({ label, value, color }: { label: string; value: string; color?:
         {value}
       </p>
       <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-    </div>
-  )
-}
-
-function SmallMetric({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold tabnum leading-tight" style={{ color: color ?? 'var(--text-2)' }}>{value}</p>
-      <p className="text-[10px] leading-tight" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }

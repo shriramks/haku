@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { BandSignalBadge } from '@/components/SignalBadge'
 import { calculateBands } from '@/lib/band-calculator'
 import { getBandSignal } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
@@ -203,9 +202,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             .filter(t => t.symbol === row.symbol)
             .sort((a, b) => a.sort_order - b.sort_order)
 
-          // Compute signal from latest band + CMP
-          const signal = band ? getBandSignal(band) : row.bandSignal
-
           // Re-compute band result from stored financial inputs (for tightening display)
           const computed = (band && alloc) ? calculateBands({
             category: alloc.category as StockCategory,
@@ -236,19 +232,22 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[17px]">{row.symbol}</span>
-                    <BandSignalBadge signal={signal} />
-                    {alloc?.two_weak_quarters && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
-                            style={{ background: 'rgba(255,159,10,0.15)', color: '#FF9F0A' }}>
-                        Tightened
-                      </span>
-                    )}
-                    {alloc?.two_strong_quarters && !alloc?.two_weak_quarters && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
-                            style={{ background: 'rgba(10,132,255,0.15)', color: '#0A84FF' }}>
-                        Premium
-                      </span>
-                    )}
+                    {(() => {
+                      const pending = stockTranches.filter(t => !t.allocated).length
+                      if (pending > 0) return (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
+                              style={{ background: 'rgba(10,132,255,0.15)', color: '#0A84FF' }}>
+                          {pending} to buy
+                        </span>
+                      )
+                      if (stockTranches.length > 0) return (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
+                              style={{ background: 'rgba(52,199,89,0.15)', color: '#34C759' }}>
+                          Done
+                        </span>
+                      )
+                      return null
+                    })()}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {cmp ? (
