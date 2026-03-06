@@ -134,16 +134,17 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
                 return (
                   <Link key={row.symbol} href={`/stocks/${row.symbol}`}
-                        className="flex items-center gap-3 px-4 py-3 tap-row">
-                    <span className="font-semibold text-[13px] flex-shrink-0">{row.symbol}</span>
-                    <div className="flex-1">
+                        className="grid items-center gap-3 px-4 py-3 tap-row"
+                        style={{ gridTemplateColumns: '108px 1fr 72px' }}>
+                    <span className="font-semibold text-[13px]">{row.symbol}</span>
+                    <div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div className={`h-full rounded-full ${
                           pct > 95 ? 'bg-red-500' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
                         }`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 w-[72px]">
+                    <div className="text-right">
                       <p className={`text-[14px] font-bold tabnum ${row.remaining < 0 ? 'text-red-400' : ''}`}
                          style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
                         {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}

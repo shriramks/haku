@@ -1,20 +1,42 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR } from '@/lib/formatter'
 
 export default function AddTxnModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
-  const [symbol, setSymbol] = useState('')
-  const [type, setType]     = useState<'buy' | 'sell'>('buy')
-  const [date, setDate]     = useState(todayISO())
-  const [qty, setQty]       = useState('')
-  const [price, setPrice]   = useState('')
-  const [notes, setNotes]   = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
-  const [done, setDone]       = useState(false)
+  const [symbol, setSymbol]         = useState('')
+  const [planSymbols, setPlanSymbols] = useState<string[]>([])
+  const [type, setType]             = useState<'buy' | 'sell'>('buy')
+  const [date, setDate]             = useState(todayISO())
+  const [qty, setQty]               = useState('')
+  const [price, setPrice]           = useState('')
+  const [notes, setNotes]           = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState<string | null>(null)
+  const [done, setDone]             = useState(false)
+
+  useEffect(() => {
+    async function loadSymbols() {
+      const sb = getSupabaseBrowser()
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: fys } = await sb
+        .from('fiscal_years')
+        .select('id')
+        .lte('start_date', today)
+        .gte('end_date', today)
+        .limit(1)
+      if (!fys?.length) return
+      const { data: allocs } = await sb
+        .from('stock_allocations')
+        .select('symbol')
+        .eq('fy_id', fys[0].id)
+        .order('symbol')
+      if (allocs) setPlanSymbols(allocs.map(a => a.symbol))
+    }
+    loadSymbols()
+  }, [])
 
   const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
 
@@ -71,33 +93,52 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <form onSubmit={submit} className="px-4 space-y-3">
-          {/* Symbol + type */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
-              <input
-                type="text" placeholder="INFY, CAMS…"
-                value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())}
-                autoCapitalize="characters" required
-                className="w-full px-3 py-3.5 rounded-2xl text-[17px] font-semibold outline-none uppercase placeholder:normal-case"
-                style={{
-                  background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                  border: '1px solid var(--border)',
-                }} />
+
+          {/* Stock chips */}
+          <div>
+            <div className="flex items-baseline justify-between mb-2">
+              <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
+              {symbol && (
+                <button type="button" onClick={() => setSymbol('')}
+                  className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
+                  clear
+                </button>
+              )}
             </div>
-            <div>
-              <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
-              <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-                {(['buy', 'sell'] as const).map(t => (
-                  <button key={t} type="button" onClick={() => setType(t)}
-                    className="px-5 py-3.5 text-[15px] font-bold transition-colors"
-                    style={type === t
-                      ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
-                      : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                    {t === 'buy' ? 'Buy' : 'Sell'}
+            {planSymbols.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {planSymbols.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSymbol(s)}
+                    className="px-3 py-2 rounded-2xl text-[14px] font-semibold transition-colors"
+                    style={symbol === s
+                      ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                      : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }
+                    }>
+                    {s}
                   </button>
                 ))}
               </div>
+            ) : (
+              <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+            )}
+          </div>
+
+          {/* Buy / Sell toggle */}
+          <div>
+            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
+            <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+              {(['buy', 'sell'] as const).map(t => (
+                <button key={t} type="button" onClick={() => setType(t)}
+                  className="flex-1 py-3.5 text-[15px] font-bold transition-colors"
+                  style={type === t
+                    ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                  {t === 'buy' ? 'Buy' : 'Sell'}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -159,7 +200,7 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
           <button type="submit" disabled={loading || !symbol || !qty || !price}
             className="w-full py-4 rounded-2xl font-bold text-[17px] transition-all active:scale-[0.98] disabled:opacity-40 text-white"
             style={{ background: done ? 'var(--border)' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
-            {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol}`}
+            {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>
         </form>
       </div>
