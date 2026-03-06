@@ -1,41 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Dark background -->
+  <!-- Background -->
   <rect width="100" height="100" rx="22" fill="#111111"/>
 
-  <!-- Receipt body with zigzag tear at bottom -->
-  <path d="M 20,8 H 80 V 80
-           L 76.7,87 L 73.3,80 L 70,87 L 66.7,80 L 63.3,87
-           L 60,80 L 56.7,87 L 53.3,80 L 50,87
-           L 46.7,80 L 43.3,87 L 40,80 L 36.7,87
-           L 33.3,80 L 30,87 L 26.7,80 L 23.3,87 L 20,80 Z"
-        fill="#F5F0E8"/>
+  <!-- Trending-up chart line -->
+  <polyline
+    points="10,80 30,55 52,63 82,22"
+    fill="none" stroke="#34C759" stroke-width="9"
+    stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Receipt printed lines (top) -->
-  <rect x="27" y="13" width="18" height="3" rx="1.5" fill="#A89880"/>
-  <rect x="27" y="20" width="46" height="2" rx="1" fill="#C4B8A8"/>
-  <rect x="27" y="25" width="32" height="2" rx="1" fill="#C4B8A8"/>
-
-  <!-- Bull: left horn -->
-  <path d="M 37,47 C 29,38 27,26 31,20 C 33,17 37,18 36,24 C 35,29 38,38 41,45 Z"
-        fill="#FF9F0A"/>
-
-  <!-- Bull: right horn -->
-  <path d="M 63,47 C 71,38 73,26 69,20 C 67,17 63,18 64,24 C 65,29 62,38 59,45 Z"
-        fill="#FF9F0A"/>
-
-  <!-- Bull: head -->
-  <ellipse cx="50" cy="55" rx="15" ry="13" fill="#FF9F0A"/>
-
-  <!-- Bull: snout -->
-  <ellipse cx="50" cy="64" rx="10" ry="6" fill="#CC7800"/>
-
-  <!-- Bull: eyes -->
-  <circle cx="43" cy="51" r="2.8" fill="#111111"/>
-  <circle cx="57" cy="51" r="2.8" fill="#111111"/>
-  <circle cx="42.2" cy="50.2" r="1.1" fill="white" opacity="0.5"/>
-  <circle cx="56.2" cy="50.2" r="1.1" fill="white" opacity="0.5"/>
-
-  <!-- Bull: nostrils -->
-  <circle cx="46.5" cy="65" r="2" fill="#111111" opacity="0.45"/>
-  <circle cx="53.5" cy="65" r="2" fill="#111111" opacity="0.45"/>
+  <!-- Arrow head (open L-shape at tip) -->
+  <polyline
+    points="60,22 82,22 82,44"
+    fill="none" stroke="#34C759" stroke-width="9"
+    stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
