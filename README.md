@@ -40,44 +40,12 @@ No brokerage integration. No auto-sync. Intentionally deliberate.
 
 ---
 
-## App Flow
-
-### Allocation
-The home screen. Shows the current fiscal year's deployment status:
-- Total budget vs deployed vs remaining
-- Per-stock deployment bars with P&L (if CMP available)
-- Highlights stocks in "Buy" or "Deep Value" signal zones
-- Two-column layout on wider screens
-
-### Buy Bands
-Per-stock valuation zones computed from sector-specific multiples:
-- Collapsible stock cards (default collapsed for quick scanning)
-- Visual band bar: Buy zone (green) / Mid zone (orange) / Trim+ (red)
-- Current market price (CMP) fetched from Yahoo Finance (NSE)
-- **AI band generation** — uses Gemini 2.5 Flash with Google Search grounding to fetch EPS, EBITDA, net debt from Screener.in and compute bands automatically
-- Two Weak Quarters toggle — tightens all bands by 10%
-- Two Strong Quarters toggle — applies premium overlay for eligible categories
-- Tranches — plan buy orders with qty + price, mark as allocated, scoped per FY
-- Two-column layout on wider screens (independent columns, no height coupling)
-
-### Transactions
-All buy/sell transactions, grouped by month. Tap + to log a new trade.
-
-### Plan
-Where the annual plan is created and managed:
-- Total budget with carryover from previous FY
-- Stock list with % allocations and categories — all editable inline
-- Add/remove stocks (transactions preserved if stock is removed)
-- Category summary with sector-type breakdown (Defensive / Cyclical / Growth / Passive)
-- "Add New Plan" to start a new fiscal year, optionally copying stocks with computed carryover
-
----
-
 ## AI Features
 
 Band generation uses **Gemini 2.5 Flash** with Google Search grounding:
 - **Stocks**: fetches EPS, operating profit, borrowings, cash, shares from Screener.in → applies category-specific PE/EV-EBITDA/PB multiples
 - **Index/ETFs**: fetches Nifty PE + ETF price → derives implied EPS → applies PE band
+- **Auto-tranches**: generates up to 5 buy tranches per stock, distributed within the Buy zone (skewed toward lower prices), qty sized from remaining FY budget
 
 To use AI generation, add your own Gemini API key in **Settings** (tap the profile icon). Free keys available at [aistudio.google.com](https://aistudio.google.com).
 
