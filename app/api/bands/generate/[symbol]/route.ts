@@ -8,7 +8,7 @@ import type { StockCategory } from '@/lib/types'
 async function callGemini(prompt: string, key: string): Promise<string> {
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,8 +68,17 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const geminiKey = process.env.GEMINI_API_KEY
-  if (!geminiKey) return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 500 })
+  // Use user's personal key if set, else fall back to server env key
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('gemini_api_key')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const geminiKey = userSettings?.gemini_api_key || process.env.GEMINI_API_KEY
+  if (!geminiKey) return NextResponse.json({
+    error: 'No Gemini API key configured. Add your key in Settings (profile icon).',
+  }, { status: 500 })
 
   // Fetch allocation for category + qualifier flags
   const { data: alloc } = await supabase
