@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands } from '@/lib/band-calculator'
 import { getBandSignal } from '@/lib/band-calculator'
@@ -25,6 +25,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [generating, setGenerating]       = useState<Record<string, boolean>>({})
   const [generatingAll, setGeneratingAll] = useState(false)
   const [genError, setGenError]           = useState<Record<string, string>>({})
+  const [hasKey, setHasKey]               = useState<boolean | null>(null)
+  const [showKeyPrompt, setShowKeyPrompt] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/settings/gemini-key')
+      .then(r => r.json())
+      .then(d => setHasKey(d.hasKey ?? false))
+      .catch(() => setHasKey(false))
+  }, [])
 
   function toggle(symbol: string) {
     setExpanded(prev => {
@@ -65,6 +74,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   }
 
   async function generateBands(symbol: string) {
+    if (!hasKey) { setShowKeyPrompt(true); return }
     setGenerating(prev => ({ ...prev, [symbol]: true }))
     setGenError(prev => ({ ...prev, [symbol]: '' }))
     try {
@@ -88,6 +98,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   }
 
   async function generateAllBands() {
+    if (!hasKey) { setShowKeyPrompt(true); return }
     setGeneratingAll(true)
     await Promise.all(rows.map(r => generateBands(r.symbol)))
     setGeneratingAll(false)
@@ -171,9 +182,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
   return (
     <div>
+      {showKeyPrompt && (
+        <KeyPromptSheet
+          onClose={() => setShowKeyPrompt(false)}
+          onSaved={() => setHasKey(true)}
+        />
+      )}
+
       {/* Header actions */}
       <div className="px-4 pt-3 pb-2 flex justify-end gap-2 flex-wrap items-center">
-        <GeminiKeyInfo />
         <button
           onClick={generateAllBands}
           disabled={generatingAll || refreshingAll}
@@ -592,31 +609,83 @@ function TrancheRow({ tranche, onToggle, onDelete }: {
   )
 }
 
-// ── Gemini Key Info ───────────────────────────────────────────────────────────
+// ── Gemini Key Prompt Sheet ───────────────────────────────────────────────────
 
-function GeminiKeyInfo() {
-  const [show, setShow] = useState(false)
+function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [key, setKey]       = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/settings/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: key.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Failed to save'); setSaving(false); return }
+      onSaved()
+      onClose()
+    } catch {
+      setError('Network error')
+    }
+    setSaving(false)
+  }
+
   return (
-    <div className="relative">
-      <button
-        onClick={() => setShow(v => !v)}
-        className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-        title="About AI band generation">
-        i
-      </button>
-      {show && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
-          <div className="absolute right-0 top-8 w-64 rounded-2xl p-3 z-50 shadow-xl text-[12px] leading-relaxed"
-               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>AI Band Generation</p>
-            <p>Uses Gemini AI with Google Search to fetch financials and compute buy bands.</p>
-            <p className="mt-1.5">Add your own <strong>Gemini API key</strong> in Settings (tap the profile icon ↗) to use your own quota. Free keys available at <span style={{ color: '#0A84FF' }}>aistudio.google.com</span>.</p>
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px]"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Cancel</button>
+          <p className="font-semibold text-[17px]">Gemini API Key</p>
+          <button onClick={save} disabled={saving || !key.trim()}
+            className="text-[#0A84FF] text-[17px] font-semibold disabled:opacity-40">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+
+        <div className="px-5 pt-4 space-y-4">
+          <p className="text-[15px]" style={{ color: 'var(--text-2)' }}>
+            AI band generation uses Gemini to fetch financials from Screener.in and compute buy/trim zones. A free API key is required.
+          </p>
+
+          <input
+            type="password"
+            placeholder="AIzaSy…"
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            className="w-full px-4 py-3.5 rounded-2xl text-[17px] outline-none"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            autoFocus
+          />
+
+          {error && <p className="text-red-400 text-[13px]">{error}</p>}
+
+          <div className="rounded-2xl p-3.5"
+               style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
+            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              <span className="font-semibold" style={{ color: '#0A84FF' }}>Stored securely.</span>{' '}
+              Your key is saved to your private account in the database. It is only accessible via your login,
+              never visible to other users, and is only ever used server-side when calling Gemini —
+              it never appears in your browser after saving.
+            </p>
           </div>
-        </>
-      )}
-    </div>
+
+          <p className="text-[13px] text-center" style={{ color: 'var(--text-muted)' }}>
+            Get a free key at{' '}
+            <span style={{ color: '#0A84FF' }}>aistudio.google.com</span>
+          </p>
+        </div>
+      </div>
+    </>
   )
 }
 

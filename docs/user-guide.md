@@ -79,15 +79,16 @@ The **Buy Bands** tab shows valuation zones for each stock — price ranges wher
 
 ### AI band generation
 
-The easiest way to generate bands is the **Generate All Bands** button at the top. This uses Gemini AI with Google Search to:
+Tap **Generate All Bands** at the top (or **Regenerate** inside any expanded stock card).
 
-1. Fetch EPS, operating profit, borrowings, cash, and shares from Screener.in
-2. Apply your stock's category-specific PE or EV/EBITDA multiple ranges
-3. Compute Buy / Mid / Trim price zones and save them
+If you have not added a Gemini API key yet, a sheet slides up asking you to add one before continuing. Once saved, generation proceeds immediately — you only need to do this once.
 
-You need a Gemini API key for this to work — see [Settings](#7-settings).
+The generation process:
+1. Fetches EPS, operating profit, borrowings, cash, and shares from Screener.in (consolidated view)
+2. Applies your stock's category-specific PE or EV/EBITDA multiple ranges
+3. Computes Buy / Mid / Trim price zones and saves them
 
-You can also generate bands for a single stock: expand the stock card → **Regenerate**.
+For Index/ETF stocks it fetches the current Nifty PE and ETF price instead, and derives an implied EPS to run through the same band logic.
 
 **Two qualifier toggles** adjust the bands after generation:
 - **2 Weak Quarters** — recent results have been soft; tightens all band prices by 10% (more conservative)
@@ -172,18 +173,16 @@ Tap the **profile icon** (top right on any screen) to open the account menu.
 
 ### Gemini API key
 
-Required for AI band generation. Without it, the Generate Bands button returns an error.
+Required for AI band generation. The first time you tap Generate Bands without a key, a sheet slides up asking you to add one.
 
 **How to get a free key:**
 1. Go to [aistudio.google.com](https://aistudio.google.com)
 2. Sign in with a Google account
-3. Create an API key (free tier has generous limits)
-4. Copy the key (starts with `AIza…`)
+3. Create an API key (free tier is sufficient)
+4. Copy the key — it starts with `AIza…`
 
-**How to add it in the app:**
-1. Tap the profile icon → **Add Key** under AI Settings
-2. Paste your key → **Save**
+Paste it into the prompt and tap **Save**. Generation will proceed immediately.
 
-The key is stored securely in the database and is only used server-side to call Gemini — it is never returned to your browser after saving. See [architecture.md](architecture.md#user-api-key-security) for the full security model.
+**Security:** your key is saved to your private account in the database. It is only accessible via your login, never visible to other users, and is only ever used server-side when calling Gemini — it never appears in your browser after saving. See [architecture.md](architecture.md#user-api-key-security) for the full security model.
 
-To update or remove the key, tap **Update Key** in the same menu.
+To update or remove the key later, tap the profile icon → **AI Settings**.

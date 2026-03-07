@@ -31,28 +31,39 @@ function extractJSON(text: string): Record<string, unknown> {
 }
 
 function stockPrompt(symbol: string): string {
-  return `Search Screener.in for NSE:${symbol} consolidated financials.
-Extract from the most recent data (prefer TTM/trailing twelve months, else latest annual FY):
-1. EPS in ₹ — "EPS in Rs" row in the P&L table, most recent value
-2. Operating Profit in ₹Cr — "Operating Profit" row in the P&L table (this equals EBITDA for most companies)
-3. Borrowings in ₹Cr — "Borrowings" row in the Balance Sheet
-4. Cash & Cash Equivalents in ₹Cr — from the Balance Sheet
-5. Shares outstanding in Crore — from Key Ratios or company info section
-6. The period this data covers (e.g. "TTM Mar25" or "FY25")
+  return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
 
-Return ONLY this JSON object with no other text, explanation, or markdown fences:
-{"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}`
+From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
+- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range: ₹5–₹200.
+- "Operating Profit" row → in ₹ Crores. This is EBITDA. Typical large-cap range: ₹500–₹50,000 Cr.
+
+From the Balance Sheet table, most recent available period:
+- "Borrowings" row → total debt in ₹ Crores
+- "Cash Equivalents" row → cash and bank balances in ₹ Crores
+
+From Key Ratios or the company header:
+- Equity shares outstanding in Crores (e.g. 150 Cr shares = 1.5 billion shares; typical range: 10–1000 Cr)
+
+Sanity check before returning: EPS × shares (Cr) × 100 should roughly equal the net profit (PAT) shown in the P&L. If the implied market cap seems absurd (under ₹100 Cr or over ₹50 lakh Cr for a listed company), recheck the source page.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}
+
+asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
 }
 
 function indexPrompt(symbol: string): string {
-  return `Find current Nifty 50 valuation data from NSE India or Moneycontrol or Tickertape:
-1. Current Nifty 50 PE ratio (Price to Earnings, trailing)
+  return `Find current Nifty 50 valuation data from NSE India (nseindia.com) or Moneycontrol:
+1. Current Nifty 50 trailing PE ratio (price-to-earnings based on last 12 months earnings, NOT forward PE)
 2. Current Nifty 50 index level
-3. Current market price per unit of ETF NSE:${symbol} in ₹ (latest traded price)
-4. The date of this data
+3. Current market price per unit of ETF NSE:${symbol} in ₹ — use the latest traded price, NOT the NAV
 
-Return ONLY this JSON object with no other text, explanation, or markdown fences:
-{"niftyPE":0,"niftyLevel":0,"etfPrice":0,"asOf":""}`
+Sanity check: Nifty trailing PE is normally between 15 and 35. ETF price for most Nifty 50 ETFs is roughly Nifty level ÷ 100. If your numbers fall far outside these ranges, recheck.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"niftyPE":0,"niftyLevel":0,"etfPrice":0,"asOf":""}
+
+asOf = today's date or the date of the data`
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
