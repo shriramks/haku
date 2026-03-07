@@ -652,9 +652,10 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
     if (!match) return null
     let yr = parseInt(match[1])
     if (yr < 100) yr += 2000
+    // START-year convention: FY26 = Apr 2026 – Mar 2027
     return {
-      start: `${yr - 1}-04-01`,
-      end:   `${yr}-03-31`,
+      start: `${yr}-04-01`,
+      end:   `${yr + 1}-03-31`,
     }
   }
 
@@ -741,7 +742,7 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
               className="w-full px-4 py-3.5 rounded-2xl text-[17px] font-bold outline-none"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
             <p className="text-[12px] mt-1" style={{ color: 'var(--text-faint)' }}>
-              FY26 = Apr 2025 – Mar 2026
+              FY26 = Apr 2026 – Mar 2027
             </p>
           </div>
 
