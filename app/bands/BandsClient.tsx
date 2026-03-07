@@ -78,18 +78,24 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGenerating(prev => ({ ...prev, [symbol]: true }))
     setGenError(prev => ({ ...prev, [symbol]: '' }))
     try {
-      const res = await fetch(`/api/bands/generate/${symbol}`, { method: 'POST' })
+      const res = await fetch(`/api/bands/generate/${symbol}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fyId }),
+      })
       const json = await res.json()
       if (!res.ok) {
         setGenError(prev => ({ ...prev, [symbol]: json.error ?? 'Generation failed' }))
-      } else if (json.band) {
-        // Preserve existing CMP — the generate route sets manual_cmp to null
-        const existing = bands.find(b => b.symbol === symbol)
-        const bandWithCmp = { ...json.band, manual_cmp: existing?.manual_cmp ?? json.band.manual_cmp }
-        setBands(prev => {
-          const filtered = prev.filter(b => b.symbol !== symbol)
-          return [...filtered, bandWithCmp]
-        })
+      } else {
+        if (json.band) {
+          setBands(prev => [...prev.filter(b => b.symbol !== symbol), json.band])
+        }
+        if (json.tranches?.length > 0) {
+          setTranches(prev => [
+            ...prev.filter(t => t.symbol !== symbol),
+            ...json.tranches,
+          ])
+        }
       }
     } catch {
       setGenError(prev => ({ ...prev, [symbol]: 'Network error' }))

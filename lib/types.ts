@@ -104,6 +104,7 @@ export interface BuyTranche {
   price: number
   allocated: boolean
   sort_order: number
+  fy_id?: string | null
   created_at?: string
 }
 

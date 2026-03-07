@@ -66,14 +66,53 @@ Return ONLY this JSON, no markdown, no explanation:
 asOf = today's date or the date of the data`
 }
 
+// ── Tranche price computation ──────────────────────────────────────────────────
+
+function computeTrancheprices(buyLow: number, buyHigh: number, cmp: number | null, count = 5): number[] {
+  let floor: number, ceiling: number
+  const bandWidth = buyHigh - buyLow
+
+  if (!cmp || cmp > buyHigh) {
+    // No CMP or CMP above band: spread across full band
+    floor = buyLow
+    ceiling = buyHigh
+  } else if (cmp >= buyLow) {
+    // CMP within band: ceiling is ~8% below CMP (2 steps of ~4%)
+    ceiling = cmp * 0.92
+    floor = buyLow
+    // If not enough room (CMP near buyLow), shift window up
+    if (ceiling <= floor + bandWidth * 0.05) {
+      ceiling = floor + (cmp - floor) * 0.9
+      if (ceiling <= floor) ceiling = floor * 1.03
+    }
+  } else {
+    // CMP below buyLow (deep value): cluster near buyLow
+    floor = buyLow * 0.97
+    ceiling = buyLow * 1.03
+  }
+
+  const range = Math.max(ceiling - floor, 1)
+  const prices: number[] = []
+  for (let i = 0; i < count; i++) {
+    // Quadratic skew toward floor — packs more tranches at lower prices
+    const t = count > 1 ? Math.pow(i / (count - 1), 2) : 0
+    prices.push(Math.round(floor + t * range))
+  }
+
+  // Deduplicate (handles very narrow bands naturally)
+  return [...new Set(prices)]
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ symbol: string }> }
 ) {
   const { symbol } = await params
   const upperSymbol = symbol.toUpperCase()
+  const body = await req.json().catch(() => ({})) as { fyId?: string }
+  const fyId = body.fyId ?? null
 
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -205,6 +244,16 @@ export async function POST(
     : anchorRaw.includes('PB')   ? 'PB'
     : 'PE'
 
+  // Preserve existing CMP before overwriting
+  const { data: existingBand } = await supabase
+    .from('buy_bands')
+    .select('manual_cmp')
+    .eq('user_id', user.id)
+    .eq('symbol', upperSymbol)
+    .eq('is_current', true)
+    .maybeSingle()
+  const existingCmp = existingBand?.manual_cmp ?? null
+
   // Version the band — mark old as not current
   await supabase
     .from('buy_bands')
@@ -231,7 +280,7 @@ export async function POST(
       mid_low:    result.midLow,
       mid_high:   result.midHigh,
       trim_price: result.trimPrice,
-      manual_cmp: null,
+      manual_cmp: existingCmp,
       notes:      `${result.anchorUsed} | ${asOf}`,
       last_updated_at: now,
       generated_at:    now,
@@ -244,12 +293,65 @@ export async function POST(
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
+  // ── Auto-generate tranches ─────────────────────────────────────────────────
+  let generatedTranches: unknown[] = []
+
+  if (fyId) {
+    // Compute remaining budget for this stock in this FY
+    const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
+      supabase.from('fiscal_years').select('total_budget_inr').eq('id', fyId).single(),
+      supabase.from('stock_allocations')
+        .select('allocation_pct, carryover_inr')
+        .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
+        .maybeSingle(),
+      supabase.from('transactions')
+        .select('trade_type, amount')
+        .eq('user_id', user.id).eq('symbol', upperSymbol).eq('fy_id', fyId),
+    ])
+
+    const allocBudget = (fyAlloc && fy)
+      ? (fyAlloc.allocation_pct / 100) * fy.total_budget_inr + (fyAlloc.carryover_inr ?? 0)
+      : 0
+    const netSpent = (txns ?? []).reduce(
+      (s: number, t: { trade_type: string; amount: number }) =>
+        s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+    const remaining = Math.max(0, allocBudget - netSpent)
+
+    const prices = computeTrancheprices(result.buyLow, result.buyHigh, existingCmp)
+    const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
+
+    // Delete existing tranches for this symbol + FY, then insert fresh ones
+    await supabase.from('buy_tranches')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('symbol', upperSymbol)
+      .eq('fy_id', fyId)
+
+    const trancheRows = prices.map((price, i) => ({
+      user_id:    user.id,
+      symbol:     upperSymbol,
+      price,
+      qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
+      allocated:  false,
+      sort_order: i + 1,
+      fy_id:      fyId,
+    }))
+
+    const { data: inserted } = await supabase
+      .from('buy_tranches')
+      .insert(trancheRows)
+      .select()
+
+    generatedTranches = inserted ?? []
+  }
+
   return NextResponse.json({
     symbol: upperSymbol,
     category,
     financials: { eps, opProfitCr, borrowingsCr, cashCr, sharesCr, netDebtCr },
     asOf,
-    band:   newBand,
+    band:     newBand,
     result,
+    tranches: generatedTranches,
   })
 }
