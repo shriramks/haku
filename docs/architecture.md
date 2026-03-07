@@ -14,12 +14,12 @@
 
 | Table | Purpose |
 |---|---|
-| `fiscal_years` | One row per FY plan (Apr–Mar cycle, e.g. FY26) |
+| `fiscal_years` | One row per FY plan (Apr–Mar cycle, e.g. FY26 = Apr 2025–Mar 2026) |
 | `stock_allocations` | User-defined stock list + % per FY, with weak/strong quarter flags |
 | `transactions` | Manual buy/sell log; `amount` is a generated column (`qty × price`) |
 | `buy_bands` | Valuation band inputs + computed price ranges (versioned with `is_current`) |
-| `buy_tranches` | Planned buy orders per stock with allocated toggle |
-| `playbook` | One row per user — private investment rules text |
+| `buy_tranches` | Planned buy orders per stock, scoped to a FY via `fy_id` |
+| `user_settings` | One row per user — stores optional Gemini API key |
 | `investability` | 12-gate qualitative checklist per stock |
 
 All tables use Row Level Security — users see only their own rows.
@@ -44,26 +44,38 @@ All tables use Row Level Security — users see only their own rows.
 
 ---
 
-## Auto Band Generation
+## AI Band Generation
 
 `app/api/bands/generate/[symbol]/route.ts` — POST endpoint called per stock.
 
-1. Fetches `quoteSummary` from Yahoo Finance (modules: `financialData`, `defaultKeyStatistics`, `incomeStatementHistory`, `balanceSheetHistory`, `assetProfile`)
-2. Extracts EPS, BVPS, EBITDA (₹Cr), net debt (₹Cr), shares (Cr), sector, industry
-3. Calls `categoryFromSector()` (`lib/sector-map.ts`) for deterministic sector → category mapping
-4. Falls back to existing `stock_allocations.category` if auto-detection fails
-5. Runs `calculateBands()` with current allocation flags (weak/strong quarters, hospital ramp)
-6. Saves to `buy_bands`: marks existing `is_current=true` rows to `false`, inserts new with `is_current=true`
+Uses **Gemini 2.5 Flash** with Google Search grounding to fetch live financial data and compute buy bands automatically.
 
-**Insurance note:** P/EV is skipped (no embedded value from free APIs). Falls back to PE if EPS is available, using FMCG multiples as a proxy for high-quality financial companies.
+**Flow:**
+1. Resolves the Gemini API key (user's personal key from `user_settings` takes priority; falls back to `GEMINI_API_KEY` env var)
+2. Reads `stock_allocations` for the stock's category and qualifier flags
+3. Sends a grounded prompt to Gemini to fetch from Screener.in: EPS, operating profit, borrowings, cash, shares outstanding
+4. For Index/ETF: fetches Nifty PE + ETF price instead, derives implied EPS
+5. Parses JSON from Gemini response, computes `netDebt = borrowings − cash`
+6. Runs `calculateBands()` with the financial inputs and allocation flags
+7. Saves to `buy_bands`: marks existing `is_current=true` rows to `false`, inserts new with `is_current=true`
+
+**Insurance note:** P/EV requires embedded value which Gemini cannot reliably find. Falls back to PE using FMCG multiples as a proxy.
 
 ---
 
-## Sector → Category Mapping
+## User API Key Security
 
-`lib/sector-map.ts` — deterministic lookup from Yahoo Finance sector/industry strings.
+Users can optionally supply their own Gemini API key (for their own quota). Here is how it is kept secure:
 
-Rules are evaluated in order; first match wins. Matching is case-insensitive substring. Each rule can match on `sector`, `industry`, or both. Covers all 10 categories: Defence, Insurance, Hospitals, Pharma, Auto OEM, Retail, FMCG, Electricals/Capital Goods, Asset-heavy Infra/Platforms, Capital-light Market Infra/Services.
+| Concern | Mitigation |
+|---|---|
+| Key leakage to other users | `user_settings` has RLS: `auth.uid() = user_id` on all operations |
+| Key exposed to client JS | The `GET /api/settings/gemini-key` endpoint returns only `{ hasKey: boolean }` — never the raw key |
+| Key in transit | Sent over HTTPS from browser → Next.js API route → Supabase |
+| Key at rest | Stored in Supabase Postgres, encrypted at rest by the hosting layer |
+| Key in API responses | The generate route reads the key server-side only; it never appears in the JSON response |
+
+The server-side `GEMINI_API_KEY` env var acts as a shared fallback (useful for self-hosted deployments where all users share one key).
 
 ---
 
@@ -72,32 +84,32 @@ Rules are evaluated in order; first match wins. Matching is case-insensitive sub
 ```
 app/
   api/
-    cmp/[symbol]/route.ts          — Yahoo Finance CMP proxy (60s cache)
-    bands/generate/[symbol]/route.ts — Auto band generation (POST)
-  dashboard/                        — Allocation screen
-  bands/                            — Buy Bands screen
-  transactions/                     — Transactions screen
-  plan/                             — FY Plan + Playbook
-  stocks/[symbol]/                  — Stock detail (4 tabs)
+    cmp/[symbol]/route.ts              — Yahoo Finance CMP proxy (60s cache)
+    bands/generate/[symbol]/route.ts   — Gemini AI band generation (POST)
+    settings/gemini-key/route.ts       — GET hasKey, POST save/clear key
+  dashboard/                           — Allocation screen
+  bands/                               — Buy Bands screen (FY-scoped tranches)
+  txns/                                — Transactions screen
+  plan/                                — FY Plan management
+  stocks/[symbol]/                     — Stock detail
 
 lib/
-  band-calculator.ts                — Band math
-  sector-map.ts                     — Sector → category lookup
-  compute.ts                        — Dashboard row computations
-  data.ts                           — Server-side Supabase fetchers
-  types.ts                          — All TS types
-  formatter.ts                      — formatINR, formatPnL, formatDate
-  supabase-server.ts                — Server Component Supabase client
-  supabase-browser.ts               — Browser Supabase singleton
+  band-calculator.ts                   — Band math (PE / EV-EBITDA / PB / P_EV)
+  compute.ts                           — Dashboard row computations
+  data.ts                              — Server-side Supabase fetchers
+  types.ts                             — All TS types
+  formatter.ts                         — formatINR, formatPct, formatDate
+  supabase-server.ts                   — Server Component Supabase client
+  supabase-browser.ts                  — Browser Supabase singleton
 
 components/
-  BottomNav.tsx                     — 5-tab fixed bottom nav
-  BandRangeBar.tsx                  — Buy/Mid/Trim CSS bar with CMP pin
-  AllocationsSheet.tsx              — Bottom sheet for allocation editing
-  AddTxnModal.tsx                   — Transaction entry modal
+  BottomNav.tsx                        — 5-tab fixed bottom nav
+  UserMenu.tsx                         — Account dropdown (email, Gemini key, sign out)
+  AllocationsSheet.tsx                 — Bottom sheet for allocation editing
+  AddTxnModal.tsx                      — Transaction entry modal
 
 supabase/
-  schema.sql                        — Initial schema
-  migration-v2.sql                  — buy_bands versioning + playbook table
-  migration-v3.sql                  — two_strong_quarters column
+  schema.sql                           — Initial schema
+  migration-v2.sql through v7          — Incremental migrations
+  fix-tranches-fy.sql                  — One-time fix if tranches ended up in wrong FY
 ```
