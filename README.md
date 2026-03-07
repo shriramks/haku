@@ -4,6 +4,17 @@ A personal Indian stock portfolio planning app — mobile-first PWA.
 
 ---
 
+## Contents
+
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [App Flow](#app-flow)
+- [AI Features](#ai-features)
+- [Security](#security)
+- [Docs](#docs)
+
+---
+
 ## The Problem
 
 Planning investments for the year is messy. The process ends up split across:
@@ -80,4 +91,10 @@ To use AI generation, add your own Gemini API key in **Settings** (tap the profi
 
 ---
 
-See [docs/install.md](docs/install.md) for setup and [docs/architecture.md](docs/architecture.md) for technical details.
+## Docs
+
+| Document | Description |
+|----------|-------------|
+| [docs/user-guide.md](docs/user-guide.md) | New user walkthrough — setup, screens, and flow |
+| [docs/install.md](docs/install.md) | Self-hosting setup |
+| [docs/architecture.md](docs/architecture.md) | Technical details — schema, band calculator, AI flow, security |
