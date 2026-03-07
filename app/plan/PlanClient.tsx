@@ -26,26 +26,17 @@ const SHORT_CAT: Record<string, string> = {
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
-import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory, type Playbook } from '@/lib/types'
+import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
-
-const PLAYBOOK_PLACEHOLDER = `Paste or type your investment playbook here.
-
-This is your personal reference — the rules and criteria you use when planning investments.
-It's private and only visible to you.`
 
 interface Props {
   fiscalYears: FiscalYear[]
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
-  initialPlaybook: Playbook | null
 }
 
-type Tab = 'plan' | 'playbook'
-
-export default function PlanClient({ fiscalYears, initialFY, initialAllocations, initialPlaybook }: Props) {
+export default function PlanClient({ fiscalYears, initialFY, initialAllocations }: Props) {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('plan')
   const [selectedFY, setSelectedFY] = useState(initialFY)
   const [allocations, setAllocations] = useState(initialAllocations)
   const [loading, setLoading] = useState(false)
@@ -70,10 +61,10 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <h1 className="text-[28px] font-bold">Plan</h1>
           <div className="flex items-center gap-3">
-            {tab === 'plan' && selectedFY && (
+            {selectedFY && (
               <span className={`text-[13px] tabnum font-medium ${totalPct > 100 ? 'text-red-400' : Math.abs(totalPct - 100) < 0.01 ? 'text-green-500' : ''}`}
                     style={totalPct <= 100 && Math.abs(totalPct - 100) >= 0.01 ? { color: 'var(--text-muted)' } : undefined}>
                 {totalPct.toFixed(1)}% · {(100 - totalPct).toFixed(1)}% left
@@ -82,42 +73,22 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
             <UserMenu />
           </div>
         </div>
-
-        {/* Tab bar */}
-        <div className="flex px-4 pb-0 gap-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          {(['plan', 'playbook'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="pb-2.5 text-[15px] font-medium capitalize border-b-2 -mb-px transition-colors"
-              style={{
-                borderColor: tab === t ? '#0A84FF' : 'transparent',
-                color: tab === t ? '#0A84FF' : 'var(--text-muted)',
-              }}>
-              {t === 'plan' ? 'FY Plan' : 'Playbook'}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {tab === 'plan' ? (
-        <PlanTab
-          fiscalYears={fiscalYears}
-          selectedFY={selectedFY}
-          allocations={allocations}
-          loading={loading}
-          totalPct={totalPct}
-          totalBudget={totalBudget}
-          onSwitchFY={switchFY}
-          onAllocationsChange={setAllocations}
-          onNewPlan={() => setShowNewPlan(true)}
-          onFYBudgetChange={(budget) => {
-            if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
-          }}
-        />
-      ) : (
-        <PlaybookTab initialPlaybook={initialPlaybook} />
-      )}
+      <PlanTab
+        fiscalYears={fiscalYears}
+        selectedFY={selectedFY}
+        allocations={allocations}
+        loading={loading}
+        totalPct={totalPct}
+        totalBudget={totalBudget}
+        onSwitchFY={switchFY}
+        onAllocationsChange={setAllocations}
+        onNewPlan={() => setShowNewPlan(true)}
+        onFYBudgetChange={(budget) => {
+          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
+        }}
+      />
 
       {/* New Plan Sheet */}
       {showNewPlan && (
@@ -824,96 +795,6 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
         </div>
       </div>
     </>
-  )
-}
-
-// ── Playbook Tab ──────────────────────────────────────────────────────────────
-
-function PlaybookTab({ initialPlaybook }: { initialPlaybook: Playbook | null }) {
-  const [content, setContent]   = useState(initialPlaybook?.content ?? '')
-  const [editing, setEditing]   = useState(false)
-  const [saving, setSaving]     = useState(false)
-  const [lastSaved, setLastSaved] = useState(initialPlaybook?.updated_at ?? null)
-
-  async function save() {
-    setSaving(true)
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { setSaving(false); return }
-
-    const now = new Date().toISOString()
-    await sb.from('playbook').upsert({
-      user_id: user.id,
-      content,
-      updated_at: now,
-    }, { onConflict: 'user_id' })
-
-    setLastSaved(now)
-    setSaving(false)
-    setEditing(false)
-  }
-
-  return (
-    <div className="px-4 pt-4 pb-6">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="text-[17px] font-semibold">Playbook</h2>
-          {lastSaved && (
-            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-faint)' }}>
-              Saved {new Date(lastSaved).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {editing ? (
-            <>
-              <button onClick={() => { setEditing(false); setContent(initialPlaybook?.content ?? '') }}
-                className="px-3 py-1.5 rounded-xl text-[14px]"
-                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-                Cancel
-              </button>
-              <button onClick={save} disabled={saving}
-                className="px-3 py-1.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
-                style={{ background: 'rgba(10,132,255,0.15)' }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </>
-          ) : (
-            <button onClick={() => setEditing(true)}
-              className="px-3 py-1.5 rounded-xl text-[14px]"
-              style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-              Edit
-            </button>
-          )}
-        </div>
-      </div>
-
-      {editing ? (
-        <textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder={PLAYBOOK_PLACEHOLDER}
-          className="w-full rounded-2xl p-4 text-[14px] leading-relaxed outline-none resize-none font-mono"
-          style={{
-            background: 'var(--bg-secondary)', color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            minHeight: '60vh',
-          }}
-        />
-      ) : (
-        <div
-          className="rounded-2xl p-4 text-[14px] leading-relaxed whitespace-pre-wrap font-mono"
-          style={{
-            background: 'var(--bg-secondary)', color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            minHeight: '30vh',
-          }}>
-          {content || (
-            <span style={{ color: 'var(--text-muted)' }}>{PLAYBOOK_PLACEHOLDER}</span>
-          )}
-        </div>
-      )}
-    </div>
   )
 }
 

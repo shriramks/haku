@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getFiscalYears, getAllocations, getPlaybook } from '@/lib/data'
+import { getFiscalYears, getAllocations } from '@/lib/data'
 import PlanClient from './PlanClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -16,9 +16,7 @@ export default async function PlanPage() {
     new Date(fy.start_date) <= today && today <= new Date(fy.end_date)
   ) ?? fiscalYears[0] ?? null
 
-  const [allocations, playbook] = currentFY
-    ? await Promise.all([getAllocations(currentFY.id), getPlaybook()])
-    : [[], await getPlaybook()]
+  const allocations = currentFY ? await getAllocations(currentFY.id) : []
 
   return (
     <>
@@ -26,7 +24,6 @@ export default async function PlanPage() {
         fiscalYears={fiscalYears}
         initialFY={currentFY}
         initialAllocations={allocations}
-        initialPlaybook={playbook}
       />
       <BottomNav />
     </>

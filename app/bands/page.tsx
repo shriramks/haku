@@ -48,17 +48,25 @@ export default async function BandsPage({
             <UserMenu />
           </div>
           {fiscalYears.length > 1 && (
-            <div className="flex gap-2 mt-2">
-              {fiscalYears.map(f => (
-                <a key={f.id} href={`/bands?fy=${f.label}`}
-                  className="px-3 py-1 rounded-xl text-sm font-medium"
-                  style={{
-                    background: fy?.id === f.id ? 'var(--text-primary)' : 'var(--border)',
-                    color: fy?.id === f.id ? 'var(--bg-primary)' : 'var(--text-muted)',
-                  }}>
-                  {f.label}
-                </a>
-              ))}
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {fiscalYears.map(f => {
+                const start = new Date(f.start_date)
+                const end   = new Date(f.end_date)
+                const startLabel = start.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
+                const endLabel   = end.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
+                const active = fy?.id === f.id
+                return (
+                  <a key={f.id} href={`/bands?fy=${f.label}`}
+                    className="px-3 py-1.5 rounded-xl text-sm font-medium flex flex-col items-center"
+                    style={{
+                      background: active ? 'var(--text-primary)' : 'var(--border)',
+                      color: active ? 'var(--bg-primary)' : 'var(--text-muted)',
+                    }}>
+                    <span>{f.label}</span>
+                    <span className="text-[10px] opacity-70">{startLabel}–{endLabel}</span>
+                  </a>
+                )
+              })}
             </div>
           )}
         </div>

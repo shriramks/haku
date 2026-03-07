@@ -172,7 +172,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   return (
     <div>
       {/* Header actions */}
-      <div className="px-4 pt-3 pb-2 flex justify-end gap-2 flex-wrap">
+      <div className="px-4 pt-3 pb-2 flex justify-end gap-2 flex-wrap items-center">
+        <GeminiKeyInfo />
         <button
           onClick={generateAllBands}
           disabled={generatingAll || refreshingAll}
@@ -191,9 +192,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         </button>
       </div>
 
-      {/* Two-column on md+ */}
-      <div className="md:grid md:grid-cols-2 md:gap-3 md:px-4 md:pb-4">
-        {rows.map(row => {
+      {/* Two independent columns on md+ — avoids row-height coupling when expanding */}
+      <div className="md:flex md:gap-3 md:px-4 md:pb-4">
+        {[rows.filter((_, i) => i % 2 === 0), rows.filter((_, i) => i % 2 !== 0)].map((col, ci) => (
+          <div key={ci} className="md:flex-1 md:space-y-3">
+        {col.map(row => {
           const band      = bands.find(b => b.symbol === row.symbol)
           const alloc     = allocState.find(a => a.symbol === row.symbol)
           const isExp     = expanded.has(row.symbol)
@@ -223,7 +226,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
           return (
             <div key={row.symbol}
-                 className="border-b md:border md:rounded-2xl md:overflow-hidden md:mb-0"
+                 className="border-b md:border md:rounded-2xl md:overflow-hidden"
                  style={{ borderColor: 'var(--border-faint)' }}>
               {/* Collapsed header — always visible */}
               <button
@@ -381,6 +384,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             </div>
           )
         })}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -583,6 +588,34 @@ function TrancheRow({ tranche, onToggle, onDelete }: {
         <button onClick={() => setConfirming(true)} className="text-[20px] leading-none px-1"
                 style={{ color: 'var(--text-faint)' }}>×</button>
       </div>
+    </div>
+  )
+}
+
+// ── Gemini Key Info ───────────────────────────────────────────────────────────
+
+function GeminiKeyInfo() {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShow(v => !v)}
+        className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+        title="About AI band generation">
+        i
+      </button>
+      {show && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShow(false)} />
+          <div className="absolute right-0 top-8 w-64 rounded-2xl p-3 z-50 shadow-xl text-[12px] leading-relaxed"
+               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-2)' }}>
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>AI Band Generation</p>
+            <p>Uses Gemini AI with Google Search to fetch financials and compute buy bands.</p>
+            <p className="mt-1.5">Add your own <strong>Gemini API key</strong> in Settings (tap the profile icon ↗) to use your own quota. Free keys available at <span style={{ color: '#0A84FF' }}>aistudio.google.com</span>.</p>
+          </div>
+        </>
+      )}
     </div>
   )
 }

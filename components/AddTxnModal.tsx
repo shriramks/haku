@@ -12,7 +12,6 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
   const [date, setDate]             = useState(todayISO())
   const [qty, setQty]               = useState('')
   const [price, setPrice]           = useState('')
-  const [notes, setNotes]           = useState('')
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [done, setDone]             = useState(false)
@@ -61,7 +60,7 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
       user_id: user.id, symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
-      fy_id: fyRows?.[0]?.id ?? null, notes,
+      fy_id: fyRows?.[0]?.id ?? null,
     })
 
     setLoading(false)
@@ -182,18 +181,6 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
               </span>
             </div>
           )}
-
-          {/* Notes */}
-          <div>
-            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Notes (optional)</p>
-            <input type="text" placeholder="e.g. Pre-budget dip" value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full px-3 py-3.5 rounded-2xl text-[17px] outline-none"
-              style={{
-                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-              }} />
-          </div>
 
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
