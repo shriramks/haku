@@ -113,6 +113,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGenerating(prev => ({ ...prev, [symbol]: false }))
   }
 
+  // Fetch CMP first (always), then generate bands if key exists
+  async function generateBandsWithCMP(symbol: string) {
+    await refreshCMP(symbol)
+    if (!hasKey) { setShowKeyPrompt(true); return }
+    await generateBands(symbol)
+  }
+
   async function generateAllBands() {
     if (!hasKey) { setShowKeyPrompt(true); return }
     setGeneratingAll(true)
@@ -336,9 +343,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                  className="border-b md:border md:rounded-2xl md:overflow-hidden"
                  style={{ borderColor: 'var(--border-faint)' }}>
               {/* Collapsed header — always visible */}
-              <button
+              <div
                 onClick={() => toggle(row.symbol)}
-                className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row">
+                className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-[17px]">{row.symbol}</span>
@@ -366,11 +373,20 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* ⚡ Bands — CMP + band generation in one tap */}
+                  <button
+                    onClick={e => { e.stopPropagation(); generateBandsWithCMP(row.symbol) }}
+                    disabled={generating[row.symbol] || refreshing[row.symbol]}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+                    style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+                    <SparkleIcon className={`w-3.5 h-3.5 ${(generating[row.symbol] || refreshing[row.symbol]) ? 'spin' : ''}`} />
+                    {(generating[row.symbol] || refreshing[row.symbol]) ? '…' : 'Bands'}
+                  </button>
                   <span style={{ color: 'var(--text-faint)' }}>
                     <ChevronIcon className={`w-4 h-4 transition-transform ${isExp ? 'rotate-180' : ''}`} />
                   </span>
                 </div>
-              </button>
+              </div>
 
               {/* Expanded content */}
               {isExp && (
@@ -402,9 +418,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-[12px] text-red-400">{genError[row.symbol]}</p>
                   )}
 
-                  {/* Controls: two rows */}
-                  <div className="px-4 pb-3 mt-1 space-y-2">
-                    {/* Row 1: Bear/Normal/Bull + info + Ramp Phase */}
+                  {/* Controls: Bear/Normal/Bull + ⓘ */}
+                  <div className="px-4 pt-4 pb-3">
                     <div className="flex items-center gap-2">
                       {alloc && (() => {
                         const mode = alloc.two_weak_quarters ? 'bear' : alloc.two_strong_quarters ? 'bull' : 'normal'
@@ -462,36 +477,21 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       )}
                     </div>
 
-                    {/* Row 2: Action buttons — stretch full width */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => generateBands(row.symbol)}
-                        disabled={generating[row.symbol]}
-                        className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                        style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-                        <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                        {generating[row.symbol] ? '…' : 'Bands'}
-                      </button>
-                      <button
-                        onClick={() => refreshCMP(row.symbol)}
-                        disabled={isRefresh}
-                        className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                        style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
-                        <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
-                        {isRefresh ? '…' : 'CMP'}
-                      </button>
-                      {hasBands && (
-                        <button
-                          onClick={() => generateTranches(row.symbol)}
-                          disabled={generatingTranches[row.symbol]}
-                          className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                          style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
-                          <SparkleIcon className={`w-3.5 h-3.5 ${generatingTranches[row.symbol] ? 'spin' : ''}`} />
-                          {generatingTranches[row.symbol] ? '…' : 'Tranches'}
-                        </button>
-                      )}
-                    </div>
                   </div>
+
+                  {/* Regenerate Tranches button */}
+                  {hasBands && (
+                    <div className="px-4 pb-2">
+                      <button
+                        onClick={() => generateTranches(row.symbol)}
+                        disabled={generatingTranches[row.symbol]}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium disabled:opacity-40"
+                        style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
+                        <ListIcon className="w-3.5 h-3.5" />
+                        {generatingTranches[row.symbol] ? '…' : 'Regenerate Tranches'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Tranches */}
                   <TrancheSection
@@ -890,6 +890,17 @@ function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function ListIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+      <rect x="2" y="2" width="12" height="2" rx="1"/>
+      <rect x="2" y="6" width="9" height="2" rx="1"/>
+      <rect x="2" y="10" width="11" height="2" rx="1"/>
+      <rect x="2" y="14" width="7" height="2" rx="1"/>
     </svg>
   )
 }
