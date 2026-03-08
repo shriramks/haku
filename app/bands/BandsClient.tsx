@@ -29,6 +29,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [hasKey, setHasKey]               = useState<boolean | null>(null)
   const [aiProvider, setAiProvider]       = useState<'gemini' | 'claude'>('gemini')
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
+  const [showQuartersInfo, setShowQuartersInfo] = useState(false)
+  const [userId, setUserId]               = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/settings/gemini-key')
@@ -38,6 +40,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         setAiProvider(d.provider ?? 'gemini')
       })
       .catch(() => setHasKey(false))
+    // getSession() reads from localStorage — no network call
+    getSupabaseBrowser().auth.getSession()
+      .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
   function toggle(symbol: string) {
@@ -124,73 +129,79 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   async function toggleQuarters(symbol: string, field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
     const alloc = allocState.find(a => a.symbol === symbol)
     if (!alloc) return
-    const sb = getSupabaseBrowser()
+
     // Mutually exclusive: turning one on turns the other off
     const patch: Record<string, boolean> = { [field]: value }
     if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
-    await sb.from('stock_allocations').update(patch).eq('id', alloc.id)
     const updated = { ...alloc, ...patch }
+
+    // ① Optimistic UI — update immediately, don't wait for DB
     setAllocState(prev => prev.map(a => a.symbol === symbol ? updated : a))
 
-    const twoWeakQuarters   = field === 'two_weak_quarters'   ? value : (value ? false : alloc.two_weak_quarters)
-    const twoStrongQuarters = field === 'two_strong_quarters' ? value : (value ? false : alloc.two_strong_quarters)
-
-    // Recalculate bands if financial data exists
+    const sb = getSupabaseBrowser()
     const band = bands.find(b => b.symbol === symbol)
+
     if (band && (band.eps || band.bvps || band.ebitda)) {
       const result = calculateBands({
-        category: alloc.category as StockCategory,
-        twoWeakQuarters,
-        twoStrongQuarters,
-        isHospitalRampPhase: alloc.is_hospital_ramp_phase,
+        category: updated.category as StockCategory,
+        twoWeakQuarters:     updated.two_weak_quarters,
+        twoStrongQuarters:   updated.two_strong_quarters,
+        isHospitalRampPhase: updated.is_hospital_ramp_phase,
         eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
         netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
       })
       if (result) {
-        const { data: { user } } = await sb.auth.getUser()
-        if (user) {
-          // Mark old as not current
-          await sb.from('buy_bands').update({ is_current: false }).eq('user_id', user.id).eq('symbol', symbol).eq('is_current', true)
-          const now = new Date().toISOString()
-          const { data } = await sb.from('buy_bands').insert({
-            user_id: user.id, symbol,
-            anchor_type: result.anchorUsed.startsWith('PE') ? 'PE' : result.anchorUsed.startsWith('PB') ? 'PB' : 'EV_EBITDA',
-            eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
-            net_debt: band.net_debt, shares: band.shares, embedded_value: band.embedded_value,
+        const cmp       = band.manual_cmp ?? null
+        const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
+        const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp)
+        const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
+
+        // ② Optimistic band + tranche update — instant UI
+        setBands(prev => prev.map(b => b.symbol === symbol ? {
+          ...b,
+          buy_low: result.buyLow, buy_high: result.buyHigh,
+          mid_low: result.midLow, mid_high: result.midHigh,
+          trim_price: result.trimPrice,
+        } : b))
+        setTranches(prev => [
+          ...prev.filter(t => t.symbol !== symbol),
+          ...prices.map((price, i) => ({
+            id: `opt-${symbol}-${i}`, symbol, price,
+            qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
+            allocated:  false, sort_order: i + 1, fy_id: fyId,
+          } as BuyTranche)),
+        ])
+
+        // ③ Write to DB in background — 3 ops (was 5): alloc + band-in-place + tranches
+        // RLS filters to current user, no auth.getUser() needed for updates
+        await Promise.all([
+          sb.from('stock_allocations').update(patch).eq('id', alloc.id),
+          sb.from('buy_bands').update({
             buy_low: result.buyLow, buy_high: result.buyHigh,
             mid_low: result.midLow, mid_high: result.midHigh,
             trim_price: result.trimPrice,
-            manual_cmp: band.manual_cmp,
-            is_current: true, generated_at: now, last_updated_at: now,
-          }).select().single()
-          if (data) {
-            setBands(prev => prev.map(b => b.symbol === symbol ? data : b))
+            last_updated_at: new Date().toISOString(),
+          }).eq('symbol', symbol).eq('is_current', true),
+        ])
 
-            // Regenerate tranches client-side — no AI, all data already here
-            const cmp       = band.manual_cmp ?? null
-            const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
-            const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp)
-            const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
-
-            await sb.from('buy_tranches')
-              .delete().eq('user_id', user.id).eq('symbol', symbol).eq('fy_id', fyId)
-
-            const { data: newTranches } = await sb.from('buy_tranches').insert(
-              prices.map((price, i) => ({
-                user_id: user.id, symbol, price,
-                qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-                allocated:  false,
-                sort_order: i + 1,
-                fy_id:      fyId,
-              }))
-            ).select()
-            if (newTranches) {
-              setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...newTranches])
-            }
-          }
+        if (userId) {
+          await sb.from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
+          const { data: newTranches } = await sb.from('buy_tranches').insert(
+            prices.map((price, i) => ({
+              user_id: userId, symbol, price,
+              qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
+              allocated:  false, sort_order: i + 1, fy_id: fyId,
+            }))
+          ).select()
+          // Replace temp IDs with real DB IDs
+          if (newTranches) setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...newTranches])
         }
+        return
       }
     }
+
+    // No band data — just write alloc
+    sb.from('stock_allocations').update(patch).eq('id', alloc.id)
   }
 
   async function toggleTranche(id: string, allocated: boolean) {
@@ -244,6 +255,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           onClose={() => setShowKeyPrompt(false)}
           onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
         />
+      )}
+      {showQuartersInfo && (
+        <QuartersInfoSheet onClose={() => setShowQuartersInfo(false)} />
       )}
 
       {/* Header actions */}
@@ -351,7 +365,17 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               {/* Expanded content */}
               {isExp && (
                 <div className="border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                  {hasBands ? (
+                  {generating[row.symbol] ? (
+                    <div className="px-4 pt-4 pb-2">
+                      <div className="h-7 rounded-lg animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
+                      <div className="flex justify-between mt-2 gap-2">
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i} className="h-8 flex-1 rounded-lg animate-pulse"
+                               style={{ background: 'var(--bg-tertiary)' }} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : hasBands ? (
                     <div className="px-4 pt-4 pb-2">
                       <BandBar
                         buyLow={buyLow!} buyHigh={buyHigh!}
@@ -369,30 +393,46 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   )}
 
                   {/* Controls row */}
-                  <div className="px-4 pb-3 flex items-center justify-between flex-wrap gap-2 mt-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {alloc && (
-                        <>
-                          <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
-                                 style={{ color: 'var(--text-2)' }}>
-                            <input type="checkbox"
-                              checked={alloc.two_weak_quarters}
-                              onChange={e => toggleQuarters(row.symbol, 'two_weak_quarters', e.target.checked)}
-                              className="w-4 h-4 rounded accent-orange-400"
-                            />
-                            2 Weak Qtrs
-                          </label>
-                          <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
-                                 style={{ color: 'var(--text-2)' }}>
-                            <input type="checkbox"
-                              checked={alloc.two_strong_quarters}
-                              onChange={e => toggleQuarters(row.symbol, 'two_strong_quarters', e.target.checked)}
-                              className="w-4 h-4 rounded accent-blue-400"
-                            />
-                            2 Strong Qtrs
-                          </label>
-                        </>
-                      )}
+                  <div className="px-4 pb-3 flex items-center justify-between gap-2 mt-1">
+                    <div className="flex items-center gap-2">
+                      {alloc && (() => {
+                        const mode = alloc.two_weak_quarters ? 'bear' : alloc.two_strong_quarters ? 'bull' : 'normal'
+                        return (
+                          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+                            {(['bear', 'normal', 'bull'] as const).map(m => (
+                              <button key={m} type="button"
+                                onClick={async () => {
+                                  if (m === mode) return
+                                  if (m === 'bear') {
+                                    toggleQuarters(row.symbol, 'two_weak_quarters', true)
+                                  } else if (m === 'bull') {
+                                    toggleQuarters(row.symbol, 'two_strong_quarters', true)
+                                    // For Hospitals, Bull also implies ramp phase
+                                    if (alloc.category === 'Hospitals' && !alloc.is_hospital_ramp_phase) {
+                                      const sb = getSupabaseBrowser()
+                                      await sb.from('stock_allocations').update({ is_hospital_ramp_phase: true }).eq('id', alloc.id)
+                                      setAllocState(prev => prev.map(a => a.id === alloc.id ? { ...a, is_hospital_ramp_phase: true } : a))
+                                    }
+                                  } else {
+                                    if (alloc.two_weak_quarters)   toggleQuarters(row.symbol, 'two_weak_quarters', false)
+                                    else if (alloc.two_strong_quarters) toggleQuarters(row.symbol, 'two_strong_quarters', false)
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 text-[12px] font-medium capitalize transition-colors"
+                                style={mode === m
+                                  ? { background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontWeight: 600 }
+                                  : { background: 'transparent', color: 'var(--text-faint)' }}>
+                                {m === 'bear' ? 'Bear' : m === 'normal' ? 'Normal' : 'Bull'}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                      <button onClick={() => setShowQuartersInfo(true)}
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
+                        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', border: '1px solid var(--border)' }}>
+                        i
+                      </button>
                       {alloc?.category === 'Hospitals' && (
                         <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
                                style={{ color: 'var(--text-2)' }}>
@@ -670,6 +710,54 @@ function TrancheRow({ tranche, onToggle, onDelete }: {
                 style={{ color: 'var(--text-faint)' }}>×</button>
       </div>
     </div>
+  )
+}
+
+// ── Quarters Info Sheet ───────────────────────────────────────────────────────
+
+function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px]"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-[17px]">Recent Quarters</p>
+          <button onClick={onClose} className="text-[#0A84FF] text-[17px] w-14 text-right">Done</button>
+        </div>
+
+        <div className="px-5 pt-4 space-y-4">
+          <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            Adjusts band prices based on the last 2 quarters of reported results.
+          </p>
+
+          {[
+            {
+              mode: 'Bear',
+              desc: 'Recent results have been soft. All band prices tighten by 10% — you demand a larger margin of safety before buying.',
+            },
+            {
+              mode: 'Normal',
+              desc: 'Base case. Standard multiples apply. Use this when recent quarters are in line with expectations.',
+            },
+            {
+              mode: 'Bull',
+              desc: 'Recent results have been strong. Premium multiples apply for eligible categories (Capital-light), reflecting improved earnings quality.',
+            },
+          ].map(({ mode, desc }) => (
+            <div key={mode} className="rounded-2xl p-3.5"
+                 style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+              <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }
 
