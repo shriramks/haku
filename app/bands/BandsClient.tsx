@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
 import { getBandSignal } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory } from '@/lib/types'
@@ -163,7 +163,31 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             manual_cmp: band.manual_cmp,
             is_current: true, generated_at: now, last_updated_at: now,
           }).select().single()
-          if (data) setBands(prev => prev.map(b => b.symbol === symbol ? data : b))
+          if (data) {
+            setBands(prev => prev.map(b => b.symbol === symbol ? data : b))
+
+            // Regenerate tranches client-side — no AI, all data already here
+            const cmp       = band.manual_cmp ?? null
+            const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
+            const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp)
+            const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
+
+            await sb.from('buy_tranches')
+              .delete().eq('user_id', user.id).eq('symbol', symbol).eq('fy_id', fyId)
+
+            const { data: newTranches } = await sb.from('buy_tranches').insert(
+              prices.map((price, i) => ({
+                user_id: user.id, symbol, price,
+                qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
+                allocated:  false,
+                sort_order: i + 1,
+                fy_id:      fyId,
+              }))
+            ).select()
+            if (newTranches) {
+              setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...newTranches])
+            }
+          }
         }
       }
     }
