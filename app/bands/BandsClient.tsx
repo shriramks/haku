@@ -424,7 +424,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       {alloc && (() => {
                         const mode = alloc.two_weak_quarters ? 'bear' : alloc.two_strong_quarters ? 'bull' : 'normal'
                         return (
-                          <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+                          <div className="flex flex-1 rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
                             {(['bear', 'normal', 'bull'] as const).map(m => (
                               <button key={m} type="button"
                                 onClick={async () => {
@@ -444,7 +444,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                                     else if (alloc.two_strong_quarters) toggleQuarters(row.symbol, 'two_strong_quarters', false)
                                   }
                                 }}
-                                className="px-2.5 py-1.5 text-[12px] font-medium capitalize transition-colors"
+                                className="flex-1 px-2.5 py-1.5 text-[12px] font-medium capitalize transition-colors text-center"
                                 style={mode === m
                                   ? { background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontWeight: 600 }
                                   : { background: 'transparent', color: 'var(--text-faint)' }}>
