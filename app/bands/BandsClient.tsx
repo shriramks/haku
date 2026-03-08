@@ -358,18 +358,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       )
                       return null
                     })()}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {cmp ? (
+                    {cmp && (
                       <span className="text-[13px] tabnum" style={{ color: 'var(--text-2)' }}>
-                        CMP ₹{Math.round(cmp).toLocaleString('en-IN')}
-                      </span>
-                    ) : (
-                      <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>No CMP</span>
-                    )}
-                    {hasBands && (
-                      <span className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
-                        · Buy ₹{Math.round(buyLow!)}–{Math.round(buyHigh!)}
+                        ₹{Math.round(cmp).toLocaleString('en-IN')}
                       </span>
                     )}
                   </div>
@@ -411,8 +402,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-[12px] text-red-400">{genError[row.symbol]}</p>
                   )}
 
-                  {/* Controls row */}
-                  <div className="px-4 pb-3 flex items-center justify-between gap-2 mt-1">
+                  {/* Controls: two rows */}
+                  <div className="px-4 pb-3 mt-1 space-y-2">
+                    {/* Row 1: Bear/Normal/Bull + info + Ramp Phase */}
                     <div className="flex items-center gap-2">
                       {alloc && (() => {
                         const mode = alloc.two_weak_quarters ? 'bear' : alloc.two_strong_quarters ? 'bull' : 'normal'
@@ -470,8 +462,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       )}
                     </div>
 
-                    {/* Per-stock buttons */}
-                    <div className="flex gap-2">
+                    {/* Row 2: Action buttons */}
+                    <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => generateBands(row.symbol)}
                         disabled={generating[row.symbol]}

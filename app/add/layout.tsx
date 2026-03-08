@@ -8,6 +8,9 @@ export const metadata: Metadata = {
     title: 'Add Trade',
     statusBarStyle: 'black-translucent',
   },
+  icons: {
+    apple: '/icon-add.svg',
+  },
 }
 
 export default function AddLayout({ children }: { children: React.ReactNode }) {
