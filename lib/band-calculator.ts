@@ -293,12 +293,10 @@ export function computeTrancheprices(
     floor = buyLow
     ceiling = buyHigh
   } else if (cmp >= buyLow) {
-    ceiling = cmp * 0.92
+    // CMP inside buy zone: spread tranches from buyLow up to CMP
     floor = buyLow
-    if (ceiling <= floor + bandWidth * 0.05) {
-      ceiling = floor + (cmp - floor) * 0.9
-      if (ceiling <= floor) ceiling = floor * 1.03
-    }
+    ceiling = cmp
+    if (ceiling <= floor) ceiling = floor * 1.03
   } else {
     // CMP below buyLow (deep value): cluster around CMP, not buyLow
     floor = cmp * 0.90
