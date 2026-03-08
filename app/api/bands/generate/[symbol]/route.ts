@@ -215,7 +215,7 @@ export async function POST(
     if (!niftyPE || !etfPrice) {
       return NextResponse.json({
         error: 'Gemini could not extract Nifty PE or ETF price',
-        raw: geminiText.slice(0, 600),
+        raw: aiText.slice(0, 600),
       }, { status: 422 })
     }
 
@@ -264,7 +264,7 @@ export async function POST(
   if (!result) {
     return NextResponse.json({
       error: `Not enough data to compute bands for ${upperSymbol}. Got: EPS=${eps}, OpProfit=${opProfitCr}Cr, Shares=${sharesCr}Cr`,
-      raw: geminiText.slice(0, 600),
+      raw: aiText.slice(0, 600),
     }, { status: 422 })
   }
 
