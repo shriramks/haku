@@ -3,10 +3,9 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
-// ── Gemini helpers ────────────────────────────────────────────────────────────
+// ── AI provider helpers ───────────────────────────────────────────────────────
 
 async function callGemini(prompt: string, key: string): Promise<string> {
-
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
     {
@@ -21,6 +20,28 @@ async function callGemini(prompt: string, key: string): Promise<string> {
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
   const data = await res.json()
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+}
+
+async function callClaude(prompt: string, key: string): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-beta': 'web-search-2025-03-05',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+  if (!res.ok) throw new Error(`Claude ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  const textBlock = data.content?.find((b: { type: string }) => b.type === 'text')
+  return textBlock?.text ?? ''
 }
 
 function extractJSON(text: string): Record<string, unknown> {
@@ -118,16 +139,22 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Use user's personal key if set, else fall back to server env key
+  // Determine AI provider and active key
   const { data: userSettings } = await supabase
     .from('user_settings')
-    .select('gemini_api_key')
+    .select('gemini_api_key, claude_api_key, ai_provider')
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const geminiKey = userSettings?.gemini_api_key || process.env.GEMINI_API_KEY
-  if (!geminiKey) return NextResponse.json({
-    error: 'No Gemini API key configured. Add your key in Settings (profile icon).',
+  const aiProvider = userSettings?.ai_provider ?? 'gemini'
+  const activeKey = aiProvider === 'claude'
+    ? userSettings?.claude_api_key
+    : (userSettings?.gemini_api_key || process.env.GEMINI_API_KEY)
+
+  if (!activeKey) return NextResponse.json({
+    error: aiProvider === 'claude'
+      ? 'No Claude API key configured. Add your key in Settings (profile icon).'
+      : 'No Gemini API key configured. Add your key in Settings (profile icon).',
   }, { status: 500 })
 
   // Fetch allocation for category + qualifier flags
@@ -148,24 +175,27 @@ export async function POST(
   const category = alloc.category as StockCategory
   const isIndex  = category === 'Index/ETF'
 
-  // Call Gemini with search grounding
-  let geminiText: string
+  // Call AI provider with search grounding
+  let aiText: string
+  const prompt = isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol)
   try {
-    geminiText = await callGemini(isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol), geminiKey)
+    aiText = aiProvider === 'claude'
+      ? await callClaude(prompt, activeKey)
+      : await callGemini(prompt, activeKey)
   } catch (e: unknown) {
     return NextResponse.json({
-      error: `Gemini fetch failed: ${e instanceof Error ? e.message : String(e)}`,
+      error: `${aiProvider === 'claude' ? 'Claude' : 'Gemini'} fetch failed: ${e instanceof Error ? e.message : String(e)}`,
     }, { status: 502 })
   }
 
-  // Parse JSON from Gemini text response
+  // Parse JSON from AI text response
   let parsed: Record<string, unknown>
   try {
-    parsed = extractJSON(geminiText)
+    parsed = extractJSON(aiText)
   } catch {
     return NextResponse.json({
-      error: 'Could not parse JSON from Gemini response',
-      raw: geminiText.slice(0, 600),
+      error: `Could not parse JSON from ${aiProvider === 'claude' ? 'Claude' : 'Gemini'} response`,
+      raw: aiText.slice(0, 600),
     }, { status: 502 })
   }
 

@@ -7,8 +7,9 @@ export default function UserMenu() {
   const [email, setEmail]           = useState<string | null>(null)
   const [open, setOpen]             = useState(false)
   const [signingOut, setSigningOut] = useState(false)
-  const [hasGeminiKey, setHasGeminiKey] = useState<boolean | null>(null)
-  const [geminiInput, setGeminiInput]   = useState('')
+  const [hasKey, setHasKey]             = useState<boolean | null>(null)
+  const [aiProvider, setAiProvider]     = useState<'gemini' | 'claude'>('gemini')
+  const [keyInput, setKeyInput]         = useState('')
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [savingKey, setSavingKey]       = useState(false)
   const [keyError, setKeyError]         = useState('')
@@ -24,7 +25,8 @@ export default function UserMenu() {
   useEffect(() => {
     if (!open) return
     fetch('/api/settings/gemini-key').then(r => r.json()).then(d => {
-      setHasGeminiKey(d.hasKey ?? false)
+      setHasKey(d.hasKey ?? false)
+      setAiProvider(d.provider ?? 'gemini')
     }).catch(() => {})
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -42,21 +44,21 @@ export default function UserMenu() {
     router.push('/login')
   }
 
-  async function saveGeminiKey() {
+  async function saveKey() {
     setSavingKey(true)
     setKeyError('')
     try {
       const res = await fetch('/api/settings/gemini-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: geminiInput.trim() }),
+        body: JSON.stringify({ key: keyInput.trim(), provider: aiProvider }),
       })
       const json = await res.json()
       if (!res.ok) {
         setKeyError(json.error ?? 'Failed to save')
       } else {
-        setHasGeminiKey(json.hasKey)
-        setGeminiInput('')
+        setHasKey(json.hasKey)
+        setKeyInput('')
         setShowKeyInput(false)
       }
     } catch {
@@ -65,14 +67,14 @@ export default function UserMenu() {
     setSavingKey(false)
   }
 
-  async function clearGeminiKey() {
+  async function clearKey() {
     setSavingKey(true)
     await fetch('/api/settings/gemini-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: '' }),
+      body: JSON.stringify({ key: '', provider: aiProvider }),
     })
-    setHasGeminiKey(false)
+    setHasKey(false)
     setShowKeyInput(false)
     setSavingKey(false)
   }
@@ -102,11 +104,29 @@ export default function UserMenu() {
             <p className="text-[11px] uppercase tracking-widest mb-2"
                style={{ color: 'var(--text-muted)' }}>AI Settings</p>
 
+            {/* Provider toggle */}
+            <div className="flex rounded-xl overflow-hidden border mb-2" style={{ borderColor: 'var(--border)' }}>
+              {(['gemini', 'claude'] as const).map(p => (
+                <button key={p} onClick={() => { setAiProvider(p); setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
+                  className="flex-1 py-2 text-[12px] font-medium transition-colors"
+                  style={aiProvider === p
+                    ? { background: '#0A84FF', color: '#fff' }
+                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                  {p === 'gemini' ? 'Gemini' : 'Claude'}
+                </button>
+              ))}
+            </div>
+            {aiProvider === 'gemini' && (
+              <p className="text-[10px] mb-2 text-center" style={{ color: '#34C759' }}>★ Recommended for band generation</p>
+            )}
+
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>Gemini API Key</p>
-              <span className={`text-[11px] px-1.5 py-0.5 rounded-md ${hasGeminiKey ? 'text-green-500' : ''}`}
-                    style={hasGeminiKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
-                {hasGeminiKey === null ? '…' : hasGeminiKey ? 'Set' : 'Not set'}
+              <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
+                {aiProvider === 'gemini' ? 'Gemini' : 'Claude'} API Key
+              </p>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-md ${hasKey ? 'text-green-500' : ''}`}
+                    style={hasKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
+                {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
               </span>
             </div>
 
@@ -115,34 +135,34 @@ export default function UserMenu() {
                 onClick={() => setShowKeyInput(true)}
                 className="w-full py-2 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-tertiary)', color: '#0A84FF', border: '1px solid var(--border)' }}>
-                {hasGeminiKey ? 'Update Key' : 'Add Key'}
+                {hasKey ? 'Update Key' : 'Add Key'}
               </button>
             ) : (
               <div className="space-y-2">
                 <input
                   type="password"
-                  placeholder="AIzaSy…"
-                  value={geminiInput}
-                  onChange={e => setGeminiInput(e.target.value)}
+                  placeholder={aiProvider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'}
+                  value={keyInput}
+                  onChange={e => setKeyInput(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl text-[13px] outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                   autoFocus
                 />
                 {keyError && <p className="text-[11px] text-red-400">{keyError}</p>}
                 <div className="flex gap-2">
-                  <button onClick={() => { setShowKeyInput(false); setGeminiInput(''); setKeyError('') }}
+                  <button onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
                     className="flex-1 py-1.5 rounded-xl text-[13px]"
                     style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>
                     Cancel
                   </button>
-                  {hasGeminiKey && (
-                    <button onClick={clearGeminiKey} disabled={savingKey}
+                  {hasKey && (
+                    <button onClick={clearKey} disabled={savingKey}
                       className="flex-1 py-1.5 rounded-xl text-[13px] text-red-400 disabled:opacity-40"
                       style={{ background: 'rgba(255,59,48,0.10)' }}>
                       Clear
                     </button>
                   )}
-                  <button onClick={saveGeminiKey} disabled={savingKey || !geminiInput.trim()}
+                  <button onClick={saveKey} disabled={savingKey || !keyInput.trim()}
                     className="flex-1 py-1.5 rounded-xl text-[13px] font-semibold text-[#0A84FF] disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.15)' }}>
                     {savingKey ? '…' : 'Save'}

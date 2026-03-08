@@ -26,12 +26,16 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [generatingAll, setGeneratingAll] = useState(false)
   const [genError, setGenError]           = useState<Record<string, string>>({})
   const [hasKey, setHasKey]               = useState<boolean | null>(null)
+  const [aiProvider, setAiProvider]       = useState<'gemini' | 'claude'>('gemini')
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
 
   useEffect(() => {
     fetch('/api/settings/gemini-key')
       .then(r => r.json())
-      .then(d => setHasKey(d.hasKey ?? false))
+      .then(d => {
+        setHasKey(d.hasKey ?? false)
+        setAiProvider(d.provider ?? 'gemini')
+      })
       .catch(() => setHasKey(false))
   }, [])
 
@@ -190,8 +194,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     <div>
       {showKeyPrompt && (
         <KeyPromptSheet
+          initialProvider={aiProvider}
           onClose={() => setShowKeyPrompt(false)}
-          onSaved={() => setHasKey(true)}
+          onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
         />
       )}
 
@@ -436,8 +441,13 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
     <div>
       {/* Bar */}
       <div className="relative h-7 rounded-lg overflow-hidden flex" style={{ background: 'var(--bg-tertiary)' }}>
-        {/* Buy zone */}
-        <div className="h-full" style={{ width: `${pct(buyLow)}%` }} />
+        {/* Deep value zone (below buyLow) */}
+        <div className="h-full flex items-center justify-center"
+             style={{ width: `${pct(buyLow)}%`, background: 'rgba(4,120,87,0.28)' }}>
+          {pct(buyLow) > 8 && (
+            <span className="text-[10px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>
+          )}
+        </div>
         <div className="h-full flex items-center justify-center"
              style={{ width: `${buyWidth}%`, background: 'rgba(34,197,94,0.35)' }}>
           <span className="text-[10px] font-semibold text-green-500 truncate px-1">BUY</span>
@@ -462,6 +472,10 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
 
       {/* Values row */}
       <div className="flex justify-between mt-2 text-[11px] tabnum">
+        <div className="text-center">
+          <p className="font-semibold" style={{ color: '#34d399' }}>&lt;₹{Math.round(buyLow)}</p>
+          <p style={{ color: 'var(--text-faint)' }}>Deep</p>
+        </div>
         <div className="text-center">
           <p className="font-semibold text-green-500">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Buy</p>
@@ -615,12 +629,17 @@ function TrancheRow({ tranche, onToggle, onDelete }: {
   )
 }
 
-// ── Gemini Key Prompt Sheet ───────────────────────────────────────────────────
+// ── AI Key Prompt Sheet ───────────────────────────────────────────────────────
 
-function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [key, setKey]       = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
+function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
+  initialProvider: 'gemini' | 'claude'
+  onClose: () => void
+  onSaved: (provider: 'gemini' | 'claude') => void
+}) {
+  const [provider, setProvider] = useState<'gemini' | 'claude'>(initialProvider)
+  const [key, setKey]           = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
 
   async function save() {
     setSaving(true)
@@ -629,17 +648,20 @@ function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: ()
       const res = await fetch('/api/settings/gemini-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key.trim() }),
+        body: JSON.stringify({ key: key.trim(), provider }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Failed to save'); setSaving(false); return }
-      onSaved()
+      onSaved(provider)
       onClose()
     } catch {
       setError('Network error')
     }
     setSaving(false)
   }
+
+  const placeholder = provider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'
+  const keyLink     = provider === 'claude' ? 'console.anthropic.com' : 'aistudio.google.com'
 
   return (
     <>
@@ -651,7 +673,7 @@ function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Cancel</button>
-          <p className="font-semibold text-[17px]">Gemini API Key</p>
+          <p className="font-semibold text-[17px]">AI API Key</p>
           <button onClick={save} disabled={saving || !key.trim()}
             className="text-[#0A84FF] text-[17px] font-semibold disabled:opacity-40">
             {saving ? 'Saving…' : 'Save'}
@@ -659,13 +681,28 @@ function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         </div>
 
         <div className="px-5 pt-4 space-y-4">
-          <p className="text-[15px]" style={{ color: 'var(--text-2)' }}>
-            AI band generation uses Gemini to fetch financials from Screener.in and compute buy/trim zones. A free API key is required.
-          </p>
+          {/* Provider selector */}
+          <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+            {(['gemini', 'claude'] as const).map(p => (
+              <button key={p} type="button" onClick={() => { setProvider(p); setKey(''); setError('') }}
+                className="flex-1 py-3 text-[14px] font-medium transition-colors"
+                style={provider === p
+                  ? { background: '#0A84FF', color: '#fff' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                {p === 'gemini' ? 'Google Gemini' : 'Claude'}
+              </button>
+            ))}
+          </div>
+
+          {provider === 'gemini' && (
+            <p className="text-[12px] text-center" style={{ color: '#34C759' }}>
+              ★ Recommended — best accuracy for live financial data
+            </p>
+          )}
 
           <input
             type="password"
-            placeholder="AIzaSy…"
+            placeholder={placeholder}
             value={key}
             onChange={e => setKey(e.target.value)}
             className="w-full px-4 py-3.5 rounded-2xl text-[17px] outline-none"
@@ -679,15 +716,15 @@ function KeyPromptSheet({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
             <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
               <span className="font-semibold" style={{ color: '#0A84FF' }}>Stored securely.</span>{' '}
-              Your key is saved to your private account in the database. It is only accessible via your login,
-              never visible to other users, and is only ever used server-side when calling Gemini —
-              it never appears in your browser after saving.
+              Your API key lives in your database (Supabase) and is locked to your login via row-level security.
+              Band generation runs entirely on the server — your browser never sees the key again after you save it.
+              Only your session can retrieve it, and only to call the AI provider.
             </p>
           </div>
 
           <p className="text-[13px] text-center" style={{ color: 'var(--text-muted)' }}>
-            Get a free key at{' '}
-            <span style={{ color: '#0A84FF' }}>aistudio.google.com</span>
+            Get a key at{' '}
+            <span style={{ color: '#0A84FF' }}>{keyLink}</span>
           </p>
         </div>
       </div>
