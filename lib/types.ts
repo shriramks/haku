@@ -122,12 +122,15 @@ export type GateSignal = 'pass' | 'caution' | 'fail'
 export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export type StockCategory =
-  | 'Capital-light Market Infra/Services'
+  | 'Cap-Light Infra'
   | 'Retail'
+  | 'Retail — compounder'
   | 'Defence'
   | 'Insurance'
-  | 'Electricals/Capital Goods'
+  | 'Insurance — General'
+  | 'Capital Goods'
   | 'Asset-heavy Infra/Platforms'
+  | 'Banks — Private'
   | 'Hospitals'
   | 'FMCG'
   | 'Auto OEM'
@@ -136,12 +139,15 @@ export type StockCategory =
   | 'Index/ETF'
 
 export const ALL_CATEGORIES: StockCategory[] = [
-  'Capital-light Market Infra/Services',
+  'Cap-Light Infra',
   'Retail',
+  'Retail — compounder',
   'Defence',
   'Insurance',
-  'Electricals/Capital Goods',
+  'Insurance — General',
+  'Capital Goods',
   'Asset-heavy Infra/Platforms',
+  'Banks — Private',
   'Hospitals',
   'FMCG',
   'Auto OEM',
@@ -152,14 +158,14 @@ export const ALL_CATEGORIES: StockCategory[] = [
 
 /** Suggested category for well-known symbols — used as autocomplete hint only */
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
-  CAMS:        'Capital-light Market Infra/Services',
-  IEX:         'Capital-light Market Infra/Services',
-  DMART:       'Retail',
+  CAMS:        'Cap-Light Infra',
+  IEX:         'Cap-Light Infra',
+  DMART:       'Retail — compounder',
   BEL:         'Defence',
   HAL:         'Defence',
   SBILIFE:     'Insurance',
-  POLYCAB:     'Electricals/Capital Goods',
-  LT:          'Asset-heavy Infra/Platforms',
+  POLYCAB:     'Capital Goods',
+  LT:          'Capital Goods',
   NARAYANAHRU: 'Hospitals',
   ITC:         'FMCG',
   TATAMOTORS:  'Auto OEM',

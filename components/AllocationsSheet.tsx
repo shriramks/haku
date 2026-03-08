@@ -189,7 +189,7 @@ function AddAllocForm({ onAdd }: {
 }) {
   const [symbol, setSymbol]     = useState('')
   const [pct, setPct]           = useState('')
-  const [category, setCategory] = useState<StockCategory>('Capital-light Market Infra/Services')
+  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
   const [saving, setSaving]     = useState(false)
 
   async function submit() {

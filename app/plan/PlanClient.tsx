@@ -2,26 +2,32 @@
 import { useState, useMemo, useEffect } from 'react'
 
 const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive'> = {
-  'FMCG':                            'Defensive',
-  'Pharma':                          'Defensive',
-  'IT/Technology':                   'Defensive',
-  'Insurance':                       'Defensive',
-  'Auto OEM':                        'Cyclical',
-  'Electricals/Capital Goods':       'Cyclical',
-  'Asset-heavy Infra/Platforms':     'Cyclical',
-  'Defence':                         'Cyclical',
-  'Capital-light Market Infra/Services': 'Growth',
-  'Retail':                          'Growth',
-  'Hospitals':                       'Growth',
-  'Index/ETF':                       'Passive',
+  'FMCG':                        'Defensive',
+  'Pharma':                      'Defensive',
+  'IT/Technology':               'Defensive',
+  'Insurance':                   'Defensive',
+  'Insurance — General':         'Defensive',
+  'Auto OEM':                    'Cyclical',
+  'Capital Goods':               'Cyclical',
+  'Asset-heavy Infra/Platforms': 'Cyclical',
+  'Banks — Private':             'Cyclical',
+  'Defence':                     'Cyclical',
+  'Cap-Light Infra':             'Growth',
+  'Retail':                      'Growth',
+  'Retail — compounder':         'Growth',
+  'Hospitals':                   'Growth',
+  'Index/ETF':                   'Passive',
 }
 
 const SHORT_CAT: Record<string, string> = {
-  'Capital-light Market Infra/Services': 'Cap-light',
-  'Asset-heavy Infra/Platforms':         'Infra',
-  'Electricals/Capital Goods':           'Electricals',
-  'IT/Technology':                       'IT',
-  'Index/ETF':                           'ETF',
+  'Cap-Light Infra':             'Cap-light',
+  'Asset-heavy Infra/Platforms': 'Infra',
+  'Capital Goods':               'Cap.Goods',
+  'Retail — compounder':         'Retail*',
+  'Insurance — General':         'Ins.Gen',
+  'Banks — Private':             'Banks',
+  'IT/Technology':               'IT',
+  'Index/ETF':                   'ETF',
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -527,7 +533,7 @@ function AddStockForm({ totalPct, onAdd }: {
 }) {
   const [symbol, setSymbol]     = useState('')
   const [pct, setPct]           = useState('')
-  const [category, setCategory] = useState<StockCategory>('Capital-light Market Infra/Services')
+  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
   const [saving, setSaving]     = useState(false)
 
   const remaining = 100 - totalPct - (parseFloat(pct) || 0)

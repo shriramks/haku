@@ -11,8 +11,9 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'defence',            category: 'Defence' },
 
   // Insurance
-  { industry: 'insurance',          category: 'Insurance' },
   { industry: 'life insurance',     category: 'Insurance' },
+  { industry: 'general insurance',  category: 'Insurance — General' },
+  { industry: 'insurance',          category: 'Insurance' },
 
   // Hospitals
   { industry: 'medical care',       category: 'Hospitals' },
@@ -45,17 +46,17 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'personal products',  category: 'FMCG' },
   { sector: 'consumer defensive',   category: 'FMCG' },     // fallback
 
-  // Electricals / Capital Goods
-  { industry: 'electrical equipment', category: 'Electricals/Capital Goods' },
-  { industry: 'electric',           category: 'Electricals/Capital Goods' },
-  { industry: 'industrial electric', category: 'Electricals/Capital Goods' },
-  { industry: 'cable',              category: 'Electricals/Capital Goods' },
-  { industry: 'wire',               category: 'Electricals/Capital Goods' },
-  { industry: 'capital goods',      category: 'Electricals/Capital Goods' },
-  { industry: 'machinery',          category: 'Electricals/Capital Goods' },
+  // Capital Goods (formerly Electricals/Capital Goods)
+  { industry: 'electrical equipment', category: 'Capital Goods' },
+  { industry: 'electric',           category: 'Capital Goods' },
+  { industry: 'industrial electric', category: 'Capital Goods' },
+  { industry: 'cable',              category: 'Capital Goods' },
+  { industry: 'wire',               category: 'Capital Goods' },
+  { industry: 'capital goods',      category: 'Capital Goods' },
+  { industry: 'machinery',          category: 'Capital Goods' },
+  { industry: 'engineering & construction', category: 'Capital Goods' },
 
   // Asset-heavy Infra / Platforms
-  { industry: 'engineering & construction', category: 'Asset-heavy Infra/Platforms' },
   { industry: 'construction',       category: 'Asset-heavy Infra/Platforms' },
   { industry: 'infrastructure',     category: 'Asset-heavy Infra/Platforms' },
   { industry: 'utilities',          category: 'Asset-heavy Infra/Platforms' },
@@ -63,17 +64,21 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'power',              category: 'Asset-heavy Infra/Platforms' },
   { sector: 'utilities',            category: 'Asset-heavy Infra/Platforms' },
 
-  // Capital-light Market Infra / Services
-  { industry: 'asset management',   category: 'Capital-light Market Infra/Services' },
-  { industry: 'financial data',     category: 'Capital-light Market Infra/Services' },
-  { industry: 'capital markets',    category: 'Capital-light Market Infra/Services' },
-  { industry: 'depository',         category: 'Capital-light Market Infra/Services' },
-  { industry: 'registrar',          category: 'Capital-light Market Infra/Services' },
-  { industry: 'it services',        category: 'Capital-light Market Infra/Services' },
-  { industry: 'information technology', category: 'Capital-light Market Infra/Services' },
-  { industry: 'software',           category: 'Capital-light Market Infra/Services' },
-  { sector: 'technology',           category: 'Capital-light Market Infra/Services' },
-  { sector: 'financial services',   category: 'Capital-light Market Infra/Services' },
+  // Banks
+  { industry: 'banks',              category: 'Banks — Private' },
+  { industry: 'banking',            category: 'Banks — Private' },
+
+  // Cap-Light Infra (formerly Capital-light Market Infra/Services)
+  { industry: 'asset management',   category: 'Cap-Light Infra' },
+  { industry: 'financial data',     category: 'Cap-Light Infra' },
+  { industry: 'capital markets',    category: 'Cap-Light Infra' },
+  { industry: 'depository',         category: 'Cap-Light Infra' },
+  { industry: 'registrar',          category: 'Cap-Light Infra' },
+  { industry: 'it services',        category: 'Cap-Light Infra' },
+  { industry: 'information technology', category: 'Cap-Light Infra' },
+  { industry: 'software',           category: 'Cap-Light Infra' },
+  { sector: 'technology',           category: 'Cap-Light Infra' },
+  { sector: 'financial services',   category: 'Cap-Light Infra' },
 ]
 
 export function categoryFromSector(sector: string, industry: string): StockCategory | null {
