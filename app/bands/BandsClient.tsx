@@ -462,12 +462,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       )}
                     </div>
 
-                    {/* Row 2: Action buttons */}
-                    <div className="flex gap-2 justify-end">
+                    {/* Row 2: Action buttons — stretch full width */}
+                    <div className="flex gap-2">
                       <button
                         onClick={() => generateBands(row.symbol)}
                         disabled={generating[row.symbol]}
-                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                        className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                         style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
                         <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
                         {generating[row.symbol] ? '…' : 'Bands'}
@@ -475,7 +475,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       <button
                         onClick={() => refreshCMP(row.symbol)}
                         disabled={isRefresh}
-                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                        className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                         style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
                         <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
                         {isRefresh ? '…' : 'CMP'}
@@ -484,7 +484,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         <button
                           onClick={() => generateTranches(row.symbol)}
                           disabled={generatingTranches[row.symbol]}
-                          className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                          className="flex flex-1 items-center justify-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                           style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
                           <SparkleIcon className={`w-3.5 h-3.5 ${generatingTranches[row.symbol] ? 'spin' : ''}`} />
                           {generatingTranches[row.symbol] ? '…' : 'Tranches'}
