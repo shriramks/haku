@@ -122,7 +122,26 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
   async function refreshAllCMPs() {
     setRefreshingAll(true)
-    await Promise.all(rows.map(r => refreshCMP(r.symbol)))
+    try {
+      const symbols = rows.map(r => r.symbol).join(',')
+      const res = await fetch(`/api/cmp/batch?symbols=${symbols}`)
+      if (res.ok) {
+        const { prices } = await res.json() as { prices: Record<string, number> }
+        const sb = getSupabaseBrowser()
+        const now = new Date().toISOString()
+        // Update state optimistically then persist in parallel
+        setBands(prev => prev.map(b =>
+          prices[b.symbol] != null ? { ...b, manual_cmp: prices[b.symbol] } : b
+        ))
+        await Promise.all(
+          Object.entries(prices).map(([symbol, price]) =>
+            sb.from('buy_bands')
+              .update({ manual_cmp: price, last_updated_at: now })
+              .eq('symbol', symbol).eq('is_current', true)
+          )
+        )
+      }
+    } catch { /* silently fail */ }
     setRefreshingAll(false)
   }
 

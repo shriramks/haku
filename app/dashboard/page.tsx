@@ -1,7 +1,18 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands } from '@/lib/data'
-import DashboardClient from './DashboardClient'
+import dynamic from 'next/dynamic'
+const DashboardClient = dynamic(() => import('./DashboardClient'), {
+  loading: () => (
+    <div className="px-4 pt-4 space-y-3">
+      <div className="h-8 w-40 rounded-xl animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
+      <div className="h-28 rounded-2xl animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
+      ))}
+    </div>
+  ),
+})
 import BottomNav from '@/components/BottomNav'
 
 export default async function DashboardPage() {

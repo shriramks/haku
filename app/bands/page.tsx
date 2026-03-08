@@ -2,7 +2,16 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches } from '@/lib/data'
 import { computeStockRows } from '@/lib/compute'
-import BandsClient from './BandsClient'
+import dynamic from 'next/dynamic'
+const BandsClient = dynamic(() => import('./BandsClient'), {
+  loading: () => (
+    <div className="px-4 pt-4 space-y-3">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
+      ))}
+    </div>
+  ),
+})
 import BottomNav from '@/components/BottomNav'
 import UserMenu from '@/components/UserMenu'
 
