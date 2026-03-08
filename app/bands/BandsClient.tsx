@@ -22,9 +22,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [refreshing, setRefreshing]       = useState<Record<string, boolean>>({})
   const [refreshingAll, setRefreshingAll] = useState(false)
-  const [generating, setGenerating]       = useState<Record<string, boolean>>({})
-  const [generatingAll, setGeneratingAll] = useState(false)
-  const [genError, setGenError]           = useState<Record<string, string>>({})
+  const [generating, setGenerating]             = useState<Record<string, boolean>>({})
+  const [generatingAll, setGeneratingAll]       = useState(false)
+  const [genError, setGenError]                 = useState<Record<string, string>>({})
+  const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
   const [hasKey, setHasKey]               = useState<boolean | null>(null)
   const [aiProvider, setAiProvider]       = useState<'gemini' | 'claude'>('gemini')
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
@@ -190,6 +191,27 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setTranches(prev => prev.filter(t => t.id !== id))
   }
 
+  async function generateTranches(symbol: string) {
+    setGeneratingTranches(prev => ({ ...prev, [symbol]: true }))
+    try {
+      const res = await fetch(`/api/tranches/generate/${symbol}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fyId }),
+      })
+      const json = await res.json()
+      if (res.ok && json.tranches?.length > 0) {
+        setTranches(prev => [
+          ...prev.filter(t => t.symbol !== symbol),
+          ...json.tranches,
+        ])
+      }
+    } catch {
+      // silently fail — tranches are non-critical
+    }
+    setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
+  }
+
   return (
     <div>
       {showKeyPrompt && (
@@ -314,18 +336,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       />
                     </div>
                   ) : (
-                    <div className="px-4 pt-4 pb-2 flex items-center gap-3 flex-wrap">
-                      <p className="text-[13px] flex-1" style={{ color: 'var(--text-muted)' }}>
-                        No bands yet
-                      </p>
-                      <button
-                        onClick={() => generateBands(row.symbol)}
-                        disabled={generating[row.symbol]}
-                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                        style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-                        <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                        {generating[row.symbol] ? 'Generating…' : 'Generate Bands'}
-                      </button>
+                    <div className="px-4 pt-4 pb-2">
+                      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>No bands yet</p>
                     </div>
                   )}
                   {genError[row.symbol] && (
@@ -376,17 +388,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     </div>
 
                     {/* Per-stock buttons */}
-                    <div className="flex gap-2">
-                      {hasBands && (
-                        <button
-                          onClick={() => generateBands(row.symbol)}
-                          disabled={generating[row.symbol]}
-                          className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-                          <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                          {generating[row.symbol] ? 'Generating…' : 'Regenerate'}
-                        </button>
-                      )}
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => generateBands(row.symbol)}
+                        disabled={generating[row.symbol]}
+                        className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                        style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+                        <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
+                        {generating[row.symbol] ? 'Generating…' : 'Generate Bands'}
+                      </button>
                       <button
                         onClick={() => refreshCMP(row.symbol)}
                         disabled={isRefresh}
@@ -395,6 +405,16 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
                         {isRefresh ? 'Fetching…' : 'Refresh CMP'}
                       </button>
+                      {hasBands && (
+                        <button
+                          onClick={() => generateTranches(row.symbol)}
+                          disabled={generatingTranches[row.symbol]}
+                          className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+                          style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
+                          <SparkleIcon className={`w-3.5 h-3.5 ${generatingTranches[row.symbol] ? 'spin' : ''}`} />
+                          {generatingTranches[row.symbol] ? 'Generating…' : 'Generate Tranches'}
+                        </button>
+                      )}
                     </div>
                   </div>
 

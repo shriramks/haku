@@ -221,3 +221,48 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
   const twoPct = totalCapital * 0.02
   return Math.min(twoPct, Math.max(onePct, remainingBudget * 0.33))
 }
+
+/**
+ * Compute up to `count` tranche prices within the buy zone, CMP-aware.
+ *
+ * - CMP above buyHigh: full band range
+ * - CMP within band:   ceiling = CMP × 0.92 (2 steps below), floor = buyLow
+ *                      if CMP near buyLow, shift window up
+ * - CMP below buyLow:  cluster near buyLow ± 3%
+ * - No CMP:            full band range
+ *
+ * Prices are distributed with quadratic skew toward the lower end.
+ * Deduplication handles very narrow bands (returns fewer than count).
+ */
+export function computeTrancheprices(
+  buyLow: number,
+  buyHigh: number,
+  cmp: number | null,
+  count = 5,
+): number[] {
+  let floor: number, ceiling: number
+  const bandWidth = buyHigh - buyLow
+
+  if (!cmp || cmp > buyHigh) {
+    floor = buyLow
+    ceiling = buyHigh
+  } else if (cmp >= buyLow) {
+    ceiling = cmp * 0.92
+    floor = buyLow
+    if (ceiling <= floor + bandWidth * 0.05) {
+      ceiling = floor + (cmp - floor) * 0.9
+      if (ceiling <= floor) ceiling = floor * 1.03
+    }
+  } else {
+    floor = buyLow * 0.97
+    ceiling = buyLow * 1.03
+  }
+
+  const range = Math.max(ceiling - floor, 1)
+  const prices: number[] = []
+  for (let i = 0; i < count; i++) {
+    const t = count > 1 ? Math.pow(i / (count - 1), 2) : 0
+    prices.push(Math.round(floor + t * range))
+  }
+  return [...new Set(prices)]
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 // ── AI provider helpers ───────────────────────────────────────────────────────
@@ -85,43 +85,6 @@ Return ONLY this JSON, no markdown, no explanation:
 {"niftyPE":0,"niftyLevel":0,"etfPrice":0,"asOf":""}
 
 asOf = today's date or the date of the data`
-}
-
-// ── Tranche price computation ──────────────────────────────────────────────────
-
-function computeTrancheprices(buyLow: number, buyHigh: number, cmp: number | null, count = 5): number[] {
-  let floor: number, ceiling: number
-  const bandWidth = buyHigh - buyLow
-
-  if (!cmp || cmp > buyHigh) {
-    // No CMP or CMP above band: spread across full band
-    floor = buyLow
-    ceiling = buyHigh
-  } else if (cmp >= buyLow) {
-    // CMP within band: ceiling is ~8% below CMP (2 steps of ~4%)
-    ceiling = cmp * 0.92
-    floor = buyLow
-    // If not enough room (CMP near buyLow), shift window up
-    if (ceiling <= floor + bandWidth * 0.05) {
-      ceiling = floor + (cmp - floor) * 0.9
-      if (ceiling <= floor) ceiling = floor * 1.03
-    }
-  } else {
-    // CMP below buyLow (deep value): cluster near buyLow
-    floor = buyLow * 0.97
-    ceiling = buyLow * 1.03
-  }
-
-  const range = Math.max(ceiling - floor, 1)
-  const prices: number[] = []
-  for (let i = 0; i < count; i++) {
-    // Quadratic skew toward floor — packs more tranches at lower prices
-    const t = count > 1 ? Math.pow(i / (count - 1), 2) : 0
-    prices.push(Math.round(floor + t * range))
-  }
-
-  // Deduplicate (handles very narrow bands naturally)
-  return [...new Set(prices)]
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
