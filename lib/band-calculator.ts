@@ -254,8 +254,9 @@ export function computeTrancheprices(
       if (ceiling <= floor) ceiling = floor * 1.03
     }
   } else {
-    floor = buyLow * 0.97
-    ceiling = buyLow * 1.03
+    // CMP below buyLow (deep value): cluster around CMP, not buyLow
+    floor = cmp * 0.90
+    ceiling = cmp
   }
 
   const range = Math.max(ceiling - floor, 1)

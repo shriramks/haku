@@ -388,14 +388,14 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     </div>
 
                     {/* Per-stock buttons */}
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => generateBands(row.symbol)}
                         disabled={generating[row.symbol]}
                         className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                         style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
                         <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                        {generating[row.symbol] ? 'Generating…' : 'Generate Bands'}
+                        {generating[row.symbol] ? '…' : 'Bands'}
                       </button>
                       <button
                         onClick={() => refreshCMP(row.symbol)}
@@ -403,7 +403,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                         style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
                         <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
-                        {isRefresh ? 'Fetching…' : 'Refresh CMP'}
+                        {isRefresh ? '…' : 'CMP'}
                       </button>
                       {hasBands && (
                         <button
@@ -412,7 +412,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                           className="flex items-center gap-1 text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                           style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
                           <SparkleIcon className={`w-3.5 h-3.5 ${generatingTranches[row.symbol] ? 'spin' : ''}`} />
-                          {generatingTranches[row.symbol] ? 'Generating…' : 'Generate Tranches'}
+                          {generatingTranches[row.symbol] ? '…' : 'Tranches'}
                         </button>
                       )}
                     </div>
