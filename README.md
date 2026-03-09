@@ -1,6 +1,6 @@
-# Folio
+# Spend Stock
 
-A personal Indian stock portfolio planning app — mobile-first PWA.
+A personal Indian stock portfolio planning app, mobile-first web app.
 
 ---
 
