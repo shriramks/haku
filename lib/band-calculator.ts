@@ -24,7 +24,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
   'FMCG':               { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
   'Auto OEM':           { buyLow: 10, buyHigh: 12, midLow: 13, midHigh: 15, trim: 16 },
-  'Pharma':             { buyLow: 16, buyHigh: 21, midLow: 22, midHigh: 27, trim: 28 },
+  'Pharma':             { buyLow: 22, buyHigh: 28, midLow: 29, midHigh: 35, trim: 38 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   'Insurance — General':{ buyLow: 24, buyHigh: 29, midLow: 30, midHigh: 36, trim: 37 },
   // Index/ETF: PE-of-index thresholds; "eps" passed in = etfPrice / niftyPE (computed in generate route)
@@ -89,29 +89,6 @@ function fromPEV(m: Mult, ev: number, shares: number): Raw | null {
            midLow: m.midLow*evps, midHigh: m.midHigh*evps, trim: m.trim*evps }
 }
 
-/** Pick stricter = lower buy price */
-function stricter(a: Raw | null, b: Raw | null): Raw | null {
-  if (!a) return b
-  if (!b) return a
-  const w = a.buyLow <= b.buyLow ? a : b
-  return { ...w, anchor: `${a.anchor} vs ${b.anchor} (stricter: ${w.anchor})` }
-}
-
-/**
- * Step 2 divergence check: if PE vs EV gap > 25% AND net_debt/EBITDA > 3x,
- * the balance sheet is debt-heavy and PE can mislead — use EV anchor exclusively.
- */
-function withDivergenceCheck(pe: Raw | null, ev: Raw | null, netDebt: number, ebitda: number): Raw | null {
-  if (!pe || !ev) return pe ?? ev
-  const minBuy = Math.min(pe.buyLow, ev.buyLow)
-  if (minBuy <= 0) return stricter(pe, ev)
-  const gap = Math.abs(pe.buyLow - ev.buyLow) / minBuy
-  const netDebtRatio = ebitda > 0 ? netDebt / ebitda : 0
-  if (gap > 0.25 && netDebtRatio > 3) {
-    return { ...ev, anchor: `${ev.anchor} (divergence: PE suppressed, net_debt/EBITDA=${netDebtRatio.toFixed(1)}x)` }
-  }
-  return stricter(pe, ev)
-}
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -187,35 +164,25 @@ export function calculateBands(input: BandInput): BandResult | null {
     case 'Retail':
     case 'Defence':
     case 'Auto OEM':
-      raw = stricter(tryPE(), tryEV())
+    case 'Pharma':
+      raw = tryPE()
       break
 
-    // Step 2 divergence: if PE vs EV gap > 25% and net_debt/EBITDA > 3x, use EV anchor
     case 'Capital Goods':
-      raw = withDivergenceCheck(tryPE(), tryEV(), input.netDebt ?? 0, input.ebitda ?? 0)
-      break
-
     case 'Asset-heavy Infra/Platforms':
-      raw = stricter(tryEV(), tryPB())
+      raw = tryEV()
       break
 
     case 'Hospitals':
       raw = input.isHospitalRampPhase ? tryEV() : tryPE()
       break
 
-    case 'Pharma': {
-      const pe = tryPE(), ev = tryEV()
-      raw = pe && ev ? stricter(pe, ev) : (pe ?? ev)
-      break
-    }
-
     case 'Insurance':
       raw = tryPEV()
       break
 
-    // Insurance General: stricter of PE and PB
     case 'Insurance — General':
-      raw = stricter(tryPE(), tryPB())
+      raw = tryPB()
       break
 
     case 'Banks — Private':

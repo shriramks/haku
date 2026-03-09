@@ -71,6 +71,22 @@ Return ONLY this JSON, no markdown, no explanation:
 asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
 }
 
+function insurancePrompt(symbol: string): string {
+  return `Find the most recent disclosed Embedded Value (EV) for NSE:${symbol} — an Indian life insurance company.
+
+Look for the Embedded Value figure from their latest annual report, investor presentation, or regulatory disclosure. It is usually labelled "Embedded Value" or "EV" in ₹ Crores. For large insurers this is typically in the range of ₹20,000–₹80,000 Cr.
+
+Also find:
+- Equity shares outstanding in Crores (e.g. 100 Cr shares = 1 billion shares)
+
+Sources to check: NSE disclosures (nseindia.com), investor presentations, annual reports, screener.in, moneycontrol.com.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"embeddedValue":0,"sharesCr":0,"asOf":""}
+
+asOf = the period the embedded value relates to (e.g. "FY25", "Mar 2025")`
+}
+
 function indexPrompt(symbol: string): string {
   return `Find current Nifty 50 valuation data from NSE India (nseindia.com) or Moneycontrol:
 1. Current Nifty 50 trailing PE ratio (price-to-earnings based on last 12 months earnings, NOT forward PE)
@@ -134,11 +150,14 @@ export async function POST(
   }
 
   const category = alloc.category as StockCategory
-  const isIndex  = category === 'Index/ETF'
+  const isIndex     = category === 'Index/ETF'
+  const isInsurance = category === 'Insurance'
 
   // Call AI provider with search grounding
   let aiText: string
-  const prompt = isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol)
+  const prompt = isIndex ? indexPrompt(upperSymbol)
+    : isInsurance ? insurancePrompt(upperSymbol)
+    : stockPrompt(upperSymbol)
   try {
     aiText = aiProvider === 'claude'
       ? await callClaude(prompt, activeKey)
@@ -161,16 +180,17 @@ export async function POST(
   }
 
   // Map parsed data to band inputs
-  let eps: number | null        = null
-  let opProfitCr: number | null = null
-  let borrowingsCr: number | null = null
-  let cashCr: number | null     = null
-  let sharesCr: number | null   = null
+  let eps: number | null           = null
+  let opProfitCr: number | null    = null
+  let borrowingsCr: number | null  = null
+  let cashCr: number | null        = null
+  let sharesCr: number | null      = null
+  let embeddedValue: number | null = null
   let asOf = String(parsed.asOf ?? '')
 
   if (isIndex) {
-    const niftyPE   = Number(parsed.niftyPE)   || null
-    const etfPrice  = Number(parsed.etfPrice)   || null
+    const niftyPE    = Number(parsed.niftyPE)    || null
+    const etfPrice   = Number(parsed.etfPrice)   || null
     const niftyLevel = Number(parsed.niftyLevel) || null
 
     if (!niftyPE || !etfPrice) {
@@ -180,10 +200,18 @@ export async function POST(
       }, { status: 422 })
     }
 
-    // ETF EPS equivalent = etfPrice / niftyPE
-    // Applying PE band multiples (16x–25x) to this gives band prices in ₹ ETF terms
     eps  = etfPrice / niftyPE
     asOf = `Nifty ${niftyLevel?.toFixed(0)} @ ${niftyPE}x PE | ETF ₹${etfPrice} | ${asOf}`
+  } else if (isInsurance) {
+    embeddedValue = Number(parsed.embeddedValue) || null
+    sharesCr      = Number(parsed.sharesCr)      || null
+
+    if (!embeddedValue || !sharesCr) {
+      return NextResponse.json({
+        error: `Could not extract Embedded Value or shares for ${upperSymbol}. Got: EV=${embeddedValue}Cr, Shares=${sharesCr}Cr`,
+        raw: aiText.slice(0, 600),
+      }, { status: 422 })
+    }
   } else {
     eps          = Number(parsed.eps)          || null
     opProfitCr   = Number(parsed.opProfitCr)   || null
@@ -197,30 +225,18 @@ export async function POST(
     : null
 
   // Calculate bands
-  let result = calculateBands({
+  const result = calculateBands({
     category,
     twoWeakQuarters:     alloc.two_weak_quarters     ?? false,
     twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
     isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
     eps,
-    bvps:         null,
-    ebitda:       opProfitCr,
-    netDebt:      netDebtCr,
-    shares:       sharesCr,
-    embeddedValue: null,
+    bvps:          null,
+    ebitda:        opProfitCr,
+    netDebt:       netDebtCr,
+    shares:        sharesCr,
+    embeddedValue,
   })
-
-  // Insurance fallback: P/EV needs embedded value (not available) — fall back to PE
-  if (!result && category === 'Insurance' && eps && eps > 0) {
-    result = calculateBands({
-      category:            'FMCG' as StockCategory,
-      twoWeakQuarters:     alloc.two_weak_quarters  ?? false,
-      twoStrongQuarters:   alloc.two_strong_quarters ?? false,
-      isHospitalRampPhase: false,
-      eps, bvps: null, ebitda: null, netDebt: null, shares: null, embeddedValue: null,
-    })
-    if (result) result = { ...result, anchorUsed: result.anchorUsed + ' [Insurance PE fallback]' }
-  }
 
   if (!result) {
     return NextResponse.json({
@@ -262,10 +278,10 @@ export async function POST(
       anchor_type,
       eps,
       bvps:       null,
-      ebitda:     opProfitCr,
-      net_debt:   netDebtCr,
-      shares:     sharesCr,
-      embedded_value: null,
+      ebitda:         opProfitCr,
+      net_debt:       netDebtCr,
+      shares:         sharesCr,
+      embedded_value: embeddedValue,
       buy_low:    result.buyLow,
       buy_high:   result.buyHigh,
       mid_low:    result.midLow,
