@@ -35,7 +35,7 @@ export default function LoginPage() {
       {/* Logo */}
       <div className="text-center mb-12">
         <div className="text-6xl mb-4">📈</div>
-        <h1 className="text-3xl font-bold tracking-tight">Spend Stock</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Haku</h1>
         <p className="text-white/50 text-sm mt-1">Your Indian stock playbook</p>
       </div>
 

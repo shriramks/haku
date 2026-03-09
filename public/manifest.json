@@ -1,6 +1,6 @@
 {
-  "name": "Spend Stock",
-  "short_name": "Spend Stock",
+  "name": "Haku",
+  "short_name": "Haku",
   "description": "Personal Indian stock portfolio tracker",
   "start_url": "/dashboard",
   "display": "standalone",
