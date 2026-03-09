@@ -307,7 +307,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
       {/* Two independent columns on md+ — avoids row-height coupling when expanding */}
       <div className="md:flex md:gap-3 md:px-4 md:pb-4">
-        {[rows.filter((_, i) => i % 2 === 0), rows.filter((_, i) => i % 2 !== 0)].map((col, ci) => (
+        {(() => { const half = Math.ceil(rows.length / 2); return [rows.slice(0, half), rows.slice(half)] })().map((col, ci) => (
           <div key={ci} className="md:flex-1 md:space-y-3">
         {col.map(row => {
           const band      = bands.find(b => b.symbol === row.symbol)
