@@ -8,7 +8,6 @@ A personal Indian stock portfolio planning app — mobile-first PWA.
 
 - [The Problem](#the-problem)
 - [The Solution](#the-solution)
-- [App Flow](#app-flow)
 - [AI Features](#ai-features)
 - [Security](#security)
 - [Docs](#docs)
