@@ -99,11 +99,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       } else {
         if (json.band) {
           setBands(prev => [...prev.filter(b => b.symbol !== symbol), json.band])
-        }
-        if (json.tranches?.length > 0) {
+          // Always clear stale tranches when bands regenerate; add new ones if returned
           setTranches(prev => [
             ...prev.filter(t => t.symbol !== symbol),
-            ...json.tranches,
+            ...(json.tranches ?? []),
           ])
         }
       }

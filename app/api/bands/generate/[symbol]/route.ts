@@ -65,8 +65,6 @@ From the Balance Sheet table, most recent available period:
 From Key Ratios or the company header:
 - Equity shares outstanding in Crores (e.g. 150 Cr shares = 1.5 billion shares; typical range: 10–1000 Cr)
 
-Sanity check before returning: EPS × shares (Cr) × 100 should roughly equal the net profit (PAT) shown in the P&L. If the implied market cap seems absurd (under ₹100 Cr or over ₹50 lakh Cr for a listed company), recheck the source page.
-
 Return ONLY this JSON, no markdown, no explanation:
 {"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}
 

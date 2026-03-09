@@ -39,9 +39,15 @@ export default async function BandsPage({
   const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
 
   const sorted = [...rows].sort((a, b) => {
-    const aPending = tranches.filter(t => t.symbol === a.symbol && !t.allocated).length
-    const bPending = tranches.filter(t => t.symbol === b.symbol && !t.allocated).length
-    if (bPending !== aPending) return bPending - aPending
+    const aAll      = tranches.filter(t => t.symbol === a.symbol)
+    const bAll      = tranches.filter(t => t.symbol === b.symbol)
+    const aPending  = aAll.filter(t => !t.allocated).length
+    const bPending  = bAll.filter(t => !t.allocated).length
+    // group 0 = no tranches yet (top), 1 = has pending, 2 = all done (bottom)
+    const aGroup = aAll.length === 0 ? 0 : aPending > 0 ? 1 : 2
+    const bGroup = bAll.length === 0 ? 0 : bPending > 0 ? 1 : 2
+    if (aGroup !== bGroup) return aGroup - bGroup
+    if (aPending !== bPending) return bPending - aPending
     return a.symbol.localeCompare(b.symbol)
   })
 
