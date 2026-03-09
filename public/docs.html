@@ -9,8 +9,7 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #000; color: #f0f0f0; padding: 24px 20px 60px; max-width: 640px; margin: 0 auto; line-height: 1.6; }
   h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
   .subtitle { font-size: 14px; color: #888; margin-bottom: 32px; }
-  h2 { font-size: 17px; font-weight: 600; color: #fff; margin: 28px 0 10px; display: flex; align-items: center; gap: 8px; }
-  h2 .icon { font-size: 18px; }
+  h2 { font-size: 17px; font-weight: 600; color: #fff; margin: 28px 0 10px; }
   p { font-size: 14px; color: #aaa; margin-bottom: 8px; }
   ul { padding-left: 18px; margin-bottom: 8px; }
   li { font-size: 14px; color: #aaa; margin-bottom: 5px; }
@@ -35,12 +34,12 @@
 <h1>Haku</h1>
 <p class="subtitle">Personal stock portfolio tracker · Indian markets</p>
 
-<h2><span class="icon">📋</span> What is Haku?</h2>
+<h2>What is Haku?</h2>
 <p>Haku helps you manage a systematic buy plan for Indian equities. You set an annual budget, allocate it across stocks, generate AI-powered buy bands, and track purchases through tranches. Everything is private — your data is only visible to you.</p>
 
 <hr>
 
-<h2><span class="icon">🗺️</span> The Four Screens</h2>
+<h2>The Four Screens</h2>
 
 <div class="card">
   <div class="step-title" style="margin-bottom:6px">Allocation</div>
@@ -71,7 +70,7 @@
 
 <hr>
 
-<h2><span class="icon">⚡</span> Getting Started</h2>
+<h2>Getting Started</h2>
 
 <div class="step">
   <div class="step-num">1</div>
@@ -83,8 +82,8 @@
 <div class="step">
   <div class="step-num">2</div>
   <div class="step-body">
-    <div class="step-title">Add a Gemini API key</div>
-    <div class="step-desc">Tap the profile icon → AI Settings → paste your free Gemini API key. This powers band generation.</div>
+    <div class="step-title">Add an AI API key</div>
+    <div class="step-desc">Tap the profile icon → AI Settings → paste your Gemini or Claude API key. This powers band generation. Gemini has a free tier; Claude requires a paid Anthropic key.</div>
   </div>
 </div>
 <div class="step">
@@ -111,7 +110,7 @@
 
 <hr>
 
-<h2><span class="icon">🐻</span> Bear / Normal / Bull</h2>
+<h2>Bear / Normal / Bull</h2>
 <p>On each stock in Buy Bands, you can set the market outlook:</p>
 <ul>
   <li><strong>Bear</strong> — two weak quarters recently. Tightens all band prices by 10% (more conservative).</li>
@@ -122,17 +121,18 @@
 
 <hr>
 
-<h2><span class="icon">🤖</span> How Band Generation Works</h2>
+<h2>How Band Generation Works</h2>
 <p>Each stock is assigned a category (Defence, FMCG, Pharma, etc.). The AI fetches EPS, operating profit, debt, and shares from Screener.in, then applies category-specific valuation multiples (PE, EV/EBITDA, or P/BV) to compute four price zones.</p>
 <p>Regenerate bands whenever you want fresher data — each run creates a new versioned record.</p>
 
 <div class="tip">
-  <strong>Free Gemini key:</strong> Get one at <code>aistudio.google.com</code> → Create API key. The free tier is sufficient for personal use.
+  <strong>Gemini (free):</strong> Get a key at <code>aistudio.google.com</code> → Create API key. Free tier is sufficient for personal use.<br><br>
+  <strong>Claude (paid):</strong> Get a key at <code>console.anthropic.com</code>. Generally produces higher quality band data.
 </div>
 
 <hr>
 
-<h2><span class="icon">📱</span> Install as App</h2>
+<h2>Install as App</h2>
 <p>Haku works as a home screen app on iOS and Android.</p>
 <ul>
   <li><strong>iOS:</strong> Open in Safari → Share → Add to Home Screen</li>
