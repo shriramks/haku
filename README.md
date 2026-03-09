@@ -1,6 +1,6 @@
-# Spend Stock
+# Haku
 
-A personal Indian stock portfolio planning app, mobile-first web app.
+Haku is a personal planner for tracking investments in Indian markets. You set an annual budget, allocate it across watchlist stocks and ETFs, and the app uses AI to generate smart buy/sell price bands for each stock — so you always know when to buy more, hold, or trim. Every trade you log updates the plan, keeping it in sync with what you've actually bought.
 
 ---
 
@@ -27,7 +27,7 @@ The result: too much friction, repeated context-switching, and a process that's 
 
 ## The Solution
 
-Folio brings the entire annual investment workflow into one place:
+Haku brings the entire annual investment workflow into one place:
 
 1. **Plan your year** — set a total budget, add stocks, assign allocation percentages by category
 2. **AI-powered buy bands** — Gemini AI fetches live financials and computes valuation zones per stock

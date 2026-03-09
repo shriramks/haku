@@ -31,12 +31,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-black">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#F2F2F7] dark:bg-black [padding-bottom:0!important]">
       {/* Logo */}
       <div className="text-center mb-12">
         <div className="text-6xl mb-4">📈</div>
-        <h1 className="text-3xl font-bold tracking-tight">Haku</h1>
-        <p className="text-white/50 text-sm mt-1">Your Indian stock playbook</p>
+        <h1 className="text-3xl font-bold tracking-tight text-black dark:text-white">Haku</h1>
+        <p className="text-sm mt-1 text-black/40 dark:text-white/50">Your Indian stock playbook</p>
       </div>
 
       {/* Form */}
@@ -48,8 +48,11 @@ export default function LoginPage() {
           onChange={e => setEmail(e.target.value)}
           required
           autoComplete="email"
-          className="w-full px-4 py-3.5 rounded-xl bg-white/10 text-white placeholder:text-white/30
-                     border border-white/10 focus:border-white/30 outline-none text-base"
+          className="w-full px-4 py-3.5 rounded-xl outline-none text-base
+                     bg-white dark:bg-[#1C1C1E]
+                     text-black dark:text-white
+                     placeholder:text-black/30 dark:placeholder:text-white/30
+                     border border-black/10 dark:border-white/10"
         />
         <input
           type="password"
@@ -59,8 +62,11 @@ export default function LoginPage() {
           required
           minLength={6}
           autoComplete={isSignUp ? 'new-password' : 'current-password'}
-          className="w-full px-4 py-3.5 rounded-xl bg-white/10 text-white placeholder:text-white/30
-                     border border-white/10 focus:border-white/30 outline-none text-base"
+          className="w-full px-4 py-3.5 rounded-xl outline-none text-base
+                     bg-white dark:bg-[#1C1C1E]
+                     text-black dark:text-white
+                     placeholder:text-black/30 dark:placeholder:text-white/30
+                     border border-black/10 dark:border-white/10"
         />
 
         {error && (
@@ -70,8 +76,8 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 rounded-xl bg-white text-black font-bold text-base
-                     disabled:opacity-40 active:scale-95 transition-transform"
+          className="w-full py-3.5 rounded-xl font-bold text-base disabled:opacity-40 active:scale-95 transition-transform
+                     bg-black text-white dark:bg-white dark:text-black"
         >
           {loading ? '…' : isSignUp ? 'Create account' : 'Sign in'}
         </button>
@@ -79,7 +85,7 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => { setIsSignUp(v => !v); setError(null) }}
-          className="w-full text-sm text-white/40 py-2"
+          className="w-full text-sm py-2 text-black/40 dark:text-white/40"
         >
           {isSignUp ? 'Already have an account? Sign in' : 'New here? Create account'}
         </button>
