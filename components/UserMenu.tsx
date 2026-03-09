@@ -172,6 +172,15 @@ export default function UserMenu() {
             )}
           </div>
 
+          <a
+            href="/docs.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 rounded-xl text-[15px] font-medium text-center block"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
+            Help &amp; Docs
+          </a>
+
           <button
             onClick={signOut}
             disabled={signingOut}
