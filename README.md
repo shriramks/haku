@@ -1,6 +1,8 @@
 # Haku
 
-Haku is a personal planner for tracking investments in Indian markets. You set an annual budget, allocate it across watchlist stocks and ETFs, and the app uses AI to generate smart buy/sell price bands for each stock — so you always know when to buy more, hold, or trim. Every trade you log updates the plan, keeping it in sync with what you've actually bought.
+Haku is a simple planner for Indian markets: set a yearly budget → allocate across stocks → let AI generate buy bands → log trades as you go → track plan vs remaining budget.
+
+Most apps let you monitor existing investments. Haku is for planning them.
 
 ---
 
@@ -16,12 +18,12 @@ Haku is a personal planner for tracking investments in Indian markets. You set a
 
 ## The Problem
 
-Planning investments for the year is messy. The process ends up split across:
-- An Excel sheet tracking per-stock allocation budgets
-- Notes scattered across devices for buy band targets
-- No single place to see: what's the plan, how much is left, and is the current price a buy?
+Most apps let you monitor existing investments — but the planning happens outside the app, on ad-hoc spreadsheets, scattered notes, and reminders. This means:
+- An Excel sheet for per-stock allocation budgets
+- Notes across devices for buy price targets
+- No single view of: what's the plan, how much is deployed, is now a good price to add?
 
-The result: too much friction, repeated context-switching, and a process that's hard to follow consistently year after year.
+The result is a tracker to track your trackers — too much friction to follow consistently year after year.
 
 ---
 
@@ -65,3 +67,9 @@ To use AI generation, add your own Gemini API key in **Settings** (tap the profi
 | [docs/user-guide.md](docs/user-guide.md) | New user walkthrough — setup, screens, and flow |
 | [docs/install.md](docs/install.md) | Self-hosting setup |
 | [docs/architecture.md](docs/architecture.md) | Technical details — schema, band calculator, AI flow, security |
+
+---
+
+## Built with
+
+Vibe-coded with [Claude Code](https://claude.ai/code). Stack: Next.js 16, TypeScript, Tailwind CSS, Supabase, Gemini 2.5 Flash.
