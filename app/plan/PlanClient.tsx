@@ -134,8 +134,6 @@ function PlanTab({
   const [budgetInput, setBudgetInput] = useState(String(totalBudget))
   const [savingBudget, setSavingBudget] = useState(false)
   const [showAddStock, setShowAddStock] = useState(false)
-  const [refreshingAll, setRefreshingAll] = useState(false)
-  const [generatingAll, setGeneratingAll] = useState(false)
 
   async function saveBudget() {
     if (!selectedFY) return
@@ -176,32 +174,6 @@ function PlanTab({
     }).select().single()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
-  }
-
-  async function refreshAllCMPs() {
-    setRefreshingAll(true)
-    await Promise.all(allocations.map(async a => {
-      try {
-        const res = await fetch(`/api/cmp/${a.symbol}`)
-        if (!res.ok) return
-        const { price } = await res.json()
-        const sb = getSupabaseBrowser()
-        await sb.from('buy_bands')
-          .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
-          .eq('symbol', a.symbol).eq('is_current', true)
-      } catch {}
-    }))
-    setRefreshingAll(false)
-  }
-
-  async function generateAllBands() {
-    setGeneratingAll(true)
-    await Promise.all(allocations.map(async a => {
-      try {
-        await fetch(`/api/bands/generate/${a.symbol}`, { method: 'POST' })
-      } catch {}
-    }))
-    setGeneratingAll(false)
   }
 
   const pctOk = Math.abs(totalPct - 100) < 0.01
@@ -352,22 +324,6 @@ function PlanTab({
               </div>
             )
           })()}
-
-          {/* Actions row */}
-          <div className="flex justify-end gap-2 px-4 mt-3 flex-wrap">
-            <button onClick={generateAllBands} disabled={generatingAll || refreshingAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
-              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)' }}>
-              <SparkleIcon className={`w-3.5 h-3.5 ${generatingAll ? 'spin' : ''}`} />
-              {generatingAll ? 'Generating…' : 'Generate All Bands'}
-            </button>
-            <button onClick={refreshAllCMPs} disabled={refreshingAll || generatingAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
-              style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-              <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'spin' : ''}`} />
-              Refresh All CMPs
-            </button>
-          </div>
 
           {/* Stock list */}
           {loading ? (
@@ -807,15 +763,6 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function RefreshIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-    </svg>
-  )
-}
-
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -824,11 +771,3 @@ function ChevronIcon({ className }: { className?: string }) {
   )
 }
 
-function SparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-    </svg>
-  )
-}
