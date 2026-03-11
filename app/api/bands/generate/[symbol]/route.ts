@@ -142,8 +142,7 @@ export async function POST(
   const rawKey = aiProvider === 'claude'
     ? userSettings?.claude_api_key
     : userSettings?.gemini_api_key
-  const decryptedKey = rawKey ? await decrypt(rawKey) : null
-  const activeKey = decryptedKey ?? (aiProvider === 'gemini' ? process.env.GEMINI_API_KEY : null)
+  const activeKey = rawKey ? await decrypt(rawKey) : null
 
   if (!activeKey) return NextResponse.json({
     error: aiProvider === 'claude'
