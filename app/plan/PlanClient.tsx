@@ -2,32 +2,28 @@
 import { useState, useMemo, useEffect } from 'react'
 
 const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive'> = {
-  'FMCG':                        'Defensive',
-  'Pharma':                      'Defensive',
-  'IT/Technology':               'Defensive',
-  'Insurance':                   'Defensive',
-  'Insurance — General':         'Defensive',
-  'Auto OEM':                    'Cyclical',
-  'Capital Goods':               'Cyclical',
-  'Asset-heavy Infra/Platforms': 'Cyclical',
-  'Banks — Private':             'Cyclical',
-  'Defence':                     'Cyclical',
-  'Cap-Light Infra':             'Growth',
-  'Retail':                      'Growth',
-  'Retail — compounder':         'Growth',
-  'Hospitals':                   'Growth',
-  'Index/ETF':                   'Passive',
+  'FMCG':               'Defensive',
+  'Pharma':             'Defensive',
+  'IT/Technology':      'Defensive',
+  'Insurance — Life':   'Defensive',
+  'Insurance — General':'Defensive',
+  'Auto OEM':           'Cyclical',
+  'Capital Goods':      'Cyclical',
+  'Banks':              'Cyclical',
+  'Defence':            'Cyclical',
+  'Cap-Light Infra':    'Growth',
+  'Retail':             'Growth',
+  'Hospitals':          'Growth',
+  'Index/ETF':          'Passive',
 }
 
 const SHORT_CAT: Record<string, string> = {
-  'Cap-Light Infra':             'Cap-light',
-  'Asset-heavy Infra/Platforms': 'Infra',
-  'Capital Goods':               'Cap.Goods',
-  'Retail — compounder':         'Retail*',
-  'Insurance — General':         'Ins.Gen',
-  'Banks — Private':             'Banks',
-  'IT/Technology':               'IT',
-  'Index/ETF':                   'ETF',
+  'Cap-Light Infra':    'Cap-light',
+  'Capital Goods':      'Cap.Goods',
+  'Insurance — Life':   'Ins.Life',
+  'Insurance — General':'Ins.Gen',
+  'IT/Technology':      'IT',
+  'Index/ETF':          'ETF',
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'

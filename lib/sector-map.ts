@@ -11,9 +11,9 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'defence',            category: 'Defence' },
 
   // Insurance
-  { industry: 'life insurance',     category: 'Insurance' },
+  { industry: 'life insurance',     category: 'Insurance — Life' },
   { industry: 'general insurance',  category: 'Insurance — General' },
-  { industry: 'insurance',          category: 'Insurance' },
+  { industry: 'insurance',          category: 'Insurance — Life' },
 
   // Hospitals
   { industry: 'medical care',       category: 'Hospitals' },
@@ -56,17 +56,9 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'machinery',          category: 'Capital Goods' },
   { industry: 'engineering & construction', category: 'Capital Goods' },
 
-  // Asset-heavy Infra / Platforms
-  { industry: 'construction',       category: 'Asset-heavy Infra/Platforms' },
-  { industry: 'infrastructure',     category: 'Asset-heavy Infra/Platforms' },
-  { industry: 'utilities',          category: 'Asset-heavy Infra/Platforms' },
-  { industry: 'exchange',           category: 'Asset-heavy Infra/Platforms' },
-  { industry: 'power',              category: 'Asset-heavy Infra/Platforms' },
-  { sector: 'utilities',            category: 'Asset-heavy Infra/Platforms' },
-
   // Banks
-  { industry: 'banks',              category: 'Banks — Private' },
-  { industry: 'banking',            category: 'Banks — Private' },
+  { industry: 'banks',              category: 'Banks' },
+  { industry: 'banking',            category: 'Banks' },
 
   // Cap-Light Infra (formerly Capital-light Market Infra/Services)
   { industry: 'asset management',   category: 'Cap-Light Infra' },

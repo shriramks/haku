@@ -16,9 +16,8 @@ interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: numbe
 
 const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra':    { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
-  'Retail':             { buyLow: 20, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 },
-  // DMART compounder: hist PE floor ~60x; buy = floor ± 10%, mid = 1.1–1.35x floor, trim ≥ 1.55x
-  'Retail — compounder':{ buyLow: 54, buyHigh: 66, midLow: 67, midHigh: 81, trim: 93 },
+  // All Retail treated as quality compounders; hist PE floor ~60x
+  'Retail':             { buyLow: 54, buyHigh: 66, midLow: 67, midHigh: 81, trim: 93 },
   'Defence':            { buyLow: 25, buyHigh: 40, midLow: 41, midHigh: 50, trim: 51 },
   'Capital Goods':      { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
@@ -26,8 +25,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Auto OEM':           { buyLow: 10, buyHigh: 12, midLow: 13, midHigh: 15, trim: 16 },
   'Pharma':             { buyLow: 22, buyHigh: 28, midLow: 29, midHigh: 35, trim: 38 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
-  'Insurance — General':{ buyLow: 24, buyHigh: 29, midLow: 30, midHigh: 36, trim: 37 },
-  // Index/ETF: PE-of-index thresholds; "eps" passed in = etfPrice / niftyPE (computed in generate route)
+  // Index/ETF: Nifty PE thresholds; "eps" passed in = etfPrice / niftyPE (computed in generate route)
   'Index/ETF':          { buyLow: 16, buyHigh: 19, midLow: 20, midHigh: 23, trim: 25 },
 }
 
@@ -37,28 +35,25 @@ const PREMIUM_PE: Partial<Record<StockCategory, Mult>> = {
 }
 
 const EV: Partial<Record<StockCategory, Mult>> = {
-  'Retail':                     { buyLow: 12,  buyHigh: 18,  midLow: 19, midHigh: 23, trim: 24  },
-  'Defence':                    { buyLow: 15,  buyHigh: 22,  midLow: 23, midHigh: 27, trim: 28  },
-  'Capital Goods':              { buyLow: 14,  buyHigh: 18,  midLow: 19, midHigh: 23, trim: 24  },
-  'Asset-heavy Infra/Platforms':{ buyLow: 8,   buyHigh: 14,  midLow: 15, midHigh: 18, trim: 19  },
-  'Hospitals':                  { buyLow: 18,  buyHigh: 22,  midLow: 23, midHigh: 28, trim: 29  },
-  'Auto OEM':                   { buyLow: 4.5, buyHigh: 5.5, midLow: 6,  midHigh: 7,  trim: 7.5 },
-  'Pharma':                     { buyLow: 10,  buyHigh: 13,  midLow: 14, midHigh: 16, trim: 17  },
+  'Defence':      { buyLow: 15,  buyHigh: 22,  midLow: 23, midHigh: 27, trim: 28  },
+  'Capital Goods':{ buyLow: 14,  buyHigh: 18,  midLow: 19, midHigh: 23, trim: 24  },
+  'Hospitals':    { buyLow: 18,  buyHigh: 22,  midLow: 23, midHigh: 28, trim: 29  },
+  'Auto OEM':     { buyLow: 4.5, buyHigh: 5.5, midLow: 6,  midHigh: 7,  trim: 7.5 },
+  'Pharma':       { buyLow: 10,  buyHigh: 13,  midLow: 14, midHigh: 16, trim: 17  },
 }
 
 const PB: Partial<Record<StockCategory, Mult>> = {
-  'Asset-heavy Infra/Platforms': { buyLow: 1.0, buyHigh: 2.0, midLow: 2.1, midHigh: 2.5, trim: 2.6 },
-  'Banks — Private':             { buyLow: 1.6, buyHigh: 1.9, midLow: 2.0, midHigh: 2.5, trim: 2.6 },
-  'Insurance — General':         { buyLow: 2.5, buyHigh: 3.2, midLow: 3.3, midHigh: 4.0, trim: 4.1 },
+  'Banks':               { buyLow: 1.6, buyHigh: 1.9, midLow: 2.0, midHigh: 2.5, trim: 2.6 },
+  'Insurance — General': { buyLow: 2.5, buyHigh: 3.2, midLow: 3.3, midHigh: 4.0, trim: 4.1 },
 }
 
 const PEV: Partial<Record<StockCategory, Mult>> = {
-  'Insurance': { buyLow: 2.4, buyHigh: 2.8, midLow: 2.9, midHigh: 3.4, trim: 3.5 },
+  'Insurance — Life': { buyLow: 2.4, buyHigh: 2.8, midLow: 2.9, midHigh: 3.4, trim: 3.5 },
 }
 
 /** Premium P/EV — Insurance Life when twoStrongQuarters */
 const PREMIUM_PEV: Partial<Record<StockCategory, Mult>> = {
-  'Insurance': { buyLow: 2.8, buyHigh: 3.2, midLow: 3.3, midHigh: 3.6, trim: 3.8 },
+  'Insurance — Life': { buyLow: 2.8, buyHigh: 3.2, midLow: 3.3, midHigh: 3.6, trim: 3.8 },
 }
 
 // ── Internal raw band ────────────────────────────────────────────────────────
@@ -151,25 +146,18 @@ export function calculateBands(input: BandInput): BandResult | null {
   let raw: Raw | null = null
 
   switch (input.category) {
+    case 'Index/ETF':
     case 'Cap-Light Infra':
-    case 'FMCG':
-      raw = tryPE()
-      break
-
-    // Compounder: PE anchor with elevated hist-floor multiples (60x floor, ±10% buy zone)
-    case 'Retail — compounder':
-      raw = tryPE()
-      break
-
     case 'Retail':
     case 'Defence':
+    case 'FMCG':
     case 'Auto OEM':
     case 'Pharma':
+    case 'IT/Technology':
       raw = tryPE()
       break
 
     case 'Capital Goods':
-    case 'Asset-heavy Infra/Platforms':
       raw = tryEV()
       break
 
@@ -177,25 +165,13 @@ export function calculateBands(input: BandInput): BandResult | null {
       raw = input.isHospitalRampPhase ? tryEV() : tryPE()
       break
 
-    case 'Insurance':
+    case 'Insurance — Life':
       raw = tryPEV()
       break
 
     case 'Insurance — General':
+    case 'Banks':
       raw = tryPB()
-      break
-
-    case 'Banks — Private':
-      raw = tryPB()
-      break
-
-    case 'IT/Technology':
-      raw = tryPE()
-      break
-
-    // Index/ETF: eps passed in = etfPrice/niftyPE — PE multiples give band prices in ₹ ETF terms
-    case 'Index/ETF':
-      raw = tryPE()
       break
   }
 

@@ -122,54 +122,59 @@ export type GateSignal = 'pass' | 'caution' | 'fail'
 export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export type StockCategory =
+  | 'Index/ETF'
   | 'Cap-Light Infra'
   | 'Retail'
-  | 'Retail — compounder'
   | 'Defence'
-  | 'Insurance'
+  | 'Insurance — Life'
   | 'Insurance — General'
   | 'Capital Goods'
-  | 'Asset-heavy Infra/Platforms'
-  | 'Banks — Private'
+  | 'Banks'
   | 'Hospitals'
   | 'FMCG'
   | 'Auto OEM'
   | 'Pharma'
   | 'IT/Technology'
-  | 'Index/ETF'
 
 export const ALL_CATEGORIES: StockCategory[] = [
+  'Index/ETF',
   'Cap-Light Infra',
   'Retail',
-  'Retail — compounder',
   'Defence',
-  'Insurance',
+  'Insurance — Life',
   'Insurance — General',
   'Capital Goods',
-  'Asset-heavy Infra/Platforms',
-  'Banks — Private',
+  'Banks',
   'Hospitals',
   'FMCG',
   'Auto OEM',
   'Pharma',
   'IT/Technology',
-  'Index/ETF',
 ]
 
 /** Suggested category for well-known symbols — used as autocomplete hint only */
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   CAMS:        'Cap-Light Infra',
   IEX:         'Cap-Light Infra',
-  DMART:       'Retail — compounder',
+  DMART:       'Retail',
   BEL:         'Defence',
   HAL:         'Defence',
-  SBILIFE:     'Insurance',
+  SBILIFE:     'Insurance — Life',
+  HDFCLIFE:    'Insurance — Life',
+  LICI:        'Insurance — Life',
+  ICICIGI:     'Insurance — General',
   POLYCAB:     'Capital Goods',
   LT:          'Capital Goods',
   NARAYANAHRU: 'Hospitals',
   ITC:         'FMCG',
   TATAMOTORS:  'Auto OEM',
   ZYDUSLIFE:   'Pharma',
+  INFY:        'IT/Technology',
+  TCS:         'IT/Technology',
+  HCLTECH:     'IT/Technology',
+  WIPRO:       'IT/Technology',
+  NIFTYBEES:   'Index/ETF',
+  JUNIORBEES:  'Index/ETF',
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────

@@ -165,7 +165,7 @@ export async function POST(
 
   const category = alloc.category as StockCategory
   const isIndex     = category === 'Index/ETF'
-  const isInsurance = category === 'Insurance'
+  const isInsurance = category === 'Insurance — Life'
 
   // Call AI provider with search grounding
   let aiText: string
