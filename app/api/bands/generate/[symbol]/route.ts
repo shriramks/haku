@@ -55,7 +55,8 @@ function stockPrompt(symbol: string): string {
   return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
 
 From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
-- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range: ₹5–₹200.
+- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range: ₹5–₹300.
+- "Net Profit" row → in ₹ Crores (you will use this only for cross-checking).
 - "Operating Profit" row → in ₹ Crores. This is EBITDA. Typical large-cap range: ₹500–₹50,000 Cr.
 
 From the Balance Sheet table, most recent available period:
@@ -63,7 +64,12 @@ From the Balance Sheet table, most recent available period:
 - "Cash Equivalents" row → cash and bank balances in ₹ Crores
 
 From Key Ratios or the company header:
-- Equity shares outstanding in Crores (e.g. 150 Cr shares = 1.5 billion shares; typical range: 10–1000 Cr)
+- Equity shares outstanding in Crores (e.g. 150 Cr shares = 1.5 billion shares; typical range: 5–1000 Cr)
+  IMPORTANT: Screener shows shares in Crores. Do not confuse with millions. If you see "20.4" that means 20.4 Cr shares (204 million), report 20.4.
+
+Self-validation before returning (do not include in output):
+- Verify: EPS × sharesCr ≈ Net Profit (₹Cr). If they differ by more than 3x, you have a unit error — recheck EPS or shares.
+- EPS below ₹2 for a large/mid-cap with significant profits almost always means a scale error.
 
 Return ONLY this JSON, no markdown, no explanation:
 {"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}
@@ -72,14 +78,22 @@ asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
 }
 
 function insurancePrompt(symbol: string): string {
-  return `Find the most recent disclosed Embedded Value (EV) for NSE:${symbol} — an Indian life insurance company.
+  return `Find the most recent Group Embedded Value (EV) for NSE:${symbol} — an Indian life insurance company.
 
-Look for the Embedded Value figure from their latest annual report, investor presentation, or regulatory disclosure. It is usually labelled "Embedded Value" or "EV" in ₹ Crores. For large insurers this is typically in the range of ₹20,000–₹80,000 Cr.
+The Embedded Value is a consolidated Group-level figure published in their annual report or investor presentation. It is labelled "Embedded Value", "Group EV", or "EV" in ₹ Crores.
+- For SBILIFE: typically ₹50,000–₹70,000 Cr
+- For HDFCLIFE: typically ₹40,000–₹60,000 Cr
+- For LICI: typically ₹4,00,000+ Cr
+- For mid-size insurers: ₹5,000–₹25,000 Cr
+
+IMPORTANT: This is NOT the market cap. It is NOT the book value. It is the actuarially computed Embedded Value — a specific insurance metric.
 
 Also find:
-- Equity shares outstanding in Crores (e.g. 100 Cr shares = 1 billion shares)
+- Equity shares outstanding in Crores (e.g. 100 Cr shares = 1 billion shares; typical range for listed insurers: 20–700 Cr)
 
-Sources to check: NSE disclosures (nseindia.com), investor presentations, annual reports, screener.in, moneycontrol.com.
+Self-validation: EV ÷ shares should give EV per share in the range of ₹300–₹2,000 for most listed life insurers. If your result is below ₹100 or above ₹5,000, recheck the EV figure or share count.
+
+Sources: NSE disclosures (nseindia.com), investor presentations, annual reports, screener.in, moneycontrol.com.
 
 Return ONLY this JSON, no markdown, no explanation:
 {"embeddedValue":0,"sharesCr":0,"asOf":""}
