@@ -340,7 +340,7 @@ export async function POST(
         s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
     const remaining = Math.max(0, allocBudget - netSpent)
 
-    const prices = computeTrancheprices(result.buyLow, result.buyHigh, existingCmp)
+    const prices = computeTrancheprices(result.buyLow, result.buyHigh, existingCmp, result.midLow, result.midHigh)
     const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
     // Delete existing tranches for this symbol + FY, then insert fresh ones

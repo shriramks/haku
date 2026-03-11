@@ -227,17 +227,20 @@ export function computeTrancheprices(
   buyLow: number,
   buyHigh: number,
   cmp: number | null,
+  midLow = buyHigh,
+  midHigh = buyHigh,
   count = 5,
 ): number[] {
   let floor: number, ceiling: number
-  const bandWidth = buyHigh - buyLow
 
   if (!cmp || cmp > buyHigh) {
+    // CMP above buy zone or unknown: spread buyLow → midpoint of mid zone
+    const midZoneMid = (midLow + midHigh) / 2
     floor = buyLow
-    ceiling = buyHigh
+    ceiling = midZoneMid
   } else if (cmp >= buyLow) {
-    // CMP inside buy zone: spread full range
-    floor = buyLow
+    // CMP inside buy zone: extend slightly below buyLow → buyHigh
+    floor = buyLow * 0.9
     ceiling = buyHigh
   } else {
     // CMP below buyLow (deep value): accumulate from CMP up to buyLow

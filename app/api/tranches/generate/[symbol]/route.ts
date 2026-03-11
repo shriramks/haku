@@ -19,7 +19,7 @@ export async function POST(
   // Fetch current band for buy zone + CMP
   const { data: band } = await supabase
     .from('buy_bands')
-    .select('buy_low, buy_high, manual_cmp')
+    .select('buy_low, buy_high, manual_cmp, mid_low, mid_high')
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
     .eq('is_current', true)
@@ -51,7 +51,7 @@ export async function POST(
       s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
   const remaining = Math.max(0, allocBudget - netSpent)
 
-  const prices = computeTrancheprices(band.buy_low, band.buy_high, band.manual_cmp ?? null)
+  const prices = computeTrancheprices(band.buy_low, band.buy_high, band.manual_cmp ?? null, band.mid_low ?? band.buy_high, band.mid_high ?? band.buy_high)
   const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
   // Replace existing tranches for this symbol + FY
