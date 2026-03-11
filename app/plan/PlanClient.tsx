@@ -41,12 +41,31 @@ interface Props {
   initialAllocations: StockAllocation[]
 }
 
+function setOnboardingStep(step: string) {
+  localStorage.setItem('haku_onboarding', step)
+  window.dispatchEvent(new Event('haku_onboarding'))
+}
+
 export default function PlanClient({ fiscalYears, initialFY, initialAllocations }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY] = useState(initialFY)
   const [allocations, setAllocations] = useState(initialAllocations)
   const [loading, setLoading] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
+
+  useEffect(() => {
+    if (fiscalYears.length === 0) {
+      setOnboardingStep('plan')
+    } else if (allocations.length === 0) {
+      setOnboardingStep('stocks')
+    } else {
+      getSupabaseBrowser()
+        .from('buy_bands')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_current', true)
+        .then(({ count }) => setOnboardingStep((count ?? 0) > 0 ? 'done' : 'bands'))
+    }
+  }, [fiscalYears.length, allocations.length])
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
@@ -74,6 +93,25 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
           </div>
         </div>
       </div>
+
+      {fiscalYears.length === 0 && (
+        <div className="mx-4 mt-4 p-4 rounded-2xl border"
+             style={{ background: 'var(--bg-secondary)', borderColor: 'rgba(10,132,255,0.3)',
+                      boxShadow: '0 0 0 1px rgba(10,132,255,0.1)' }}>
+          <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            Welcome to Haku
+          </p>
+          <p className="text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
+            Start by creating your annual investment plan.
+          </p>
+          <button
+            onClick={() => setShowNewPlan(true)}
+            className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white"
+            style={{ background: '#0A84FF' }}>
+            Create Plan →
+          </button>
+        </div>
+      )}
 
       <PlanTab
         fiscalYears={fiscalYears}
@@ -360,9 +398,20 @@ function PlanTab({
               ))}
 
               {allocations.length === 0 && !showAddStock && (
-                <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-                  <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
-                  <p className="text-[15px]">Tap + Add Stock to get started</p>
+                <div className="p-4 rounded-2xl border"
+                     style={{ borderColor: 'rgba(10,132,255,0.3)', background: 'var(--bg-secondary)',
+                              boxShadow: '0 0 0 1px rgba(10,132,255,0.1)' }}>
+                  <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Add stocks to start allocating
+                  </p>
+                  <p className="text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Search for a stock and set its allocation percentage.
+                  </p>
+                  <button onClick={() => setShowAddStock(true)}
+                    className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white"
+                    style={{ background: '#0A84FF' }}>
+                    + Add Stock
+                  </button>
                 </div>
               )}
             </div>

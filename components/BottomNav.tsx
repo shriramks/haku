@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
@@ -17,6 +17,17 @@ const RIGHT_TABS = [
 export default function BottomNav() {
   const path = usePathname()
   const [addOpen, setAddOpen] = useState(false)
+  const [onboarding, setOnboarding] = useState<string | null>(null)
+
+  useEffect(() => {
+    setOnboarding(localStorage.getItem('haku_onboarding'))
+    function sync() { setOnboarding(localStorage.getItem('haku_onboarding')) }
+    window.addEventListener('haku_onboarding', sync)
+    return () => window.removeEventListener('haku_onboarding', sync)
+  }, [])
+
+  const pulsePlan  = onboarding === 'plan'
+  const pulseBands = onboarding === 'bands'
 
   return (
     <>
@@ -31,11 +42,23 @@ export default function BottomNav() {
 
           {LEFT_TABS.map(({ href, label, Icon }) => {
             const active = path === href || path.startsWith(href + '/')
+            const showPulse = href === '/bands' && pulseBands
             return (
               <Link key={href} href={href}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors"
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
                 style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                <Icon className="w-6 h-6" />
+                {showPulse && (
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap
+                                   text-[10px] font-semibold text-white px-2 py-0.5 rounded-md"
+                        style={{ background: '#0A84FF', bottom: 'calc(100% + 2px)', top: 'auto',
+                                 position: 'absolute' }}>
+                    Generate buy bands →
+                  </span>
+                )}
+                <div className="relative">
+                  <Icon className="w-6 h-6" />
+                  {showPulse && <PulseDot />}
+                </div>
                 <span className="text-[10px] font-medium">{label}</span>
               </Link>
             )
@@ -51,11 +74,15 @@ export default function BottomNav() {
 
           {RIGHT_TABS.map(({ href, label, Icon }) => {
             const active = path === href || path.startsWith(href + '/')
+            const showPulse = href === '/plan' && pulsePlan
             return (
               <Link key={href} href={href}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors"
+                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
                 style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                <Icon className="w-6 h-6" />
+                <div className="relative">
+                  <Icon className="w-6 h-6" />
+                  {showPulse && <PulseDot />}
+                </div>
                 <span className="text-[10px] font-medium">{label}</span>
               </Link>
             )
@@ -66,6 +93,17 @@ export default function BottomNav() {
 
       {addOpen && <AddTxnModal onClose={() => setAddOpen(false)} />}
     </>
+  )
+}
+
+function PulseDot() {
+  return (
+    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+            style={{ background: '#0A84FF' }} />
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 border border-black"
+            style={{ background: '#0A84FF' }} />
+    </span>
   )
 }
 
