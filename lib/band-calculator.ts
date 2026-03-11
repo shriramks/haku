@@ -236,14 +236,13 @@ export function computeTrancheprices(
     floor = buyLow
     ceiling = buyHigh
   } else if (cmp >= buyLow) {
-    // CMP inside buy zone: spread tranches from buyLow up to CMP
+    // CMP inside buy zone: spread full range
     floor = buyLow
-    ceiling = cmp
-    if (ceiling <= floor) ceiling = floor * 1.03
+    ceiling = buyHigh
   } else {
-    // CMP below buyLow (deep value): cluster around CMP, not buyLow
-    floor = cmp * 0.90
-    ceiling = cmp
+    // CMP below buyLow (deep value): accumulate from CMP up to buyLow
+    floor = cmp
+    ceiling = buyLow
   }
 
   const range = Math.max(ceiling - floor, 1)
