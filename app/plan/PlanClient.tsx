@@ -70,12 +70,6 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <h1 className="text-[28px] font-bold">Plan</h1>
           <div className="flex items-center gap-3">
-            {selectedFY && (
-              <span className={`text-[13px] tabnum font-medium ${totalPct > 100 ? 'text-red-400' : Math.abs(totalPct - 100) < 0.01 ? 'text-green-500' : ''}`}
-                    style={totalPct <= 100 && Math.abs(totalPct - 100) >= 0.01 ? { color: 'var(--text-muted)' } : undefined}>
-                {totalPct.toFixed(1)}% · {(100 - totalPct).toFixed(1)}% left
-              </span>
-            )}
             <UserMenu />
           </div>
         </div>
@@ -342,6 +336,12 @@ function PlanTab({
                   {showAddStock ? 'Cancel' : '+ Add Stock'}
                 </button>
               </div>
+              {selectedFY && (
+                <p className="text-[11px] tabnum mb-2"
+                   style={{ color: totalPct > 100 ? '#FF3B30' : Math.abs(totalPct - 100) < 0.01 ? '#34C759' : 'var(--text-muted)' }}>
+                  {totalPct.toFixed(1)}% allocated{Math.abs(totalPct - 100) < 0.01 ? ' ✓' : ` · ${(100 - totalPct).toFixed(1)}% free`}
+                </p>
+              )}
 
               {showAddStock && (
                 <AddStockForm totalPct={totalPct} onAdd={addStock} />

@@ -80,6 +80,16 @@ export default function UserMenu() {
   }
 
   return (
+    <div className="flex items-center gap-2">
+      <a
+        href="/docs.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+        style={{ background: 'var(--border)', color: 'var(--text-2)' }}
+        aria-label="Help & Docs">
+        <BookIcon className="w-4 h-4" />
+      </a>
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
@@ -172,15 +182,6 @@ export default function UserMenu() {
             )}
           </div>
 
-          <a
-            href="/docs.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 rounded-xl text-[15px] font-medium text-center block mb-2"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
-            Help &amp; Docs
-          </a>
-
           <button
             onClick={signOut}
             disabled={signingOut}
@@ -191,6 +192,7 @@ export default function UserMenu() {
         </div>
       )}
     </div>
+    </div>
   )
 }
 
@@ -199,6 +201,15 @@ function PersonIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  )
+}
+
+function BookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
     </svg>
   )
 }
