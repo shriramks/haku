@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
+import { decrypt } from '@/lib/encrypt'
 import type { StockCategory } from '@/lib/types'
 
 // ── AI provider helpers ───────────────────────────────────────────────────────
@@ -138,9 +139,11 @@ export async function POST(
     .maybeSingle()
 
   const aiProvider = userSettings?.ai_provider ?? 'gemini'
-  const activeKey = aiProvider === 'claude'
+  const rawKey = aiProvider === 'claude'
     ? userSettings?.claude_api_key
-    : (userSettings?.gemini_api_key || process.env.GEMINI_API_KEY)
+    : userSettings?.gemini_api_key
+  const decryptedKey = rawKey ? await decrypt(rawKey) : null
+  const activeKey = decryptedKey ?? (aiProvider === 'gemini' ? process.env.GEMINI_API_KEY : null)
 
   if (!activeKey) return NextResponse.json({
     error: aiProvider === 'claude'

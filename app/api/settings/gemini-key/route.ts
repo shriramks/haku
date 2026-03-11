@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { encrypt } from '@/lib/encrypt'
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
@@ -48,8 +49,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid Claude API key — should start with sk-ant-' }, { status: 400 })
   }
 
+  const encryptedKey = await encrypt(key)
   const { error } = await supabase.from('user_settings').upsert(
-    { user_id: user.id, [keyField]: key, ai_provider: provider, updated_at: new Date().toISOString() },
+    { user_id: user.id, [keyField]: encryptedKey, ai_provider: provider, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
   )
 
