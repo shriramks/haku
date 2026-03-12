@@ -102,6 +102,30 @@ Return ONLY this JSON, no markdown, no explanation:
 asOf = the period the embedded value relates to (e.g. "FY25", "Mar 2025")`
 }
 
+function bankPrompt(symbol: string): string {
+  return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
+
+From the Key Ratios table, most recent period (prefer TTM if shown, else latest annual FY):
+- "Book Value" row → Book Value per share in ₹. This is per share, NOT in crores. Typical range for large private banks: ₹100–₹800.
+- "EPS in Rs" row → EPS per share in ₹ (for cross-checking only).
+
+From the company header or Key Ratios:
+- Equity shares outstanding in Crores (e.g. 700 Cr shares = 7 billion shares; typical range for large banks: 200–1000 Cr)
+  IMPORTANT: Screener shows shares in Crores. Do not confuse with millions.
+
+From the Balance Sheet, most recent period:
+- "Reserves" row → retained earnings/reserves in ₹ Crores (for cross-checking only).
+
+Self-validation before returning (do not include in output):
+- Verify: bvps × sharesCr ≈ (Equity Capital + Reserves) in ₹Cr. If they differ by more than 3x, you have a unit error — recheck bvps or shares.
+- Book Value below ₹50 for a large listed bank almost always means a scale error.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"bvps":0,"sharesCr":0,"eps":0,"asOf":""}
+
+asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
+}
+
 function indexPrompt(symbol: string): string {
   return `Find current Nifty 50 valuation data from NSE India (nseindia.com) or Moneycontrol:
 1. Current Nifty 50 trailing PE ratio (price-to-earnings based on last 12 months earnings, NOT forward PE)
@@ -168,11 +192,13 @@ export async function POST(
   const category = alloc.category as StockCategory
   const isIndex     = category === 'Index/ETF'
   const isInsurance = category === 'Insurance — Life'
+  const isBank      = category === 'Banks'
 
   // Call AI provider with search grounding
   let aiText: string
   const prompt = isIndex ? indexPrompt(upperSymbol)
     : isInsurance ? insurancePrompt(upperSymbol)
+    : isBank ? bankPrompt(upperSymbol)
     : stockPrompt(upperSymbol)
   try {
     aiText = aiProvider === 'claude'
@@ -201,6 +227,7 @@ export async function POST(
   let borrowingsCr: number | null  = null
   let cashCr: number | null        = null
   let sharesCr: number | null      = null
+  let bvps: number | null          = null
   let embeddedValue: number | null = null
   let asOf = String(parsed.asOf ?? '')
 
@@ -228,6 +255,17 @@ export async function POST(
         raw: aiText.slice(0, 600),
       }, { status: 422 })
     }
+  } else if (isBank) {
+    bvps     = Number(parsed.bvps)     || null
+    sharesCr = Number(parsed.sharesCr) || null
+    eps      = Number(parsed.eps)      || null
+
+    if (!bvps) {
+      return NextResponse.json({
+        error: `Could not extract Book Value per share for ${upperSymbol}. Got: BVPS=${bvps}`,
+        raw: aiText.slice(0, 600),
+      }, { status: 422 })
+    }
   } else {
     eps          = Number(parsed.eps)          || null
     opProfitCr   = Number(parsed.opProfitCr)   || null
@@ -247,7 +285,7 @@ export async function POST(
     twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
     isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
     eps,
-    bvps:          null,
+    bvps,
     ebitda:        opProfitCr,
     netDebt:       netDebtCr,
     shares:        sharesCr,
@@ -293,7 +331,7 @@ export async function POST(
       symbol:     upperSymbol,
       anchor_type,
       eps,
-      bvps:       null,
+      bvps,
       ebitda:         opProfitCr,
       net_debt:       netDebtCr,
       shares:         sharesCr,
@@ -371,7 +409,7 @@ export async function POST(
   return NextResponse.json({
     symbol: upperSymbol,
     category,
-    financials: { eps, opProfitCr, borrowingsCr, cashCr, sharesCr, netDebtCr },
+    financials: { eps, bvps, opProfitCr, borrowingsCr, cashCr, sharesCr, netDebtCr },
     asOf,
     band:     newBand,
     result,
