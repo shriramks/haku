@@ -640,11 +640,11 @@ function TrancheSection({
         <div className="flex gap-2 mb-2">
           <input type="number" inputMode="decimal" placeholder="Qty" value={qty}
             onChange={e => setQty(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
+            className="w-20 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           <input type="number" inputMode="decimal" placeholder="Price ₹" value={price}
             onChange={e => setPrice(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
+            className="w-28 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           <button onClick={submit} disabled={adding || !qty || !price}
             className="px-3 py-2 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
