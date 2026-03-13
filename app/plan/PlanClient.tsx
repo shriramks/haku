@@ -496,13 +496,6 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
           )}
         </div>
 
-        <a href={`/transactions?symbol=${alloc.symbol}`}
-           onClick={e => e.stopPropagation()}
-           className="text-[12px] px-2 py-1 rounded-lg"
-           style={{ color: '#0A84FF', background: 'rgba(10,132,255,0.10)' }}>
-          Txns →
-        </a>
-
         <button onClick={() => setExpanded(v => !v)} style={{ color: 'var(--text-faint)' }}>
           <ChevronIcon className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
