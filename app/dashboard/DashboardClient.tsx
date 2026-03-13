@@ -135,7 +135,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 return (
                   <Link key={row.symbol} href={`/stocks/${row.symbol}`}
                         className="grid items-center gap-3 px-4 py-3 tap-row"
-                        style={{ gridTemplateColumns: '108px 1fr 72px 16px' }}>
+                        style={{ gridTemplateColumns: '108px 1fr 72px 16px', opacity: row.remaining <= 0 ? 0.45 : 1 }}>
                     <span className="font-semibold text-[13px]">{row.symbol}</span>
                     <div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
@@ -179,7 +179,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {sortedRows.map((row, i) => (
                 <div key={row.symbol}
                      className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 ${i < sortedRows.length - 1 ? 'border-b' : ''}`}
-                     style={{ borderColor: 'var(--border-faint)' }}>
+                     style={{ borderColor: 'var(--border-faint)', opacity: row.remaining <= 0 ? 0.45 : 1 }}>
                   <div>
                     <p className="font-semibold text-[13px]">{row.symbol}</p>
                     {row.qty > 0 && (
