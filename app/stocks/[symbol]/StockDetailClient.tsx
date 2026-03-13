@@ -329,7 +329,7 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
           {tranches.length > 0 && (
             <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
               <p className="text-xs px-4 pt-3 pb-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Tranches</p>
-              {tranches.map((t, i) => (
+              {[...tranches].sort((a, b) => b.price - a.price).map((t, i) => (
                 <div key={t.id}
                      className={`flex items-center justify-between px-4 py-2.5 ${i < tranches.length - 1 ? 'border-b' : ''}`}
                      style={{ borderColor: 'var(--border-faint)', opacity: t.allocated ? 0.5 : 1 }}>

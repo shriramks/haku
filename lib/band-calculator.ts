@@ -248,7 +248,7 @@ export function computeTrancheprices(
     ceiling = buyLow
   }
 
-  const range = Math.max(ceiling - floor, 1)
+  const range = Math.max(ceiling - floor, floor * 0.05)
   const prices: number[] = []
   for (let i = 0; i < count; i++) {
     const t = count > 1 ? Math.pow(i / (count - 1), 2) : 0

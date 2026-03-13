@@ -137,7 +137,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       if (result) {
         const cmp       = band.manual_cmp ?? null
         const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
-        const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp)
+        const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
         const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
         // ② Optimistic band + tranche update — instant UI
@@ -272,7 +272,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const isRefresh = refreshing[row.symbol]
           const stockTranches = tranches
             .filter(t => t.symbol === row.symbol)
-            .sort((a, b) => a.sort_order - b.sort_order)
+            .sort((a, b) => b.price - a.price)
 
           // Re-compute band result from stored financial inputs (for tightening display)
           const computed = (band && alloc) ? calculateBands({
