@@ -21,9 +21,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [tranches, setTranches]     = useState(initialTranches)
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [refreshing, setRefreshing]       = useState<Record<string, boolean>>({})
-  const [refreshingAll, setRefreshingAll] = useState(false)
   const [generating, setGenerating]             = useState<Record<string, boolean>>({})
-  const [generatingAll, setGeneratingAll]       = useState(false)
   const [genError, setGenError]                 = useState<Record<string, string>>({})
   const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
   const [hasKey, setHasKey]               = useState<boolean | null>(null)
@@ -110,45 +108,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       setGenError(prev => ({ ...prev, [symbol]: 'Network error' }))
     }
     setGenerating(prev => ({ ...prev, [symbol]: false }))
-  }
-
-  // Fetch CMP first (always), then generate bands if key exists
-  async function generateBandsWithCMP(symbol: string) {
-    await refreshCMP(symbol)
-    if (!hasKey) { setShowKeyPrompt(true); return }
-    await generateBands(symbol)
-  }
-
-  async function generateAllBands() {
-    if (!hasKey) { setShowKeyPrompt(true); return }
-    setGeneratingAll(true)
-    await Promise.all(rows.map(r => generateBands(r.symbol)))
-    setGeneratingAll(false)
-  }
-
-  async function refreshAllCMPs() {
-    setRefreshingAll(true)
-    try {
-      const symbols = rows.map(r => r.symbol).join(',')
-      const res = await fetch(`/api/cmp/batch?symbols=${symbols}`)
-      if (res.ok) {
-        const { prices } = await res.json() as { prices: Record<string, number> }
-        const sb = getSupabaseBrowser()
-        const now = new Date().toISOString()
-        // Update state optimistically then persist in parallel
-        setBands(prev => prev.map(b =>
-          prices[b.symbol] != null ? { ...b, manual_cmp: prices[b.symbol] } : b
-        ))
-        await Promise.all(
-          Object.entries(prices).map(([symbol, price]) =>
-            sb.from('buy_bands')
-              .update({ manual_cmp: price, last_updated_at: now })
-              .eq('symbol', symbol).eq('is_current', true)
-          )
-        )
-      }
-    } catch { /* silently fail */ }
-    setRefreshingAll(false)
   }
 
   async function toggleQuarters(symbol: string, field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
@@ -251,6 +210,16 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setTranches(prev => prev.filter(t => t.id !== id))
   }
 
+  async function updateTranche(id: string, qty: number, price: number) {
+    setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
+    await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+  }
+
+  async function clearTranches(symbol: string) {
+    await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
+    setTranches(prev => prev.filter(t => t.symbol !== symbol))
+  }
+
   async function generateTranches(symbol: string) {
     setGeneratingTranches(prev => ({ ...prev, [symbol]: true }))
     try {
@@ -284,26 +253,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       {showQuartersInfo && (
         <QuartersInfoSheet onClose={() => setShowQuartersInfo(false)} />
       )}
-
-      {/* Header actions */}
-      <div className="px-4 pt-3 pb-2 flex justify-end gap-2 flex-wrap items-center">
-        <button
-          onClick={generateAllBands}
-          disabled={generatingAll || refreshingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
-          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)' }}>
-          <SparkleIcon className={`w-3.5 h-3.5 ${generatingAll ? 'spin' : ''}`} />
-          {generatingAll ? 'Generating…' : 'Generate All Bands'}
-        </button>
-        <button
-          onClick={refreshAllCMPs}
-          disabled={refreshingAll || generatingAll}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium disabled:opacity-50"
-          style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-          <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'spin' : ''}`} />
-          Refresh All CMPs
-        </button>
-      </div>
 
       {/* Two independent columns on md+ — avoids row-height coupling when expanding */}
       <div className="md:flex md:gap-3 md:px-4 md:pb-4">
@@ -345,41 +294,32 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-[17px]">{row.symbol}</span>
-                    {(() => {
-                      const pending = stockTranches.filter(t => !t.allocated).length
-                      if (pending > 0) return (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
-                              style={{ background: 'rgba(10,132,255,0.15)', color: '#0A84FF' }}>
-                          {pending} to buy
-                        </span>
-                      )
-                      if (stockTranches.length > 0) return (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold"
-                              style={{ background: 'rgba(52,199,89,0.15)', color: '#34C759' }}>
-                          Done
-                        </span>
-                      )
-                      return null
-                    })()}
-                    {cmp && (
-                      <span className="text-[13px] tabnum" style={{ color: 'var(--text-2)' }}>
-                        ₹{Math.round(cmp).toLocaleString('en-IN')}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="font-bold text-[17px]">{row.symbol}</span>
+                  {cmp && (
+                    <span className="text-[13px] tabnum" style={{ color: 'var(--text-muted)' }}>
+                      ₹{Math.round(cmp).toLocaleString('en-IN')}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* ⚡ Bands — CMP + band generation in one tap */}
+                  {/* Bands button */}
                   <button
-                    onClick={e => { e.stopPropagation(); generateBandsWithCMP(row.symbol) }}
-                    disabled={generating[row.symbol] || refreshing[row.symbol]}
+                    onClick={e => { e.stopPropagation(); generateBands(row.symbol) }}
+                    disabled={generating[row.symbol]}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-                    <SparkleIcon className={`w-3.5 h-3.5 ${(generating[row.symbol] || refreshing[row.symbol]) ? 'spin' : ''}`} />
-                    {(generating[row.symbol] || refreshing[row.symbol]) ? '…' : 'Bands'}
+                    <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
+                    Bands
+                  </button>
+                  {/* CMP button */}
+                  <button
+                    onClick={e => { e.stopPropagation(); refreshCMP(row.symbol) }}
+                    disabled={refreshing[row.symbol]}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                    <RefreshIcon className={`w-3.5 h-3.5 ${refreshing[row.symbol] ? 'spin' : ''}`} />
+                    CMP
                   </button>
                   <span style={{ color: 'var(--text-faint)' }}>
                     <ChevronIcon className={`w-4 h-4 transition-transform ${isExp ? 'rotate-180' : ''}`} />
@@ -478,28 +418,19 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
                   </div>
 
-                  {/* Regenerate Tranches button */}
-                  {hasBands && (
-                    <div className="px-4 pb-2">
-                      <button
-                        onClick={() => generateTranches(row.symbol)}
-                        disabled={generatingTranches[row.symbol]}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium disabled:opacity-40"
-                        style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
-                        <ListIcon className="w-3.5 h-3.5" />
-                        {generatingTranches[row.symbol] ? '…' : 'Regenerate Tranches'}
-                      </button>
-                    </div>
-                  )}
-
                   {/* Tranches */}
                   <TrancheSection
                     symbol={row.symbol}
                     tranches={stockTranches}
                     remaining={row.remaining}
+                    hasBands={hasBands}
                     onToggle={toggleTranche}
                     onAdd={addTranche}
                     onDelete={deleteTranche}
+                    onUpdate={updateTranche}
+                    onGenerate={() => generateTranches(row.symbol)}
+                    onClear={() => clearTranches(row.symbol)}
+                    generating={generatingTranches[row.symbol] ?? false}
                   />
                 </div>
               )}
@@ -595,130 +526,158 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
 // ── Tranche section ───────────────────────────────────────────────────────────
 
 function TrancheSection({
-  symbol, tranches, remaining, onToggle, onAdd, onDelete,
+  symbol, tranches, remaining, hasBands,
+  onToggle, onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
 }: {
   symbol: string
   tranches: BuyTranche[]
   remaining: number
+  hasBands: boolean
   onToggle: (id: string, allocated: boolean) => void
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
+  onUpdate: (id: string, qty: number, price: number) => Promise<void>
+  onGenerate: () => void
+  onClear: () => Promise<void>
+  generating: boolean
 }) {
-  const [showAdd, setShowAdd] = useState(false)
-  const [qty, setQty]         = useState('')
-  const [price, setPrice]     = useState('')
-  const [adding, setAdding]   = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-  const pendingTotal = tranches.filter(t => !t.allocated).reduce((s, t) => s + t.qty * t.price, 0)
-
-  async function submit() {
-    if (!qty || !price) return
-    setAdding(true)
-    await onAdd(symbol, parseFloat(qty), parseFloat(price))
-    setQty(''); setPrice(''); setShowAdd(false); setAdding(false)
-  }
+  const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
 
   return (
-    <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-      <div className="flex items-center justify-between mt-3 mb-2">
-        <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>
-          Tranches
-        </p>
-        <div className="flex items-center gap-3">
-          {pendingTotal > 0 && (
-            <span className="text-[11px] tabnum" style={{ color: 'var(--text-muted)' }}>
-              {formatINR(pendingTotal)} pending
-            </span>
-          )}
-          <button onClick={() => setShowAdd(v => !v)} className="text-[#0A84FF] text-[13px]">
-            {showAdd ? 'Cancel' : '+ Add'}
-          </button>
-        </div>
+    <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
+      {/* Header: TRANCHES label left, ₹X / ₹Y Allocated right */}
+      <div className="flex items-center justify-between px-2 mb-2">
+        <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
+        <span className="text-[11px] tabnum" style={{ color: 'var(--text-muted)' }}>
+          {formatINR(plannedTotal)} / {formatINR(remaining)} Allocated
+        </span>
       </div>
 
-      {showAdd && (
-        <div className="flex gap-2 mb-2">
-          <input type="number" inputMode="decimal" placeholder="Qty" value={qty}
-            onChange={e => setQty(e.target.value)}
-            className="w-20 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-          <input type="number" inputMode="decimal" placeholder="Price ₹" value={price}
-            onChange={e => setPrice(e.target.value)}
-            className="w-28 px-3 py-2 rounded-xl text-[14px] tabnum outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-          <button onClick={submit} disabled={adding || !qty || !price}
-            className="px-3 py-2 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
-            style={{ background: 'rgba(10,132,255,0.15)' }}>
-            {adding ? '…' : 'Add'}
-          </button>
-        </div>
-      )}
+      {/* 3-button bar */}
+      <div className="flex gap-1.5 px-2 mb-2">
+        <button
+          onClick={onGenerate}
+          disabled={!hasBands || generating}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+          style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
+          <RefreshIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
+          {generating ? '…' : 'Generate'}
+        </button>
+        <button
+          onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium"
+          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+          <PlusIcon className="w-3.5 h-3.5" />
+          Add
+        </button>
+        <button
+          onClick={() => onClear()}
+          disabled={tranches.length === 0}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+          style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
+          <XIcon className="w-3.5 h-3.5" />
+          Clear All
+        </button>
+      </div>
 
-      {tranches.length > 0 && (
-        <div className="rounded-2xl divide-y overflow-hidden"
-             style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
-          {tranches.map(t => (
-            <TrancheRow key={t.id} tranche={t} onToggle={onToggle} onDelete={onDelete} />
-          ))}
-        </div>
-      )}
-
-      {tranches.length === 0 && !showAdd && (
-        <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>No tranches — tap + Add to plan buys</p>
-      )}
+      {/* Tranche list */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+        {editingId === 'new' && (
+          <TrancheInputRow
+            onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
+            onCancel={() => setEditingId(null)}
+          />
+        )}
+        {tranches.map(t =>
+          editingId === t.id
+            ? <TrancheInputRow
+                key={t.id}
+                initialQty={String(Math.round(t.qty))}
+                initialPrice={String(t.price)}
+                onSave={async (qty, price) => { await onUpdate(t.id, qty, price); setEditingId(null) }}
+                onDelete={() => { onDelete(t.id); setEditingId(null) }}
+                onCancel={() => setEditingId(null)}
+              />
+            : <TrancheRow key={t.id} tranche={t} onToggle={onToggle} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+        )}
+        {tranches.length === 0 && editingId !== 'new' && (
+          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>No tranches yet — tap Add</p>
+        )}
+      </div>
     </div>
   )
 }
 
-function TrancheRow({ tranche, onToggle, onDelete }: {
-  tranche: BuyTranche
-  onToggle: (id: string, allocated: boolean) => void
-  onDelete: (id: string) => void
+function TrancheInputRow({ initialQty = '', initialPrice = '', onSave, onDelete, onCancel }: {
+  initialQty?: string
+  initialPrice?: string
+  onSave: (qty: number, price: number) => Promise<void>
+  onDelete?: () => void
+  onCancel?: () => void
 }) {
-  const amount = tranche.qty * tranche.price
-  const [confirming, setConfirming] = useState(false)
+  const [qty, setQty] = useState(initialQty)
+  const [price, setPrice] = useState(initialPrice)
+  const [saving, setSaving] = useState(false)
 
-  if (confirming) {
-    return (
-      <div className="flex items-center justify-between px-4 py-3">
-        <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>Remove tranche?</p>
-        <div className="flex gap-4">
-          <button onClick={() => setConfirming(false)} className="text-[#0A84FF] text-[13px]">Keep</button>
-          <button onClick={() => onDelete(tranche.id)} className="text-red-400 text-[13px] font-semibold">Remove</button>
-        </div>
-      </div>
-    )
+  async function save() {
+    const q = parseFloat(qty), p = parseFloat(price)
+    if (!q || !p) return
+    setSaving(true)
+    await onSave(q, p)
+    setSaving(false)
   }
 
   return (
-    <div className="flex items-center px-4 py-3 gap-3">
-      <button
-        onClick={() => onToggle(tranche.id, !tranche.allocated)}
-        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors`}
-        style={tranche.allocated
-          ? { background: '#30D158', borderColor: '#30D158' }
-          : { background: 'transparent', borderColor: 'var(--border)' }}>
-        {tranche.allocated && (
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+    <div className="flex items-center gap-1.5 p-2 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <input type="text" inputMode="numeric" placeholder="Qty" value={qty}
+        onChange={e => setQty(e.target.value)}
+        style={{ width: 80, padding: '8px', borderRadius: 10, fontSize: 14, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+      <span style={{ fontSize: 12, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
+      <input type="text" inputMode="decimal" placeholder="Price ₹" value={price}
+        onChange={e => setPrice(e.target.value)}
+        style={{ width: 150, padding: '8px', borderRadius: 10, fontSize: 14, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+      <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexShrink: 0 }}>
+        <button onClick={save} disabled={saving || !qty || !price}
+          style={{ width: 50, height: 50, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer', opacity: (saving || !qty || !price) ? 0.4 : 1 }}>
+          <SaveIcon className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
+        </button>
+        {onDelete && (
+          <button onClick={onDelete}
+            style={{ width: 50, height: 50, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+            <TrashIcon className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
+          </button>
         )}
-      </button>
+      </div>
+    </div>
+  )
+}
 
+function TrancheRow({ tranche, onToggle, onEdit }: {
+  tranche: BuyTranche
+  onToggle: (id: string, allocated: boolean) => void
+  onEdit: () => void
+}) {
+  const amount = tranche.qty * tranche.price
+  return (
+    <div className="flex items-center px-4 py-3 gap-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <button onClick={() => onToggle(tranche.id, !tranche.allocated)}
+        className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+        style={tranche.allocated ? { background: '#30D158', borderColor: '#30D158' } : { background: 'transparent', borderColor: 'var(--border)' }}>
+        {tranche.allocated && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+      </button>
       <p className="flex-1 text-[13px] tabnum"
-         style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)',
-                  textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
+         style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)', textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
         {Math.round(tranche.qty)} × ₹{tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
       </p>
-
-      <div className="flex items-center gap-3">
-        <p className="text-[13px] font-semibold tabnum"
-           style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
-          {formatINR(amount)}
-        </p>
-        <button onClick={() => setConfirming(true)} className="text-[20px] leading-none px-1"
-                style={{ color: 'var(--text-faint)' }}>×</button>
-      </div>
+      <p className="text-[13px] font-semibold tabnum"
+         style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+        {formatINR(amount)}
+      </p>
+      <button onClick={onEdit} className="flex-shrink-0 p-1" style={{ color: 'var(--text-faint)' }}>
+        <PencilIcon className="w-4 h-4" />
+      </button>
     </div>
   )
 }
@@ -909,6 +868,46 @@ function SparkleIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+    </svg>
+  )
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
+    </svg>
+  )
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  )
+}
+
+function SaveIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
+
+function TrashIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  )
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

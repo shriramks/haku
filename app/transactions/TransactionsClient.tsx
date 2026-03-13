@@ -5,7 +5,13 @@ import { formatINR, formatDate } from '@/lib/formatter'
 import type { Transaction } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 
-export default function TransactionsClient({ transactions: initial }: { transactions: Transaction[] }) {
+export default function TransactionsClient({
+  transactions: initial,
+  filterSymbol,
+}: {
+  transactions: Transaction[]
+  filterSymbol?: string
+}) {
   const [txns, setTxns] = useState(initial)
 
   async function deleteTxn(id: string) {
@@ -13,7 +19,8 @@ export default function TransactionsClient({ transactions: initial }: { transact
     setTxns(prev => prev.filter(t => t.id !== id))
   }
 
-  const grouped = groupByMonth(txns)
+  const displayed = filterSymbol ? txns.filter(t => t.symbol === filterSymbol) : txns
+  const grouped = groupByMonth(displayed)
 
   return (
     <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -23,16 +30,19 @@ export default function TransactionsClient({ transactions: initial }: { transact
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between pt-4">
           <div>
-            <h1 className="text-[28px] font-bold">Transactions</h1>
-            {txns.length > 0 && (
-              <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{txns.length} total</p>
+            <h1 className="text-[28px] font-bold">{filterSymbol ?? 'Transactions'}</h1>
+            {filterSymbol && (
+              <a href="/transactions" className="text-[13px]" style={{ color: '#0A84FF' }}>← All</a>
+            )}
+            {displayed.length > 0 && (
+              <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{displayed.length} total</p>
             )}
           </div>
           <UserMenu />
         </div>
       </div>
 
-      {txns.length === 0 ? (
+      {displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-28 gap-2"
              style={{ color: 'var(--text-muted)' }}>
           <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
