@@ -241,12 +241,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
-  const sortedRows = [...rows].sort((a, b) => {
-    const aDone = tranches.filter(t => t.symbol === a.symbol).length > 0 && tranches.filter(t => t.symbol === a.symbol).every(t => t.allocated)
-    const bDone = tranches.filter(t => t.symbol === b.symbol).length > 0 && tranches.filter(t => t.symbol === b.symbol).every(t => t.allocated)
-    if (aDone !== bDone) return aDone ? 1 : -1
-    return 0
-  })
+  const isDone = (symbol: string) => {
+    const st = tranches.filter(t => t.symbol === symbol)
+    return st.length > 0 && st.every(t => t.allocated)
+  }
+  const activeRows    = rows.filter(r => !isDone(r.symbol))
+  const completedRows = rows.filter(r => isDone(r.symbol))
 
   return (
     <div>
@@ -261,11 +261,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         <QuartersInfoSheet onClose={() => setShowQuartersInfo(false)} />
       )}
 
-      {/* Two independent columns on md+ — avoids row-height coupling when expanding */}
-      <div className="md:flex md:gap-3 md:px-4 md:pb-4">
-        {(() => { const half = Math.ceil(sortedRows.length / 2); return [sortedRows.slice(0, half), sortedRows.slice(half)] })().map((col, ci) => (
-          <div key={ci} className="md:flex-1 md:space-y-3">
-        {col.map(row => {
+      {/* Stock rows */}
+      <div>
+        {[...activeRows, ...completedRows].map((row, idx) => {
+          const showDivider = idx === activeRows.length && completedRows.length > 0
           const band      = bands.find(b => b.symbol === row.symbol)
           const alloc     = allocState.find(a => a.symbol === row.symbol)
           const isExp     = expanded.has(row.symbol)
@@ -295,8 +294,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const isDone = stockTranches.length > 0 && stockTranches.every(t => t.allocated)
 
           return (
-            <div key={row.symbol}
-                 className="border-b md:border md:rounded-2xl md:overflow-hidden"
+            <div key={row.symbol}>
+              {showDivider && (
+                <div className="px-4 py-2">
+                  <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                </div>
+              )}
+            <div className="border-b"
                  style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
               {/* Collapsed header — always visible */}
               <div
@@ -443,10 +447,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 </div>
               )}
             </div>
+            </div>
           )
         })}
-          </div>
-        ))}
       </div>
     </div>
   )

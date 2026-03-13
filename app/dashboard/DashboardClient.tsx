@@ -135,7 +135,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
               {completedRows.length > 0 && (
                 <>
-                  <div className="px-4 py-2" style={{ background: 'var(--bg-tertiary)' }}>
+                  <div className="px-4 py-2">
                     <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                   </div>
                   {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
@@ -160,8 +160,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {activeRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < activeRows.length - 1 || completedRows.length > 0} />)}
               {completedRows.length > 0 && (
                 <>
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-b border-t"
-                       style={{ borderColor: 'var(--border-faint)', background: 'var(--bg-tertiary)' }}>
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-t"
+                       style={{ borderColor: 'var(--border-faint)' }}>
                     <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                   </div>
                   {completedRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < completedRows.length - 1} dim />)}
