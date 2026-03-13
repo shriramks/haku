@@ -131,13 +131,13 @@ export default function AddPage() {
           {/* Qty × Price */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Quantity', val: qty, set: setQty, ph: '100' },
-              { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50' },
-            ].map(({ label, val, set, ph }) => (
+              { label: 'Quantity', val: qty, set: setQty, ph: '100', decimal: false },
+              { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50', decimal: true },
+            ].map(({ label, val, set, ph, decimal }) => (
               <div key={label}>
                 <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                <input type="number" inputMode="decimal" placeholder={ph} value={val}
-                  onChange={e => set(e.target.value)} required min="0.001"
+                <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
+                  onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
                   className="w-full px-3 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
