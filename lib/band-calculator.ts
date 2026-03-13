@@ -249,9 +249,12 @@ export function computeTrancheprices(
   }
 
   const range = Math.max(ceiling - floor, floor * 0.05)
+  // Each tranche should be at least 2% of floor apart — shrink count for narrow bands
+  const minGap = floor * 0.02
+  const usedCount = Math.max(2, Math.min(count, Math.floor(range / minGap) + 1))
   const prices: number[] = []
-  for (let i = 0; i < count; i++) {
-    const t = count > 1 ? Math.pow(i / (count - 1), 2) : 0
+  for (let i = 0; i < usedCount; i++) {
+    const t = usedCount > 1 ? Math.pow(i / (usedCount - 1), 2) : 0
     prices.push(Math.round(floor + t * range))
   }
   return [...new Set(prices)]
