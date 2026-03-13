@@ -7,7 +7,7 @@ import { calculateBands, getBandSignal, trancheSuggestion } from '@/lib/band-cal
 import { BandSignalBadge, TradeTypeBadge, GateSignalIcon, InvestableBadge } from '@/components/SignalBadge'
 import { formatINR, formatPnL, formatPct, formatDate } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal } from '@/lib/types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal, BuyTranche } from '@/lib/types'
 
 interface Props {
   symbol: string
@@ -16,23 +16,23 @@ interface Props {
   transactions: Transaction[]
   allTransactions: Transaction[]
   band: BuyBand | null
+  tranches: BuyTranche[]
   investability: Investability | null
   userId: string
   initialTab: string
 }
 
-type Tab = 'overview' | 'bands' | 'transactions' | 'investability'
+type Tab = 'overview' | 'bands' | 'transactions'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview',      label: 'Overview' },
-  { id: 'bands',         label: 'Bands' },
-  { id: 'transactions',  label: 'Transactions' },
-  { id: 'investability', label: 'Gates' },
+  { id: 'overview',     label: 'Overview' },
+  { id: 'bands',        label: 'Bands' },
+  { id: 'transactions', label: 'Transactions' },
 ]
 
 export default function StockDetailClient({
   symbol, fiscalYear, allocation, transactions, allTransactions, band: initialBand,
-  investability: initialInv, userId, initialTab,
+  tranches, investability: initialInv, userId, initialTab,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>(initialTab as Tab ?? 'overview')
@@ -97,11 +97,10 @@ export default function StockDetailClient({
         ))}
       </div>
 
-      <div className="overflow-y-auto">
-        {activeTab === 'overview'      && <OverviewTab {...{ budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear }} />}
-        {activeTab === 'bands'         && <BandsTab symbol={symbol} band={band} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} />}
-        {activeTab === 'transactions'  && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}
-        {activeTab === 'investability' && <InvestabilityTab symbol={symbol} inv={inv} onSaved={setInv} />}
+      <div className="overflow-y-auto pb-24">
+        {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
+        {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} tranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} />}
+        {activeTab === 'transactions' && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}
       </div>
     </div>
   )
@@ -109,12 +108,29 @@ export default function StockDetailClient({
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear }: {
-  budget: number; spent: number; remaining: number; qty: number; avgCost: number
+function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved }: {
+  symbol: string; budget: number; spent: number; remaining: number; qty: number; avgCost: number
   cmp: number | null; pnl: number | null; pnlPct: number | null
   allocation: StockAllocation | null; fiscalYear: FiscalYear | null
+  band: BuyBand | null; onBandSaved: (b: BuyBand) => void
 }) {
+  const [refreshing, setRefreshing] = useState(false)
   const pctSpent = budget > 0 ? (spent / budget) * 100 : 0
+
+  async function refreshCMP() {
+    setRefreshing(true)
+    try {
+      const res = await fetch(`/api/cmp/${symbol}`)
+      if (!res.ok) throw new Error()
+      const { price } = await res.json()
+      if (band) {
+        const sb = getSupabaseBrowser()
+        await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
+        onBandSaved({ ...band, manual_cmp: price })
+      }
+    } catch {}
+    setRefreshing(false)
+  }
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -137,7 +153,14 @@ function OverviewTab({ budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct,
 
       {qty > 0 && (
         <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-          <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
+            <button onClick={refreshCMP} disabled={refreshing}
+              className="text-[13px] px-2 py-1 rounded-lg disabled:opacity-40"
+              style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
+              {refreshing ? '…' : '↻ CMP'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <M label="Shares"   value={`${Math.round(qty)}`} />
             <M label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost)}` : '—'} />
@@ -168,9 +191,9 @@ function M({ label, value, color }: { label: string; value: string; color?: stri
 
 // ── Bands tab ─────────────────────────────────────────────────────────────────
 
-function BandsTab({ symbol, band, allocation, fiscalYear, remaining, onBandSaved }: {
-  symbol: string; band: BuyBand | null; allocation: StockAllocation | null
-  fiscalYear: FiscalYear | null; remaining: number
+function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, onBandSaved }: {
+  symbol: string; band: BuyBand | null; tranches: BuyTranche[]
+  allocation: StockAllocation | null; fiscalYear: FiscalYear | null; remaining: number
   onBandSaved: (b: BuyBand) => void
 }) {
   const [cmpInput, setCmpInput] = useState(band?.manual_cmp?.toString() ?? '')
@@ -299,6 +322,27 @@ function BandsTab({ symbol, band, allocation, fiscalYear, remaining, onBandSaved
                 {band.shares         && <InputRow k="Shares"         v={`${band.shares} Cr`} />}
                 {band.embedded_value && <InputRow k="Embedded Value" v={`${band.embedded_value} Cr`} />}
               </div>
+            </div>
+          )}
+
+          {/* Tranches */}
+          {tranches.length > 0 && (
+            <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+              <p className="text-xs px-4 pt-3 pb-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Tranches</p>
+              {tranches.map((t, i) => (
+                <div key={t.id}
+                     className={`flex items-center justify-between px-4 py-2.5 ${i < tranches.length - 1 ? 'border-b' : ''}`}
+                     style={{ borderColor: 'var(--border-faint)', opacity: t.allocated ? 0.5 : 1 }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0"
+                         style={{ background: t.allocated ? 'var(--text-faint)' : '#34C759' }} />
+                    <span className="text-[13px] tabnum">{Math.round(t.qty)} × ₹{Math.round(t.price)}</span>
+                  </div>
+                  <span className="text-[13px] tabnum font-medium" style={{ color: 'var(--text-2)' }}>
+                    {formatINR(t.qty * t.price)}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </>

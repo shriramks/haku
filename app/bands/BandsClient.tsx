@@ -301,6 +301,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
                     </span>
                   )}
+                  {stockTranches.length > 0 && stockTranches.every(t => t.allocated) && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-md font-semibold"
+                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)' }}>
+                      ✓ Done
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Bands button */}
@@ -560,14 +566,14 @@ function TrancheSection({
         <button
           onClick={onGenerate}
           disabled={!hasBands || generating}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
           style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
           {generating ? '…' : 'Generate'}
         </button>
         <button
           onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium"
           style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
           <PlusIcon className="w-3.5 h-3.5" />
           Add
@@ -575,7 +581,7 @@ function TrancheSection({
         <button
           onClick={() => onClear()}
           disabled={tranches.length === 0}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
           style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
           <XIcon className="w-3.5 h-3.5" />
           Clear All

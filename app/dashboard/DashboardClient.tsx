@@ -44,7 +44,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       const aFull = a.remaining <= 0
       const bFull = b.remaining <= 0
       if (aFull !== bFull) return aFull ? 1 : -1
-      return a.symbol.localeCompare(b.symbol)
+      return b.pctRemaining - a.pctRemaining || a.symbol.localeCompare(b.symbol)
     }),
     [rows]
   )
@@ -135,24 +135,28 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 return (
                   <Link key={row.symbol} href={`/stocks/${row.symbol}`}
                         className="grid items-center gap-3 px-4 py-3 tap-row"
-                        style={{ gridTemplateColumns: '108px 1fr 72px' }}>
+                        style={{ gridTemplateColumns: '108px 1fr 72px 16px' }}>
                     <span className="font-semibold text-[13px]">{row.symbol}</span>
                     <div>
                       <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                         <div className={`h-full rounded-full ${
-                          pct > 95 ? 'bg-red-500' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
+                          row.remaining <= 0 ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
                         }`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-[14px] font-bold tabnum ${row.remaining < 0 ? 'text-red-400' : ''}`}
-                         style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
+                      <p className="text-[14px] font-bold tabnum"
+                         style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                         {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
                       </p>
                       <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
                         {row.remaining < 0 ? 'over' : 'left'}
                       </p>
                     </div>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                         style={{ color: 'var(--text-faint)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
                   </Link>
                 )
               })}
@@ -188,8 +192,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
                     {formatINR(row.spent)}
                   </p>
-                  <p className={`text-[13px] tabnum text-right self-center font-medium ${row.remaining < 0 ? 'text-red-400' : ''}`}
-                     style={row.remaining >= 0 ? { color: 'var(--text-primary)' } : undefined}>
+                  <p className="text-[13px] tabnum text-right self-center font-medium"
+                     style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                     {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
                   </p>
                 </div>
