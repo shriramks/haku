@@ -241,6 +241,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
+  const sortedRows = [...rows].sort((a, b) => {
+    const aDone = tranches.filter(t => t.symbol === a.symbol).length > 0 && tranches.filter(t => t.symbol === a.symbol).every(t => t.allocated)
+    const bDone = tranches.filter(t => t.symbol === b.symbol).length > 0 && tranches.filter(t => t.symbol === b.symbol).every(t => t.allocated)
+    if (aDone !== bDone) return aDone ? 1 : -1
+    return 0
+  })
+
   return (
     <div>
       {showKeyPrompt && (
@@ -256,7 +263,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
       {/* Two independent columns on md+ — avoids row-height coupling when expanding */}
       <div className="md:flex md:gap-3 md:px-4 md:pb-4">
-        {(() => { const half = Math.ceil(rows.length / 2); return [rows.slice(0, half), rows.slice(half)] })().map((col, ci) => (
+        {(() => { const half = Math.ceil(sortedRows.length / 2); return [sortedRows.slice(0, half), sortedRows.slice(half)] })().map((col, ci) => (
           <div key={ci} className="md:flex-1 md:space-y-3">
         {col.map(row => {
           const band      = bands.find(b => b.symbol === row.symbol)
@@ -285,11 +292,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const cmp      = band?.manual_cmp ?? null
 
           const hasBands = buyLow != null && trimPrice != null
+          const isDone = stockTranches.length > 0 && stockTranches.every(t => t.allocated)
 
           return (
             <div key={row.symbol}
                  className="border-b md:border md:rounded-2xl md:overflow-hidden"
-                 style={{ borderColor: 'var(--border-faint)' }}>
+                 style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
               {/* Collapsed header — always visible */}
               <div
                 onClick={() => toggle(row.symbol)}
@@ -299,12 +307,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   {cmp && (
                     <span className="text-[13px] tabnum" style={{ color: 'var(--text-muted)' }}>
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
-                    </span>
-                  )}
-                  {stockTranches.length > 0 && stockTranches.every(t => t.allocated) && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-md font-semibold"
-                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)' }}>
-                      ✓ Done
                     </span>
                   )}
                 </div>
