@@ -48,6 +48,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     }),
     [rows]
   )
+  const activeRows    = sortedRows.filter(r => r.remaining > 0)
+  const completedRows = sortedRows.filter(r => r.remaining <= 0)
 
   const totalBudget    = selectedFY?.total_budget_inr ?? 0
   const totalDeployed  = rows.reduce((s, r) => s + r.spent, 0)
@@ -130,36 +132,15 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             </p>
             <div className="mx-4 rounded-2xl overflow-hidden divide-y"
                  style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
-              {sortedRows.map(row => {
-                const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
-                return (
-                  <Link key={row.symbol} href={`/stocks/${row.symbol}`}
-                        className="grid items-center gap-3 px-4 py-3 tap-row"
-                        style={{ gridTemplateColumns: '108px 1fr 72px 16px', opacity: row.remaining <= 0 ? 0.45 : 1 }}>
-                    <span className="font-semibold text-[13px]">{row.symbol}</span>
-                    <div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-                        <div className={`h-full rounded-full ${
-                          row.remaining <= 0 ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
-                        }`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[14px] font-bold tabnum"
-                         style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                        {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
-                      </p>
-                      <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
-                        {row.remaining < 0 ? 'over' : 'left'}
-                      </p>
-                    </div>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                         style={{ color: 'var(--text-faint)' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                )
-              })}
+              {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
+              {completedRows.length > 0 && (
+                <>
+                  <div className="px-4 py-2" style={{ background: 'var(--bg-tertiary)' }}>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                  </div>
+                  {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
+                </>
+              )}
             </div>
           </div>
 
@@ -176,32 +157,77 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                         style={{ color: 'var(--text-faint)' }}>{h}</span>
                 ))}
               </div>
-              {sortedRows.map((row, i) => (
-                <div key={row.symbol}
-                     className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 ${i < sortedRows.length - 1 ? 'border-b' : ''}`}
-                     style={{ borderColor: 'var(--border-faint)', opacity: row.remaining <= 0 ? 0.45 : 1 }}>
-                  <div>
-                    <p className="font-semibold text-[13px]">{row.symbol}</p>
-                    {row.qty > 0 && (
-                      <p className="text-[10px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
-                    )}
+              {activeRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < activeRows.length - 1 || completedRows.length > 0} />)}
+              {completedRows.length > 0 && (
+                <>
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-b border-t"
+                       style={{ borderColor: 'var(--border-faint)', background: 'var(--bg-tertiary)' }}>
+                    <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                   </div>
-                  <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
-                    {formatINR(row.budget)}
-                  </p>
-                  <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
-                    {formatINR(row.spent)}
-                  </p>
-                  <p className="text-[13px] tabnum text-right self-center font-medium"
-                     style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                    {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
-                  </p>
-                </div>
-              ))}
+                  {completedRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < completedRows.length - 1} dim />)}
+                </>
+              )}
             </div>
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+import type { StockRow } from '@/lib/types'
+
+function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
+  const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
+  return (
+    <Link href={`/stocks/${row.symbol}`}
+          className="grid items-center gap-3 px-4 py-3 tap-row"
+          style={{ gridTemplateColumns: '108px 1fr 72px 16px', opacity: dim ? 0.35 : 1 }}>
+      <span className="font-semibold text-[13px]">{row.symbol}</span>
+      <div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+          <div className={`h-full rounded-full ${
+            row.remaining <= 0 ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
+          }`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-[14px] font-bold tabnum"
+           style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+          {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
+        </p>
+        <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+          {row.remaining < 0 ? 'over' : 'left'}
+        </p>
+      </div>
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+           style={{ color: 'var(--text-faint)' }}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
+  )
+}
+
+function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?: boolean }) {
+  return (
+    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 ${border ? 'border-b' : ''}`}
+         style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
+      <div>
+        <p className="font-semibold text-[13px]">{row.symbol}</p>
+        {row.qty > 0 && (
+          <p className="text-[10px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
+        )}
+      </div>
+      <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+        {formatINR(row.budget)}
+      </p>
+      <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+        {formatINR(row.spent)}
+      </p>
+      <p className="text-[13px] tabnum text-right self-center font-medium"
+         style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+        {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
+      </p>
     </div>
   )
 }
