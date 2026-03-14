@@ -21,8 +21,8 @@ export async function POST(
   const [{ data: alloc }, { data: band }] = await Promise.all([
     supabase.from('stock_allocations')
       .select('category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
-      .eq('user_id', user.id).eq('symbol', upperSymbol)
-      .limit(1).single(),
+      .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
+      .maybeSingle(),
     supabase.from('buy_bands')
       .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, eps, bvps, ebitda, net_debt, shares, embedded_value')
       .eq('user_id', user.id).eq('symbol', upperSymbol).eq('is_current', true)

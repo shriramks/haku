@@ -245,8 +245,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     const st = tranches.filter(t => t.symbol === symbol)
     return st.length > 0 && st.every(t => t.allocated)
   }
-  const activeRows    = rows.filter(r => !isDone(r.symbol))
-  const completedRows = rows.filter(r => isDone(r.symbol))
+  const activeRows    = rows.filter(r => !isDone(r.symbol)).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  const completedRows = rows.filter(r => isDone(r.symbol)).sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (
     <div>
