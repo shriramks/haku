@@ -162,6 +162,12 @@ function PlanTab({
   const [budgetInput, setBudgetInput] = useState(String(totalBudget))
   const [savingBudget, setSavingBudget] = useState(false)
   const [showAddStock, setShowAddStock] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [copying, setCopying] = useState(false)
+
+  const sortedFYs = [...fiscalYears].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+  const currentFYIdx = sortedFYs.findIndex(fy => fy.id === selectedFY?.id)
+  const prevFY = currentFYIdx > 0 ? sortedFYs[currentFYIdx - 1] : null
 
   async function saveBudget() {
     if (!selectedFY) return
@@ -202,6 +208,33 @@ function PlanTab({
     }).select().single()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
+  }
+
+  async function clearAllStocks() {
+    if (!selectedFY) return
+    await getSupabaseBrowser().from('stock_allocations').delete().eq('fy_id', selectedFY.id)
+    onAllocationsChange([])
+    setConfirmClear(false)
+  }
+
+  async function copyFromPrevFY() {
+    if (!selectedFY || !prevFY) return
+    setCopying(true)
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) { setCopying(false); return }
+    const { data: prevAllocs } = await sb.from('stock_allocations').select('*').eq('fy_id', prevFY.id)
+    if (!prevAllocs?.length) { setCopying(false); return }
+    const { data: newAllocs } = await sb.from('stock_allocations').insert(
+      prevAllocs.map(a => ({
+        fy_id: selectedFY.id, user_id: user.id,
+        symbol: a.symbol, exchange: a.exchange,
+        allocation_pct: a.allocation_pct, category: a.category,
+        two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
+      }))
+    ).select()
+    if (newAllocs) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    setCopying(false)
   }
 
   const pctOk = Math.abs(totalPct - 100) < 0.01
@@ -365,17 +398,29 @@ function PlanTab({
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[12px] uppercase tracking-widest font-semibold"
                    style={{ color: 'var(--text-muted)' }}>Stocks</p>
-                <button onClick={() => setShowAddStock(v => !v)}
-                  className="text-[#0A84FF] text-[14px]">
-                  {showAddStock ? 'Cancel' : '+ Add Stock'}
-                </button>
+                <div className="flex items-center gap-3">
+                  {allocations.length > 0 && !confirmClear && (
+                    <button onClick={() => setConfirmClear(true)}
+                      className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
+                      Clear All
+                    </button>
+                  )}
+                  {confirmClear && (
+                    <>
+                      <button onClick={() => setConfirmClear(false)}
+                        className="text-[14px]" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                      <button onClick={clearAllStocks}
+                        className="text-[14px] font-semibold text-red-400">Remove all?</button>
+                    </>
+                  )}
+                  {!confirmClear && (
+                    <button onClick={() => setShowAddStock(v => !v)}
+                      className="text-[#0A84FF] text-[14px]">
+                      {showAddStock ? 'Cancel' : '+ Add Stock'}
+                    </button>
+                  )}
+                </div>
               </div>
-              {selectedFY && (
-                <p className="text-[11px] tabnum mb-2"
-                   style={{ color: totalPct > 100 ? '#FF3B30' : Math.abs(totalPct - 100) < 0.01 ? '#34C759' : 'var(--text-muted)' }}>
-                  {totalPct.toFixed(1)}% allocated{Math.abs(totalPct - 100) < 0.01 ? ' ✓' : ` · ${(100 - totalPct).toFixed(1)}% free`}
-                </p>
-              )}
 
               {showAddStock && (
                 <AddStockForm totalPct={totalPct} onAdd={addStock} />
@@ -396,19 +441,18 @@ function PlanTab({
               ))}
 
               {allocations.length === 0 && !showAddStock && (
-                <div className="p-4 rounded-2xl border"
-                     style={{ borderColor: 'rgba(10,132,255,0.3)', background: 'var(--bg-secondary)',
-                              boxShadow: '0 0 0 1px rgba(10,132,255,0.1)' }}>
-                  <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                    Add stocks to start allocating
-                  </p>
-                  <p className="text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
-                    Search for a stock and set its allocation percentage.
-                  </p>
+                <div className="space-y-2">
+                  {prevFY && (
+                    <button onClick={copyFromPrevFY} disabled={copying}
+                      className="w-full py-3 rounded-2xl text-[15px] font-semibold disabled:opacity-40"
+                      style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                      {copying ? 'Copying…' : `Copy stocks from ${prevFY.label}`}
+                    </button>
+                  )}
                   <button onClick={() => setShowAddStock(true)}
-                    className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white"
-                    style={{ background: '#0A84FF' }}>
-                    + Add Stock
+                    className="w-full py-3 rounded-2xl text-[15px] font-medium"
+                    style={{ color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)', background: 'transparent' }}>
+                    + Add Stock manually
                   </button>
                 </div>
               )}
