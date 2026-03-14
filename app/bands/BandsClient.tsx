@@ -319,7 +319,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   <button
                     onClick={e => { e.stopPropagation(); generateBands(row.symbol) }}
                     disabled={generating[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
                     <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
                     Bands
@@ -328,7 +328,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   <button
                     onClick={e => { e.stopPropagation(); refreshCMP(row.symbol) }}
                     disabled={refreshing[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
                     style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
                     <RefreshIcon className={`w-3.5 h-3.5 ${refreshing[row.symbol] ? 'spin' : ''}`} />
                     CMP
@@ -395,9 +395,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                                     else if (alloc.two_strong_quarters) toggleQuarters(row.symbol, 'two_strong_quarters', false)
                                   }
                                 }}
-                                className="flex-1 px-2.5 py-1.5 text-[12px] font-medium capitalize transition-colors text-center"
+                                className="flex-1 px-2.5 py-2.5 text-[13px] font-medium capitalize transition-colors text-center"
                                 style={mode === m
-                                  ? { background: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontWeight: 600 }
+                                  ? m === 'bear'   ? { background: 'rgba(255,159,10,0.15)', color: '#FF9F0A', fontWeight: 600 }
+                                  : m === 'bull'   ? { background: 'rgba(52,199,89,0.15)',  color: '#34C759', fontWeight: 600 }
+                                  :                  { background: 'var(--bg-tertiary)',      color: 'var(--text-primary)', fontWeight: 600 }
                                   : { background: 'transparent', color: 'var(--text-faint)' }}>
                                 {m === 'bear' ? 'Bear' : m === 'normal' ? 'Normal' : 'Bull'}
                               </button>
@@ -571,22 +573,22 @@ function TrancheSection({
         <button
           onClick={onGenerate}
           disabled={!hasBands || generating}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
-          style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', border: '1px solid rgba(52,199,89,0.25)' }}>
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
+          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
           {generating ? '…' : 'Generate'}
         </button>
         <button
           onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium"
-          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
           <PlusIcon className="w-3.5 h-3.5" />
           Add
         </button>
         <button
           onClick={() => onClear()}
           disabled={tranches.length === 0}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
           style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
           <XIcon className="w-3.5 h-3.5" />
           Clear All
@@ -672,11 +674,11 @@ function TrancheRow({ tranche, onToggle, onEdit }: {
 }) {
   const amount = tranche.qty * tranche.price
   return (
-    <div className="flex items-center px-4 py-3 gap-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+    <div className="flex items-center px-4 py-4 gap-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
       <button onClick={() => onToggle(tranche.id, !tranche.allocated)}
-        className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+        className="w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
         style={tranche.allocated ? { background: '#30D158', borderColor: '#30D158' } : { background: 'transparent', borderColor: 'var(--border)' }}>
-        {tranche.allocated && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+        {tranche.allocated && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
       </button>
       <p className="flex-1 text-[13px] tabnum"
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)', textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
@@ -686,7 +688,7 @@ function TrancheRow({ tranche, onToggle, onEdit }: {
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
         {formatINR(amount)}
       </p>
-      <button onClick={onEdit} className="flex-shrink-0 p-1" style={{ color: 'var(--text-faint)' }}>
+      <button onClick={onEdit} className="flex-shrink-0 p-2.5" style={{ color: 'var(--text-faint)' }}>
         <PencilIcon className="w-4 h-4" />
       </button>
     </div>

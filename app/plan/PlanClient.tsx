@@ -245,7 +245,7 @@ function PlanTab({
       <div className="flex items-center gap-2 px-4 pt-4">
         {fiscalYears.map(fy => (
           <button key={fy.id} onClick={() => onSwitchFY(fy)}
-            className="px-3 py-1.5 rounded-xl text-sm font-medium transition-colors"
+            className="px-3.5 py-2.5 rounded-xl text-[15px] font-medium transition-colors"
             style={{
               background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
               color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
@@ -254,7 +254,7 @@ function PlanTab({
           </button>
         ))}
         <button onClick={onNewPlan}
-          className="px-3 py-1.5 rounded-xl text-sm font-medium"
+          className="px-3.5 py-2.5 rounded-xl text-[15px] font-medium"
           style={{ color: '#0A84FF', border: '1px solid rgba(10,132,255,0.4)', background: 'transparent' }}>
           + Add Plan
         </button>
@@ -302,19 +302,19 @@ function PlanTab({
               {editBudget ? (
                 <div className="flex gap-2">
                   <button onClick={() => setEditBudget(false)}
-                    className="px-3 py-1.5 rounded-xl text-[14px]"
+                    className="px-3.5 py-2.5 rounded-xl text-[14px]"
                     style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                     Cancel
                   </button>
                   <button onClick={saveBudget} disabled={savingBudget}
-                    className="px-3 py-1.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
+                    className="px-3.5 py-2.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.15)' }}>
                     {savingBudget ? 'Saving…' : 'Save'}
                   </button>
                 </div>
               ) : (
                 <button onClick={() => { setBudgetInput(String(totalBudget)); setEditBudget(true) }}
-                  className="px-3 py-1.5 rounded-xl text-[14px]"
+                  className="px-3.5 py-2.5 rounded-xl text-[14px]"
                   style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                   Edit
                 </button>
@@ -408,9 +408,11 @@ function PlanTab({
                   {confirmClear && (
                     <>
                       <button onClick={() => setConfirmClear(false)}
-                        className="text-[14px]" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                        className="text-[14px] px-3 py-1.5 rounded-lg"
+                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
                       <button onClick={clearAllStocks}
-                        className="text-[14px] font-semibold text-red-400">Remove all?</button>
+                        className="text-[14px] font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
                     </>
                   )}
                   {!confirmClear && (

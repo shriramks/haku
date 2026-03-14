@@ -59,7 +59,7 @@ export default function StockDetailClient({
     <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Back + header */}
       <div className="px-4 pt-3 pb-2 flex items-start gap-3">
-        <button onClick={() => router.back()} style={{ color: 'var(--text-muted)' }} className="mt-0.5">
+        <button onClick={() => router.back()} style={{ color: 'var(--text-muted)' }} className="mt-0.5 p-2 -ml-2">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -87,7 +87,7 @@ export default function StockDetailClient({
       <div className="flex border-b px-4 gap-1" style={{ borderColor: 'var(--border)' }}>
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className="px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            className="px-3 py-3 text-[15px] font-medium border-b-2 -mb-px transition-colors"
             style={{
               borderColor: activeTab === tab.id ? '#0A84FF' : 'transparent',
               color: activeTab === tab.id ? '#0A84FF' : 'var(--text-muted)',
@@ -156,7 +156,7 @@ function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl,
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
             <button onClick={refreshCMP} disabled={refreshing}
-              className="text-[13px] px-2 py-1 rounded-lg disabled:opacity-40"
+              className="text-[14px] px-2.5 py-2 rounded-lg disabled:opacity-40"
               style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
               {refreshing ? '…' : '↻ CMP'}
             </button>
@@ -271,7 +271,7 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={refreshCMP} disabled={refreshing}
-                  className="text-[13px] px-2 py-1 rounded-lg disabled:opacity-40"
+                  className="text-[14px] px-2.5 py-2 rounded-lg disabled:opacity-40"
                   style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                   {refreshing ? '…' : '↻'}
                 </button>
@@ -447,7 +447,8 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
                 </p>
               </div>
               <button onClick={() => del(t.id)} disabled={deleting === t.id}
-                className="text-lg px-1 disabled:opacity-40" style={{ color: 'var(--text-faint)' }}>
+                className="text-[15px] px-3 py-2 rounded-lg disabled:opacity-40"
+                style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.08)' }}>
                 {deleting === t.id ? '…' : '×'}
               </button>
             </div>

@@ -73,7 +73,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex gap-1">
                 {fiscalYears.map(fy => (
                   <button key={fy.id} onClick={() => switchFY(fy)}
-                    className="px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                    className="px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors"
                     style={{
                       background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
                       color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
