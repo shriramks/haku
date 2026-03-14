@@ -214,11 +214,9 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
 /**
  * Compute up to `count` tranche prices within the buy zone, CMP-aware.
  *
- * - CMP above buyHigh: full band range
- * - CMP within band:   ceiling = CMP × 0.92 (2 steps below), floor = buyLow
- *                      if CMP near buyLow, shift window up
- * - CMP below buyLow:  cluster near buyLow ± 3%
- * - No CMP:            full band range
+ * - CMP above buyHigh or unknown: limit orders across buyLow → buyHigh
+ * - CMP within buy zone:          floor = buyLow × 0.9, ceiling = CMP (never above market)
+ * - CMP below buyLow (deep):      floor = CMP, ceiling = buyLow
  *
  * Prices are distributed with quadratic skew toward the lower end.
  * Deduplication handles very narrow bands (returns fewer than count).
@@ -234,14 +232,13 @@ export function computeTrancheprices(
   let floor: number, ceiling: number
 
   if (!cmp || cmp > buyHigh) {
-    // CMP above buy zone or unknown: spread buyLow → midpoint of mid zone
-    const midZoneMid = (midLow + midHigh) / 2
+    // CMP above buy zone or unknown: limit orders across the buy zone only
     floor = buyLow
-    ceiling = midZoneMid
-  } else if (cmp >= buyLow) {
-    // CMP inside buy zone: extend slightly below buyLow → buyHigh
-    floor = buyLow * 0.9
     ceiling = buyHigh
+  } else if (cmp >= buyLow) {
+    // CMP inside buy zone: buy at market and lower — never above current price
+    floor = buyLow * 0.9
+    ceiling = cmp
   } else {
     // CMP below buyLow (deep value): accumulate from CMP up to buyLow
     floor = cmp
