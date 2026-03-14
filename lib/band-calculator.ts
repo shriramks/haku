@@ -177,13 +177,14 @@ export function calculateBands(input: BandInput): BandResult | null {
 
   if (!raw) return null
 
-  // Tightening: reduce all band prices by 10% (trim unchanged)
-  const f = tighten ? 0.90 : 1.0
+  // Bear tightens by 10%; Bull expands by 10% (sector premium already in raw via PREMIUM_PE/PEV)
+  // Trim price is intentionally unchanged in both directions
+  const f = tighten ? 0.90 : premium ? 1.10 : 1.0
   const suffix = tighten ? ' (tightened)' : premium ? ' (premium)' : ''
 
   return {
     anchorUsed:  raw.anchor + suffix,
-    buyLow:      raw.buyLow  * (tighten ? 0.90 : 1),
+    buyLow:      raw.buyLow  * f,
     buyHigh:     raw.buyHigh * f,
     midLow:      raw.midLow  * f,
     midHigh:     raw.midHigh * f,
@@ -227,7 +228,7 @@ export function computeTrancheprices(
   cmp: number | null,
   midLow = buyHigh,
   midHigh = buyHigh,
-  count = 5,
+  count = 3,
 ): number[] {
   let floor: number, ceiling: number
 
@@ -246,8 +247,8 @@ export function computeTrancheprices(
   }
 
   const range = Math.max(ceiling - floor, floor * 0.05)
-  // Each tranche should be at least 2% of floor apart — shrink count for narrow bands
-  const minGap = floor * 0.02
+  // Each tranche should be at least 3% of floor apart — shrink count for narrow bands
+  const minGap = floor * 0.03
   const usedCount = Math.max(2, Math.min(count, Math.floor(range / minGap) + 1))
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
