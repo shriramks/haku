@@ -64,9 +64,10 @@ From the Balance Sheet table, most recent available period:
 - "Borrowings" row → total debt in ₹ Crores
 - "Cash Equivalents" row → cash and bank balances in ₹ Crores
 
-From Key Ratios or the company header:
-- Equity shares outstanding in Crores (e.g. 150 Cr shares = 1.5 billion shares; typical range: 5–1000 Cr)
-  IMPORTANT: Screener shows shares in Crores. Do not confuse with millions. If you see "20.4" that means 20.4 Cr shares (204 million), report 20.4.
+Equity shares outstanding in Crores — check in this order:
+1. Screener Key Ratios or company header (preferred)
+2. If Screener is missing this (e.g. newly listed company), check https://www.nseindia.com/get-quotes/equity?symbol=${symbol} or BSE India shareholding disclosures for the total paid-up equity capital
+IMPORTANT: Report shares in Crores. If you see "20.4" that means 20.4 Cr shares (204 million), report 20.4. Typical range: 5–1000 Cr.
 
 Self-validation before returning (do not include in output):
 - Verify: EPS × sharesCr ≈ Net Profit (₹Cr). If they differ by more than 3x, you have a unit error — recheck EPS or shares.

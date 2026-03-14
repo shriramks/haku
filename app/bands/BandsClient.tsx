@@ -728,7 +728,7 @@ function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
             },
             {
               mode: 'Bull',
-              desc: 'Recent results have been strong. Premium multiples apply for eligible categories (Cap-Light Infra), reflecting improved earnings quality.',
+              desc: 'Recent results have been strong. All band prices expand by 10%, reflecting improved earnings quality.',
             },
           ].map(({ mode, desc }) => (
             <div key={mode} className="rounded-2xl p-3.5"

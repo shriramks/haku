@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { computeTrancheprices } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
+import type { StockCategory } from '@/lib/types'
 
 export async function POST(
   req: NextRequest,
@@ -16,20 +17,43 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Fetch current band for buy zone + CMP
-  const { data: band } = await supabase
-    .from('buy_bands')
-    .select('buy_low, buy_high, manual_cmp, mid_low, mid_high')
-    .eq('user_id', user.id)
-    .eq('symbol', upperSymbol)
-    .eq('is_current', true)
-    .maybeSingle()
+  // Fetch allocation (category + qualifier flags) and current band (financials + CMP)
+  const [{ data: alloc }, { data: band }] = await Promise.all([
+    supabase.from('stock_allocations')
+      .select('category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+      .eq('user_id', user.id).eq('symbol', upperSymbol)
+      .limit(1).single(),
+    supabase.from('buy_bands')
+      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, eps, bvps, ebitda, net_debt, shares, embedded_value')
+      .eq('user_id', user.id).eq('symbol', upperSymbol).eq('is_current', true)
+      .maybeSingle(),
+  ])
 
   if (!band?.buy_low || !band?.buy_high) {
     return NextResponse.json({
       error: `No bands found for ${upperSymbol}. Generate bands first.`,
     }, { status: 422 })
   }
+
+  // Recompute bands live from current allocation category + stored financials.
+  // This ensures tranches reflect any category change since the last band generation.
+  const freshResult = alloc?.category ? calculateBands({
+    category: alloc.category as StockCategory,
+    twoWeakQuarters:     alloc.two_weak_quarters     ?? false,
+    twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
+    isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
+    eps:           band.eps,
+    bvps:          band.bvps,
+    ebitda:        band.ebitda,
+    netDebt:       band.net_debt,
+    shares:        band.shares,
+    embeddedValue: band.embedded_value,
+  }) : null
+
+  const buyLow  = freshResult?.buyLow  ?? band.buy_low
+  const buyHigh = freshResult?.buyHigh ?? band.buy_high
+  const midLow  = freshResult?.midLow  ?? band.mid_low  ?? band.buy_high
+  const midHigh = freshResult?.midHigh ?? band.mid_high ?? band.buy_high
 
   // Compute remaining budget for this stock in this FY
   const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
@@ -51,7 +75,7 @@ export async function POST(
       s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
   const remaining = Math.max(0, allocBudget - netSpent)
 
-  const prices = computeTrancheprices(band.buy_low, band.buy_high, band.manual_cmp ?? null, band.mid_low ?? band.buy_high, band.mid_high ?? band.buy_high)
+  const prices = computeTrancheprices(buyLow, buyHigh, band.manual_cmp ?? null, midLow, midHigh)
   const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
   // Replace existing tranches for this symbol + FY

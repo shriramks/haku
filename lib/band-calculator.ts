@@ -18,7 +18,8 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra':    { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   // All Retail treated as quality compounders; hist PE floor ~60x
   'Retail':             { buyLow: 54, buyHigh: 66, midLow: 67, midHigh: 81, trim: 93 },
-  'Defence':            { buyLow: 25, buyHigh: 40, midLow: 41, midHigh: 50, trim: 51 },
+  // Post-2022 re-rating: captive demand + 3-7yr order visibility → one notch structural lift
+  'Defence':            { buyLow: 32, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
   'Capital Goods':      { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
   'FMCG':               { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
@@ -29,10 +30,6 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Index/ETF':          { buyLow: 16, buyHigh: 19, midLow: 20, midHigh: 23, trim: 25 },
 }
 
-/** Premium Leaders overlay — applied when twoStrongQuarters=true */
-const PREMIUM_PE: Partial<Record<StockCategory, Mult>> = {
-  'Cap-Light Infra': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
-}
 
 const EV: Partial<Record<StockCategory, Mult>> = {
   'Defence':      { buyLow: 15,  buyHigh: 22,  midLow: 23, midHigh: 27, trim: 28  },
@@ -51,10 +48,6 @@ const PEV: Partial<Record<StockCategory, Mult>> = {
   'Insurance — Life': { buyLow: 2.4, buyHigh: 2.8, midLow: 2.9, midHigh: 3.4, trim: 3.5 },
 }
 
-/** Premium P/EV — Insurance Life when twoStrongQuarters */
-const PREMIUM_PEV: Partial<Record<StockCategory, Mult>> = {
-  'Insurance — Life': { buyLow: 2.8, buyHigh: 3.2, midLow: 3.3, midHigh: 3.6, trim: 3.8 },
-}
 
 // ── Internal raw band ────────────────────────────────────────────────────────
 
@@ -117,9 +110,7 @@ export function calculateBands(input: BandInput): BandResult | null {
   const premium  = input.twoStrongQuarters && !tighten
 
   const tryPE = (): Raw | null => {
-    // Use premium multiples if applicable
-    const mTable = (premium && PREMIUM_PE[input.category]) ? PREMIUM_PE : PE
-    const m = mTable[input.category]; const eps = input.eps
+    const m = PE[input.category]; const eps = input.eps
     if (!m || !eps || eps <= 0) return null
     return fromPE(m, eps)
   }
@@ -137,8 +128,7 @@ export function calculateBands(input: BandInput): BandResult | null {
   }
 
   const tryPEV = (): Raw | null => {
-    const mTable = (premium && PREMIUM_PEV[input.category]) ? PREMIUM_PEV : PEV
-    const m = mTable[input.category]; const { embeddedValue, shares } = input
+    const m = PEV[input.category]; const { embeddedValue, shares } = input
     if (!m || !embeddedValue || embeddedValue <= 0 || !shares || shares <= 0) return null
     return fromPEV(m, embeddedValue, shares)
   }
