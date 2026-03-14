@@ -297,7 +297,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             <div key={row.symbol}>
               {showDivider && (
                 <div className="px-4 py-2">
-                  <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                  <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                 </div>
               )}
             <div className="border-b"
@@ -483,7 +483,7 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
         <div className="h-full flex items-center justify-center"
              style={{ width: `${pct(buyLow)}%`, background: 'rgba(4,120,87,0.28)' }}>
           {pct(buyLow) > 8 && (
-            <span className="text-[10px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>
+            <span className="text-[11px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>
           )}
         </div>
         <div className="h-full flex items-center justify-center"

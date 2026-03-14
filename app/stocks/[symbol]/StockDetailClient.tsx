@@ -372,13 +372,13 @@ function BandBarSimple({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
       <div className="relative h-7 rounded-lg overflow-hidden flex" style={{ background: 'var(--bg-tertiary)' }}>
         <div className="h-full" style={{ width: `${pct(buyLow)}%` }} />
         <div className="h-full flex items-center justify-center" style={{ width: `${buyW}%`, background: 'rgba(52,199,89,0.35)' }}>
-          <span className="text-[10px] font-bold text-green-500">BUY</span>
+          <span className="text-[11px] font-bold text-green-500">BUY</span>
         </div>
         <div className="h-full flex items-center justify-center" style={{ width: `${midW}%`, background: 'rgba(255,149,0,0.30)' }}>
-          <span className="text-[10px] font-bold text-orange-400">MID</span>
+          <span className="text-[11px] font-bold text-orange-400">MID</span>
         </div>
         <div className="h-full flex items-center justify-center flex-1" style={{ background: 'rgba(255,59,48,0.25)' }}>
-          <span className="text-[10px] font-bold text-red-400">TRIM</span>
+          <span className="text-[11px] font-bold text-red-400">TRIM</span>
         </div>
         {cmpPct !== null && cmpPct >= 0 && cmpPct <= 100 && (
           <div className="absolute top-0 bottom-0 w-0.5 rounded-full"

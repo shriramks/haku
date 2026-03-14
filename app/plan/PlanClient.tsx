@@ -535,7 +535,7 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
             <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>%</span>
           </div>
           {parsedPct !== alloc.allocation_pct && (
-            <span className={`text-[10px] tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
+            <span className={`text-[12px] tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
                   style={remaining > 0 ? { color: 'var(--text-muted)' } : undefined}>
               {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
             </span>

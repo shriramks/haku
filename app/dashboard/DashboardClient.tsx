@@ -127,7 +127,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         <>
           {/* Bar chart */}
           <div className="mt-4">
-            <p className="px-4 text-[11px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="px-4 text-[12px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               By Stock
             </p>
             <div className="mx-4 rounded-2xl overflow-hidden divide-y"
@@ -136,7 +136,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {completedRows.length > 0 && (
                 <>
                   <div className="px-4 py-2">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                    <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                   </div>
                   {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
                 </>
@@ -146,14 +146,14 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
           {/* Details table */}
           <div className="mt-4 pb-24">
-            <p className="px-4 text-[11px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="px-4 text-[12px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Details
             </p>
             <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
               <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-b"
                    style={{ borderColor: 'var(--border-faint)' }}>
                 {['Stock', 'Budget', 'Deployed', 'Left'].map(h => (
-                  <span key={h} className="text-[10px] uppercase tracking-wide text-right first:text-left"
+                  <span key={h} className="text-[11px] uppercase tracking-wide text-right first:text-left"
                         style={{ color: 'var(--text-faint)' }}>{h}</span>
                 ))}
               </div>
@@ -162,7 +162,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                 <>
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-t"
                        style={{ borderColor: 'var(--border-faint)' }}>
-                    <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                    <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                   </div>
                   {completedRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < completedRows.length - 1} dim />)}
                 </>
@@ -181,9 +181,9 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
   const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
   return (
     <Link href={`/stocks/${row.symbol}`}
-          className="grid items-center gap-3 px-4 py-3 tap-row"
-          style={{ gridTemplateColumns: '108px 1fr 72px 16px', opacity: dim ? 0.35 : 1 }}>
-      <span className="font-semibold text-[13px]">{row.symbol}</span>
+          className="grid items-center gap-3 px-4 py-4 tap-row"
+          style={{ gridTemplateColumns: '108px 1fr 80px 16px', opacity: dim ? 0.35 : 1 }}>
+      <span className="font-semibold text-[16px]">{row.symbol}</span>
       <div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
           <div className={`h-full rounded-full ${
@@ -192,11 +192,11 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
         </div>
       </div>
       <div className="text-right">
-        <p className="text-[14px] font-bold tabnum"
+        <p className="text-[15px] font-bold tabnum"
            style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
           {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
         </p>
-        <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+        <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
           {row.remaining < 0 ? 'over' : 'left'}
         </p>
       </div>
@@ -210,21 +210,21 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
 
 function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?: boolean }) {
   return (
-    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 ${border ? 'border-b' : ''}`}
+    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-3 ${border ? 'border-b' : ''}`}
          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div>
-        <p className="font-semibold text-[13px]">{row.symbol}</p>
+        <p className="font-semibold text-[15px]">{row.symbol}</p>
         {row.qty > 0 && (
-          <p className="text-[10px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
+          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
         )}
       </div>
-      <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+      <p className="text-[14px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
         {formatINR(row.budget)}
       </p>
-      <p className="text-[13px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+      <p className="text-[14px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
         {formatINR(row.spent)}
       </p>
-      <p className="text-[13px] tabnum text-right self-center font-medium"
+      <p className="text-[14px] tabnum text-right self-center font-medium"
          style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
       </p>
