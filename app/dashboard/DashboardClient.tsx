@@ -107,7 +107,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               style={{ width: `${Math.min(100, pctDeployed)}%` }}
             />
           </div>
-          <p className="text-xs mt-1 tabnum" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
             {formatPct(pctDeployed)} deployed
           </p>
         </div>
@@ -215,7 +215,7 @@ function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?:
       <div>
         <p className="font-semibold text-[15px]">{row.symbol}</p>
         {row.qty > 0 && (
-          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} sh</p>
+          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} shares</p>
         )}
       </div>
       <p className="text-[14px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
