@@ -49,19 +49,48 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const [allocations, setAllocations] = useState(initialAllocations)
   const [loading, setLoading] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
+  const [fyHasTxns, setFyHasTxns] = useState(false)
 
   async function deleteFY() {
     if (!selectedFY) return
     const sb = getSupabaseBrowser()
+
+    // Check if any transactions reference this FY — if so, keep the fiscal_years
+    // row to avoid orphaning those transactions. Only clear allocations + tranches.
+    const { count } = await sb.from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('fy_id', selectedFY.id)
+
+    const hasTxns = (count ?? 0) > 0
+
     await Promise.all([
       sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
       sb.from('buy_tranches').delete().eq('fy_id', selectedFY.id),
     ])
-    await sb.from('fiscal_years').delete().eq('id', selectedFY.id)
-    setSelectedFY(null)
-    setAllocations([])
+
+    if (hasTxns) {
+      // Reset budget but keep the FY row — transactions stay linked
+      await sb.from('fiscal_years').update({ total_budget_inr: 0 }).eq('id', selectedFY.id)
+      setAllocations([])
+      setSelectedFY({ ...selectedFY, total_budget_inr: 0 })
+    } else {
+      // No transactions — safe to fully delete
+      await sb.from('fiscal_years').delete().eq('id', selectedFY.id)
+      setSelectedFY(null)
+      setAllocations([])
+    }
+
     router.refresh()
   }
+
+  useEffect(() => {
+    if (!selectedFY) { setFyHasTxns(false); return }
+    getSupabaseBrowser()
+      .from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('fy_id', selectedFY.id)
+      .then(({ count }) => setFyHasTxns((count ?? 0) > 0))
+  }, [selectedFY?.id])
 
   useEffect(() => {
     if (fiscalYears.length === 0) {
@@ -130,6 +159,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         loading={loading}
         totalPct={totalPct}
         totalBudget={totalBudget}
+        fyHasTxns={fyHasTxns}
         onSwitchFY={switchFY}
         onAllocationsChange={setAllocations}
         onNewPlan={() => setShowNewPlan(true)}
@@ -154,7 +184,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
 // ── Plan Tab ──────────────────────────────────────────────────────────────────
 
 function PlanTab({
-  fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget,
+  fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget, fyHasTxns,
   onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange, onDeleteFY,
 }: {
   fiscalYears: FiscalYear[]
@@ -163,6 +193,7 @@ function PlanTab({
   loading: boolean
   totalPct: number
   totalBudget: number
+  fyHasTxns: boolean
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
   onNewPlan: () => void
@@ -357,23 +388,27 @@ function PlanTab({
             )
           })()}
 
-          {/* Delete plan */}
+          {/* Delete / Clear plan */}
           {selectedFY && (
             <div className="mx-4 mt-1 flex justify-end">
               {confirmDeletePlan ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Delete {selectedFY.label}?</span>
+                  <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                    {fyHasTxns ? `Clear allocations for ${selectedFY.label}?` : `Delete ${selectedFY.label}?`}
+                  </span>
                   <button onClick={() => setConfirmDeletePlan(false)}
                     className="text-[13px] px-3 py-1.5 rounded-lg"
                     style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
                   <button onClick={() => { setConfirmDeletePlan(false); onDeleteFY() }}
                     className="text-[13px] font-semibold px-3 py-1.5 rounded-lg"
-                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>Delete</button>
+                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                    {fyHasTxns ? 'Clear' : 'Delete'}
+                  </button>
                 </div>
               ) : (
                 <button onClick={() => setConfirmDeletePlan(true)}
                   className="text-[13px]" style={{ color: 'var(--text-faint)' }}>
-                  Delete plan
+                  {fyHasTxns ? 'Clear plan' : 'Delete plan'}
                 </button>
               )}
             </div>
