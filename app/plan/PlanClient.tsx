@@ -472,6 +472,11 @@ function PlanTab({
                 <div className="flex items-center gap-3">
                   {allocations.length > 0 && !confirmClear && (
                     <>
+                      <button onClick={() => setConfirmClear(true)}
+                        className="text-[15px] px-3 py-2.5 rounded-xl"
+                        style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
+                        Clear All
+                      </button>
                       <button
                         onClick={async () => {
                           const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
@@ -493,28 +498,26 @@ function PlanTab({
                             await navigator.clipboard.writeText(text)
                           }
                         }}
-                        className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
+                        className="text-[15px] px-3 py-2.5 rounded-xl"
+                        style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
                         Export
-                      </button>
-                      <button onClick={() => setConfirmClear(true)}
-                        className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
-                        Clear All
                       </button>
                     </>
                   )}
                   {confirmClear && (
                     <>
                       <button onClick={() => setConfirmClear(false)}
-                        className="text-[14px] px-3 py-1.5 rounded-lg"
+                        className="text-[15px] px-3 py-2.5 rounded-xl"
                         style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
                       <button onClick={clearAllStocks}
-                        className="text-[14px] font-semibold px-3 py-1.5 rounded-lg"
+                        className="text-[15px] font-semibold px-3 py-2.5 rounded-xl"
                         style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
                     </>
                   )}
                   {!confirmClear && (
                     <button onClick={() => setShowAddStock(v => !v)}
-                      className="text-[#0A84FF] text-[14px]">
+                      className="text-[15px] font-medium px-3 py-2.5 rounded-xl"
+                      style={{ color: '#0A84FF', background: 'rgba(10,132,255,0.12)' }}>
                       {showAddStock ? 'Cancel' : '+ Add Stock'}
                     </button>
                   )}
