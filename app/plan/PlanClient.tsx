@@ -471,10 +471,36 @@ function PlanTab({
                    style={{ color: 'var(--text-muted)' }}>Stocks</p>
                 <div className="flex items-center gap-3">
                   {allocations.length > 0 && !confirmClear && (
-                    <button onClick={() => setConfirmClear(true)}
-                      className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
-                      Clear All
-                    </button>
+                    <>
+                      <button
+                        onClick={async () => {
+                          const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
+                          const lines = sorted.map(a => {
+                            const budget = (a.allocation_pct / 100) * totalBudget
+                            return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ₹${(budget / 100000).toFixed(1)}L`
+                          })
+                          const total = allocations.reduce((s, a) => s + a.allocation_pct, 0)
+                          const text = [
+                            `${selectedFY?.label ?? 'Portfolio'}`,
+                            '─'.repeat(28),
+                            ...lines,
+                            '─'.repeat(28),
+                            `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ₹${(totalBudget / 100000).toFixed(1)}L`,
+                          ].join('\n')
+                          if (navigator.share) {
+                            await navigator.share({ title: `${selectedFY?.label ?? 'Portfolio'} Allocation`, text })
+                          } else {
+                            await navigator.clipboard.writeText(text)
+                          }
+                        }}
+                        className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
+                        Export
+                      </button>
+                      <button onClick={() => setConfirmClear(true)}
+                        className="text-[14px]" style={{ color: 'var(--text-faint)' }}>
+                        Clear All
+                      </button>
+                    </>
                   )}
                   {confirmClear && (
                     <>
@@ -579,15 +605,20 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={() => setExpanded(v => !v)} className="flex-1 flex items-center gap-3 text-left">
-          <div className="flex-1">
-            <p className="font-bold text-[16px]">{alloc.symbol}</p>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-[17px]">{alloc.symbol}</p>
             {getStockName(alloc.symbol) && (
-              <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{getStockName(alloc.symbol)}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
             )}
-            <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {alloc.category.split('/')[0]} · {formatINR(budget)}
+          </div>
+          <div className="text-right">
+            <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>
+              {alloc.category.split('/')[0]}
+            </p>
+            <p className="text-[12px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {formatINR(budget)}
               {(alloc.carryover_inr ?? 0) > 0 && (
-                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr)} carry</span>
+                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr)}</span>
               )}
             </p>
           </div>

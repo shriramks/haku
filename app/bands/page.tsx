@@ -53,11 +53,15 @@ export default async function BandsPage({
 
   return (
     <>
-      <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div>
         {/* Header */}
         <div
-          className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pt-4 pb-3"
-          style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
+          className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+          style={{
+            background: 'var(--bg-nav)',
+            borderColor: 'var(--border)',
+            paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
+          }}>
           <div className="flex items-center justify-between">
             <h1 className="text-[28px] font-bold">Buy Bands</h1>
             <UserMenu />

@@ -187,7 +187,7 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
       <div>
         <span className="font-semibold text-[16px]">{row.symbol}</span>
         {getStockName(row.symbol) && (
-          <p className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
+          <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
         )}
       </div>
       <div>
@@ -216,24 +216,24 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
 
 function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?: boolean }) {
   return (
-    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-3 ${border ? 'border-b' : ''}`}
+    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-4 py-3.5 ${border ? 'border-b' : ''}`}
          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div>
         <p className="font-semibold text-[15px]">{row.symbol}</p>
         {getStockName(row.symbol) && (
-          <p className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
+          <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
         )}
         {row.qty > 0 && (
-          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} shares</p>
+          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} shs</p>
         )}
       </div>
-      <p className="text-[14px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+      <p className="text-[15px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
         {formatINR(row.budget)}
       </p>
-      <p className="text-[14px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
+      <p className="text-[15px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
         {formatINR(row.spent)}
       </p>
-      <p className="text-[14px] tabnum text-right self-center font-medium"
+      <p className="text-[15px] tabnum text-right self-center font-semibold"
          style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
       </p>

@@ -112,7 +112,7 @@ function TxnRow({ txn, onDelete }: { txn: Transaction; onDelete: (id: string) =>
           </span>
         </div>
         {getStockName(txn.symbol) && (
-          <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{getStockName(txn.symbol)}</p>
+          <p className="text-[11px]" style={{ color: 'var(--text-2)' }}>{getStockName(txn.symbol)}</p>
         )}
         <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
           {Math.round(txn.quantity)} shares · ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {formatDate(txn.trade_date)}

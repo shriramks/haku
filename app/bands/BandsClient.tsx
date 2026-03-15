@@ -318,7 +318,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     )}
                   </div>
                   {getStockName(row.symbol) && (
-                    <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>
+                    <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-2)' }}>
                       {getStockName(row.symbol)}
                     </p>
                   )}
@@ -536,11 +536,6 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
           <p style={{ color: 'var(--text-faint)' }}>Trim</p>
         </div>
       </div>
-      {cmp && (
-        <p className="text-center text-[11px] mt-1 tabnum" style={{ color: 'var(--text-muted)' }}>
-          CMP ₹{Math.round(cmp).toLocaleString('en-IN')}
-        </p>
-      )}
     </div>
   )
 }
