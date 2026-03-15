@@ -52,8 +52,9 @@ function extractJSON(text: string): Record<string, unknown> {
   return JSON.parse(text.slice(start, end + 1))
 }
 
-function stockPrompt(symbol: string): string {
-  return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
+function stockPrompt(symbol: string, standalone = false): string {
+  const page = standalone ? 'standalone' : 'consolidated'
+  return `Open https://www.screener.in/company/${symbol}/${page}/ — the ${page} financials page for NSE:${symbol}.
 
 From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
 - "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range: ₹5–₹300.
@@ -227,7 +228,7 @@ export async function POST(
     : isInsurance ? insurancePrompt(upperSymbol)
     : isBank ? bankPrompt(upperSymbol)
     : isReit ? reitPrompt(upperSymbol)
-    : stockPrompt(upperSymbol)
+    : stockPrompt(upperSymbol, category === 'Capital Goods')
   try {
     aiText = aiProvider === 'claude'
       ? await callClaude(prompt, activeKey)

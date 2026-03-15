@@ -1,0 +1,66 @@
+AI INVESTMENT PLAYBOOK
+======================
+
+CATEGORIES & BANDS
+------------------
+
+Category            Type       Anchor      Buy Low  Buy High  Mid Low  Mid High  Trim
+---------------------------------------------------------------------------------------------
+IT/Technology       Defensive  PE          20x      26x       27x      32x       33x
+Pharma              Defensive  PE          22x      28x       29x      35x       38x
+FMCG                Defensive  PE          35x      50x       51x      60x       61x
+Insurance — Life    Defensive  P/EV        2.4x     2.8x      2.9x     3.4x      3.5x
+Insurance — General Defensive  PB          2.5x     3.2x      3.3x     4.0x      4.1x
+Banks               Cyclical   PB          1.6x     1.9x      2.0x     2.5x      2.6x
+Auto OEM            Cyclical   PE          10x      12x       13x      15x       16x
+Capital Goods       Cyclical   EV/EBITDA   14x      18x       19x      23x       24x
+Defence             Cyclical   PE          32x      45x       46x      55x       56x
+Hospitals           Growth     PE          38x      45x       46x      55x       56x
+Hospitals (ramp)    Growth     EV/EBITDA   18x      22x       23x      28x       29x
+Cap-Light Infra     Growth     PE          28x      35x       36x      44x       45x
+Retail              Growth     PE          54x      66x       67x      81x       93x
+REIT                REIT       PE (DPU)    12x      14x       15x      18x       20x
+Index/ETF           Passive    PE (idx)    16x      19x       20x      23x       25x
+Commodity           Passive    —           No bands — set manually
+
+Notes:
+  EV/EBITDA:  Price = (multiple × EBITDA − net debt) / shares
+  P/EV:       Price = multiple × (embedded value / shares)
+  REIT:       "EPS" = trailing 12-month DPU. 12x ≈ 8.3% yield, 20x ≈ 5% yield
+  Index/ETF:  "EPS" = ETF price ÷ index trailing PE (AI identifies the tracked index)
+  Hospitals:      Use EV/EBITDA if hospital ramp phase flag is set, else PE
+  Capital Goods:  AI fetches standalone financials (excludes financial services
+                  subsidiaries e.g. LTFS). Exception: Bharat Forge — overseas ops
+                  only visible in consolidated; check manually.
+
+
+QUALITATIVE ADJUSTMENTS
+-----------------------
+  Two weak quarters   →  all bands × 0.90 (tighten). Trim price unchanged.
+  Two strong quarters →  all bands × 1.10 (expand).  Trim price unchanged.
+  Both set            →  tighten takes precedence.
+
+
+SIGNALS
+-------
+  Deep  →  CMP < Buy Low
+  Buy   →  Buy Low ≤ CMP ≤ Buy High
+  Hold  →  Buy High < CMP ≤ Mid High
+  Trim  →  CMP > Mid High
+
+
+TRANCHES
+--------
+  - 3 tranches per stock, quadratic skew toward lower prices
+  - CMP above buy zone  →  limits across Buy Low → Buy High
+  - CMP inside buy zone →  floor = Buy Low × 0.9, ceiling = CMP
+  - CMP below Buy Low   →  floor = CMP, ceiling = Buy Low
+  - Live price fetched at generation time; no tranche ever placed above CMP
+  - Budget split equally across tranches
+
+
+INVESTABILITY GATES (pass / caution / fail)
+-------------------------------------------
+  Sector Winds, Circle of Competence, Moat, Owner Earnings, Capital Efficiency,
+  Innovation Velocity, Governance, Execution Track, Supply Chain Risk,
+  Regulatory Signal, Thesis Breaker, Capital Discipline
