@@ -243,15 +243,16 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
-  const isDone = (symbol: string) => {
-    const st = tranches.filter(t => t.symbol === symbol)
+  const isCompleted = (row: StockRow) => {
+    if (row.remaining <= 0) return true
+    const st = tranches.filter(t => t.symbol === row.symbol)
     return st.length > 0 && st.every(t => t.allocated)
   }
-  const activeRows    = rows.filter(r => !isDone(r.symbol)).sort((a, b) => a.symbol.localeCompare(b.symbol))
-  const completedRows = rows.filter(r => isDone(r.symbol)).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  const activeRows    = rows.filter(r => !isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  const completedRows = rows.filter(r => isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (
-    <div>
+    <div className="pb-24">
       {showKeyPrompt && (
         <KeyPromptSheet
           initialProvider={aiProvider}
@@ -293,7 +294,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const cmp      = band?.manual_cmp ?? null
 
           const hasBands = buyLow != null && trimPrice != null
-          const isDone = stockTranches.length > 0 && stockTranches.every(t => t.allocated)
+          const isDone = row.remaining <= 0 || (stockTranches.length > 0 && stockTranches.every(t => t.allocated))
 
           return (
             <div key={row.symbol}>
