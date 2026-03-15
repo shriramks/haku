@@ -128,17 +128,16 @@ asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
 }
 
 function indexPrompt(symbol: string): string {
-  return `Find current Nifty 50 valuation data from NSE India (nseindia.com) or Moneycontrol:
-1. Current Nifty 50 trailing PE ratio (price-to-earnings based on last 12 months earnings, NOT forward PE)
-2. Current Nifty 50 index level
-3. Current market price per unit of ETF NSE:${symbol} in ₹ — use the latest traded price, NOT the NAV
+  return `Look up NSE:${symbol} and identify which index it tracks. Then find:
+1. The current trailing PE ratio of that index (last 12 months, NOT forward PE). If this is a commodity ETF (gold, silver, etc.) with no earnings, set indexPE to 0.
+2. Current market price per unit of NSE:${symbol} in ₹ — latest traded price, NOT the NAV
 
-Sanity check: Nifty trailing PE is normally between 15 and 35. ETF price for most Nifty 50 ETFs is roughly Nifty level ÷ 100. If your numbers fall far outside these ranges, recheck.
+Sanity check: Trailing PE for Indian equity indices is normally 15–40. If indexPE is 0 it means this is a non-equity ETF.
 
 Return ONLY this JSON, no markdown, no explanation:
-{"niftyPE":0,"niftyLevel":0,"etfPrice":0,"asOf":""}
+{"indexPE":0,"etfPrice":0,"asOf":""}
 
-asOf = today's date or the date of the data`
+asOf = brief description including index name and date, e.g. "Nifty Next 50 @ 28.4x PE | Mar 2025" or "Gold ETF — no PE | Mar 2025"`
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -233,19 +232,25 @@ export async function POST(
   let asOf = String(parsed.asOf ?? '')
 
   if (isIndex) {
-    const niftyPE    = Number(parsed.niftyPE)    || null
-    const etfPrice   = Number(parsed.etfPrice)   || null
-    const niftyLevel = Number(parsed.niftyLevel) || null
+    const indexPE  = Number(parsed.indexPE)  || null
+    const etfPrice = Number(parsed.etfPrice) || null
 
-    if (!niftyPE || !etfPrice) {
+    if (!etfPrice) {
       return NextResponse.json({
-        error: 'Gemini could not extract Nifty PE or ETF price',
+        error: 'Could not extract ETF price',
         raw: aiText.slice(0, 600),
       }, { status: 422 })
     }
 
-    eps  = etfPrice / niftyPE
-    asOf = `Nifty ${niftyLevel?.toFixed(0)} @ ${niftyPE}x PE | ETF ₹${etfPrice} | ${asOf}`
+    if (!indexPE) {
+      return NextResponse.json({
+        error: `${upperSymbol} appears to be a non-equity ETF (commodity/debt) — PE-based bands don't apply. Set price targets manually.`,
+        raw: aiText.slice(0, 600),
+      }, { status: 422 })
+    }
+
+    eps  = etfPrice / indexPE
+    asOf = String(parsed.asOf ?? '')
   } else if (isInsurance) {
     embeddedValue = Number(parsed.embeddedValue) || null
     sharesCr      = Number(parsed.sharesCr)      || null
