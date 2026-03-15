@@ -56,7 +56,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   async function refreshCMP(symbol: string) {
     setRefreshing(prev => ({ ...prev, [symbol]: true }))
     try {
-      const res = await fetch(`/api/cmp/${symbol}`)
+      const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
       if (!res.ok) throw new Error('fetch failed')
       const { price } = await res.json()
 
@@ -88,7 +88,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGenerating(prev => ({ ...prev, [symbol]: true }))
     setGenError(prev => ({ ...prev, [symbol]: '' }))
     try {
-      const res = await fetch(`/api/bands/generate/${symbol}`, {
+      const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fyId }),
@@ -225,7 +225,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   async function generateTranches(symbol: string) {
     setGeneratingTranches(prev => ({ ...prev, [symbol]: true }))
     try {
-      const res = await fetch(`/api/tranches/generate/${symbol}`, {
+      const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fyId }),

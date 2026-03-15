@@ -125,7 +125,7 @@ function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl,
   async function refreshCMP() {
     setRefreshing(true)
     try {
-      const res = await fetch(`/api/cmp/${symbol}`)
+      const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
       if (!res.ok) throw new Error()
       const { price } = await res.json()
       if (band) {
@@ -232,7 +232,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
   async function refreshCMP() {
     setRefreshing(true)
     try {
-      const res = await fetch(`/api/cmp/${symbol}`)
+      const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
       if (!res.ok) throw new Error()
       const { price } = await res.json()
       setCmpInput(String(Math.round(price)))
@@ -280,7 +280,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
   async function generateTranches() {
     setGeneratingTranches(true)
     try {
-      const res = await fetch(`/api/tranches/generate/${symbol}`, {
+      const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fyId }),
@@ -474,7 +474,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
     setGen(true)
     setGenError('')
     try {
-      const res = await fetch(`/api/bands/generate/${symbol}`, {
+      const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fyId }),
