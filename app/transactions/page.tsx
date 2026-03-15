@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getTransactions } from '@/lib/data'
+import { getTransactions, getFiscalYears } from '@/lib/data'
 import TransactionsClient from './TransactionsClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -14,11 +14,15 @@ export default async function TransactionsPage({
   if (!user) redirect('/login')
 
   const { symbol } = await searchParams
-  const transactions = await getTransactions()
+  const [transactions, fiscalYears] = await Promise.all([getTransactions(), getFiscalYears()])
 
   return (
     <>
-      <TransactionsClient transactions={transactions} filterSymbol={symbol?.toUpperCase()} />
+      <TransactionsClient
+        transactions={transactions}
+        fiscalYears={fiscalYears}
+        filterSymbol={symbol?.toUpperCase()}
+      />
       <BottomNav />
     </>
   )

@@ -27,7 +27,11 @@ export async function getTransactions(fyId?: string): Promise<Transaction[]> {
     .from('transactions')
     .select('*')
     .order('trade_date', { ascending: false })
-  if (fyId) q = q.eq('fy_id', fyId)
+  if (fyId) {
+    // Include transactions belonging to this FY (and not re-attributed elsewhere),
+    // plus any transactions from other FYs that have been advance-tagged to this FY.
+    q = q.or(`and(fy_id.eq.${fyId},advance_fy_id.is.null),advance_fy_id.eq.${fyId}`)
+  }
   const { data } = await q
   return data ?? []
 }
