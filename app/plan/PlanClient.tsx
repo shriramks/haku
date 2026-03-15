@@ -49,6 +49,19 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const [loading, setLoading] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
 
+  async function deleteFY() {
+    if (!selectedFY) return
+    const sb = getSupabaseBrowser()
+    await Promise.all([
+      sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
+      sb.from('buy_tranches').delete().eq('fy_id', selectedFY.id),
+    ])
+    await sb.from('fiscal_years').delete().eq('id', selectedFY.id)
+    setSelectedFY(null)
+    setAllocations([])
+    router.refresh()
+  }
+
   useEffect(() => {
     if (fiscalYears.length === 0) {
       setOnboardingStep('plan')
@@ -122,19 +135,15 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         onFYBudgetChange={(budget) => {
           if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
         }}
+        onDeleteFY={deleteFY}
       />
 
       {/* New Plan Sheet */}
       {showNewPlan && (
         <NewPlanSheet
           existingFYs={fiscalYears}
-          latestAllocations={allocations}
-          sourceFYTotalBudget={totalBudget}
           onClose={() => setShowNewPlan(false)}
-          onCreate={(fy, allocs) => {
-            setShowNewPlan(false)
-            router.refresh()
-          }}
+          onCreate={() => { setShowNewPlan(false); router.refresh() }}
         />
       )}
     </div>
@@ -145,7 +154,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
 
 function PlanTab({
   fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget,
-  onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange,
+  onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange, onDeleteFY,
 }: {
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
@@ -157,12 +166,14 @@ function PlanTab({
   onAllocationsChange: (allocs: StockAllocation[]) => void
   onNewPlan: () => void
   onFYBudgetChange: (budget: number) => void
+  onDeleteFY: () => void
 }) {
   const [editBudget, setEditBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState(String(totalBudget))
   const [savingBudget, setSavingBudget] = useState(false)
   const [showAddStock, setShowAddStock] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmDeletePlan, setConfirmDeletePlan] = useState(false)
   const [copying, setCopying] = useState(false)
 
   const sortedFYs = [...fiscalYears].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
@@ -344,6 +355,28 @@ function PlanTab({
           </div>
             )
           })()}
+
+          {/* Delete plan */}
+          {selectedFY && (
+            <div className="mx-4 mt-1 flex justify-end">
+              {confirmDeletePlan ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Delete {selectedFY.label}?</span>
+                  <button onClick={() => setConfirmDeletePlan(false)}
+                    className="text-[13px] px-3 py-1.5 rounded-lg"
+                    style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
+                  <button onClick={() => { setConfirmDeletePlan(false); onDeleteFY() }}
+                    className="text-[13px] font-semibold px-3 py-1.5 rounded-lg"
+                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>Delete</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDeletePlan(true)}
+                  className="text-[13px]" style={{ color: 'var(--text-faint)' }}>
+                  Delete plan
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Summary: by category + sector type */}
           {allocations.length > 0 && (() => {
@@ -651,74 +684,80 @@ function AddStockForm({ totalPct, onAdd }: {
 
 // ── New Plan Sheet ────────────────────────────────────────────────────────────
 
-function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onClose, onCreate }: {
+function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   existingFYs: FiscalYear[]
-  latestAllocations: StockAllocation[]
-  sourceFYTotalBudget: number
   onClose: () => void
-  onCreate: (fy: FiscalYear, allocs: StockAllocation[]) => void
+  onCreate: () => void
 }) {
-  const [label, setLabel]       = useState('')
-  const [budget, setBudget]     = useState('')
-  const [copyStocks, setCopyStocks] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [error, setError]       = useState('')
+  const currentYear = new Date().getFullYear()
+  const yearRange = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]
+  const existingLabels = new Set(existingFYs.map(f => f.label))
+
+  const [selectedYear, setSelectedYear] = useState<number | null>(() => {
+    return yearRange.find(y => !existingLabels.has(`FY${y}`)) ?? null
+  })
+  const [budget, setBudget]             = useState('')
+  const [copyStocks, setCopyStocks]     = useState(true)
+  const [creating, setCreating]         = useState(false)
+  const [error, setError]               = useState('')
+  const [sourceFY, setSourceFY]         = useState<FiscalYear | null>(null)
+  const [sourceAllocs, setSourceAllocs] = useState<StockAllocation[]>([])
   const [carryoverBySymbol, setCarryoverBySymbol] = useState<Record<string, number>>({})
 
-  // Suggest next FY label
-  const suggestedLabel = useMemo(() => {
-    if (existingFYs.length === 0) return 'FY26'
-    const labels = existingFYs.map(f => f.label)
-    const years = labels.map(l => parseInt(l.replace('FY', ''))).filter(Boolean)
-    const next = Math.max(...years) + 1
-    return `FY${next}`
-  }, [existingFYs])
+  const label = selectedYear ? `FY${selectedYear}` : ''
 
-  useState(() => { setLabel(suggestedLabel) })
-
-  // Compute carryover from source FY transactions
+  // When the user picks a year, find the chronologically prior FY and compute carryover
   useEffect(() => {
-    if (latestAllocations.length === 0 || sourceFYTotalBudget <= 0) return
+    if (!selectedYear) return
+    const newStart = new Date(`${selectedYear}-04-01`)
+    // Find the FY with start_date immediately before the new FY's start
+    const sorted = [...existingFYs]
+      .filter(fy => new Date(fy.start_date) < newStart)
+      .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+    const prior = sorted[0] ?? null
+    setSourceFY(prior)
+    setSourceAllocs([])
+    setCarryoverBySymbol({})
+
+    if (!prior) return
+
     async function computeCarryover() {
       const sb = getSupabaseBrowser()
-      const symbols = latestAllocations.map(a => a.symbol)
+      const { data: allocs } = await sb
+        .from('stock_allocations').select('*')
+        .eq('fy_id', prior!.id)
+      if (!allocs?.length) return
+      setSourceAllocs(allocs)
+
+      const symbols = allocs.map((a: StockAllocation) => a.symbol)
+      // Filter transactions to the source FY only — key fix for chronological correctness
       const { data: txns } = await sb
         .from('transactions')
         .select('symbol, trade_type, amount')
+        .eq('fy_id', prior!.id)
         .in('symbol', symbols)
+
       const netBySymbol: Record<string, number> = {}
       for (const t of txns ?? []) {
         const sign = t.trade_type === 'buy' ? 1 : -1
         netBySymbol[t.symbol] = (netBySymbol[t.symbol] ?? 0) + sign * t.amount
       }
       const carryover: Record<string, number> = {}
-      for (const a of latestAllocations) {
-        const stockBudget = (a.allocation_pct / 100) * sourceFYTotalBudget
+      for (const a of allocs) {
+        const stockBudget = (a.allocation_pct / 100) * prior!.total_budget_inr
         const spent = netBySymbol[a.symbol] ?? 0
         carryover[a.symbol] = Math.max(0, stockBudget - spent)
       }
       setCarryoverBySymbol(carryover)
     }
     computeCarryover()
-  }, [latestAllocations, sourceFYTotalBudget])
-
-  function fyDates(label: string): { start: string; end: string } | null {
-    const match = label.match(/^FY(\d{2,4})$/)
-    if (!match) return null
-    let yr = parseInt(match[1])
-    if (yr < 100) yr += 2000
-    // START-year convention: FY26 = Apr 2026 – Mar 2027
-    return {
-      start: `${yr}-04-01`,
-      end:   `${yr + 1}-03-31`,
-    }
-  }
+  }, [selectedYear, existingFYs])
 
   async function create() {
-    const dates = fyDates(label)
-    if (!dates) { setError('Label must be like FY27'); return }
+    if (!selectedYear) { setError('Select a fiscal year'); return }
     if (!budget || parseFloat(budget) <= 0) { setError('Enter a valid budget'); return }
-    if (existingFYs.some(f => f.label === label)) { setError(`${label} already exists`); return }
+    if (existingLabels.has(label)) { setError(`${label} already exists`); return }
+    const dates = { start: `${selectedYear}-04-01`, end: `${selectedYear + 1}-03-31` }
 
     setCreating(true)
     setError('')
@@ -728,9 +767,8 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
     if (!user) { setCreating(false); return }
 
     // Compute unallocated carryover (from stocks NOT copied into new plan)
-    const allSymbols = latestAllocations.map(a => a.symbol)
-    const copiedSymbols = copyStocks ? allSymbols : []
-    const droppedSymbols = allSymbols.filter(s => !copiedSymbols.includes(s))
+    const allSymbols = sourceAllocs.map(a => a.symbol)
+    const droppedSymbols = copyStocks ? [] : allSymbols
     const unallocatedCarryover = droppedSymbols.reduce((sum, s) => sum + (carryoverBySymbol[s] ?? 0), 0)
 
     const { data: fy, error: fyErr } = await sb.from('fiscal_years').insert({
@@ -744,21 +782,19 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
 
     if (fyErr || !fy) { setError(fyErr?.message ?? 'Failed to create plan'); setCreating(false); return }
 
-    let newAllocs: StockAllocation[] = []
-    if (copyStocks && latestAllocations.length > 0) {
-      const inserts = latestAllocations.map(a => ({
+    if (copyStocks && sourceAllocs.length > 0) {
+      const inserts = sourceAllocs.map(a => ({
         fy_id: fy.id, user_id: user.id,
         symbol: a.symbol, exchange: a.exchange,
         allocation_pct: a.allocation_pct, category: a.category,
         two_weak_quarters: false, is_hospital_ramp_phase: a.is_hospital_ramp_phase,
         carryover_inr: carryoverBySymbol[a.symbol] ?? 0,
       }))
-      const { data } = await sb.from('stock_allocations').insert(inserts).select()
-      newAllocs = data ?? []
+      await sb.from('stock_allocations').insert(inserts)
     }
 
     setCreating(false)
-    onCreate(fy, newAllocs)
+    onCreate()
   }
 
   const totalCarryover = Object.values(carryoverBySymbol).reduce((s, v) => s + v, 0)
@@ -789,16 +825,29 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
           )}
 
           <div>
-            <p className="text-[13px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Fiscal Year</p>
-            <input
-              placeholder={suggestedLabel}
-              value={label}
-              onChange={e => setLabel(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3.5 rounded-2xl text-[17px] font-bold outline-none"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
-            <p className="text-[12px] mt-1" style={{ color: 'var(--text-faint)' }}>
-              FY26 = Apr 2026 – Mar 2027
-            </p>
+            <p className="text-[13px] mb-2" style={{ color: 'var(--text-muted)' }}>Fiscal Year</p>
+            <div className="flex gap-2 flex-wrap">
+              {yearRange.map(yr => {
+                const taken = existingLabels.has(`FY${yr}`)
+                const active = selectedYear === yr
+                return (
+                  <button key={yr} type="button"
+                    onClick={() => !taken && setSelectedYear(yr)}
+                    disabled={taken}
+                    className="px-4 py-2.5 rounded-xl text-[15px] font-semibold transition-colors disabled:opacity-35"
+                    style={active
+                      ? { background: 'var(--text-primary)', color: 'var(--bg-primary)' }
+                      : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                    FY{yr}
+                  </button>
+                )
+              })}
+            </div>
+            {selectedYear && (
+              <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-faint)' }}>
+                Apr {selectedYear} – Mar {selectedYear + 1}
+              </p>
+            )}
           </div>
 
           <div>
@@ -810,13 +859,13 @@ function NewPlanSheet({ existingFYs, latestAllocations, sourceFYTotalBudget, onC
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
           </div>
 
-          {latestAllocations.length > 0 && (
+          {sourceAllocs.length > 0 && (
             <label className="flex items-center gap-3 cursor-pointer">
               <input type="checkbox" checked={copyStocks}
                 onChange={e => setCopyStocks(e.target.checked)}
                 className="w-5 h-5 rounded accent-[#0A84FF]" />
               <div>
-                <p className="text-[15px]">Copy {latestAllocations.length} stocks from previous plan</p>
+                <p className="text-[15px]">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
                 <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
                   Allocation %s and categories are copied
                   {copyStocks && totalCarryover > 0 && ` · ${formatINR(totalCarryover)} carryover carried in`}

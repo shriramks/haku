@@ -14,9 +14,10 @@ export default function AddPage() {
   const [date, setDate]               = useState(todayISO())
   const [qty, setQty]                 = useState('')
   const [price, setPrice]             = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [error, setError]             = useState<string | null>(null)
-  const [done, setDone]               = useState(false)
+  const [loading, setLoading]           = useState(false)
+  const [symbolsLoaded, setSymbolsLoaded] = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [done, setDone]                 = useState(false)
 
   useEffect(() => {
     async function loadSymbols() {
@@ -25,11 +26,12 @@ export default function AddPage() {
       const { data: fys } = await sb
         .from('fiscal_years').select('id')
         .lte('start_date', today).gte('end_date', today).limit(1)
-      if (!fys?.length) return
+      if (!fys?.length) { setSymbolsLoaded(true); return }
       const { data: allocs } = await sb
         .from('stock_allocations').select('symbol')
         .eq('fy_id', fys[0].id).order('symbol')
       if (allocs) setPlanSymbols(allocs.map(a => a.symbol))
+      setSymbolsLoaded(true)
     }
     loadSymbols()
   }, [])
@@ -87,7 +89,9 @@ export default function AddPage() {
                   className="text-[12px]" style={{ color: 'var(--text-faint)' }}>clear</button>
               )}
             </div>
-            {planSymbols.length > 0 ? (
+            {!symbolsLoaded ? (
+              <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+            ) : planSymbols.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {planSymbols.map(s => (
                   <button key={s} type="button" onClick={() => setSymbol(s)}
@@ -100,7 +104,16 @@ export default function AddPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+              <div className="rounded-2xl p-4"
+                   style={{ background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.2)' }}>
+                <p className="text-[14px] font-semibold mb-1" style={{ color: '#0A84FF' }}>No stocks in current plan</p>
+                <p className="text-[13px] mb-2" style={{ color: 'var(--text-2)' }}>
+                  Add stocks to your plan before logging transactions.
+                </p>
+                <a href="/plan" className="text-[14px] font-semibold" style={{ color: '#0A84FF' }}>
+                  Go to Plan →
+                </a>
+              </div>
             )}
           </div>
 
