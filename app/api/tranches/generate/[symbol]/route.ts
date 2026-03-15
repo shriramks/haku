@@ -75,7 +75,21 @@ export async function POST(
       s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
   const remaining = Math.max(0, allocBudget - netSpent)
 
-  const prices = computeTrancheprices(buyLow, buyHigh, band.manual_cmp ?? null, midLow, midHigh)
+  // Always use live CMP so stale stored values don't push tranches above market price
+  let liveCmp: number | null = band.manual_cmp ?? null
+  try {
+    const cmpRes = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS`,
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    )
+    if (cmpRes.ok) {
+      const cmpJson = await cmpRes.json()
+      const livePrice: number | undefined = cmpJson?.chart?.result?.[0]?.meta?.regularMarketPrice
+      if (livePrice) liveCmp = livePrice
+    }
+  } catch { /* fall back to stored CMP */ }
+
+  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh)
   const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
   // Replace existing tranches for this symbol + FY
