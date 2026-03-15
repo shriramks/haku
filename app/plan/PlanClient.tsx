@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 
-const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive'> = {
+const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'REIT' | 'Passive'> = {
   'FMCG':               'Defensive',
   'Pharma':             'Defensive',
   'IT/Technology':      'Defensive',
@@ -14,8 +14,8 @@ const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive
   'Cap-Light Infra':    'Growth',
   'Retail':             'Growth',
   'Hospitals':          'Growth',
+  'REIT':               'REIT',
   'Index/ETF':          'Passive',
-  'REIT':               'Passive',
   'Commodity':          'Passive',
 }
 
@@ -367,6 +367,33 @@ function PlanTab({
               )}
             </div>
 
+            {/* Delete / Clear — shown in edit mode */}
+            {editBudget && (
+              <div className="flex justify-start mt-1 mb-2">
+                {confirmDeletePlan ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                      {fyHasTxns ? `Clear allocations for ${selectedFY.label}?` : `Delete ${selectedFY.label}?`}
+                    </span>
+                    <button onClick={() => setConfirmDeletePlan(false)}
+                      className="text-[13px] px-3 py-1.5 rounded-lg"
+                      style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
+                    <button onClick={() => { setConfirmDeletePlan(false); setEditBudget(false); onDeleteFY() }}
+                      className="text-[13px] font-semibold px-3 py-1.5 rounded-lg"
+                      style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                      {fyHasTxns ? 'Clear' : 'Delete'}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDeletePlan(true)}
+                    className="text-[13px] px-3 py-2 rounded-xl"
+                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                    {fyHasTxns ? 'Clear plan' : 'Delete plan'}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Allocation bar */}
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
               <div
@@ -391,31 +418,6 @@ function PlanTab({
             )
           })()}
 
-          {/* Delete / Clear plan */}
-          {selectedFY && (
-            <div className="mx-4 mt-1 flex justify-end">
-              {confirmDeletePlan ? (
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-                    {fyHasTxns ? `Clear allocations for ${selectedFY.label}?` : `Delete ${selectedFY.label}?`}
-                  </span>
-                  <button onClick={() => setConfirmDeletePlan(false)}
-                    className="text-[13px] px-3 py-1.5 rounded-lg"
-                    style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
-                  <button onClick={() => { setConfirmDeletePlan(false); onDeleteFY() }}
-                    className="text-[13px] font-semibold px-3 py-1.5 rounded-lg"
-                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
-                    {fyHasTxns ? 'Clear' : 'Delete'}
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmDeletePlan(true)}
-                  className="text-[13px]" style={{ color: 'var(--text-faint)' }}>
-                  {fyHasTxns ? 'Clear plan' : 'Delete plan'}
-                </button>
-              )}
-            </div>
-          )}
 
           {/* Summary: sector types (collapsed) + category breakdown (expanded) */}
           {allocations.length > 0 && (() => {
@@ -429,7 +431,7 @@ function PlanTab({
               return acc
             }, {})
             const typeColors: Record<string, string> = {
-              Defensive: '#34C759', Cyclical: '#FF9F0A', Growth: '#0A84FF', Passive: '#8E8E93',
+              Defensive: '#34C759', Cyclical: '#FF9F0A', Growth: '#0A84FF', REIT: '#AF52DE', Passive: '#8E8E93',
             }
             return (
               <button
@@ -439,7 +441,7 @@ function PlanTab({
                 {/* Sector types — always visible */}
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4 flex-wrap">
-                    {(['Defensive', 'Cyclical', 'Growth', 'Passive'] as const)
+                    {(['Defensive', 'Cyclical', 'Growth', 'REIT', 'Passive'] as const)
                       .filter(t => byType[t])
                       .map(t => (
                         <span key={t} className="text-[15px] tabnum font-semibold"
@@ -450,15 +452,20 @@ function PlanTab({
                   </div>
                   <ChevronIcon className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${showCatDetail ? 'rotate-180' : ''}`} />
                 </div>
-                {/* Category pills — expanded only */}
+                {/* Category breakdown — 2-column grid, expanded only */}
                 {showCatDetail && (
-                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t"
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 pt-3 border-t"
                        style={{ borderColor: 'var(--border-faint)' }}>
                     {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
-                      <span key={cat} className="text-[12px] px-2.5 py-1 rounded-lg tabnum"
-                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
-                        {SHORT_CAT[cat] ?? cat.split(' ')[0]} {pct.toFixed(0)}%
-                      </span>
+                      <div key={cat} className="flex items-baseline justify-between">
+                        <span className="text-[13px] truncate" style={{ color: 'var(--text-2)' }}>
+                          {SHORT_CAT[cat] ?? cat}
+                        </span>
+                        <span className="text-[13px] font-semibold tabnum ml-2 flex-shrink-0"
+                              style={{ color: 'var(--text-primary)' }}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
                     ))}
                   </div>
                 )}
