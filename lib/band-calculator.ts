@@ -249,5 +249,7 @@ export function computeTrancheprices(
     const t = usedCount > 1 ? Math.pow(i / (usedCount - 1), 2) : 0
     prices.push(Math.round(floor + t * range))
   }
-  return [...new Set(prices)]
+  // Hard cap: no tranche ever above CMP regardless of how ceiling was computed
+  const capped = cmp ? prices.map(p => Math.min(p, Math.floor(cmp))) : prices
+  return [...new Set(capped)]
 }
