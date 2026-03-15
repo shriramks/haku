@@ -373,14 +373,12 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
           )}
 
           {/* Financials */}
-          {allocation && (
-            <FinancialsCard
-              symbol={symbol} band={band} allocation={allocation} fyId={fyId}
-              hasKey={hasKey}
-              onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
-              onTranchesUpdated={setTranches}
-            />
-          )}
+          <FinancialsCard
+            symbol={symbol} band={band} allocation={allocation} fyId={fyId}
+            hasKey={hasKey}
+            onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
+            onTranchesUpdated={setTranches}
+          />
 
           {/* Tranches — same component as Buy Bands page */}
           <TrancheSection
@@ -405,14 +403,12 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
             <p className="text-[14px]" style={{ color: 'var(--text-faint)' }}>Add financials below, then tap Generate</p>
           </div>
 
-          {allocation && (
-            <FinancialsCard
-              symbol={symbol} band={band} allocation={allocation} fyId={fyId}
-              hasKey={hasKey}
-              onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
-              onTranchesUpdated={setTranches}
-            />
-          )}
+          <FinancialsCard
+            symbol={symbol} band={band} allocation={allocation} fyId={fyId}
+            hasKey={hasKey}
+            onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
+            onTranchesUpdated={setTranches}
+          />
 
           <TrancheSection
             card
@@ -439,22 +435,26 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
 function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, onTranchesUpdated }: {
   symbol: string
   band: BuyBand | null
-  allocation: StockAllocation
+  allocation: StockAllocation | null
   fyId: string
   hasKey: boolean | null
   onBandSaved: (b: BuyBand) => void
   onTranchesUpdated: (t: BuyTranche[]) => void
 }) {
-  const category = allocation.category as StockCategory
-  const isHospRamp = allocation.is_hospital_ramp_phase
-
-  // Which anchor does this category use?
-  const anchor =
-    category === 'Capital Goods' ? 'EV'
-    : category === 'Hospitals' ? (isHospRamp ? 'EV' : 'PE')
-    : category === 'Insurance — Life' ? 'PEV'
-    : (category === 'Banks' || category === 'Insurance — General') ? 'PB'
+  // Derive anchor from stored band.anchor_type first (most accurate),
+  // then fall back to allocation.category if no band yet
+  const anchor: 'PE' | 'EV' | 'PB' | 'PEV' =
+    band?.anchor_type === 'EV_EBITDA' ? 'EV'
+    : band?.anchor_type === 'PB'      ? 'PB'
+    : band?.anchor_type === 'P_EV'    ? 'PEV'
+    : band?.anchor_type === 'PE'      ? 'PE'
+    : allocation?.category === 'Capital Goods'       ? 'EV'
+    : allocation?.category === 'Hospitals' && allocation.is_hospital_ramp_phase ? 'EV'
+    : allocation?.category === 'Insurance — Life'    ? 'PEV'
+    : (allocation?.category === 'Banks' || allocation?.category === 'Insurance — General') ? 'PB'
     : 'PE'
+
+  const category = allocation?.category
 
   const [editing, setEditing]   = useState(false)
   const [generating, setGen]    = useState(false)
@@ -565,7 +565,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
       {editing ? (
         <>
           <p className="text-[12px] mb-3" style={{ color: 'var(--text-faint)' }}>
-            {category}{anchor === 'EV' ? ' · EV/EBITDA' : anchor === 'PB' ? ' · P/B' : anchor === 'PEV' ? ' · P/EV' : ' · PE'}
+            {category ? `${category} · ` : ''}{anchor === 'EV' ? 'EV/EBITDA' : anchor === 'PB' ? 'P/B' : anchor === 'PEV' ? 'P/EV' : 'PE'}
           </p>
           <div className="grid grid-cols-2 gap-3">
             {(anchor === 'PE') && (
