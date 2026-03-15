@@ -85,7 +85,7 @@ export default function UserMenu() {
         href="/docs.html"
         target="_blank"
         rel="noopener noreferrer"
-        className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+        className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
         style={{ background: 'var(--border)', color: 'var(--text-2)' }}
         aria-label="Help & Docs">
         <BookIcon className="w-4 h-4" />
@@ -93,7 +93,7 @@ export default function UserMenu() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
+        className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
         style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
         <PersonIcon className="w-4 h-4" />
       </button>

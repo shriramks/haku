@@ -59,7 +59,7 @@ export default function BottomNav() {
                   <Icon className="w-6 h-6" />
                   {showPulse && <PulseDot />}
                 </div>
-                <span className="text-[10px] font-medium">{label}</span>
+                <span className="text-[11px] font-medium">{label}</span>
               </Link>
             )
           })}
@@ -83,7 +83,7 @@ export default function BottomNav() {
                   <Icon className="w-6 h-6" />
                   {showPulse && <PulseDot />}
                 </div>
-                <span className="text-[10px] font-medium">{label}</span>
+                <span className="text-[11px] font-medium">{label}</span>
               </Link>
             )
           })}
