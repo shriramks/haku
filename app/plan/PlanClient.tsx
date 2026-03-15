@@ -209,6 +209,7 @@ function PlanTab({
   const [confirmClear, setConfirmClear] = useState(false)
   const [confirmDeletePlan, setConfirmDeletePlan] = useState(false)
   const [copying, setCopying] = useState(false)
+  const [showCatDetail, setShowCatDetail] = useState(false)
 
   const sortedFYs = [...fiscalYears].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
   const currentFYIdx = sortedFYs.findIndex(fy => fy.id === selectedFY?.id)
@@ -416,7 +417,7 @@ function PlanTab({
             </div>
           )}
 
-          {/* Summary: by category + sector type */}
+          {/* Summary: sector types (collapsed) + category breakdown (expanded) */}
           {allocations.length > 0 && (() => {
             const byCat = allocations.reduce<Record<string, number>>((acc, a) => {
               acc[a.category] = (acc[a.category] ?? 0) + a.allocation_pct
@@ -431,29 +432,37 @@ function PlanTab({
               Defensive: '#34C759', Cyclical: '#FF9F0A', Growth: '#0A84FF', Passive: '#8E8E93',
             }
             return (
-              <div className="mx-4 mt-3 p-3 rounded-2xl border space-y-2.5"
-                   style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-                {/* By category */}
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
-                    <span key={cat} className="text-[11px] px-2 py-0.5 rounded-lg tabnum"
-                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
-                      {SHORT_CAT[cat] ?? cat.split(' ')[0]} {pct.toFixed(0)}%
-                    </span>
-                  ))}
+              <button
+                onClick={() => setShowCatDetail(v => !v)}
+                className="mx-4 mt-3 w-[calc(100%-2rem)] text-left rounded-2xl border p-4"
+                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                {/* Sector types — always visible */}
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-4 flex-wrap">
+                    {(['Defensive', 'Cyclical', 'Growth', 'Passive'] as const)
+                      .filter(t => byType[t])
+                      .map(t => (
+                        <span key={t} className="text-[15px] tabnum font-semibold"
+                              style={{ color: typeColors[t] }}>
+                          {t} {(byType[t] ?? 0).toFixed(0)}%
+                        </span>
+                      ))}
+                  </div>
+                  <ChevronIcon className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${showCatDetail ? 'rotate-180' : ''}`} />
                 </div>
-                {/* By sector type */}
-                <div className="flex gap-3 flex-wrap">
-                  {(['Defensive', 'Cyclical', 'Growth', 'Passive'] as const)
-                    .filter(t => byType[t])
-                    .map(t => (
-                      <span key={t} className="text-[12px] tabnum font-medium"
-                            style={{ color: typeColors[t] }}>
-                        {t} {(byType[t] ?? 0).toFixed(0)}%
+                {/* Category pills — expanded only */}
+                {showCatDetail && (
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t"
+                       style={{ borderColor: 'var(--border-faint)' }}>
+                    {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
+                      <span key={cat} className="text-[12px] px-2.5 py-1 rounded-lg tabnum"
+                            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
+                        {SHORT_CAT[cat] ?? cat.split(' ')[0]} {pct.toFixed(0)}%
                       </span>
                     ))}
-                </div>
-              </div>
+                  </div>
+                )}
+              </button>
             )
           })()}
 
@@ -466,9 +475,7 @@ function PlanTab({
             </div>
           ) : (
             <div className="px-4 mt-3 space-y-2">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[12px] uppercase tracking-widest font-semibold"
-                   style={{ color: 'var(--text-muted)' }}>Stocks</p>
+              <div className="flex items-center justify-end mb-1">
                 <div className="flex items-center gap-3">
                   {allocations.length > 0 && !confirmClear && (
                     <>
@@ -615,10 +622,10 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
             )}
           </div>
           <div className="text-right">
-            <p className="text-[13px] font-medium" style={{ color: 'var(--text-2)' }}>
+            <p className="text-[15px] font-medium" style={{ color: 'var(--text-2)' }}>
               {alloc.category.split('/')[0]}
             </p>
-            <p className="text-[12px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {formatINR(budget)}
               {(alloc.carryover_inr ?? 0) > 0 && (
                 <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr)}</span>
@@ -637,7 +644,7 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
                 const val = parseFloat(pct)
                 if (val > 0 && val !== alloc.allocation_pct) onPctChange(alloc, val)
               }}
-              className="w-14 px-2 py-1.5 rounded-xl text-[15px] tabnum text-right outline-none"
+              className="w-14 px-2 py-2.5 rounded-xl text-[15px] tabnum text-right outline-none"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             />
             <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>%</span>
