@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -8,6 +8,7 @@ import { BandSignalBadge, TradeTypeBadge, GateSignalIcon, InvestableBadge } from
 import { formatINR, formatPnL, formatPct, formatDate } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal, BuyTranche } from '@/lib/types'
+import TrancheSection from '@/components/TrancheSection'
 
 interface Props {
   symbol: string
@@ -99,7 +100,7 @@ export default function StockDetailClient({
 
       <div className="overflow-y-auto pb-24">
         {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
-        {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} tranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} />}
+        {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />}
         {activeTab === 'transactions' && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}
       </div>
     </div>
@@ -191,26 +192,37 @@ function M({ label, value, color }: { label: string; value: string; color?: stri
 
 // ── Bands tab ─────────────────────────────────────────────────────────────────
 
-function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, onBandSaved }: {
-  symbol: string; band: BuyBand | null; tranches: BuyTranche[]
+function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remaining, onBandSaved, userId }: {
+  symbol: string; band: BuyBand | null; initialTranches: BuyTranche[]
   allocation: StockAllocation | null; fiscalYear: FiscalYear | null; remaining: number
-  onBandSaved: (b: BuyBand) => void
+  onBandSaved: (b: BuyBand) => void; userId: string
 }) {
-  const [cmpInput, setCmpInput] = useState(band?.manual_cmp?.toString() ?? '')
-  const [saving, setSaving]     = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
+  const fyId = fiscalYear?.id ?? ''
+  const [cmpInput, setCmpInput]                     = useState(band?.manual_cmp?.toString() ?? '')
+  const [savingCmp, setSavingCmp]                   = useState(false)
+  const [refreshing, setRefreshing]                 = useState(false)
+  const [tranches, setTranches]                     = useState(initialTranches)
+  const [generatingTranches, setGeneratingTranches] = useState(false)
+  const [hasKey, setHasKey]                         = useState<boolean | null>(null)
   const signal = band ? getBandSignal(band) : 'unknown'
   const totalCapital = fiscalYear?.total_budget_inr ?? 0
   const tranche = band?.buy_low != null ? trancheSuggestion(remaining, totalCapital) : null
 
+  useEffect(() => {
+    fetch('/api/settings/gemini-key')
+      .then(r => r.json())
+      .then(d => setHasKey(d.hasKey ?? false))
+      .catch(() => setHasKey(false))
+  }, [])
+
   async function saveCMP() {
     if (!band || !cmpInput) return
-    setSaving(true)
+    setSavingCmp(true)
     const sb = getSupabaseBrowser()
     const cmp = parseFloat(cmpInput)
     await sb.from('buy_bands').update({ manual_cmp: cmp, last_updated_at: new Date().toISOString() }).eq('id', band.id)
     onBandSaved({ ...band, manual_cmp: cmp })
-    setSaving(false)
+    setSavingCmp(false)
   }
 
   async function refreshCMP() {
@@ -229,7 +241,53 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
     setRefreshing(false)
   }
 
-  // Re-compute from stored inputs + allocation flags for display accuracy
+  // ── Tranche operations ──────────────────────────────────────────────────────
+  async function toggleTranche(id: string, allocated: boolean) {
+    setTranches(prev => prev.map(t => t.id === id ? { ...t, allocated } : t))
+    await getSupabaseBrowser().from('buy_tranches').update({ allocated }).eq('id', id)
+  }
+
+  async function addTranche(sym: string, qty: number, price: number) {
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return
+    const { data } = await sb.from('buy_tranches').insert({
+      user_id: user.id, symbol: sym, qty, price, allocated: false,
+      sort_order: tranches.length + 1, fy_id: fyId,
+    }).select().single()
+    if (data) setTranches(prev => [...prev, data])
+  }
+
+  async function deleteTranche(id: string) {
+    await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
+    setTranches(prev => prev.filter(t => t.id !== id))
+  }
+
+  async function updateTranche(id: string, qty: number, price: number) {
+    setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
+    await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+  }
+
+  async function clearTranches() {
+    await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
+    setTranches([])
+  }
+
+  async function generateTranches() {
+    setGeneratingTranches(true)
+    try {
+      const res = await fetch(`/api/tranches/generate/${symbol}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fyId }),
+      })
+      const json = await res.json()
+      if (res.ok && json.tranches?.length > 0) setTranches(json.tranches)
+    } catch {}
+    setGeneratingTranches(false)
+  }
+
+  // ── Computed bands ──────────────────────────────────────────────────────────
   const computed = (band && allocation) ? calculateBands({
     category: allocation.category as StockCategory,
     twoWeakQuarters: allocation.two_weak_quarters,
@@ -244,8 +302,9 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
   const midLow    = computed?.midLow    ?? band?.mid_low    ?? null
   const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
+  const hasBands  = buyLow != null && trimPrice != null
 
-  const hasBands = buyLow != null && trimPrice != null
+  const sortedTranches = [...tranches].sort((a, b) => b.price - a.price)
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -281,15 +340,14 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
                   className="w-24 px-2 py-1.5 rounded-lg text-sm tabnum outline-none text-right"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                 />
-                <button onClick={saveCMP} disabled={saving}
+                <button onClick={saveCMP} disabled={savingCmp}
                   className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
                   style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
-                  {saving ? '…' : 'Set'}
+                  {savingCmp ? '…' : 'Set'}
                 </button>
               </div>
             </div>
 
-            {/* Simple band bar */}
             <BandBarSimple buyLow={buyLow!} buyHigh={buyHigh!} midLow={midLow!} midHigh={midHigh!} trimPrice={trimPrice!} cmp={band.manual_cmp} />
 
             <p className="text-xs mt-3" style={{ color: 'var(--text-faint)' }}>
@@ -310,47 +368,282 @@ function BandsTab({ symbol, band, tranches, allocation, fiscalYear, remaining, o
             </div>
           )}
 
-          {/* Anchor inputs */}
-          {(band.eps || band.ebitda || band.bvps || band.embedded_value) && (
-            <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-              <p className="text-xs mb-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Anchor Inputs</p>
-              <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                {band.eps            && <InputRow k="EPS"            v={`₹${band.eps}`} />}
-                {band.bvps           && <InputRow k="BVPS"           v={`₹${band.bvps}`} />}
-                {band.ebitda         && <InputRow k="EBITDA"         v={`${band.ebitda} Cr`} />}
-                {band.net_debt       && <InputRow k="Net Debt"       v={`${band.net_debt} Cr`} />}
-                {band.shares         && <InputRow k="Shares"         v={`${band.shares} Cr`} />}
-                {band.embedded_value && <InputRow k="Embedded Value" v={`${band.embedded_value} Cr`} />}
-              </div>
-            </div>
+          {/* Financials */}
+          {allocation && (
+            <FinancialsCard
+              symbol={symbol} band={band} allocation={allocation} fyId={fyId}
+              hasKey={hasKey}
+              onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
+              onTranchesUpdated={setTranches}
+            />
           )}
 
-          {/* Tranches */}
-          {tranches.length > 0 && (
-            <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-              <p className="text-xs px-4 pt-3 pb-2 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Tranches</p>
-              {[...tranches].sort((a, b) => b.price - a.price).map((t, i) => (
-                <div key={t.id}
-                     className={`flex items-center justify-between px-4 py-2.5 ${i < tranches.length - 1 ? 'border-b' : ''}`}
-                     style={{ borderColor: 'var(--border-faint)', opacity: t.allocated ? 0.5 : 1 }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0"
-                         style={{ background: t.allocated ? 'var(--text-faint)' : '#34C759' }} />
-                    <span className="text-[13px] tabnum">{Math.round(t.qty)} × ₹{Math.round(t.price)}</span>
-                  </div>
-                  <span className="text-[13px] tabnum font-medium" style={{ color: 'var(--text-2)' }}>
-                    {formatINR(t.qty * t.price)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Tranches — same component as Buy Bands page */}
+          <TrancheSection
+            card
+            symbol={symbol}
+            tranches={sortedTranches}
+            remaining={remaining}
+            hasBands={hasBands}
+            onToggle={toggleTranche}
+            onAdd={addTranche}
+            onDelete={deleteTranche}
+            onUpdate={updateTranche}
+            onGenerate={generateTranches}
+            onClear={clearTranches}
+            generating={generatingTranches}
+          />
         </>
       ) : (
-        <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-          <p className="mb-1">No bands computed yet</p>
-          <p className="text-sm" style={{ color: 'var(--text-faint)' }}>Use "Generate Bands" in Buy Bands tab</p>
+        <>
+          <div className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[17px] font-medium mb-1">No bands yet</p>
+            <p className="text-[14px]" style={{ color: 'var(--text-faint)' }}>Add financials below, then tap Generate</p>
+          </div>
+
+          {allocation && (
+            <FinancialsCard
+              symbol={symbol} band={band} allocation={allocation} fyId={fyId}
+              hasKey={hasKey}
+              onBandSaved={(b) => { onBandSaved(b); setTranches([]) }}
+              onTranchesUpdated={setTranches}
+            />
+          )}
+
+          <TrancheSection
+            card
+            symbol={symbol}
+            tranches={sortedTranches}
+            remaining={remaining}
+            hasBands={hasBands}
+            onToggle={toggleTranche}
+            onAdd={addTranche}
+            onDelete={deleteTranche}
+            onUpdate={updateTranche}
+            onGenerate={generateTranches}
+            onClear={clearTranches}
+            generating={generatingTranches}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Financials card ────────────────────────────────────────────────────────────
+
+function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, onTranchesUpdated }: {
+  symbol: string
+  band: BuyBand | null
+  allocation: StockAllocation
+  fyId: string
+  hasKey: boolean | null
+  onBandSaved: (b: BuyBand) => void
+  onTranchesUpdated: (t: BuyTranche[]) => void
+}) {
+  const category = allocation.category as StockCategory
+  const isHospRamp = allocation.is_hospital_ramp_phase
+
+  // Which anchor does this category use?
+  const anchor =
+    category === 'Capital Goods' ? 'EV'
+    : category === 'Hospitals' ? (isHospRamp ? 'EV' : 'PE')
+    : category === 'Insurance — Life' ? 'PEV'
+    : (category === 'Banks' || category === 'Insurance — General') ? 'PB'
+    : 'PE'
+
+  const [editing, setEditing]   = useState(false)
+  const [generating, setGen]    = useState(false)
+  const [genError, setGenError] = useState('')
+  const [saving, setSaving]     = useState(false)
+
+  // form state (strings for inputs)
+  const [eps,   setEps]   = useState(band?.eps?.toString()            ?? '')
+  const [bvps,  setBvps]  = useState(band?.bvps?.toString()           ?? '')
+  const [ebitda,setEbitda]= useState(band?.ebitda?.toString()         ?? '')
+  const [netDebt,setNetDebt]=useState(band?.net_debt?.toString()      ?? '')
+  const [shares,setShares]= useState(band?.shares?.toString()         ?? '')
+  const [ev,    setEv]    = useState(band?.embedded_value?.toString() ?? '')
+
+  async function generate() {
+    if (!hasKey) { setGenError('No AI key set — add one in Settings (person icon)'); return }
+    setGen(true)
+    setGenError('')
+    try {
+      const res = await fetch(`/api/bands/generate/${symbol}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fyId }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setGenError(json.error ?? 'Generation failed')
+      } else {
+        if (json.band) {
+          onBandSaved(json.band)
+          // Sync form inputs with fresh data
+          setEps(json.band.eps?.toString()            ?? '')
+          setBvps(json.band.bvps?.toString()          ?? '')
+          setEbitda(json.band.ebitda?.toString()      ?? '')
+          setNetDebt(json.band.net_debt?.toString()   ?? '')
+          setShares(json.band.shares?.toString()      ?? '')
+          setEv(json.band.embedded_value?.toString()  ?? '')
+        }
+        if (json.tranches?.length > 0) onTranchesUpdated(json.tranches)
+      }
+    } catch {
+      setGenError('Network error')
+    }
+    setGen(false)
+  }
+
+  async function save() {
+    setSaving(true)
+    const sb = getSupabaseBrowser()
+    const fields = {
+      eps:             parseFloat(eps)     || null,
+      bvps:            parseFloat(bvps)    || null,
+      ebitda:          parseFloat(ebitda)  || null,
+      net_debt:        parseFloat(netDebt) || null,
+      shares:          parseFloat(shares)  || null,
+      embedded_value:  parseFloat(ev)      || null,
+      last_updated_at: new Date().toISOString(),
+    }
+
+    let savedBand: BuyBand | null = null
+    if (band) {
+      const { data } = await sb.from('buy_bands').update(fields).eq('id', band.id).select().single()
+      savedBand = data
+    } else {
+      const { data: { user } } = await sb.auth.getUser()
+      if (user) {
+        const { data } = await sb.from('buy_bands').insert({
+          user_id: user.id, symbol, anchor_type: 'PE', is_current: true, ...fields,
+        }).select().single()
+        savedBand = data
+      }
+    }
+
+    if (savedBand) onBandSaved(savedBand)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  const hasData = !!(band?.eps || band?.bvps || band?.ebitda || band?.embedded_value)
+
+  return (
+    <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>Financials</p>
+        {!editing && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={generate}
+              disabled={generating}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[14px] font-medium disabled:opacity-40"
+              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+              <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
+              {generating ? '…' : 'Generate'}
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+              <PencilIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {genError && <p className="text-[12px] text-red-400 mb-2">{genError}</p>}
+
+      {editing ? (
+        <>
+          <p className="text-[12px] mb-3" style={{ color: 'var(--text-faint)' }}>
+            {category}{anchor === 'EV' ? ' · EV/EBITDA' : anchor === 'PB' ? ' · P/B' : anchor === 'PEV' ? ' · P/EV' : ' · PE'}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {(anchor === 'PE') && (
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
+                  onChange={e => setEps(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+            )}
+            {(anchor === 'EV') && (<>
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>EBITDA (₹Cr)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 1200" value={ebitda}
+                  onChange={e => setEbitda(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Net Debt (₹Cr)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 500" value={netDebt}
+                  onChange={e => setNetDebt(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 3.8" value={shares}
+                  onChange={e => setShares(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+            </>)}
+            {(anchor === 'PB') && (
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Book Value per Share (₹)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 250" value={bvps}
+                  onChange={e => setBvps(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+            )}
+            {(anchor === 'PEV') && (<>
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Embedded Value (₹Cr)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 92400" value={ev}
+                  onChange={e => setEv(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 10" value={shares}
+                  onChange={e => setShares(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+            </>)}
+          </div>
+          <button onClick={save} disabled={saving}
+            className="w-full mt-4 py-4 rounded-2xl text-[17px] font-semibold disabled:opacity-40"
+            style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={() => setEditing(false)}
+            className="w-full mt-2 py-3 rounded-2xl text-[15px]"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            Cancel
+          </button>
+        </>
+      ) : hasData ? (
+        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
+          {band?.eps            && <InputRow k="EPS"            v={`₹${band.eps}`} />}
+          {band?.bvps           && <InputRow k="BVPS"           v={`₹${band.bvps}`} />}
+          {band?.ebitda         && <InputRow k="EBITDA"         v={`${band.ebitda} Cr`} />}
+          {band?.net_debt       && <InputRow k="Net Debt"       v={`${band.net_debt} Cr`} />}
+          {band?.shares         && <InputRow k="Shares"         v={`${band.shares} Cr`} />}
+          {band?.embedded_value && <InputRow k="Embedded Value" v={`${band.embedded_value} Cr`} />}
         </div>
+      ) : (
+        <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>No data — tap pencil to enter, or Generate to auto-fill</p>
       )}
     </div>
   )
@@ -401,6 +694,23 @@ function InputRow({ k, v }: { k: string; v: string }) {
       <span style={{ color: 'var(--text-muted)' }}>{k}</span>
       <span className="tabnum" style={{ color: 'var(--text-primary)' }}>{v}</span>
     </div>
+  )
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+    </svg>
+  )
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
+    </svg>
   )
 }
 
