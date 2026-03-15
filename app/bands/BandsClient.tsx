@@ -252,7 +252,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const completedRows = rows.filter(r => isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (
-    <div className="pb-24">
+    <div className="pb-6">
       {showKeyPrompt && (
         <KeyPromptSheet
           initialProvider={aiProvider}
