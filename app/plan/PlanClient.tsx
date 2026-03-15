@@ -15,6 +15,8 @@ const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'Passive
   'Retail':             'Growth',
   'Hospitals':          'Growth',
   'Index/ETF':          'Passive',
+  'REIT':               'Passive',
+  'Commodity':          'Passive',
 }
 
 const SHORT_CAT: Record<string, string> = {

@@ -26,8 +26,11 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Auto OEM':           { buyLow: 10, buyHigh: 12, midLow: 13, midHigh: 15, trim: 16 },
   'Pharma':             { buyLow: 22, buyHigh: 28, midLow: 29, midHigh: 35, trim: 38 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
-  // Index/ETF: Nifty PE thresholds; "eps" passed in = etfPrice / niftyPE (computed in generate route)
+  // Index/ETF: Nifty PE thresholds; "eps" passed in = etfPrice / indexPE (computed in generate route)
   'Index/ETF':          { buyLow: 16, buyHigh: 19, midLow: 20, midHigh: 23, trim: 25 },
+  // REIT: price/DPU multiple (inverse of yield); "eps" passed in = annual DPU per unit
+  // 12x = 8.3% yield (deep value), 20x = 5% yield (trim)
+  'REIT':               { buyLow: 12, buyHigh: 14, midLow: 15, midHigh: 18, trim: 20 },
 }
 
 
@@ -137,6 +140,7 @@ export function calculateBands(input: BandInput): BandResult | null {
 
   switch (input.category) {
     case 'Index/ETF':
+    case 'REIT':
     case 'Cap-Light Infra':
     case 'Retail':
     case 'Defence':

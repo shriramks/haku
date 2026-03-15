@@ -127,6 +127,25 @@ Return ONLY this JSON, no markdown, no explanation:
 asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
 }
 
+function reitPrompt(symbol: string): string {
+  return `Find distribution data for NSE:${symbol} — an Indian REIT listed on NSE.
+
+Find the total distributions per unit (DPU) paid in the last 12 months in ₹:
+- Sum all quarterly or semi-annual distributions declared/paid in the trailing 12 months
+- Labelled "Distribution per unit", "DPU", or "distributions declared" in quarterly reports or investor presentations
+- Typical range for Indian REITs: ₹15–₹35 per unit per year
+
+Also find:
+- Current market price per unit of NSE:${symbol} in ₹
+
+Self-validation: yield = DPU / price should be between 4% and 10% for Indian REITs. If outside this range, recheck.
+
+Return ONLY this JSON, no markdown, no explanation:
+{"dpu":0,"pricePerUnit":0,"asOf":""}
+
+asOf = period the DPU covers, e.g. "TTM Mar 2025"`
+}
+
 function indexPrompt(symbol: string): string {
   return `Look up NSE:${symbol} and identify which index it tracks. Then find:
 1. The current trailing PE ratio of that index (last 12 months, NOT forward PE). If this is a commodity ETF (gold, silver, etc.) with no earnings, set indexPE to 0.
@@ -193,12 +212,21 @@ export async function POST(
   const isIndex     = category === 'Index/ETF'
   const isInsurance = category === 'Insurance — Life'
   const isBank      = category === 'Banks'
+  const isReit      = category === 'REIT'
+  const isCommodity = category === 'Commodity'
+
+  if (isCommodity) {
+    return NextResponse.json({
+      error: 'Bands cannot be generated for commodity ETFs — please set price targets manually.',
+    }, { status: 422 })
+  }
 
   // Call AI provider with search grounding
   let aiText: string
   const prompt = isIndex ? indexPrompt(upperSymbol)
     : isInsurance ? insurancePrompt(upperSymbol)
     : isBank ? bankPrompt(upperSymbol)
+    : isReit ? reitPrompt(upperSymbol)
     : stockPrompt(upperSymbol)
   try {
     aiText = aiProvider === 'claude'
@@ -272,6 +300,19 @@ export async function POST(
         raw: aiText.slice(0, 600),
       }, { status: 422 })
     }
+  } else if (isReit) {
+    const dpu          = Number(parsed.dpu)          || null
+    const pricePerUnit = Number(parsed.pricePerUnit) || null
+
+    if (!dpu) {
+      return NextResponse.json({
+        error: `Could not extract DPU for ${upperSymbol}. Got: DPU=₹${dpu}`,
+        raw: aiText.slice(0, 600),
+      }, { status: 422 })
+    }
+
+    eps  = dpu
+    asOf = `${upperSymbol} ₹${dpu} DPU @ ${pricePerUnit ? (dpu / pricePerUnit * 100).toFixed(1) : '?'}% yield | ${asOf}`
   } else {
     eps          = Number(parsed.eps)          || null
     opProfitCr   = Number(parsed.opProfitCr)   || null

@@ -123,6 +123,8 @@ export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export type StockCategory =
   | 'Index/ETF'
+  | 'REIT'
+  | 'Commodity'
   | 'Cap-Light Infra'
   | 'Retail'
   | 'Defence'
@@ -138,6 +140,8 @@ export type StockCategory =
 
 export const ALL_CATEGORIES: StockCategory[] = [
   'Index/ETF',
+  'REIT',
+  'Commodity',
   'Cap-Light Infra',
   'Retail',
   'Defence',
@@ -175,6 +179,11 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   WIPRO:       'IT/Technology',
   NIFTYBEES:   'Index/ETF',
   JUNIORBEES:  'Index/ETF',
+  SETFGOLD:    'Commodity',
+  GOLDBEES:    'Commodity',
+  EMBASSY:     'REIT',
+  BROOKFIELD:  'REIT',
+  NEXUS:       'REIT',
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────
