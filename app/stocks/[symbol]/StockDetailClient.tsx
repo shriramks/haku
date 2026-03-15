@@ -9,6 +9,7 @@ import { formatINR, formatPnL, formatPct, formatDate } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal, BuyTranche } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
+import { getStockName } from '@/lib/stock-names'
 
 interface Props {
   symbol: string
@@ -70,6 +71,9 @@ export default function StockDetailClient({
             <h1 className="text-xl font-bold">{symbol}</h1>
             <BandSignalBadge signal={signal} />
           </div>
+          {getStockName(symbol) && (
+            <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>{getStockName(symbol)}</p>
+          )}
           {qty > 0 && (
             <p className="text-sm tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {Math.round(qty)} shares · avg ₹{Math.round(avgCost)}

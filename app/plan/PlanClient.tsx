@@ -30,6 +30,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import { getStockName } from '@/lib/stock-names'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -543,6 +544,9 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
         <button onClick={() => setExpanded(v => !v)} className="flex-1 flex items-center gap-3 text-left">
           <div className="flex-1">
             <p className="font-bold text-[16px]">{alloc.symbol}</p>
+            {getStockName(alloc.symbol) && (
+              <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{getStockName(alloc.symbol)}</p>
+            )}
             <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {alloc.category.split('/')[0]} · {formatINR(budget)}
               {(alloc.carryover_inr ?? 0) > 0 && (

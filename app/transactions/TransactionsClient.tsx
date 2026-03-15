@@ -4,6 +4,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate } from '@/lib/formatter'
 import type { Transaction } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import { getStockName } from '@/lib/stock-names'
 
 export default function TransactionsClient({
   transactions: initial,
@@ -110,6 +111,9 @@ function TxnRow({ txn, onDelete }: { txn: Transaction; onDelete: (id: string) =>
             {isBuy ? 'BUY' : 'SELL'}
           </span>
         </div>
+        {getStockName(txn.symbol) && (
+          <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>{getStockName(txn.symbol)}</p>
+        )}
         <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
           {Math.round(txn.quantity)} shares · ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })} · {formatDate(txn.trade_date)}
         </p>

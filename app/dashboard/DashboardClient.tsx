@@ -6,6 +6,7 @@ import { computeStockRows } from '@/lib/compute'
 import { formatINR, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import { getStockName } from '@/lib/stock-names'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -183,7 +184,12 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
     <Link href={`/stocks/${row.symbol}`}
           className="grid items-center gap-3 px-4 py-4 tap-row"
           style={{ gridTemplateColumns: '108px 1fr 80px 16px', opacity: dim ? 0.35 : 1 }}>
-      <span className="font-semibold text-[16px]">{row.symbol}</span>
+      <div>
+        <span className="font-semibold text-[16px]">{row.symbol}</span>
+        {getStockName(row.symbol) && (
+          <p className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
+        )}
+      </div>
       <div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
           <div className={`h-full rounded-full ${
@@ -214,6 +220,9 @@ function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?:
          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div>
         <p className="font-semibold text-[15px]">{row.symbol}</p>
+        {getStockName(row.symbol) && (
+          <p className="text-[11px] truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
+        )}
         {row.qty > 0 && (
           <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} shares</p>
         )}

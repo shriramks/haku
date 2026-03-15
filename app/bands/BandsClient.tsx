@@ -6,6 +6,7 @@ import { getBandSignal } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
+import { getStockName } from '@/lib/stock-names'
 
 interface Props {
   rows: StockRow[]
@@ -307,12 +308,19 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="font-bold text-[17px]">{row.symbol}</span>
-                  {cmp && (
-                    <span className="text-[13px] tabnum" style={{ color: 'var(--text-muted)' }}>
-                      ₹{Math.round(cmp).toLocaleString('en-IN')}
-                    </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[17px]">{row.symbol}</span>
+                    {cmp && (
+                      <span className="text-[13px] tabnum" style={{ color: 'var(--text-muted)' }}>
+                        ₹{Math.round(cmp).toLocaleString('en-IN')}
+                      </span>
+                    )}
+                  </div>
+                  {getStockName(row.symbol) && (
+                    <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>
+                      {getStockName(row.symbol)}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
