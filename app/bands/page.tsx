@@ -38,7 +38,7 @@ export default async function BandsPage({
 
   const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
 
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...rows].filter(r => r.remaining > 0).sort((a, b) => {
     const aAll      = tranches.filter(t => t.symbol === a.symbol)
     const bAll      = tranches.filter(t => t.symbol === b.symbol)
     const aPending  = aAll.filter(t => !t.allocated).length
