@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Buttons — Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #F2F2F7; color: #000;
+    max-width: 430px; margin: 0 auto;
+    padding: 24px 0 40px;
+  }
+
+  .section { padding: 0 16px; margin-bottom: 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: rgba(0,0,0,0.35);
+    margin-bottom: 10px;
+  }
+
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 0;
+  }
+  .stocks-label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: rgba(0,0,0,0.40);
+  }
+  .btn-group { display: flex; align-items: center; gap: 8px; }
+
+  /* BEFORE — bare text */
+  .btn-text-before {
+    font-size: 14px; color: rgba(0,0,0,0.25);
+    background: none; border: none; padding: 0; cursor: pointer;
+  }
+  .btn-blue-before {
+    font-size: 14px; color: #0A84FF;
+    background: none; border: none; padding: 0; cursor: pointer;
+  }
+
+  /* AFTER — pill buttons */
+  .btn-pill {
+    font-size: 15px; padding: 10px 14px; border-radius: 12px;
+    border: none; cursor: pointer; line-height: 1;
+  }
+  .btn-secondary {
+    color: rgba(0,0,0,0.60);
+    background: #E5E5EA;
+  }
+  .btn-primary {
+    color: #0A84FF; font-weight: 500;
+    background: rgba(10,132,255,0.12);
+  }
+
+  /* card preview */
+  .card {
+    background: #fff; border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 16px; margin-top: 8px;
+  }
+  .card-inner { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+  .card-left { flex: 1; min-width: 0; }
+  .symbol { font-weight: 700; font-size: 17px; }
+  .name   { font-size: 11px; color: rgba(0,0,0,0.60); margin-top: 2px; }
+  .card-mid { text-align: right; }
+  .cat  { font-size: 13px; font-weight: 500; color: rgba(0,0,0,0.60); }
+  .budg { font-size: 12px; color: rgba(0,0,0,0.40); margin-top: 2px; }
+  .pct-area { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+  .pct-box  { width: 48px; padding: 7px 8px; background: #E5E5EA; border-radius: 10px; font-size: 15px; text-align: right; }
+  .pct-sign { font-size: 15px; color: rgba(0,0,0,0.40); }
+  .chevron  { font-size: 14px; color: rgba(0,0,0,0.25); }
+
+  .divider { height: 1px; background: rgba(0,0,0,0.06); margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<!-- BEFORE -->
+<div class="section">
+  <div class="section-title">Before — text labels</div>
+  <div class="toolbar">
+    <span class="stocks-label">Stocks</span>
+    <div class="btn-group">
+      <button class="btn-text-before">Export</button>
+      <button class="btn-text-before">Clear All</button>
+      <button class="btn-blue-before">+ Add Stock</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-inner">
+    <div class="card-left"><div class="symbol">BEL</div><div class="name">Bharat Electronics</div></div>
+    <div class="card-mid"><div class="cat">Defence</div><div class="budg">₹2.4L</div></div>
+    <div class="pct-area"><div class="pct-box">10</div><div class="pct-sign">%</div><div class="chevron">⌄</div></div>
+  </div></div>
+</div>
+
+<div class="divider" style="margin: 0 16px;"></div>
+
+<!-- AFTER -->
+<div class="section" style="margin-top: 20px;">
+  <div class="section-title">After — pill buttons</div>
+  <div class="toolbar">
+    <span class="stocks-label">Stocks</span>
+    <div class="btn-group">
+      <button class="btn-pill btn-secondary">Export</button>
+      <button class="btn-pill btn-secondary">Clear All</button>
+      <button class="btn-pill btn-primary">+ Add Stock</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-inner">
+    <div class="card-left"><div class="symbol">BEL</div><div class="name">Bharat Electronics</div></div>
+    <div class="card-mid"><div class="cat">Defence</div><div class="budg">₹2.4L</div></div>
+    <div class="pct-area"><div class="pct-box">10</div><div class="pct-sign">%</div><div class="chevron">⌄</div></div>
+  </div></div>
+</div>
+
+</body>
+</html>

@@ -26,6 +26,7 @@ export default async function TransactionsPage({
   return (
     <>
       <TransactionsClient
+        key={selectedFY?.id ?? 'no-fy'}
         transactions={transactions}
         fiscalYears={fiscalYears}
         selectedFY={selectedFY ?? null}

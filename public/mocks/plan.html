@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Allocations — Redesign Mock v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; }
+  body { background: #d8d8e2; padding: 24px 16px 48px; }
+  h1 { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 24px; }
+  .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: 0.1em; color: #666; margin-bottom: 10px; margin-top: 28px; }
+  .grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
+  .col { display: flex; flex-direction: column; gap: 6px; }
+  .col-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+               letter-spacing: 0.08em; text-align: center; padding: 3px 0; }
+  .col-label.before { color: #FF3B30; }
+  .col-label.after  { color: #34C759; }
+  .phone { width: 300px; border-radius: 34px; overflow: hidden;
+           box-shadow: 0 8px 32px rgba(0,0,0,0.22); }
+
+  .light { --bg:#F2F2F7; --surface:#FFFFFF; --tertiary:#E5E5EA; --nav:rgba(242,242,247,0.95);
+           --t1:#000; --t2:rgba(0,0,0,0.55); --tmuted:rgba(0,0,0,0.38); --tfaint:rgba(0,0,0,0.20);
+           --border:rgba(0,0,0,0.10); --divider:rgba(0,0,0,0.08); }
+  .dark  { --bg:#000000; --surface:#1C1C1E; --tertiary:#2C2C2E; --nav:rgba(0,0,0,0.95);
+           --t1:#fff; --t2:rgba(255,255,255,0.55); --tmuted:rgba(255,255,255,0.38); --tfaint:rgba(255,255,255,0.20);
+           --border:rgba(255,255,255,0.10); --divider:rgba(255,255,255,0.08); }
+
+  .screen { background: var(--bg); }
+
+  /* Nav */
+  .hdr { background: var(--nav); border-bottom: 1px solid var(--border); padding: 42px 16px 10px; }
+  .hdr-row { display: flex; align-items: center; justify-content: space-between; }
+  .hdr h2 { font-size: 26px; font-weight: 700; color: var(--t1); }
+  .hdr-right { display: flex; align-items: center; gap: 7px; }
+  .nav-fy-pill { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px;
+                 border-radius: 8px; background: var(--tertiary); color: var(--t1);
+                 font-size: 13px; font-weight: 500; }
+  .nav-fy-pill svg { opacity: 0.45; }
+  .nav-add { width: 28px; height: 28px; border-radius: 8px; background: var(--tertiary);
+             color: #0A84FF; font-size: 18px; font-weight: 400; display: flex;
+             align-items: center; justify-content: center; line-height: 1; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--tertiary); }
+
+  /* ── Summary section ── */
+  .summary { padding: 14px 16px 12px; border-bottom: 1px solid var(--divider); }
+  .summary-stats { display: flex; align-items: flex-start; gap: 0; }
+  .stat { flex: 1; }
+  .stat + .stat { padding-left: 12px; border-left: 1px solid var(--divider); margin-left: 0; }
+  .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase;
+                letter-spacing: 0.07em; color: var(--tmuted); margin-bottom: 3px; }
+  .stat-value { font-size: 17px; font-weight: 700; color: var(--t1);
+                font-variant-numeric: tabular-nums; letter-spacing: -0.2px; }
+  .stat-value.budget  { color: var(--t1); }
+  .stat-value.deployed { color: var(--t2); font-size: 16px; }
+  .stat-value.left    { color: #34C759; font-size: 16px; }
+  .pencil-inline { display: inline-flex; align-items: center; justify-content: center;
+                   width: 22px; height: 22px; border-radius: 6px; background: var(--tertiary);
+                   color: var(--tmuted); vertical-align: middle; margin-left: 4px; }
+
+  .summary-bar-wrap { margin-top: 10px; }
+  .summary-bar { height: 4px; background: var(--tertiary); border-radius: 2px; overflow: hidden; }
+  .summary-bar-fill { height: 4px; background: #34C759; border-radius: 2px; }
+  .summary-bar-label { display: flex; justify-content: space-between; margin-top: 4px; }
+  .sbl-pct { font-size: 11px; font-weight: 600; color: #34C759; }
+  .sbl-rem { font-size: 11px; color: var(--tfaint); font-variant-numeric: tabular-nums; }
+
+  /* ── Allocation rows ── */
+  .alloc-row { display: flex; align-items: center; padding: 12px 16px;
+               border-bottom: 1px solid var(--divider); gap: 10px; min-height: 52px; }
+  .alloc-row:last-child { border-bottom: none; }
+
+  .ar-sym { font-size: 17px; font-weight: 600; color: var(--t1); min-width: 72px; } /* .headline */
+  .ar-bar-wrap { flex: 1; }
+  .ar-bar-bg { height: 3px; background: var(--tertiary); border-radius: 2px; }
+  /* Fill colour: green = deployed, blue = remaining allocation */
+  .ar-bar-deployed { height: 3px; background: #34C759; border-radius: 2px; }
+
+  .ar-meta { text-align: right; min-width: 76px; }
+  .ar-pct  { font-size: 15px; font-weight: 600; color: var(--t1); } /* .subheadline */
+  .ar-left { font-size: 12px; color: var(--tmuted); font-weight: 500; margin-top: 1px;
+             font-variant-numeric: tabular-nums; }
+  .ar-left.zero { color: var(--tfaint); }
+
+  /* ── BEFORE: card styles (for reference column) ── */
+  .fy-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+  .fy-pill-old { display: flex; align-items: center; gap: 5px; padding: 6px 11px;
+                 border-radius: 10px; background: var(--tertiary); color: var(--t1);
+                 font-size: 14px; font-weight: 500; }
+  .btn-add-old { padding: 6px 12px; border-radius: 10px; font-size: 14px; font-weight: 500;
+                 color: #0A84FF; border: 1px solid rgba(10,132,255,0.35); }
+  .budget-card { margin: 4px 14px 12px; padding: 14px 16px; border-radius: 16px;
+                 background: var(--surface); border: 1px solid var(--border); }
+  .bc-label { font-size: 11px; color: var(--tmuted); text-transform: uppercase;
+              letter-spacing: 0.07em; margin-bottom: 3px; }
+  .bc-value { font-size: 22px; font-weight: 700; color: var(--t1); }
+  .bc-row { display: flex; align-items: center; justify-content: space-between; }
+  .pencil-sm { width: 28px; height: 28px; border-radius: 8px; background: var(--tertiary);
+               display: flex; align-items: center; justify-content: center; color: var(--tmuted); }
+  .alloc-card { margin: 0 14px; border-radius: 16px; overflow: hidden;
+                background: var(--surface); border: 1px solid var(--border); }
+  .alloc-row-card { display: flex; align-items: center; padding: 11px 14px;
+                    border-bottom: 1px solid var(--divider); gap: 10px; }
+  .alloc-row-card:last-child { border-bottom: none; }
+  .ar-pct-before { font-size: 13px; font-weight: 600; color: var(--t1); }
+  .ar-amt-before { font-size: 11px; color: var(--tmuted); margin-top: 1px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<h1>Allocations — Redesign v2</h1>
+<p class="subtitle">Summary metrics at top · "Left" label on per-stock amount · FY in nav · flat list</p>
+
+<!-- ══════ SECTION 1: Before vs After ══════ -->
+<div class="section-title">Before vs After</div>
+<div class="grid">
+
+  <!-- ── LIGHT BEFORE ── -->
+  <div class="col">
+    <div class="col-label before">Light · Before</div>
+    <div class="phone light"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row"><h2>Allocations</h2><div class="avatar"></div></div>
+      </div>
+      <div class="fy-row">
+        <div class="fy-pill-old">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+        <div class="btn-add-old">+ Add</div>
+      </div>
+      <div class="budget-card">
+        <div class="bc-row">
+          <div><div class="bc-label">FY26 Budget</div><div class="bc-value">₹5,00,000</div></div>
+          <div class="pencil-sm"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="bc-label" style="margin-bottom:4px;">Allocated</div>
+          <div style="height:4px;background:var(--tertiary);border-radius:2px;overflow:hidden;"><div style="width:85%;height:4px;background:#34C759;border-radius:2px;"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;">
+            <span style="font-size:11px;color:var(--tmuted);">85% · ₹4,25,000</span>
+            <span style="font-size:11px;color:var(--tmuted);">Left: ₹75,000</span>
+          </div>
+        </div>
+      </div>
+      <div class="alloc-card">
+        <div class="alloc-row-card">
+          <div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t1);">HDFCBANK</div>
+          <div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:60%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div>
+          <div style="text-align:right;min-width:72px;"><div class="ar-pct-before">25%</div><div class="ar-amt-before">₹1,25,000</div></div>
+        </div>
+        <div class="alloc-row-card">
+          <div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t1);">TCS</div>
+          <div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:100%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div>
+          <div style="text-align:right;min-width:72px;"><div class="ar-pct-before">20%</div><div class="ar-amt-before">₹1,00,000</div></div>
+        </div>
+        <div class="alloc-row-card">
+          <div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t1);">AXISBANK</div>
+          <div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:40%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div>
+          <div style="text-align:right;min-width:72px;"><div class="ar-pct-before">15%</div><div class="ar-amt-before">₹75,000</div></div>
+        </div>
+        <div class="alloc-row-card">
+          <div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t1);">ITC</div>
+          <div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:100%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div>
+          <div style="text-align:right;min-width:72px;"><div class="ar-pct-before">15%</div><div class="ar-amt-before">₹75,000</div></div>
+        </div>
+        <div class="alloc-row-card">
+          <div style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t1);">LT</div>
+          <div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:0%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div>
+          <div style="text-align:right;min-width:72px;"><div class="ar-pct-before">10%</div><div class="ar-amt-before">₹50,000</div></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── LIGHT AFTER ── -->
+  <div class="col">
+    <div class="col-label after">Light · After</div>
+    <div class="phone light"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row">
+          <h2>Allocations</h2>
+          <div class="hdr-right">
+            <div class="nav-fy-pill">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+            <div class="nav-add">+</div>
+            <div class="avatar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary: Budget | Deployed | Left -->
+      <div class="summary">
+        <div class="summary-stats">
+          <div class="stat">
+            <div class="stat-label">Budget</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <div class="stat-value budget">5L</div>
+              <div class="pencil-inline"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
+            </div>
+          </div>
+          <div class="stat" style="padding-left:12px;border-left:1px solid var(--divider);">
+            <div class="stat-label">Deployed</div>
+            <div class="stat-value deployed">4.25L</div>
+          </div>
+          <div class="stat" style="padding-left:12px;border-left:1px solid var(--divider);">
+            <div class="stat-label">Left</div>
+            <div class="stat-value left">75k</div>
+          </div>
+        </div>
+        <div class="summary-bar-wrap">
+          <div class="summary-bar"><div class="summary-bar-fill" style="width:85%;"></div></div>
+          <div class="summary-bar-label">
+            <span class="sbl-pct">85% deployed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="alloc-row">
+        <div class="ar-sym">HDFCBANK</div>
+        <div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:60%;"></div></div></div>
+        <div class="ar-meta"><div class="ar-left">50k left</div></div>
+      </div>
+      <div class="alloc-row">
+        <div class="ar-sym">TCS</div>
+        <div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:100%;"></div></div></div>
+        <div class="ar-meta"><div class="ar-left zero">Done</div></div>
+      </div>
+      <div class="alloc-row">
+        <div class="ar-sym">AXISBANK</div>
+        <div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:40%;"></div></div></div>
+        <div class="ar-meta"><div class="ar-left">45k left</div></div>
+      </div>
+      <div class="alloc-row">
+        <div class="ar-sym">ITC</div>
+        <div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:100%;"></div></div></div>
+        <div class="ar-meta"><div class="ar-left zero">Done</div></div>
+      </div>
+      <div class="alloc-row">
+        <div class="ar-sym">LT</div>
+        <div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:0%;"></div></div></div>
+        <div class="ar-meta"><div class="ar-left">50k left</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── DARK BEFORE ── -->
+  <div class="col">
+    <div class="col-label before">Dark · Before</div>
+    <div class="phone dark"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row"><h2>Allocations</h2><div class="avatar"></div></div>
+      </div>
+      <div class="fy-row">
+        <div class="fy-pill-old">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+        <div class="btn-add-old">+ Add</div>
+      </div>
+      <div class="budget-card">
+        <div class="bc-row">
+          <div><div class="bc-label">FY26 Budget</div><div class="bc-value">₹5,00,000</div></div>
+          <div class="pencil-sm"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="bc-label" style="margin-bottom:4px;">Allocated</div>
+          <div style="height:4px;background:var(--tertiary);border-radius:2px;overflow:hidden;"><div style="width:85%;height:4px;background:#34C759;border-radius:2px;"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;">
+            <span style="font-size:11px;color:var(--tmuted);">85% · ₹4,25,000</span>
+            <span style="font-size:11px;color:var(--tmuted);">Left: ₹75,000</span>
+          </div>
+        </div>
+      </div>
+      <div class="alloc-card">
+        <div class="alloc-row-card"><div style="flex:1;font-size:15px;font-weight:600;color:var(--t1);">HDFCBANK</div><div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:60%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div><div style="text-align:right;min-width:72px;"><div class="ar-pct-before">25%</div><div class="ar-amt-before">₹1,25,000</div></div></div>
+        <div class="alloc-row-card"><div style="flex:1;font-size:15px;font-weight:600;color:var(--t1);">TCS</div><div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:100%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div><div style="text-align:right;min-width:72px;"><div class="ar-pct-before">20%</div><div class="ar-amt-before">₹1,00,000</div></div></div>
+        <div class="alloc-row-card"><div style="flex:1;font-size:15px;font-weight:600;color:var(--t1);">AXISBANK</div><div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:40%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div><div style="text-align:right;min-width:72px;"><div class="ar-pct-before">15%</div><div class="ar-amt-before">₹75,000</div></div></div>
+        <div class="alloc-row-card"><div style="flex:1;font-size:15px;font-weight:600;color:var(--t1);">ITC</div><div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:100%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div><div style="text-align:right;min-width:72px;"><div class="ar-pct-before">15%</div><div class="ar-amt-before">₹75,000</div></div></div>
+        <div class="alloc-row-card"><div style="flex:1;font-size:15px;font-weight:600;color:var(--t1);">LT</div><div style="flex:1;"><div style="height:3px;background:var(--tertiary);border-radius:2px;"><div style="width:0%;height:3px;background:#0A84FF;border-radius:2px;"></div></div></div><div style="text-align:right;min-width:72px;"><div class="ar-pct-before">10%</div><div class="ar-amt-before">₹50,000</div></div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── DARK AFTER ── -->
+  <div class="col">
+    <div class="col-label after">Dark · After</div>
+    <div class="phone dark"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row">
+          <h2>Allocations</h2>
+          <div class="hdr-right">
+            <div class="nav-fy-pill">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+            <div class="nav-add">+</div>
+            <div class="avatar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="summary-stats">
+          <div class="stat">
+            <div class="stat-label">Budget</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <div class="stat-value budget">5L</div>
+              <div class="pencil-inline"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
+            </div>
+          </div>
+          <div class="stat" style="padding-left:12px;border-left:1px solid var(--divider);">
+            <div class="stat-label">Deployed</div>
+            <div class="stat-value deployed">4.25L</div>
+          </div>
+          <div class="stat" style="padding-left:12px;border-left:1px solid var(--divider);">
+            <div class="stat-label">Left</div>
+            <div class="stat-value left">75k</div>
+          </div>
+        </div>
+        <div class="summary-bar-wrap">
+          <div class="summary-bar"><div class="summary-bar-fill" style="width:85%;"></div></div>
+          <div class="summary-bar-label">
+            <span class="sbl-pct">85% deployed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="alloc-row"><div class="ar-sym">HDFCBANK</div><div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:60%;"></div></div></div><div class="ar-meta"><div class="ar-left">50k left</div></div></div>
+      <div class="alloc-row"><div class="ar-sym">TCS</div><div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:100%;"></div></div></div><div class="ar-meta"><div class="ar-left zero">Done</div></div></div>
+      <div class="alloc-row"><div class="ar-sym">AXISBANK</div><div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:40%;"></div></div></div><div class="ar-meta"><div class="ar-left">45k left</div></div></div>
+      <div class="alloc-row"><div class="ar-sym">ITC</div><div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:100%;"></div></div></div><div class="ar-meta"><div class="ar-left zero">Done</div></div></div>
+      <div class="alloc-row"><div class="ar-sym">LT</div><div class="ar-bar-wrap"><div class="ar-bar-bg"><div class="ar-bar-deployed" style="width:0%;"></div></div></div><div class="ar-meta"><div class="ar-left">50k left</div></div></div>
+    </div></div>
+  </div>
+
+</div>
+
+<div style="margin:24px auto 0;max-width:960px;background:#fff;border-radius:12px;padding:16px 20px;font-size:13px;line-height:1.8;color:#333;">
+  <strong>Changes (After):</strong><br>
+  • <strong>Summary strip:</strong> Budget (17px bold) · Deployed (16px, secondary colour) · Left (16px, green) — 3-column stat row separated by hairline dividers, with 85% progress bar + labels below<br>
+  • <strong>"Left ₹X" on each stock row</strong> — shows remaining undeployed amount for that allocation (green if >0, faint if ₹0)<br>
+  • <strong>Progress bar per stock</strong> — now shows deployed/allocated ratio (green fill), not just allocation %<br>
+  • FY picker moved to nav · "+ Add" button in nav · no category headers · full-bleed rows<br>
+  • Sizing: symbol 17px (.headline) · % 15px (.subheadline) · "Left ₹X" 12px (.caption1) · stat labels 10px caps
+</div>
+</body>
+</html>

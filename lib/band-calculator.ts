@@ -227,8 +227,8 @@ export function computeTrancheprices(
   let floor: number, ceiling: number
 
   if (!cmp || cmp > buyHigh) {
-    // CMP above buy zone or unknown: limit orders across the buy zone only
-    floor = buyLow
+    // CMP above buy zone or unknown: use upper half of buy zone — lower tranches are unrealistic
+    floor = buyLow + (buyHigh - buyLow) * 0.5
     ceiling = buyHigh
   } else if (cmp >= buyLow) {
     // CMP inside buy zone: buy at market and lower — never above current price

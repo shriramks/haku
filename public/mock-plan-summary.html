@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Summary — Mock Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: #F2F2F7; color: #000;
+    max-width: 430px; margin: 0 auto;
+    padding: 24px 0 60px;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: rgba(0,0,0,0.35);
+    padding: 0 16px; margin-bottom: 8px; margin-top: 24px;
+  }
+
+  /* Budget card */
+  .budget-card {
+    margin: 0 16px; padding: 16px;
+    background: #fff; border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 16px;
+  }
+  .budget-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .budget-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(0,0,0,0.40); }
+  .budget-amount { font-size: 22px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .btn-group { display: flex; gap: 8px; align-items: center; }
+
+  .btn { border: none; cursor: pointer; font-size: 14px; padding: 10px 14px; border-radius: 12px; line-height: 1; font-family: inherit; }
+  .btn-muted  { color: rgba(0,0,0,0.55); background: #E5E5EA; }
+  .btn-save   { color: #0A84FF; font-weight: 600; background: rgba(10,132,255,0.12); }
+  .btn-delete { color: #FF3B30; background: rgba(255,59,48,0.10); }
+
+  .alloc-bar { height: 6px; border-radius: 99px; background: #E5E5EA; overflow: hidden; }
+  .alloc-fill { height: 100%; border-radius: 99px; background: #34C759; }
+  .alloc-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: rgba(0,0,0,0.40); font-variant-numeric: tabular-nums; }
+
+  /* Summary card */
+  .summary-card {
+    margin: 8px 16px 0; padding: 14px 16px;
+    background: #fff; border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 16px; cursor: pointer;
+  }
+  .type-row { display: flex; align-items: center; justify-content: space-between; }
+  .type-chips { display: flex; gap: 16px; flex-wrap: wrap; }
+  .type-chip { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .t-def  { color: #34C759; }
+  .t-cyc  { color: #FF9F0A; }
+  .t-gro  { color: #0A84FF; }
+  .t-reit { color: #AF52DE; }
+  .t-pass { color: #8E8E93; }
+  .chevron { color: rgba(0,0,0,0.25); font-size: 13px; transition: transform 0.2s; }
+
+  .divider-h { height: 1px; background: rgba(0,0,0,0.07); margin: 12px 0; }
+
+  /* Option A — list rows */
+  .cat-list { display: flex; flex-direction: column; gap: 8px; }
+  .cat-row { display: flex; align-items: center; gap: 8px; }
+  .cat-name { font-size: 13px; color: rgba(0,0,0,0.65); width: 108px; flex-shrink: 0; }
+  .cat-bar-wrap { flex: 1; height: 5px; border-radius: 99px; background: #E5E5EA; overflow: hidden; }
+  .cat-bar-fill { height: 100%; border-radius: 99px; }
+  .cat-pct { font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 600; width: 32px; text-align: right; color: rgba(0,0,0,0.80); }
+
+  /* Option B — 2-col grid */
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .cat-grid-item { display: flex; justify-content: space-between; align-items: baseline; }
+  .cat-grid-name { font-size: 13px; color: rgba(0,0,0,0.65); }
+  .cat-grid-pct  { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: rgba(0,0,0,0.80); }
+
+  /* Option C — grouped by sector type */
+  .type-group { margin-bottom: 10px; }
+  .type-group:last-child { margin-bottom: 0; }
+  .type-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+  .type-group-cats  { display: flex; flex-wrap: wrap; gap: 5px; }
+  .type-group-pill {
+    font-size: 13px; padding: 5px 10px; border-radius: 8px;
+    font-variant-numeric: tabular-nums; color: rgba(0,0,0,0.70);
+    background: rgba(0,0,0,0.05);
+  }
+
+  .option-tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgba(0,0,0,0.35); margin-bottom: 6px; padding: 0 16px;
+  }
+
+  hr.big-divider { border: none; border-top: 6px solid #E5E5EA; margin: 24px 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     BUDGET CARD — edit mode with delete
+     ══════════════════════════════════ -->
+<div class="section-label">Budget card — edit mode</div>
+
+<div class="budget-card">
+  <div class="budget-header">
+    <div>
+      <div class="budget-label">FY 2025–26 Budget</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+        <span style="font-size:17px;color:rgba(0,0,0,0.40);">₹</span>
+        <div style="font-size:22px;font-weight:700;background:#F2F2F7;border-radius:8px;padding:2px 8px;min-width:120px;font-variant-numeric:tabular-nums;">30,00,000</div>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-muted">Cancel</button>
+      <button class="btn btn-save">Save</button>
+    </div>
+  </div>
+  <!-- Delete option below the row -->
+  <div style="display:flex;justify-content:flex-start;margin-top:4px;">
+    <button class="btn btn-delete" style="font-size:13px;padding:7px 12px;">Delete plan</button>
+  </div>
+  <div class="alloc-bar" style="margin-top:12px;"><div class="alloc-fill" style="width:72%;"></div></div>
+  <div class="alloc-meta"><span>8 stocks</span><span style="color:#34C759;">72% allocated · 28% free</span></div>
+</div>
+
+<hr class="big-divider">
+
+<!-- ══════════════════════════════════
+     SUMMARY CARD — REIT as own type
+     ══════════════════════════════════ -->
+<div class="section-label">Summary card — REIT as own type</div>
+
+<!-- Collapsed -->
+<div class="option-tag">Collapsed</div>
+<div class="summary-card">
+  <div class="type-row">
+    <div class="type-chips">
+      <span class="type-chip t-def">Defensive 30%</span>
+      <span class="type-chip t-cyc">Cyclical 35%</span>
+      <span class="type-chip t-gro">Growth 20%</span>
+      <span class="type-chip t-reit">REIT 10%</span>
+      <span class="type-chip t-pass">Passive 5%</span>
+    </div>
+    <span class="chevron">▾</span>
+  </div>
+</div>
+
+<hr class="big-divider">
+
+<!-- ══════════════════════════════════
+     EXPANDED — OPTION A: List rows
+     ══════════════════════════════════ -->
+<div class="option-tag">Option A — list rows with mini bar</div>
+<div class="summary-card">
+  <div class="type-row">
+    <div class="type-chips">
+      <span class="type-chip t-def">Defensive 30%</span>
+      <span class="type-chip t-cyc">Cyclical 35%</span>
+      <span class="type-chip t-gro">Growth 20%</span>
+      <span class="type-chip t-reit">REIT 10%</span>
+      <span class="type-chip t-pass">Passive 5%</span>
+    </div>
+    <span class="chevron" style="transform:rotate(180deg);">▾</span>
+  </div>
+  <div class="divider-h"></div>
+  <div class="cat-list">
+    <div class="cat-row">
+      <span class="cat-name">Defence</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:20%;background:#FF9F0A;"></div></div>
+      <span class="cat-pct">20%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">Pharma</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:15%;background:#34C759;"></div></div>
+      <span class="cat-pct">15%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">IT/Technology</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:15%;background:#34C759;"></div></div>
+      <span class="cat-pct">15%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">Banks</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:15%;background:#FF9F0A;"></div></div>
+      <span class="cat-pct">15%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">Hospitals</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:20%;background:#0A84FF;"></div></div>
+      <span class="cat-pct">20%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">Embassy REIT</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:10%;background:#AF52DE;"></div></div>
+      <span class="cat-pct">10%</span>
+    </div>
+    <div class="cat-row">
+      <span class="cat-name">Index/ETF</span>
+      <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:5%;background:#8E8E93;"></div></div>
+      <span class="cat-pct">5%</span>
+    </div>
+  </div>
+</div>
+
+<hr class="big-divider">
+
+<!-- ══════════════════════════════════
+     EXPANDED — OPTION B: 2-col grid
+     ══════════════════════════════════ -->
+<div class="option-tag">Option B — 2-column grid</div>
+<div class="summary-card">
+  <div class="type-row">
+    <div class="type-chips">
+      <span class="type-chip t-def">Defensive 30%</span>
+      <span class="type-chip t-cyc">Cyclical 35%</span>
+      <span class="type-chip t-gro">Growth 20%</span>
+      <span class="type-chip t-reit">REIT 10%</span>
+      <span class="type-chip t-pass">Passive 5%</span>
+    </div>
+    <span class="chevron" style="transform:rotate(180deg);">▾</span>
+  </div>
+  <div class="divider-h"></div>
+  <div class="cat-grid">
+    <div class="cat-grid-item"><span class="cat-grid-name">Defence</span><span class="cat-grid-pct">20%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">Banks</span><span class="cat-grid-pct">15%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">Pharma</span><span class="cat-grid-pct">15%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">Hospitals</span><span class="cat-grid-pct">20%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">IT/Technology</span><span class="cat-grid-pct">15%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">REIT</span><span class="cat-grid-pct">10%</span></div>
+    <div class="cat-grid-item"><span class="cat-grid-name">Index/ETF</span><span class="cat-grid-pct">5%</span></div>
+  </div>
+</div>
+
+<hr class="big-divider">
+
+<!-- ══════════════════════════════════
+     EXPANDED — OPTION C: grouped by type
+     ══════════════════════════════════ -->
+<div class="option-tag">Option C — grouped under sector type</div>
+<div class="summary-card">
+  <div class="type-row">
+    <div class="type-chips">
+      <span class="type-chip t-def">Defensive 30%</span>
+      <span class="type-chip t-cyc">Cyclical 35%</span>
+      <span class="type-chip t-gro">Growth 20%</span>
+      <span class="type-chip t-reit">REIT 10%</span>
+      <span class="type-chip t-pass">Passive 5%</span>
+    </div>
+    <span class="chevron" style="transform:rotate(180deg);">▾</span>
+  </div>
+  <div class="divider-h"></div>
+
+  <div class="type-group">
+    <div class="type-group-label t-def">Defensive</div>
+    <div class="type-group-cats">
+      <span class="type-group-pill">Pharma 15%</span>
+      <span class="type-group-pill">IT/Technology 15%</span>
+    </div>
+  </div>
+  <div class="type-group">
+    <div class="type-group-label t-cyc">Cyclical</div>
+    <div class="type-group-cats">
+      <span class="type-group-pill">Defence 20%</span>
+      <span class="type-group-pill">Banks 15%</span>
+    </div>
+  </div>
+  <div class="type-group">
+    <div class="type-group-label t-gro">Growth</div>
+    <div class="type-group-cats">
+      <span class="type-group-pill">Hospitals 20%</span>
+    </div>
+  </div>
+  <div class="type-group">
+    <div class="type-group-label t-reit">REIT</div>
+    <div class="type-group-cats">
+      <span class="type-group-pill">Embassy 10%</span>
+    </div>
+  </div>
+  <div class="type-group">
+    <div class="type-group-label t-pass">Passive</div>
+    <div class="type-group-cats">
+      <span class="type-group-pill">Index/ETF 5%</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Transactions — Redesign Mock v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; }
+  body { background: #d8d8e2; padding: 24px 16px 48px; }
+  h1 { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 24px; }
+  .grid { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .col { display: flex; flex-direction: column; gap: 6px; }
+  .col-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+               letter-spacing: 0.08em; text-align: center; padding: 3px 0; }
+  .col-label.before { color: #FF3B30; }
+  .col-label.after  { color: #34C759; }
+  .col-label.edit   { color: #0A84FF; }
+  .phone { width: 290px; border-radius: 34px; overflow: hidden;
+           box-shadow: 0 8px 32px rgba(0,0,0,0.22); }
+
+  .light { --bg:#F2F2F7; --surface:#FFFFFF; --tertiary:#E5E5EA; --nav:rgba(242,242,247,0.95);
+           --t1:#000; --t2:rgba(0,0,0,0.55); --tmuted:rgba(0,0,0,0.38); --tfaint:rgba(0,0,0,0.20);
+           --border:rgba(0,0,0,0.10); --divider:rgba(0,0,0,0.08); }
+  .dark  { --bg:#000000; --surface:#1C1C1E; --tertiary:#2C2C2E; --nav:rgba(0,0,0,0.95);
+           --t1:#fff; --t2:rgba(255,255,255,0.55); --tmuted:rgba(255,255,255,0.38); --tfaint:rgba(255,255,255,0.20);
+           --border:rgba(255,255,255,0.10); --divider:rgba(255,255,255,0.08); }
+
+  .screen { background: var(--bg); min-height: 560px; }
+
+  /* Nav */
+  .hdr { background: var(--nav); border-bottom: 1px solid var(--border); padding: 42px 16px 10px; }
+  .hdr-row { display: flex; align-items: center; justify-content: space-between; }
+  .hdr h2 { font-size: 26px; font-weight: 700; color: var(--t1); }
+  .hdr-right { display: flex; align-items: center; gap: 7px; }
+  .nav-fy-pill { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px;
+                 border-radius: 8px; background: var(--tertiary); color: var(--t1);
+                 font-size: 13px; font-weight: 500; }
+  .nav-fy-pill svg { opacity: 0.45; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--tertiary); }
+
+  /* Month header */
+  .month-hdr { display: flex; align-items: baseline; justify-content: space-between;
+               padding: 14px 16px 5px; }
+  .month-hdr .m { font-size: 12px; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: 0.08em; color: var(--tmuted); }
+  .month-hdr .t { font-size: 12px; color: #34C759; font-variant-numeric: tabular-nums; }
+
+  /* ── BEFORE: card container ── */
+  .txn-card { margin: 0 14px; border-radius: 16px; overflow: hidden;
+              background: var(--surface); border: 1px solid var(--border); margin-bottom: 4px; }
+
+  /* Shared row shell */
+  .txn-row { display: flex; align-items: center; padding: 12px 14px; gap: 10px;
+             border-bottom: 1px solid var(--divider); }
+  .txn-row:last-child { border-bottom: none; }
+  .txn-row-flat { display: flex; align-items: center; padding: 12px 16px; gap: 10px;
+                  border-bottom: 1px solid var(--divider); }
+  .txn-row-flat:last-child { border-bottom: none; }
+
+  /* Dot */
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; align-self: flex-start; margin-top: 5px; }
+  .dot.buy  { background: #34C759; }
+  .dot.sell { background: #FF3B30; }
+
+  /* Row body */
+  .tr-body { flex: 1; min-width: 0; }
+  .tr-sym-row { display: flex; align-items: center; gap: 5px; }
+  .tr-sym { font-size: 15px; font-weight: 600; color: var(--t1); }
+  /* BEFORE badge */
+  .badge { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+  .badge.buy  { background: rgba(52,199,89,0.15);  color: #34C759; }
+  .badge.sell { background: rgba(255,59,48,0.15);  color: #FF3B30; }
+  /* detail + date */
+  .tr-detail { font-size: 12px; color: var(--tmuted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .tr-date   { font-size: 11px; color: var(--tfaint); margin-top: 2px; }
+
+  /* Right: amount + pencil */
+  .tr-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .tr-amt { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--t1); }
+  .tr-amt.sell { color: #FF3B30; }
+  .tr-pencil { width: 32px; height: 32px; display: flex; align-items: center;
+               justify-content: center; border-radius: 8px; background: var(--tertiary);
+               color: var(--tmuted); flex-shrink: 0; }
+
+  /* ── Edit mode ── */
+  .edit-container { border-bottom: 1px solid var(--divider); }
+  .edit-frozen-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--divider);
+    background: var(--surface);
+  }
+  .edit-frozen-left { display: flex; align-items: center; gap: 8px; }
+  .edit-frozen-sym { font-size: 15px; font-weight: 600; color: var(--t1); }
+  .edit-frozen-amt { font-size: 15px; font-weight: 700; color: var(--t1); font-variant-numeric: tabular-nums; }
+
+  .edit-inputs { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 8px;
+                 padding: 12px 16px; }
+  .edit-field {}
+  .edit-label { font-size: 11px; color: var(--tmuted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .edit-input { background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px;
+                padding: 7px 9px; font-size: 14px; font-weight: 500; color: var(--t1);
+                font-variant-numeric: tabular-nums; }
+
+  .edit-toggle-row { display: flex; align-items: center; justify-content: space-between;
+                     padding: 8px 16px 12px; }
+  .edit-toggle-label { font-size: 13px; color: var(--t2); }
+  .toggle-track { width: 38px; height: 22px; border-radius: 11px; background: var(--tertiary);
+                  position: relative; flex-shrink: 0; }
+  .toggle-track.on { background: #34C759; }
+  .toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff;
+                 position: absolute; top: 2px; left: 2px;
+                 box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+  .toggle-track.on .toggle-knob { left: 18px; }
+
+  .edit-actions { display: flex; align-items: center; justify-content: space-between;
+                  padding: 10px 16px 12px; border-top: 1px solid var(--divider); }
+  .btn-delete { display: flex; align-items: center; gap: 5px; padding: 8px 12px;
+                border-radius: 8px; background: rgba(255,59,48,0.10); color: #FF3B30;
+                font-size: 14px; font-weight: 500; border: 1px solid rgba(255,59,48,0.20); }
+  .edit-btns-right { display: flex; gap: 8px; }
+  .btn-cancel { padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500;
+                color: var(--t2); background: var(--tertiary); }
+  .btn-save { padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500;
+              color: #fff; background: #0A84FF; }
+</style>
+</head>
+<body>
+
+<h1>Transactions — Redesign v2</h1>
+<p class="subtitle">FY picker in nav · dots only (no BUY/SELL text) · inline edit view</p>
+
+<div class="grid">
+
+  <!-- ── LIGHT BEFORE ── -->
+  <div class="col">
+    <div class="col-label before">Light · Before</div>
+    <div class="phone light"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row"><div><h2>Transactions</h2></div><div class="avatar"></div></div>
+      </div>
+      <div class="month-hdr"><span class="m">March 2026</span><span class="t">+₹5,97,500</span></div>
+      <div class="txn-card">
+        <div class="txn-row">
+          <div class="dot buy"></div>
+          <div class="tr-body">
+            <div class="tr-sym-row"><span class="tr-sym">HDFCBANK</span><span class="badge buy">BUY</span></div>
+            <div class="tr-detail">200 × ₹1,750</div><div class="tr-date">10 Mar 2026</div>
+          </div>
+          <div class="tr-right"><span class="tr-amt">₹3,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+        </div>
+        <div class="txn-row">
+          <div class="dot buy"></div>
+          <div class="tr-body">
+            <div class="tr-sym-row"><span class="tr-sym">ITC</span><span class="badge buy">BUY</span></div>
+            <div class="tr-detail">750 × ₹330</div><div class="tr-date">14 Mar 2026</div>
+          </div>
+          <div class="tr-right"><span class="tr-amt">₹2,47,500</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+        </div>
+        <div class="txn-row">
+          <div class="dot sell"></div>
+          <div class="tr-body">
+            <div class="tr-sym-row"><span class="tr-sym">TCS</span><span class="badge sell">SELL</span></div>
+            <div class="tr-detail">50 × ₹4,080</div><div class="tr-date">3 Mar 2026</div>
+          </div>
+          <div class="tr-right"><span class="tr-amt sell">₹2,04,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+        </div>
+      </div>
+      <div class="month-hdr" style="margin-top:10px;"><span class="m">February 2026</span><span class="t">+₹1,50,000</span></div>
+      <div class="txn-card">
+        <div class="txn-row">
+          <div class="dot buy"></div>
+          <div class="tr-body">
+            <div class="tr-sym-row"><span class="tr-sym">AXISBANK</span><span class="badge buy">BUY</span></div>
+            <div class="tr-detail">100 × ₹1,500</div><div class="tr-date">18 Feb 2026</div>
+          </div>
+          <div class="tr-right"><span class="tr-amt">₹1,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── LIGHT AFTER: list view (dots only, no cards, FY in nav) ── -->
+  <div class="col">
+    <div class="col-label after">Light · After · List</div>
+    <div class="phone light"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row">
+          <h2>Transactions</h2>
+          <div class="hdr-right">
+            <div class="nav-fy-pill">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+            <div class="avatar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="month-hdr"><span class="m">March 2026</span><span class="t">+₹5,97,500</span></div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">HDFCBANK</span></div><div class="tr-detail">200 × ₹1,750</div><div class="tr-date">10 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹3,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">ITC</span></div><div class="tr-detail">750 × ₹330</div><div class="tr-date">14 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹2,47,500</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="txn-row-flat">
+        <div class="dot sell"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">TCS</span></div><div class="tr-detail">50 × ₹4,080</div><div class="tr-date">3 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt sell">₹2,04,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="month-hdr" style="margin-top:2px;"><span class="m">February 2026</span><span class="t">+₹1,50,000</span></div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">AXISBANK</span></div><div class="tr-detail">100 × ₹1,500</div><div class="tr-date">18 Feb 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹1,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── LIGHT AFTER: edit view (HDFCBANK expanded) ── -->
+  <div class="col">
+    <div class="col-label edit">Light · After · Edit mode</div>
+    <div class="phone light"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row">
+          <h2>Transactions</h2>
+          <div class="hdr-right">
+            <div class="nav-fy-pill">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+            <div class="avatar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="month-hdr"><span class="m">March 2026</span><span class="t">+₹5,97,500</span></div>
+
+      <!-- HDFCBANK — edit mode expanded -->
+      <div class="edit-container">
+        <div class="edit-frozen-hdr">
+          <div class="edit-frozen-left">
+            <div class="dot buy"></div>
+            <span class="edit-frozen-sym">HDFCBANK</span>
+          </div>
+          <span class="edit-frozen-amt">₹3,50,000</span>
+        </div>
+        <div class="edit-inputs">
+          <div class="edit-field">
+            <div class="edit-label">Qty</div>
+            <div class="edit-input">200</div>
+          </div>
+          <div class="edit-field">
+            <div class="edit-label">Price</div>
+            <div class="edit-input">₹1,750</div>
+          </div>
+          <div class="edit-field">
+            <div class="edit-label">Date</div>
+            <div class="edit-input">10 Mar 26</div>
+          </div>
+        </div>
+        <div class="edit-toggle-row">
+          <span class="edit-toggle-label">Apply to another year's plan</span>
+          <div class="toggle-track">
+            <div class="toggle-knob"></div>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-delete">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Delete
+          </button>
+          <div class="edit-btns-right">
+            <button class="btn-cancel">Cancel</button>
+            <button class="btn-save">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ITC — normal row -->
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">ITC</span></div><div class="tr-detail">750 × ₹330</div><div class="tr-date">14 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹2,47,500</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="txn-row-flat">
+        <div class="dot sell"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">TCS</span></div><div class="tr-detail">50 × ₹4,080</div><div class="tr-date">3 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt sell">₹2,04,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── DARK AFTER: list view ── -->
+  <div class="col">
+    <div class="col-label after">Dark · After · List</div>
+    <div class="phone dark"><div class="screen">
+      <div class="hdr">
+        <div class="hdr-row">
+          <h2>Transactions</h2>
+          <div class="hdr-right">
+            <div class="nav-fy-pill">FY26 <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+            <div class="avatar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="month-hdr"><span class="m">March 2026</span><span class="t">+₹5,97,500</span></div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">HDFCBANK</span></div><div class="tr-detail">200 × ₹1,750</div><div class="tr-date">10 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹3,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">ITC</span></div><div class="tr-detail">750 × ₹330</div><div class="tr-date">14 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹2,47,500</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="txn-row-flat">
+        <div class="dot sell"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">TCS</span></div><div class="tr-detail">50 × ₹4,080</div><div class="tr-date">3 Mar 2026</div></div>
+        <div class="tr-right"><span class="tr-amt sell">₹2,04,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+      <div class="month-hdr" style="margin-top:2px;"><span class="m">February 2026</span><span class="t">+₹1,50,000</span></div>
+      <div class="txn-row-flat">
+        <div class="dot buy"></div>
+        <div class="tr-body"><div class="tr-sym-row"><span class="tr-sym">AXISBANK</span></div><div class="tr-detail">100 × ₹1,500</div><div class="tr-date">18 Feb 2026</div></div>
+        <div class="tr-right"><span class="tr-amt">₹1,50,000</span><div class="tr-pencil"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div></div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+
+<div style="margin:28px auto 0;max-width:860px;background:#fff;border-radius:12px;padding:16px 20px;font-size:13px;line-height:1.7;color:#333;">
+  <strong>Changes (After):</strong><br>
+  • FY picker in nav bar — same pill, system-wide, persists across pages<br>
+  • <strong>BUY/SELL text badges removed</strong> — coloured dot (green buy / red sell) is sufficient<br>
+  • No card containers — rows full-bleed on bg-primary with hairline dividers<br>
+  • Edit mode: frozen header (symbol + amount) · 3-col input grid (qty/price/date) · advance buy toggle · Delete / Cancel / Save<br>
+  • Delete button is a tappable row on left, Cancel + Save on right — all ≥44pt
+</div>
+
+</body>
+</html>

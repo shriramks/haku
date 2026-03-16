@@ -30,8 +30,8 @@ Notes:
   Index/ETF:  "EPS" = ETF price ÷ index trailing PE (AI identifies the tracked index)
   Hospitals:      Use EV/EBITDA if hospital ramp phase flag is set, else PE
   Capital Goods:  AI fetches standalone financials (excludes financial services
-                  subsidiaries e.g. LTFS). Exception: Bharat Forge — overseas ops
-                  only visible in consolidated; check manually.
+                  subsidiaries). For companies with significant overseas operations,
+                  standalone may understate EBITDA — verify manually.
 
 
 QUALITATIVE ADJUSTMENTS

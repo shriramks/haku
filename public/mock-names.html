@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Names Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: -apple-system, sans-serif; max-width: 390px; margin: 0 auto; }
+  .section { padding: 16px; border-bottom: 1px solid #1c1c1e; }
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #636366; margin-bottom: 10px; }
+
+  /* ── Band row (Buy Bands page) ── */
+  .band-row { display: flex; align-items: center; gap: 12px; padding: 16px; background: #1c1c1e; border-radius: 16px; margin-bottom: 8px; }
+  .band-row .sym-block { flex: 1 }
+  .band-row .symbol { font-size: 17px; font-weight: 700; color: #fff; }
+  .band-row .name { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+  .band-row .cmp { font-size: 13px; color: #8e8e93; font-variant-numeric: tabular-nums; }
+  .band-row .actions { display: flex; gap: 8px; }
+  .band-row .btn { padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; }
+  .btn-blue { background: rgba(10,132,255,0.12); color: #0A84FF; border: 1px solid rgba(10,132,255,0.25) !important; }
+  .btn-grey { background: #2c2c2e; color: #aeaeb2; border: 1px solid #3a3a3c !important; }
+
+  /* ── Dashboard bar row ── */
+  .dash-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #1c1c1e; }
+  .dash-row .sym-block { flex: 1 }
+  .dash-row .symbol { font-size: 16px; font-weight: 700; color: #fff; }
+  .dash-row .name { font-size: 11px; color: #8e8e93; margin-top: 1px; }
+  .dash-row .bar-wrap { width: 90px; }
+  .dash-row .bar-bg { height: 4px; background: #2c2c2e; border-radius: 2px; }
+  .dash-row .bar-fill { height: 4px; background: #30d158; border-radius: 2px; }
+  .dash-row .amount { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; min-width: 72px; }
+
+  /* ── Plan alloc row ── */
+  .plan-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #1c1c1e; border-radius: 14px; margin-bottom: 8px; }
+  .plan-row .sym-block { flex: 1 }
+  .plan-row .symbol { font-size: 15px; font-weight: 700; color: #fff; }
+  .plan-row .name { font-size: 11px; color: #8e8e93; margin-top: 1px; }
+  .plan-row .category { font-size: 11px; color: #636366; background: #2c2c2e; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .plan-row .pct { font-size: 15px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; margin-left: 8px; }
+
+  /* ── Detail row (Dashboard) ── */
+  .detail-row { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #1c1c1e; }
+  .detail-row .sym-block { flex: 1 }
+  .detail-row .symbol { font-size: 15px; font-weight: 700; color: #fff; }
+  .detail-row .name { font-size: 11px; color: #8e8e93; margin-top: 1px; }
+  .detail-row .shares { font-size: 12px; color: #636366; }
+  .detail-row .vals { text-align: right; }
+  .detail-row .val { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .detail-row .val-sub { font-size: 11px; color: #8e8e93; font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+  /* ── Transactions row ── */
+  .txn-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #1c1c1e; }
+  .txn-row .sym-block { flex: 1 }
+  .txn-row .symbol { font-size: 15px; font-weight: 700; color: #fff; }
+  .txn-row .name { font-size: 11px; color: #8e8e93; margin-top: 1px; }
+  .txn-row .badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; margin-top: 3px; display: inline-block; }
+  .buy { background: rgba(48,209,88,0.15); color: #30d158; }
+  .sell { background: rgba(255,59,48,0.12); color: #ff3b30; }
+  .txn-row .amount { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .txn-row .date { font-size: 12px; color: #636366; margin-top: 2px; text-align: right; }
+
+  .note { font-size: 12px; color: #636366; line-height: 1.5; padding: 10px 0; }
+  .tag { display: inline-block; background: rgba(10,132,255,0.12); color: #0A84FF; font-size: 11px; padding: 2px 8px; border-radius: 6px; margin: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── CONTEXT NOTE ── -->
+<div class="section">
+  <p class="note">
+    <strong style="color:#fff">Name display approach:</strong> A static dictionary maps NSE symbols → short company names. Names are shown as a secondary line below the symbol. They're small (11-12px, Caption) so they don't compete with the symbol.
+  </p>
+  <p class="note" style="margin-top:8px">Key principle: symbol stays primary (bold, large). Name is purely for recognition — not actionable.</p>
+</div>
+
+<!-- ── 1. BUY BANDS PAGE ── -->
+<div class="section">
+  <p class="section-title">Buy Bands — Stock Row</p>
+  <div class="band-row">
+    <div class="sym-block">
+      <div class="symbol">NH</div>
+      <div class="name">Narayana Hrudayalaya</div>
+    </div>
+    <span class="cmp">₹1,387</span>
+    <div class="actions">
+      <button class="btn btn-blue">✦ Bands</button>
+      <button class="btn btn-grey">↺ CMP</button>
+    </div>
+  </div>
+  <div class="band-row">
+    <div class="sym-block">
+      <div class="symbol">IEX</div>
+      <div class="name">Indian Energy Exchange</div>
+    </div>
+    <span class="cmp">₹120</span>
+    <div class="actions">
+      <button class="btn btn-blue">✦ Bands</button>
+      <button class="btn btn-grey">↺ CMP</button>
+    </div>
+  </div>
+  <p class="note" style="margin-top:8px">Name fits on one line for most symbols. For very long names, truncate with ellipsis.</p>
+</div>
+
+<!-- ── 2. DASHBOARD BAR ROWS ── -->
+<div class="section">
+  <p class="section-title">Allocations — Bar Rows</p>
+  <div style="background:#1c1c1e; border-radius:16px; overflow:hidden;">
+    <div class="dash-row">
+      <div class="sym-block">
+        <div class="symbol">POLYCAB</div>
+        <div class="name">Polycab India</div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:68%"></div></div>
+      </div>
+      <div class="amount" style="color:#30d158">₹2.4L</div>
+    </div>
+    <div class="dash-row">
+      <div class="sym-block">
+        <div class="symbol">ZYDUSLIFE</div>
+        <div class="name">Zydus Lifesciences</div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:42%; background:#ff9f0a;"></div></div>
+      </div>
+      <div class="amount" style="color:#ff9f0a">₹1.5L</div>
+    </div>
+    <div class="dash-row">
+      <div class="sym-block">
+        <div class="symbol">LT</div>
+        <div class="name">Larsen &amp; Toubro</div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:20%; background:#ff453a;"></div></div>
+      </div>
+      <div class="amount" style="color:#ff453a">₹0.7L</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. DETAIL TABLE ROWS ── -->
+<div class="section">
+  <p class="section-title">Allocations — Detail Rows</p>
+  <div style="background:#1c1c1e; border-radius:16px; overflow:hidden;">
+    <div class="detail-row">
+      <div class="sym-block">
+        <div class="symbol">ITC</div>
+        <div class="name">ITC Limited</div>
+        <div class="shares">42 shares · Avg ₹447</div>
+      </div>
+      <div class="vals">
+        <div class="val" style="color:#30d158">₹19,850</div>
+        <div class="val-sub">+₹680 (3.5%)</div>
+      </div>
+    </div>
+    <div class="detail-row">
+      <div class="sym-block">
+        <div class="symbol">SBILIFE</div>
+        <div class="name">SBI Life Insurance</div>
+        <div class="shares">18 shares · Avg ₹1,420</div>
+      </div>
+      <div class="vals">
+        <div class="val" style="color:#ff453a">₹25,200</div>
+        <div class="val-sub">−₹360 (−1.4%)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4. PLAN ALLOC ROWS ── -->
+<div class="section">
+  <p class="section-title">Plan — Stock Allocation Rows</p>
+  <div class="plan-row">
+    <div class="sym-block">
+      <div class="symbol">BEL</div>
+      <div class="name">Bharat Electronics</div>
+    </div>
+    <span class="category">Defence</span>
+    <span class="pct">8%</span>
+  </div>
+  <div class="plan-row">
+    <div class="sym-block">
+      <div class="symbol">NARAYANAHRU</div>
+      <div class="name" style="color:#ff9f0a">⚠ Unknown symbol</div>
+    </div>
+    <span class="category">Hospitals</span>
+    <span class="pct">6%</span>
+  </div>
+  <p class="note">Unknown symbols (not in the name dictionary) show a warning hint — useful for catching typos like NARAYANAHRU.</p>
+</div>
+
+<!-- ── 5. TRANSACTIONS ── -->
+<div class="section">
+  <p class="section-title">Transactions</p>
+  <div style="background:#1c1c1e; border-radius:16px; overflow:hidden;">
+    <div class="txn-row">
+      <div class="sym-block">
+        <div class="symbol">HAL</div>
+        <div class="name">Hindustan Aeronautics</div>
+        <span class="badge buy">Buy</span>
+      </div>
+      <div>
+        <div class="amount">₹42,000</div>
+        <div class="date">12 Feb 2026</div>
+      </div>
+    </div>
+    <div class="txn-row">
+      <div class="sym-block">
+        <div class="symbol">CAMS</div>
+        <div class="name">CAMS</div>
+        <span class="badge sell">Sell</span>
+      </div>
+      <div>
+        <div class="amount">₹31,500</div>
+        <div class="date">3 Jan 2026</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPLEMENTATION NOTE ── -->
+<div class="section">
+  <p class="section-title">Implementation Approach</p>
+  <p class="note">A single file <code style="color:#0A84FF">lib/stock-names.ts</code> exports a lookup dictionary:</p>
+  <p class="note" style="margin-top:6px">
+    <span class="tag">BEL</span><span class="tag">NH</span><span class="tag">IEX</span><span class="tag">LT</span><span class="tag">ITC</span><span class="tag">…</span>
+  </p>
+  <p class="note" style="margin-top:8px">A helper <code style="color:#0A84FF">getStockName(symbol)</code> returns the name or undefined. When undefined, show nothing (don't show a blank line). When defined, show below the symbol in Caption (11-12px) muted color.</p>
+  <p class="note" style="margin-top:8px">No DB changes needed — names are purely presentational and live in the codebase.</p>
+</div>
+
+</body>
+</html>

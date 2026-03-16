@@ -69,7 +69,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         style={{
           background: 'var(--bg-nav)',
           borderColor: 'var(--border)',
-          paddingTop: 'max(env(safe-area-inset-top,0px), 12px)',
+          paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">
           <h1 className="text-[28px] font-bold">Allocation</h1>

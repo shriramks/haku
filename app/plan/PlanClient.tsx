@@ -112,6 +112,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
+    router.replace(`/plan?fy=${encodeURIComponent(fy.label)}`)
     const { data } = await getSupabaseBrowser()
       .from('stock_allocations').select('*')
       .eq('fy_id', fy.id).order('allocation_pct', { ascending: false })
@@ -123,12 +124,16 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const totalBudget = selectedFY?.total_budget_inr ?? 0
 
   return (
-    <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
-        style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        style={{
+          background: 'var(--bg-nav)',
+          borderColor: 'var(--border)',
+          paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
+        }}>
+        <div className="flex items-center justify-between px-4 pb-3">
           <h1 className="text-[28px] font-bold">Plan</h1>
           <div className="flex items-center gap-2">
             <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={switchFY} />

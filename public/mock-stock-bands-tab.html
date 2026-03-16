@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Bands Tab Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: -apple-system, sans-serif; max-width: 390px; margin: 0 auto; }
+
+  /* ── CSS vars matching app ── */
+  :root {
+    --bg-primary:    #000;
+    --bg-secondary:  #1c1c1e;
+    --bg-tertiary:   #2c2c2e;
+    --border:        #3a3a3c;
+    --border-faint:  #2c2c2e;
+    --text-primary:  #fff;
+    --text-2:        #ebebf5cc;
+    --text-muted:    #8e8e93;
+    --text-faint:    #636366;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint); padding: 0 4px; margin-bottom: 8px;
+  }
+  .card {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 18px; padding: 16px;
+  }
+  .tabnum { font-variant-numeric: tabular-nums; }
+
+  /* ── Page header (simplified) ── */
+  .page-header { padding: 12px 16px 0; }
+  .back-btn { color: var(--text-muted); font-size: 15px; display: flex; align-items: center; gap: 4px; }
+  .stock-title { font-size: 21px; font-weight: 700; margin-top: 4px; }
+  .stock-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Tab bar ── */
+  .tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 16px; gap: 4px; margin-top: 10px; }
+  .tab { padding: 12px; font-size: 15px; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { border-color: #0A84FF; color: #0A84FF; }
+  .tab.inactive { color: var(--text-muted); }
+
+  /* ── Tab content ── */
+  .tab-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── Band bar ── */
+  .band-bar { height: 28px; border-radius: 10px; overflow: hidden; display: flex; background: var(--bg-tertiary); }
+  .band-segment { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .band-bar-wrap { position: relative; }
+  .cmp-line {
+    position: absolute; top: 0; bottom: 0; width: 2px; border-radius: 2px; background: #fff;
+    pointer-events: none;
+  }
+  .band-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; }
+  .band-label-buy  { color: #34c759; }
+  .band-label-mid  { color: #ff9500; text-align: center; }
+  .band-label-trim { color: #ff453a; text-align: right; }
+  .band-label-sub  { color: var(--text-faint); }
+
+  /* ── Signal badge ── */
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 7px; }
+  .badge-buy    { background: rgba(52,199,89,0.15);  color: #34c759; }
+  .badge-hold   { background: rgba(255,149,0,0.15);  color: #ff9500; }
+  .badge-trim   { background: rgba(255,69,58,0.12);  color: #ff453a; }
+  .badge-prem   { background: rgba(10,132,255,0.15); color: #0A84FF; }
+  .badge-tight  { background: rgba(255,159,10,0.15); color: #FF9F0A; }
+
+  /* ── CMP row ── */
+  .cmp-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cmp-row-left { display: flex; align-items: center; gap: 6px; }
+  .cmp-row-right { display: flex; align-items: center; gap: 6px; }
+  .cmp-refresh-btn {
+    padding: 7px 10px; border-radius: 10px; font-size: 14px;
+    background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border);
+  }
+  .cmp-input {
+    width: 90px; padding: 7px 8px; border-radius: 10px; font-size: 14px; text-align: right;
+    background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border);
+  }
+  .cmp-set-btn {
+    padding: 7px 12px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    background: var(--border); color: var(--text-2); border: none;
+  }
+  .anchor-note { font-size: 11px; color: var(--text-faint); margin-top: 10px; }
+
+  /* ── Financials section ── */
+  .fin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .fin-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .fin-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Generate button (SparkleIcon + text, same style as BandsClient) */
+  .btn-generate {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    background: rgba(10,132,255,0.12); color: #0A84FF; border: 1px solid rgba(10,132,255,0.25);
+  }
+  .btn-edit {
+    width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-muted);
+  }
+
+  /* View mode: two-col key/value */
+  .fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .fin-kv { display: flex; justify-content: space-between; }
+  .fin-k { font-size: 13px; color: var(--text-muted); }
+  .fin-v { font-size: 13px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  /* Edit mode */
+  .fin-field { display: flex; flex-direction: column; gap: 4px; }
+  .fin-field-label { font-size: 13px; color: var(--text-muted); padding-left: 2px; }
+  .fin-field input {
+    width: 100%; padding: 12px 14px; border-radius: 14px; font-size: 17px;
+    background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border);
+    outline: none; font-variant-numeric: tabular-nums;
+  }
+  .fin-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fin-save-btn {
+    width: 100%; margin-top: 12px; padding: 16px; border-radius: 14px;
+    font-size: 17px; font-weight: 600; background: var(--text-primary); color: var(--bg-primary);
+    border: none;
+  }
+  .fin-cancel-btn {
+    width: 100%; margin-top: 8px; padding: 12px; border-radius: 14px;
+    font-size: 15px; background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border);
+  }
+
+  /* ── Tranche section (identical to BandsClient) ── */
+  .tranche-section {
+    border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+    background: var(--bg-secondary);
+  }
+  .tranche-top { padding: 10px 12px 8px; border-bottom: 1px solid var(--border-faint); }
+  .tranche-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .tranche-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
+  .tranche-alloc { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  .tranche-btns { display: flex; gap: 6px; }
+  .tranche-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px; border-radius: 10px; font-size: 14px; font-weight: 500;
+  }
+  .tranche-btn-gen   { background: rgba(10,132,255,0.12); color: #0A84FF;  border: 1px solid rgba(10,132,255,0.25); }
+  .tranche-btn-add   { background: var(--bg-tertiary);    color: var(--text-2); border: 1px solid var(--border); }
+  .tranche-btn-clear { background: rgba(255,59,48,0.10);  color: #FF3B30;  border: 1px solid rgba(255,59,48,0.20); }
+
+  .tranche-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border-faint); }
+  .tranche-checkbox {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border);
+    background: transparent; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .tranche-checkbox.done { background: #30D158; border-color: #30D158; }
+  .tranche-desc { flex: 1; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+  .tranche-desc.done { color: var(--text-faint); text-decoration: line-through; }
+  .tranche-amount { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tranche-amount.done { color: var(--text-faint); }
+  .tranche-edit { padding: 10px; color: var(--text-faint); }
+  .tranche-empty { padding: 12px 16px; font-size: 12px; color: var(--text-faint); }
+
+  /* ── Divider label ── */
+  .screen-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #636366; padding: 12px 16px 0;
+  }
+  .screen-divider { border: none; border-top: 1px solid #1c1c1e; margin: 4px 0; }
+
+  /* icon placeholder */
+  .icon { display: inline-block; width: 14px; height: 14px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN A — Bands tab, view mode (PE stock: IT/Technology)
+     Stock: ITC  CMP 365  Signal: BUY  Category: IT/Tech  EPS: ₹18
+     ═══════════════════════════════════════════════════════════════ -->
+<p class="screen-label">Screen A — Bands tab · View mode (IT/Tech, EPS known, CMP in buy zone)</p>
+<hr class="screen-divider">
+
+<div class="page-header">
+  <div class="back-btn">← Back</div>
+  <div class="stock-title">ITC
+    <span class="badge badge-buy" style="font-size:13px; margin-left:6px; vertical-align:middle">BUY</span>
+  </div>
+  <div class="stock-sub">42 shares · avg ₹447 · +₹680 (3.5%)</div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab inactive">Overview</div>
+  <div class="tab active">Bands</div>
+  <div class="tab inactive">Transactions</div>
+</div>
+
+<div class="tab-content">
+
+  <!-- 1. Signal + CMP card -->
+  <div class="card">
+    <div class="cmp-row">
+      <div class="cmp-row-left">
+        <span class="badge badge-buy">BUY</span>
+      </div>
+      <div class="cmp-row-right">
+        <button class="cmp-refresh-btn">↻</button>
+        <input class="cmp-input tabnum" value="365" readonly>
+        <button class="cmp-set-btn">Set</button>
+      </div>
+    </div>
+
+    <!-- Band bar: buy 360–468, mid 476–572, trim ≥584  CMP=365 -->
+    <!-- total range 324 (buyLow*0.9) to 642 (trim*1.1), range=318 -->
+    <!-- pct(360)=11.3%, pct(468)=45.3% → buyW=34%  -->
+    <!-- pct(476)=47.8%, pct(572)=78% → midW=30.2%  trim=22% -->
+    <div class="band-bar-wrap">
+      <div class="band-bar">
+        <div style="width:11.3%"></div>
+        <div class="band-segment" style="width:34%; background:rgba(52,199,89,0.35); color:#34c759">BUY</div>
+        <div class="band-segment" style="width:30.2%; background:rgba(255,149,0,0.30); color:#ff9500">MID</div>
+        <div class="band-segment" style="flex:1; background:rgba(255,69,58,0.25); color:#ff453a">TRIM</div>
+      </div>
+      <!-- CMP at 365: pct=(365-324)/318=12.9% -->
+      <div class="cmp-line" style="left:12.9%"></div>
+    </div>
+    <div class="band-labels">
+      <div>
+        <div class="band-label-buy">₹360–468</div>
+        <div class="band-label-sub">Buy</div>
+      </div>
+      <div>
+        <div class="band-label-mid">₹476–572</div>
+        <div class="band-label-sub" style="text-align:center">Mid</div>
+      </div>
+      <div>
+        <div class="band-label-trim">≥₹584</div>
+        <div class="band-label-sub" style="text-align:right">Trim</div>
+      </div>
+    </div>
+    <p class="anchor-note" style="text-align:center; margin-top:6px">CMP ₹365</p>
+    <p class="anchor-note">Anchor: PE · Updated 12 Mar 2026</p>
+  </div>
+
+  <!-- 2. Financials card — VIEW MODE -->
+  <div class="card">
+    <div class="fin-header">
+      <span class="fin-label">Financials</span>
+      <div class="fin-actions">
+        <!-- Generate button with sparkle — calls /api/bands/generate/ITC -->
+        <button class="btn-generate">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+          </svg>
+          Generate
+        </button>
+        <!-- Edit pencil -->
+        <button class="btn-edit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- PE category: only EPS field shown -->
+    <div class="fin-kv">
+      <span class="fin-k">EPS</span>
+      <span class="fin-v">₹18</span>
+    </div>
+    <p style="font-size:11px; color:var(--text-faint); margin-top:8px">Category: IT/Technology · PE 20–26×</p>
+  </div>
+
+  <!-- 3. Tranches section — identical to BandsClient -->
+  <div class="tranche-section">
+    <div class="tranche-top">
+      <div class="tranche-header">
+        <span class="tranche-title">Tranches</span>
+        <span class="tranche-alloc">₹42,000 / ₹1,80,000 Allocated</span>
+      </div>
+      <div class="tranche-btns">
+        <button class="tranche-btn tranche-btn-gen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Generate
+        </button>
+        <button class="tranche-btn tranche-btn-add">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add
+        </button>
+        <button class="tranche-btn tranche-btn-clear">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Clear All
+        </button>
+      </div>
+    </div>
+
+    <!-- Tranche rows -->
+    <div class="tranche-row">
+      <div class="tranche-checkbox done">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <span class="tranche-desc done">35 × ₹360</span>
+      <span class="tranche-amount done">₹12,600</span>
+      <button class="tranche-edit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      </button>
+    </div>
+    <div class="tranche-row">
+      <div class="tranche-checkbox"></div>
+      <span class="tranche-desc">40 × ₹390</span>
+      <span class="tranche-amount">₹15,600</span>
+      <button class="tranche-edit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      </button>
+    </div>
+    <div class="tranche-row" style="border-bottom:none">
+      <div class="tranche-checkbox"></div>
+      <span class="tranche-desc">35 × ₹420</span>
+      <span class="tranche-amount">₹14,700</span>
+      <button class="tranche-edit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN B — Financials edit mode (EV/EBITDA stock: TMCV)
+     Category: Capital Goods  EBITDA/Shares/Debt editable
+     ═══════════════════════════════════════════════════════════════ -->
+<hr class="screen-divider" style="margin-top:24px">
+<p class="screen-label">Screen B — Financials edit mode (Capital Goods: EV/EBITDA fields)</p>
+<hr class="screen-divider">
+
+<div class="page-header" style="margin-top:4px">
+  <div class="back-btn">← Back</div>
+  <div class="stock-title">TMCV
+    <span class="badge badge-hold" style="font-size:13px; margin-left:6px; vertical-align:middle">HOLD</span>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab inactive">Overview</div>
+  <div class="tab active">Bands</div>
+  <div class="tab inactive">Transactions</div>
+</div>
+
+<div class="tab-content">
+
+  <!-- Band bar (same layout) -->
+  <div class="card">
+    <div class="cmp-row">
+      <div class="cmp-row-left"><span class="badge badge-hold">HOLD</span></div>
+      <div class="cmp-row-right">
+        <button class="cmp-refresh-btn">↻</button>
+        <input class="cmp-input tabnum" value="1,240" readonly>
+        <button class="cmp-set-btn">Set</button>
+      </div>
+    </div>
+    <div class="band-bar">
+      <div style="width:9%"></div>
+      <div class="band-segment" style="width:29%; background:rgba(52,199,89,0.35); color:#34c759">BUY</div>
+      <div class="band-segment" style="width:30%; background:rgba(255,149,0,0.30); color:#ff9500">MID</div>
+      <div class="band-segment" style="flex:1; background:rgba(255,69,58,0.25); color:#ff453a">TRIM</div>
+    </div>
+    <div class="band-labels">
+      <div><div class="band-label-buy">₹900–1,100</div><div class="band-label-sub">Buy</div></div>
+      <div><div class="band-label-mid">₹1,110–1,360</div><div class="band-label-sub" style="text-align:center">Mid</div></div>
+      <div><div class="band-label-trim">≥₹1,375</div><div class="band-label-sub" style="text-align:right">Trim</div></div>
+    </div>
+    <p class="anchor-note">Anchor: EV/EBITDA · Updated 10 Mar 2026</p>
+  </div>
+
+  <!-- Financials card — EDIT MODE -->
+  <div class="card">
+    <div class="fin-header">
+      <span class="fin-label">Financials</span>
+      <!-- No Generate/Edit in edit mode — they're replaced by Save/Cancel -->
+    </div>
+    <p style="font-size:12px; color:var(--text-faint); margin-bottom:12px">Category: Capital Goods · EV/EBITDA 13–16×</p>
+
+    <!-- EV/EBITDA fields: EBITDA (Cr), Net Debt (Cr), Shares (Cr) -->
+    <div class="fin-fields-grid">
+      <div class="fin-field">
+        <label class="fin-field-label">EBITDA (Cr)</label>
+        <input type="number" value="1125" placeholder="e.g. 1200">
+      </div>
+      <div class="fin-field">
+        <label class="fin-field-label">Net Debt (Cr)</label>
+        <input type="number" value="200" placeholder="e.g. 500">
+      </div>
+      <div class="fin-field" style="grid-column: 1 / -1">
+        <label class="fin-field-label">Shares Outstanding (Cr)</label>
+        <input type="number" value="" placeholder="e.g. 3.8" style="border-color: #ff453a; background: rgba(255,69,58,0.08)">
+        <p style="font-size:11px; color:#ff453a; margin-top:2px; padding-left:2px">Required — check NSE/BSE if not on Screener</p>
+      </div>
+    </div>
+
+    <button class="fin-save-btn">Save</button>
+    <button class="fin-cancel-btn">Cancel</button>
+  </div>
+
+  <!-- Tranches (empty state) -->
+  <div class="tranche-section">
+    <div class="tranche-top">
+      <div class="tranche-header">
+        <span class="tranche-title">Tranches</span>
+        <span class="tranche-alloc">₹0 / ₹2,40,000 Allocated</span>
+      </div>
+      <div class="tranche-btns">
+        <button class="tranche-btn tranche-btn-gen">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Generate
+        </button>
+        <button class="tranche-btn tranche-btn-add">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add
+        </button>
+        <button class="tranche-btn tranche-btn-clear" style="opacity:0.4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Clear All
+        </button>
+      </div>
+    </div>
+    <div class="tranche-empty">No tranches yet — tap Generate</div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN C — Insurance Life stock (NH: P/EV, EV + Shares fields)
+     ═══════════════════════════════════════════════════════════════ -->
+<hr class="screen-divider" style="margin-top:24px">
+<p class="screen-label">Screen C — Insurance Life financials (EV + Shares, view mode)</p>
+<hr class="screen-divider">
+
+<div class="tab-content">
+  <div class="card">
+    <div class="fin-header">
+      <span class="fin-label">Financials</span>
+      <div class="fin-actions">
+        <button class="btn-generate">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+          </svg>
+          Generate
+        </button>
+        <button class="btn-edit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <p style="font-size:12px; color:var(--text-faint); margin-bottom:10px">Category: Insurance Life · P/EV 2.0–2.8×</p>
+    <div class="fin-grid">
+      <div class="fin-kv"><span class="fin-k">Embedded Value</span><span class="fin-v">₹92,400 Cr</span></div>
+      <div class="fin-kv"><span class="fin-k">Shares</span><span class="fin-v">10.0 Cr</span></div>
+    </div>
+  </div>
+  <p style="font-size:11px; color:var(--text-faint); padding:0 4px">Note: SBILIFE shown here as example for Insurance Life layout</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCREEN D — No bands yet (empty state)
+     ═══════════════════════════════════════════════════════════════ -->
+<hr class="screen-divider" style="margin-top:24px">
+<p class="screen-label">Screen D — No bands yet (empty state)</p>
+<hr class="screen-divider">
+
+<div class="tab-content">
+  <div style="text-align:center; padding:32px 16px; color:var(--text-muted)">
+    <p style="font-size:17px; font-weight:500; margin-bottom:4px">No bands computed yet</p>
+    <p style="font-size:14px; color:var(--text-faint)">Add financials below, then tap Generate</p>
+  </div>
+
+  <!-- Financials still shown so user can enter data + generate -->
+  <div class="card">
+    <div class="fin-header">
+      <span class="fin-label">Financials</span>
+      <div class="fin-actions">
+        <button class="btn-generate" style="opacity:0.4; pointer-events:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+          </svg>
+          Generate
+        </button>
+        <button class="btn-edit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <p style="font-size:13px; color:var(--text-faint)">No financial data yet — tap the pencil to add</p>
+  </div>
+
+  <div class="tranche-section">
+    <div class="tranche-top">
+      <div class="tranche-header">
+        <span class="tranche-title">Tranches</span>
+        <span class="tranche-alloc">₹0 / ₹1,20,000 Allocated</span>
+      </div>
+      <div class="tranche-btns">
+        <button class="tranche-btn tranche-btn-gen" style="opacity:0.4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Generate
+        </button>
+        <button class="tranche-btn tranche-btn-add">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add
+        </button>
+        <button class="tranche-btn tranche-btn-clear" style="opacity:0.4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Clear All
+        </button>
+      </div>
+    </div>
+    <div class="tranche-empty">No tranches yet — generate bands first</div>
+  </div>
+</div>
+
+</body>
+</html>
