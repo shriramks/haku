@@ -10,6 +10,7 @@ import TrancheSection from '@/components/TrancheSection'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { getStockName } from '@/lib/stock-names'
+import { revalidateTags } from '@/lib/revalidate-client'
 
 interface Props {
   rows: StockRow[]
@@ -86,6 +87,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     } catch {
       // silently fail
     }
+    revalidateTags('buy_bands')
     setRefreshing(prev => ({ ...prev, [symbol]: false }))
   }
 
@@ -194,11 +196,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
     // No band data — just write alloc
     sb.from('stock_allocations').update(patch).eq('id', alloc.id)
+    revalidateTags('allocations', 'buy_bands', 'buy_tranches')
   }
 
   async function toggleTranche(id: string, allocated: boolean) {
     setTranches(prev => prev.map(t => t.id === id ? { ...t, allocated } : t))
     await getSupabaseBrowser().from('buy_tranches').update({ allocated }).eq('id', id)
+    revalidateTags('buy_tranches')
   }
 
   async function addTranche(symbol: string, qty: number, price: number) {
@@ -211,21 +215,25 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       sort_order: existing.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
+    revalidateTags('buy_tranches')
   }
 
   async function deleteTranche(id: string) {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
     setTranches(prev => prev.filter(t => t.id !== id))
+    revalidateTags('buy_tranches')
   }
 
   async function updateTranche(id: string, qty: number, price: number) {
     setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
     await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+    revalidateTags('buy_tranches')
   }
 
   async function clearTranches(symbol: string) {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
     setTranches(prev => prev.filter(t => t.symbol !== symbol))
+    revalidateTags('buy_tranches')
   }
 
   async function generateTranches(symbol: string) {

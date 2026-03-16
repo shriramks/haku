@@ -7,6 +7,7 @@ import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
+import { revalidateTags } from '@/lib/revalidate-client'
 
 export default function TransactionsClient({
   transactions: initial,
@@ -150,6 +151,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
     onSaved({ ...txn, ...patch, amount: qty * price })
+    revalidateTags('transactions', 'transactions_all')
     setSaving(false)
     setEditing(false)
   }
@@ -157,6 +159,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   async function doDelete() {
     await getSupabaseBrowser().from('transactions').delete().eq('id', txn.id)
     onDelete(txn.id)
+    revalidateTags('transactions', 'transactions_all')
   }
 
   const editAmount = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)

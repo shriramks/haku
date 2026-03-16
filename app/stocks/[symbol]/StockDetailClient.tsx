@@ -10,6 +10,7 @@ import { type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal, BuyTranche } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
 import { getStockName } from '@/lib/stock-names'
+import { revalidateTags } from '@/lib/revalidate-client'
 
 interface Props {
   symbol: string
@@ -132,6 +133,7 @@ function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl,
         const sb = getSupabaseBrowser()
         await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
         onBandSaved({ ...band, manual_cmp: price })
+        revalidateTags('buy_bands')
       }
     } catch {}
     setRefreshing(false)
@@ -226,6 +228,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
     const cmp = parseFloat(cmpInput)
     await sb.from('buy_bands').update({ manual_cmp: cmp, last_updated_at: new Date().toISOString() }).eq('id', band.id)
     onBandSaved({ ...band, manual_cmp: cmp })
+    revalidateTags('buy_bands')
     setSavingCmp(false)
   }
 
@@ -240,6 +243,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
         const sb = getSupabaseBrowser()
         await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
         onBandSaved({ ...band, manual_cmp: price })
+        revalidateTags('buy_bands')
       }
     } catch {}
     setRefreshing(false)
@@ -249,6 +253,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
   async function toggleTranche(id: string, allocated: boolean) {
     setTranches(prev => prev.map(t => t.id === id ? { ...t, allocated } : t))
     await getSupabaseBrowser().from('buy_tranches').update({ allocated }).eq('id', id)
+    revalidateTags('buy_tranches')
   }
 
   async function addTranche(sym: string, qty: number, price: number) {
@@ -260,21 +265,25 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
       sort_order: tranches.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
+    revalidateTags('buy_tranches')
   }
 
   async function deleteTranche(id: string) {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
     setTranches(prev => prev.filter(t => t.id !== id))
+    revalidateTags('buy_tranches')
   }
 
   async function updateTranche(id: string, qty: number, price: number) {
     setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
     await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+    revalidateTags('buy_tranches')
   }
 
   async function clearTranches() {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
     setTranches([])
+    revalidateTags('buy_tranches')
   }
 
   async function generateTranches() {
@@ -528,7 +537,10 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
       }
     }
 
-    if (savedBand) onBandSaved(savedBand)
+    if (savedBand) {
+      onBandSaved(savedBand)
+      revalidateTags('buy_bands')
+    }
     setSaving(false)
     setEditing(false)
   }
@@ -730,6 +742,7 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
   async function del(id: string) {
     setDeleting(id)
     await getSupabaseBrowser().from('transactions').delete().eq('id', id)
+    revalidateTags('transactions', 'transactions_all')
     setDeleting(null)
     router.refresh()
   }
@@ -821,7 +834,11 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
       .upsert({ ...draft, assessed_at: new Date().toISOString() }, { onConflict: 'user_id,symbol' })
       .select().single()
     setSaving(false)
-    if (data) { onSaved(data); setEditing(false) }
+    if (data) {
+      onSaved(data)
+      revalidateTags('investability')
+      setEditing(false)
+    }
   }
 
   const record   = (inv ?? draft) as unknown as Partial<Record<keyof Investability, unknown>>
