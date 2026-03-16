@@ -2,7 +2,7 @@
 
 export interface FiscalYear {
   id: string
-  user_id: string
+  user_id?: string
   label: string
   start_date: string   // "YYYY-MM-DD"
   end_date: string
@@ -14,7 +14,7 @@ export interface FiscalYear {
 export interface StockAllocation {
   id: string
   fy_id: string
-  user_id: string
+  user_id?: string
   symbol: string
   exchange: string
   allocation_pct: number
@@ -27,7 +27,7 @@ export interface StockAllocation {
 
 export interface Transaction {
   id: string
-  user_id: string
+  user_id?: string
   symbol: string
   exchange: string
   trade_date: string   // "YYYY-MM-DD"
@@ -43,7 +43,7 @@ export interface Transaction {
 
 export interface BuyBand {
   id: string
-  user_id: string
+  user_id?: string
   symbol: string
   anchor_type: 'PE' | 'PB' | 'EV_EBITDA' | 'P_EV'
   eps: number | null
@@ -66,7 +66,7 @@ export interface BuyBand {
 
 export interface Investability {
   id: string
-  user_id: string
+  user_id?: string
   symbol: string
   assessed_at: string
   sector_winds: GateSignal
@@ -99,7 +99,7 @@ export interface Investability {
 
 export interface BuyTranche {
   id: string
-  user_id: string
+  user_id?: string
   symbol: string
   qty: number
   price: number
@@ -111,7 +111,7 @@ export interface BuyTranche {
 
 export interface Playbook {
   id: string
-  user_id: string
+  user_id?: string
   content: string
   updated_at: string
 }
