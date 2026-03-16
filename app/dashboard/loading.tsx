@@ -32,7 +32,7 @@ export default function Loading() {
       </div>
 
       {/* Rows */}
-      <div className="mt-2">
+      <div className="mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
         {[...Array(6)].map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
             <div style={{ minWidth: '108px' }}>
