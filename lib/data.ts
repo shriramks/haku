@@ -1,16 +1,18 @@
 // Server-side data fetching helpers (used in Server Components only)
+import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche, Playbook } from './types'
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
+// cache() deduplicates across all calls within a single request render
 
-async function getUserId(): Promise<string | null> {
+const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   return user?.id ?? null
-}
+})
 
 // ── Cached fetchers (service role — no cookies needed) ────────────────────────
 
