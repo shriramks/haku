@@ -312,7 +312,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
       </div>
 
       {/* Middle: qty / price / date */}
-      <div className="text-right flex-shrink-0">
+      <div className="text-right flex-shrink-0 pr-4">
         <p className="text-[14px] tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
           {Math.round(txn.quantity)} qty
         </p>

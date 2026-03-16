@@ -14,41 +14,36 @@
   .col-label { text-align: center; font-size: 12px; font-weight: 600; color: #636366;
                text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
 
-  /* month header */
   .month-hdr { display: flex; justify-content: space-between; align-items: baseline;
                padding: 12px 20px 6px; }
   .month-hdr .label { font-size: 13px; font-weight: 600; text-transform: uppercase;
                       letter-spacing: .08em; color: #8e8e93; }
   .month-hdr .buy { font-size: 12px; color: #34C759; font-variant-numeric: tabular-nums; }
 
-  /* row — BEFORE */
+  /* BEFORE */
   .row-before { display: flex; align-items: flex-start; gap: 12px;
-                padding: 14px 20px; border-bottom: 1px solid rgba(0,0,0,.06);
-                background: #F2F2F7; }
+                padding: 14px 20px; border-bottom: 1px solid rgba(0,0,0,.06); background: #F2F2F7; }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-  .dot.buy { background: #34C759; }
-  .dot.sell { background: #FF3B30; }
+  .dot.buy { background: #34C759; } .dot.sell { background: #FF3B30; }
   .mid { flex: 1; min-width: 0; }
   .sym { font-size: 16px; font-weight: 700; }
   .name { font-size: 11px; color: #8e8e93; margin-top: 2px; }
-  .meta { font-size: 13px; color: #8e8e93; margin-top: 3px; font-variant-numeric: tabular-nums; }
-  .date { font-size: 12px; color: #aeaeb2; margin-top: 2px; }
+  .meta-old { font-size: 13px; color: #8e8e93; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .date-old { font-size: 12px; color: #aeaeb2; margin-top: 2px; }
   .right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .amt { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .amt.buy { color: #000; }
-  .amt.sell { color: #FF3B30; }
+  .amt.buy { color: #000; } .amt.sell { color: #FF3B30; }
   .edit-btn { width: 36px; height: 36px; border-radius: 10px; background: #e5e5ea;
               border: 1px solid #d1d1d6; display: flex; align-items: center; justify-content: center; }
 
-  /* row — AFTER */
+  /* AFTER */
   .row-after { display: flex; align-items: center; gap: 12px;
-               padding: 14px 20px; border-bottom: 1px solid rgba(0,0,0,.06);
-               background: #F2F2F7; }
-  .col-left { flex: 0 0 auto; min-width: 100px; }
-  .col-mid { flex: 1; min-width: 0; text-align: right; padding-right: 12px; }
-  .col-mid .shares { font-size: 14px; font-variant-numeric: tabular-nums; color: #3a3a3c; }
-  .col-mid .price  { font-size: 12px; font-variant-numeric: tabular-nums; color: #8e8e93; margin-top: 2px; }
-  .col-mid .date2  { font-size: 11px; color: #aeaeb2; margin-top: 3px; }
+               padding: 14px 20px; border-bottom: 1px solid rgba(0,0,0,.06); background: #F2F2F7; }
+  .col-left { flex: 0 0 auto; }
+  .col-mid { flex: 1; min-width: 0; text-align: right; padding-right: 24px; }
+  .col-mid .qty  { font-size: 14px; font-variant-numeric: tabular-nums; color: #3a3a3c; font-weight: 500; }
+  .col-mid .price { font-size: 12px; font-variant-numeric: tabular-nums; color: #8e8e93; margin-top: 2px; }
+  .col-mid .date2 { font-size: 11px; color: #aeaeb2; margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -62,58 +57,43 @@
         <span class="label">March 2025</span>
         <span class="buy">+₹2.5L</span>
       </div>
-
       <div class="row-before">
         <div class="dot buy"></div>
         <div class="mid">
           <p class="sym">HDFCBANK</p>
           <p class="name">HDFC Bank</p>
-          <p class="meta">50 shares · ₹1,520</p>
-          <p class="date">12 Mar 2025</p>
+          <p class="meta-old">50 shares · ₹1,520</p>
+          <p class="date-old">12 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt buy">₹76K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
-
       <div class="row-before">
         <div class="dot buy"></div>
         <div class="mid">
           <p class="sym">ICICIBANK</p>
           <p class="name">ICICI Bank</p>
-          <p class="meta">60 shares · ₹1,100</p>
-          <p class="date">08 Mar 2025</p>
+          <p class="meta-old">60 shares · ₹1,100</p>
+          <p class="date-old">08 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt buy">₹66K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
-
       <div class="row-before">
         <div class="dot sell"></div>
         <div class="mid">
           <p class="sym">NESTLEIND</p>
           <p class="name">Nestle India</p>
-          <p class="meta">10 shares · ₹2,250</p>
-          <p class="date">03 Mar 2025</p>
+          <p class="meta-old">10 shares · ₹2,250</p>
+          <p class="date-old">03 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt sell">−₹22.5K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
     </div>
@@ -127,67 +107,52 @@
         <span class="label">March 2025</span>
         <span class="buy">+₹2.5L</span>
       </div>
-
       <div class="row-after">
-        <div class="dot buy" style="align-self:center"></div>
+        <div class="dot buy"></div>
         <div class="col-left">
           <p class="sym">HDFCBANK</p>
           <p class="name">HDFC Bank</p>
         </div>
         <div class="col-mid">
-          <p class="shares">50 shs</p>
-          <p class="price">@ ₹1,520</p>
+          <p class="qty">50 qty</p>
+          <p class="price">₹1,520</p>
           <p class="date2">12 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt buy">₹76K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
-
       <div class="row-after">
-        <div class="dot buy" style="align-self:center"></div>
+        <div class="dot buy"></div>
         <div class="col-left">
           <p class="sym">ICICIBANK</p>
           <p class="name">ICICI Bank</p>
         </div>
         <div class="col-mid">
-          <p class="shares">60 shs</p>
-          <p class="price">@ ₹1,100</p>
+          <p class="qty">60 qty</p>
+          <p class="price">₹1,100</p>
           <p class="date2">08 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt buy">₹66K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
-
       <div class="row-after">
-        <div class="dot sell" style="align-self:center"></div>
+        <div class="dot sell"></div>
         <div class="col-left">
           <p class="sym">NESTLEIND</p>
           <p class="name">Nestle India</p>
         </div>
         <div class="col-mid">
-          <p class="shares">10 shs</p>
-          <p class="price">@ ₹2,250</p>
+          <p class="qty">10 qty</p>
+          <p class="price">₹2,250</p>
           <p class="date2">03 Mar 2025</p>
         </div>
         <div class="right">
           <p class="amt sell">−₹22.5K</p>
-          <div class="edit-btn">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/>
-            </svg>
-          </div>
+          <div class="edit-btn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#8e8e93" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z"/></svg></div>
         </div>
       </div>
     </div>
