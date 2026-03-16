@@ -469,8 +469,8 @@ export async function POST(
     generatedTranches = inserted ?? []
   }
 
-  revalidateTag('buy_bands')
-  revalidateTag('buy_tranches')
+  revalidateTag('buy_bands', {})
+  revalidateTag('buy_tranches', {})
 
   return NextResponse.json({
     symbol: upperSymbol,

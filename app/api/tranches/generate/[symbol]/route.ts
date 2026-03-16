@@ -117,7 +117,7 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  revalidateTag('buy_tranches')
+  revalidateTag('buy_tranches', {})
 
   return NextResponse.json({ symbol: upperSymbol, tranches: inserted ?? [] })
 }
