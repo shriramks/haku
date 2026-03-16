@@ -72,7 +72,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           paddingTop: 'max(env(safe-area-inset-top,0px), 12px)',
         }}>
         <div className="flex items-center justify-between pt-1">
-          <h1 className="text-xl font-bold">Allocation</h1>
+          <h1 className="text-[28px] font-bold">Allocation</h1>
           <div className="flex items-center gap-2">
             <FYPicker
               fiscalYears={fiscalYears}
@@ -88,9 +88,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       {selectedFY && (
         <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <Metric label="Budget"   value={formatAmt(totalBudget)} />
-            <Metric label="Deployed" value={formatAmt(totalDeployed)} />
-            <Metric label="Left"     value={formatAmt(Math.abs(totalRemaining))}
+            <Metric label="Budget"    value={formatAmt(totalBudget)} />
+            <Metric label="Allocated" value={formatAmt(totalDeployed)} />
+            <Metric label="Left"      value={formatAmt(Math.abs(totalRemaining))}
                     negative={totalRemaining < 0} />
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
@@ -119,7 +119,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
         </div>
       ) : (
-        <div className="mt-2 pb-24">
+        <div className="mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
           {completedRows.length > 0 && (
             <>
@@ -172,7 +172,7 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
 function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
     <div className="text-center">
-      <p className="font-bold tabnum text-[17px]" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+      <p className="font-bold tabnum text-[22px]" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
       <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>

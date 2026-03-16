@@ -32,6 +32,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatPct } from '@/lib/formatter'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 
 interface Props {
@@ -129,7 +130,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <h1 className="text-[28px] font-bold">Plan</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={switchFY} />
             <UserMenu />
           </div>
         </div>
@@ -286,42 +288,21 @@ function PlanTab({
   const pctOk = Math.abs(totalPct - 100) < 0.01
 
   return (
-    <div className="pb-6">
-      {/* FY selector + New Plan */}
-      <div className="flex items-center gap-2 px-4 pt-4">
-        {fiscalYears.map(fy => (
-          <button key={fy.id} onClick={() => onSwitchFY(fy)}
-            className="px-3.5 py-2.5 rounded-xl text-[15px] font-medium transition-colors"
-            style={{
-              background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
-              color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
-            }}>
-            {fy.label}
-          </button>
-        ))}
-        <button onClick={onNewPlan}
-          className="px-3.5 py-2.5 rounded-xl text-[15px] font-medium"
-          style={{ color: '#0A84FF', border: '1px solid rgba(10,132,255,0.4)', background: 'transparent' }}>
-          + Add Plan
-        </button>
-      </div>
+    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {selectedFY ? (
         <>
-          {/* Budget card */}
+          {/* Budget flat strip */}
           {(() => {
             const stockCarryover = allocations.reduce((s, a) => s + (a.carryover_inr ?? 0), 0)
             const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
             const totalCarryover = stockCarryover + unallocCarryover
             const effectiveBudget = totalBudget + totalCarryover
             return (
-          <div className="mx-4 mt-4 p-4 rounded-2xl border"
-               style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+          <div className="px-4 pt-4 pb-3 border-b"
+               style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-[12px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                  {selectedFY.label} Budget
-                </p>
                 {editBudget ? (
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[17px]" style={{ color: 'var(--text-muted)' }}>₹</span>
@@ -436,8 +417,8 @@ function PlanTab({
             return (
               <button
                 onClick={() => setShowCatDetail(v => !v)}
-                className="mx-4 mt-3 w-[calc(100%-2rem)] text-left rounded-2xl border p-4"
-                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+                className="w-full text-left px-4 py-3 border-b"
+                style={{ borderColor: 'var(--border-faint)' }}>
                 {/* Sector types — always visible */}
                 <div className="flex items-center justify-between">
                   <div className="flex gap-4 flex-wrap">
@@ -481,9 +462,11 @@ function PlanTab({
                             animation: 'spin 0.8s linear infinite' }} />
             </div>
           ) : (
-            <div className="px-4 mt-3 space-y-2">
-              <div className="flex items-center justify-end mb-1">
-                <div className="flex items-center gap-3">
+            <div>
+              {/* Toolbar */}
+              <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-b"
+                   style={{ borderColor: 'var(--border-faint)' }}>
+                <div className="flex items-center gap-2">
                   {allocations.length > 0 && !confirmClear && (
                     <>
                       <button onClick={() => setConfirmClear(true)}
@@ -530,9 +513,16 @@ function PlanTab({
                   )}
                   {!confirmClear && (
                     <button onClick={() => setShowAddStock(v => !v)}
-                      className="text-[15px] font-medium px-3 py-2.5 rounded-xl"
+                      className="text-[14px] font-medium px-3 py-2 rounded-xl"
                       style={{ color: '#0A84FF', background: 'rgba(10,132,255,0.12)' }}>
                       {showAddStock ? 'Cancel' : '+ Add Stock'}
+                    </button>
+                  )}
+                  {!confirmClear && (
+                    <button onClick={onNewPlan}
+                      className="text-[14px] font-medium px-3 py-2 rounded-xl"
+                      style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
+                      + New Plan
                     </button>
                   )}
                 </div>
@@ -542,22 +532,24 @@ function PlanTab({
                 <AddStockForm totalPct={totalPct} onAdd={addStock} />
               )}
 
-              {[...allocations]
-                .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
-                .map(alloc => (
-                <StockAllocRow
-                  key={alloc.id}
-                  alloc={alloc}
-                  totalBudget={totalBudget}
-                  totalPct={totalPct}
-                  onPctChange={updateAllocPct}
-                  onCategoryChange={updateAllocCategory}
-                  onRemove={removeAlloc}
-                />
-              ))}
+              <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+                {[...allocations]
+                  .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
+                  .map(alloc => (
+                  <StockAllocRow
+                    key={alloc.id}
+                    alloc={alloc}
+                    totalBudget={totalBudget}
+                    totalPct={totalPct}
+                    onPctChange={updateAllocPct}
+                    onCategoryChange={updateAllocCategory}
+                    onRemove={removeAlloc}
+                  />
+                ))}
+              </div>
 
               {allocations.length === 0 && !showAddStock && (
-                <div className="space-y-2">
+                <div className="px-4 pt-4 space-y-2">
                   {prevFY && (
                     <button onClick={copyFromPrevFY} disabled={copying}
                       className="w-full py-3 rounded-2xl text-[15px] font-semibold disabled:opacity-40"
@@ -605,10 +597,9 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
 
   if (confirming) {
     return (
-      <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl border"
-           style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+      <div className="flex items-center justify-between px-4 py-3.5">
         <p className="text-[15px]" style={{ color: 'var(--text-2)' }}>Remove {alloc.symbol}?</p>
-        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
+        <p className="text-[12px] flex-1 px-3" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
         <div className="flex gap-4">
           <button onClick={() => setConfirming(false)} className="text-[#0A84FF] text-[15px]">Keep</button>
           <button onClick={() => onRemove(alloc.id)} className="text-red-400 text-[15px] font-semibold">Remove</button>
@@ -618,8 +609,7 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden border"
-         style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+    <div>
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={() => setExpanded(v => !v)} className="flex-1 flex items-center gap-3 text-left">
           <div className="flex-1 min-w-0">

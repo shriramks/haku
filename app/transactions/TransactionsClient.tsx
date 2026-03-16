@@ -70,7 +70,7 @@ export default function TransactionsClient({
           <p className="text-[15px]">Tap + to log your first trade</p>
         </div>
       ) : (
-        <div className="py-4 space-y-5">
+        <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
               <div className="flex items-baseline justify-between px-5 mb-2">
