@@ -1,11 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
 import { getBandSignal } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
-import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory } from '@/lib/types'
+import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
+import FYPicker from '@/components/FYPicker'
+import UserMenu from '@/components/UserMenu'
 import { getStockName } from '@/lib/stock-names'
 
 interface Props {
@@ -15,9 +18,12 @@ interface Props {
   initialTranches: BuyTranche[]
   fyId: string
   fyLabel?: string
+  fiscalYears: FiscalYear[]
+  selectedFY: FiscalYear | null
 }
 
-export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fyLabel }: Props) {
+export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fyLabel, fiscalYears, selectedFY }: Props) {
+  const router = useRouter()
   const [bands, setBands]           = useState(initialBands)
   const [allocState, setAllocState] = useState(allocations)
   const [tranches, setTranches]     = useState(initialTranches)
@@ -253,6 +259,27 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
   return (
     <div className="pb-6">
+      {/* Header */}
+      <div
+        className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+        style={{
+          background: 'var(--bg-nav)',
+          borderColor: 'var(--border)',
+          paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
+        }}>
+        <div className="flex items-center justify-between">
+          <h1 className="text-[28px] font-bold">Buy Bands</h1>
+          <div className="flex items-center gap-2">
+            <FYPicker
+              fiscalYears={fiscalYears}
+              selectedFY={selectedFY}
+              onSelect={fy => router.push(`/bands?fy=${encodeURIComponent(fy.label)}`)}
+            />
+            <UserMenu />
+          </div>
+        </div>
+      </div>
+
       {showKeyPrompt && (
         <KeyPromptSheet
           initialProvider={aiProvider}
@@ -313,7 +340,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-[17px]">{row.symbol}</span>
                     {cmp && (
-                      <span className="text-[13px] tabnum" style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-[15px] tabnum" style={{ color: 'var(--text-muted)' }}>
                         ₹{Math.round(cmp).toLocaleString('en-IN')}
                       </span>
                     )}

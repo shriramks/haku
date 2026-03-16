@@ -7,20 +7,28 @@ import BottomNav from '@/components/BottomNav'
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string }>
+  searchParams: Promise<{ symbol?: string; fy?: string }>
 }) {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { symbol } = await searchParams
-  const [transactions, fiscalYears] = await Promise.all([getTransactions(), getFiscalYears()])
+  const { symbol, fy: fyParam } = await searchParams
+  const fiscalYears = await getFiscalYears()
+
+  const today = new Date()
+  const selectedFY = fyParam
+    ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears[0])
+    : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[0])
+
+  const transactions = await getTransactions(selectedFY?.id)
 
   return (
     <>
       <TransactionsClient
         transactions={transactions}
         fiscalYears={fiscalYears}
+        selectedFY={selectedFY ?? null}
         filterSymbol={symbol?.toUpperCase()}
       />
       <BottomNav />

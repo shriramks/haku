@@ -1,20 +1,25 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 
 export default function TransactionsClient({
   transactions: initial,
   fiscalYears,
+  selectedFY,
   filterSymbol,
 }: {
   transactions: Transaction[]
   fiscalYears: FiscalYear[]
+  selectedFY: FiscalYear | null
   filterSymbol?: string
 }) {
+  const router = useRouter()
   const [txns, setTxns] = useState(initial)
 
   function deleteTxn(id: string) {
@@ -43,7 +48,14 @@ export default function TransactionsClient({
               <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{displayed.length} total</p>
             )}
           </div>
-          <UserMenu />
+          <div className="flex items-center gap-2">
+            <FYPicker
+              fiscalYears={fiscalYears}
+              selectedFY={selectedFY}
+              onSelect={fy => router.push(`/transactions?fy=${encodeURIComponent(fy.label)}`)}
+            />
+            <UserMenu />
+          </div>
         </div>
       </div>
 
@@ -69,8 +81,7 @@ export default function TransactionsClient({
                   {sellTotal > 0 && <span className="text-red-400">−{formatINR(sellTotal)}</span>}
                 </div>
               </div>
-              <div className="mx-4 rounded-2xl overflow-hidden divide-y"
-                   style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
+              <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
                 {items.map(txn => (
                   <TxnRow
                     key={txn.id}
@@ -286,13 +297,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[16px]">{txn.symbol}</span>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                style={{
-                  background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)',
-                  color: isBuy ? '#34C759' : '#FF3B30',
-                }}>
-            {isBuy ? 'BUY' : 'SELL'}
-          </span>
           {txn.advance_fy_id && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
                   style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>

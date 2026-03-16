@@ -1,11 +1,13 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { computeStockRows } from '@/lib/compute'
-import { formatINR, formatPct } from '@/lib/formatter'
+import { formatAmt, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
+import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 
 interface Props {
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, bands }: Props) {
+  const router = useRouter()
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
@@ -25,6 +28,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
+    router.replace(`/dashboard?fy=${encodeURIComponent(fy.label)}`)
     const sb = getSupabaseBrowser()
     const [{ data: alloc }, { data: txns }] = await Promise.all([
       sb.from('stock_allocations').select('*').eq('fy_id', fy.id).order('allocation_pct', { ascending: false }),
@@ -70,36 +74,26 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         <div className="flex items-center justify-between pt-1">
           <h1 className="text-xl font-bold">Allocation</h1>
           <div className="flex items-center gap-2">
-            {fiscalYears.length > 1 && (
-              <div className="flex gap-1">
-                {fiscalYears.map(fy => (
-                  <button key={fy.id} onClick={() => switchFY(fy)}
-                    className="px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors"
-                    style={{
-                      background: selectedFY?.id === fy.id ? 'var(--text-primary)' : 'var(--border)',
-                      color: selectedFY?.id === fy.id ? 'var(--bg-primary)' : 'var(--text-muted)',
-                    }}>
-                    {fy.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FYPicker
+              fiscalYears={fiscalYears}
+              selectedFY={selectedFY}
+              onSelect={switchFY}
+            />
             <UserMenu />
           </div>
         </div>
       </div>
 
-      {/* Summary card */}
+      {/* Summary strip */}
       {selectedFY && (
-        <div className="mx-4 mt-4 p-4 rounded-2xl border"
-             style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
           <div className="grid grid-cols-3 gap-2 mb-3">
-            <Metric label="Budget"   value={formatINR(totalBudget)} />
-            <Metric label="Deployed" value={formatINR(totalDeployed)} />
-            <Metric label="Left"     value={formatINR(totalRemaining)}
-                    color={totalRemaining < 0 ? 'text-red-400' : undefined} />
+            <Metric label="Budget"   value={formatAmt(totalBudget)} />
+            <Metric label="Deployed" value={formatAmt(totalDeployed)} />
+            <Metric label="Left"     value={formatAmt(Math.abs(totalRemaining))}
+                    negative={totalRemaining < 0} />
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
             <div
               className={`h-full rounded-full transition-all ${
                 pctDeployed > 90 ? 'bg-red-500' :
@@ -108,7 +102,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               style={{ width: `${Math.min(100, pctDeployed)}%` }}
             />
           </div>
-          <p className="text-xs mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[12px] mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
             {formatPct(pctDeployed)} deployed
           </p>
         </div>
@@ -125,52 +119,17 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
         </div>
       ) : (
-        <>
-          {/* Bar chart */}
-          <div className="mt-4">
-            <p className="px-4 text-[12px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
-              By Stock
-            </p>
-            <div className="mx-4 rounded-2xl overflow-hidden divide-y"
-                 style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
-              {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
-              {completedRows.length > 0 && (
-                <>
-                  <div className="px-4 py-2">
-                    <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
-                  </div>
-                  {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Details table */}
-          <div className="mt-4 pb-24">
-            <p className="px-4 text-[12px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
-              Details
-            </p>
-            <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-b"
-                   style={{ borderColor: 'var(--border-faint)' }}>
-                {['Stock', 'Budget', 'Deployed', 'Left'].map(h => (
-                  <span key={h} className="text-[11px] uppercase tracking-wide text-right first:text-left"
-                        style={{ color: 'var(--text-faint)' }}>{h}</span>
-                ))}
+        <div className="mt-2 pb-24">
+          {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
+          {completedRows.length > 0 && (
+            <>
+              <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
               </div>
-              {activeRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < activeRows.length - 1 || completedRows.length > 0} />)}
-              {completedRows.length > 0 && (
-                <>
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 border-t"
-                       style={{ borderColor: 'var(--border-faint)' }}>
-                    <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
-                  </div>
-                  {completedRows.map((row, i) => <DetailRow key={row.symbol} row={row} border={i < completedRows.length - 1} dim />)}
-                </>
-              )}
-            </div>
-          </div>
-        </>
+              {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
+            </>
+          )}
+        </div>
       )}
     </div>
   )
@@ -180,33 +139,29 @@ import type { StockRow } from '@/lib/types'
 
 function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
   const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
+  const isDone = row.remaining <= 0
+
   return (
     <Link href={`/stocks/${row.symbol}`}
-          className="grid items-center gap-3 px-4 py-4 tap-row"
-          style={{ gridTemplateColumns: '108px 1fr 80px 16px', opacity: dim ? 0.35 : 1 }}>
-      <div>
-        <span className="font-semibold text-[16px]">{row.symbol}</span>
+          className="flex items-center gap-3 px-4 py-4 tap-row border-b"
+          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
+      <div style={{ minWidth: '108px' }}>
+        <span className="font-semibold text-[17px]">{row.symbol}</span>
         {getStockName(row.symbol) && (
           <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
         )}
       </div>
-      <div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+      <div className="flex-1">
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
           <div className={`h-full rounded-full ${
-            row.remaining <= 0 ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
+            isDone ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
           }`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-[15px] font-bold tabnum"
-           style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-          {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
-        </p>
-        <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
-          {row.remaining < 0 ? 'over' : 'left'}
-        </p>
-      </div>
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+      <p className="text-[14px] tabnum text-right flex-shrink-0" style={{ color: 'var(--text-muted)', minWidth: '64px' }}>
+        {isDone ? 'Done' : `${formatAmt(row.remaining)} left`}
+      </p>
+      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
            style={{ color: 'var(--text-faint)' }}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
@@ -214,40 +169,13 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
   )
 }
 
-function DetailRow({ row, border, dim }: { row: StockRow; border: boolean; dim?: boolean }) {
-  return (
-    <div className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-4 py-3.5 ${border ? 'border-b' : ''}`}
-         style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
-      <div>
-        <p className="font-semibold text-[15px]">{row.symbol}</p>
-        {getStockName(row.symbol) && (
-          <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
-        )}
-        {row.qty > 0 && (
-          <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>{Math.round(row.qty)} shs</p>
-        )}
-      </div>
-      <p className="text-[15px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
-        {formatINR(row.budget)}
-      </p>
-      <p className="text-[15px] tabnum text-right self-center" style={{ color: 'var(--text-2)' }}>
-        {formatINR(row.spent)}
-      </p>
-      <p className="text-[15px] tabnum text-right self-center font-semibold"
-         style={{ color: row.remaining < 0 ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-        {row.remaining < 0 ? '−' : ''}{formatINR(Math.abs(row.remaining))}
-      </p>
-    </div>
-  )
-}
-
-function Metric({ label, value, color }: { label: string; value: string; color?: string }) {
+function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
     <div className="text-center">
-      <p className={`font-bold tabnum ${color ?? ''}`} style={color ? undefined : { color: 'var(--text-primary)' }}>
+      <p className="font-bold tabnum text-[17px]" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }

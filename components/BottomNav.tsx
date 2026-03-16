@@ -18,13 +18,25 @@ export default function BottomNav() {
   const path = usePathname()
   const [addOpen, setAddOpen] = useState(false)
   const [onboarding, setOnboarding] = useState<string | null>(null)
+  const [storedFY, setStoredFY] = useState<string | null>(null)
 
   useEffect(() => {
     setOnboarding(localStorage.getItem('haku_onboarding'))
-    function sync() { setOnboarding(localStorage.getItem('haku_onboarding')) }
-    window.addEventListener('haku_onboarding', sync)
-    return () => window.removeEventListener('haku_onboarding', sync)
+    function syncOnboarding() { setOnboarding(localStorage.getItem('haku_onboarding')) }
+    window.addEventListener('haku_onboarding', syncOnboarding)
+    return () => window.removeEventListener('haku_onboarding', syncOnboarding)
   }, [])
+
+  useEffect(() => {
+    setStoredFY(localStorage.getItem('haku_fy'))
+    function syncFY() { setStoredFY(localStorage.getItem('haku_fy')) }
+    window.addEventListener('haku_fy_change', syncFY)
+    return () => window.removeEventListener('haku_fy_change', syncFY)
+  }, [])
+
+  function tabHref(base: string) {
+    return storedFY ? `${base}?fy=${encodeURIComponent(storedFY)}` : base
+  }
 
   const pulsePlan  = onboarding === 'plan'
   const pulseBands = onboarding === 'bands'
@@ -44,7 +56,7 @@ export default function BottomNav() {
             const active = path === href || path.startsWith(href + '/')
             const showPulse = href === '/bands' && pulseBands
             return (
-              <Link key={href} href={href}
+              <Link key={href} href={tabHref(href)}
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
                 style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 {showPulse && (
@@ -76,7 +88,7 @@ export default function BottomNav() {
             const active = path === href || path.startsWith(href + '/')
             const showPulse = href === '/plan' && pulsePlan
             return (
-              <Link key={href} href={href}
+              <Link key={href} href={tabHref(href)}
                 className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
                 style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 <div className="relative">

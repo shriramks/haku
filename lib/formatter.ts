@@ -28,6 +28,11 @@ export function formatPct(pct: number, decimals = 1): string {
   return `${pct.toFixed(decimals)}%`
 }
 
+/** Same as formatINR but without the ₹ prefix */
+export function formatAmt(amount: number): string {
+  return formatINR(amount).replace('₹', '')
+}
+
 /** ₹1,25,000 style full Indian comma formatting */
 export function formatINRFull(amount: number): string {
   return new Intl.NumberFormat('en-IN', {

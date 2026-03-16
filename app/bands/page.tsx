@@ -13,7 +13,6 @@ const BandsClient = dynamic(() => import('./BandsClient'), {
   ),
 })
 import BottomNav from '@/components/BottomNav'
-import UserMenu from '@/components/UserMenu'
 
 export default async function BandsPage({
   searchParams,
@@ -53,52 +52,16 @@ export default async function BandsPage({
 
   return (
     <>
-      <div>
-        {/* Header */}
-        <div
-          className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
-          style={{
-            background: 'var(--bg-nav)',
-            borderColor: 'var(--border)',
-            paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
-          }}>
-          <div className="flex items-center justify-between">
-            <h1 className="text-[28px] font-bold">Buy Bands</h1>
-            <UserMenu />
-          </div>
-          {fiscalYears.length > 1 && (
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {fiscalYears.map(f => {
-                const start = new Date(f.start_date)
-                const end   = new Date(f.end_date)
-                const startLabel = start.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
-                const endLabel   = end.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
-                const active = fy?.id === f.id
-                return (
-                  <a key={f.id} href={`/bands?fy=${f.label}`}
-                    className="px-3 py-1.5 rounded-xl text-sm font-medium flex flex-col items-center"
-                    style={{
-                      background: active ? 'var(--text-primary)' : 'var(--border)',
-                      color: active ? 'var(--bg-primary)' : 'var(--text-muted)',
-                    }}>
-                    <span>{f.label}</span>
-                    <span className="text-[10px] opacity-70">{startLabel}–{endLabel}</span>
-                  </a>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <BandsClient
+      <BandsClient
           rows={sorted}
           bands={bands}
           allocations={allocations}
           initialTranches={tranches}
           fyId={fy?.id ?? ''}
           fyLabel={fy?.label}
-        />
-      </div>
+          fiscalYears={fiscalYears}
+          selectedFY={fy ?? null}
+      />
       <BottomNav />
     </>
   )
