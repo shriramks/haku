@@ -7,9 +7,10 @@ interface Props {
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
   onSelect: (fy: FiscalYear) => void
+  onNew?: () => void
 }
 
-export default function FYPicker({ fiscalYears, selectedFY, onSelect }: Props) {
+export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: Props) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -35,6 +36,7 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect }: Props) {
         </div>
         <div className="py-1">
           {fiscalYears.map(fy => {
+
             const active = fy.id === selectedFY?.id
             const start = new Date(fy.start_date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })
             const end   = new Date(fy.end_date).toLocaleDateString('en-IN',   { month: 'short', year: '2-digit' })
@@ -60,6 +62,17 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect }: Props) {
               </button>
             )
           })}
+          {onNew && (
+            <button
+              onClick={() => { onNew(); setOpen(false) }}
+              className="w-full flex items-center justify-between px-5 py-3.5 tap-row border-t"
+              style={{ borderColor: 'var(--border)' }}>
+              <p className="text-[17px] font-medium" style={{ color: '#0A84FF' }}>New fiscal year</p>
+              <svg className="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="#0A84FF" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </>,

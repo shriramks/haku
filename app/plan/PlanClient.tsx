@@ -136,7 +136,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         <div className="flex items-center justify-between px-4 pb-3">
           <h1 className="text-[28px] font-bold">Plan</h1>
           <div className="flex items-center gap-2">
-            <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={switchFY} />
+            <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={switchFY} onNew={() => setShowNewPlan(true)} />
             <UserMenu />
           </div>
         </div>
@@ -521,13 +521,6 @@ function PlanTab({
                       className="text-[14px] font-medium px-3 py-2 rounded-xl"
                       style={{ color: '#0A84FF', background: 'rgba(10,132,255,0.12)' }}>
                       {showAddStock ? 'Cancel' : '+ Add Stock'}
-                    </button>
-                  )}
-                  {!confirmClear && (
-                    <button onClick={onNewPlan}
-                      className="text-[14px] font-medium px-3 py-2 rounded-xl"
-                      style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
-                      + New Plan
                     </button>
                   )}
                 </div>

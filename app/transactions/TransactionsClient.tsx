@@ -292,9 +292,10 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
   // ── Normal display ──
   return (
-    <div className="flex items-center px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
-      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 self-start mt-[6px] ${isBuy ? 'bg-green-500' : 'bg-red-400'}`} />
+    <div className="flex items-start px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
+      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] ${isBuy ? 'bg-green-500' : 'bg-red-400'}`} />
 
+      {/* Left: symbol + name */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[16px]">{txn.symbol}</span>
@@ -308,14 +309,22 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         {getStockName(txn.symbol) && (
           <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(txn.symbol)}</p>
         )}
-        <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {Math.round(txn.quantity)} shares · ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+      </div>
+
+      {/* Middle: qty / price / date */}
+      <div className="text-right flex-shrink-0">
+        <p className="text-[14px] tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
+          {Math.round(txn.quantity)} qty
         </p>
-        <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-faint)' }}>
+        <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>
+          ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        </p>
+        <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
           {formatDate(txn.trade_date)}
         </p>
       </div>
 
+      {/* Right: amount + edit */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className="font-bold tabnum text-[16px]"
            style={{ color: isBuy ? 'var(--text-primary)' : '#FF3B30' }}>
