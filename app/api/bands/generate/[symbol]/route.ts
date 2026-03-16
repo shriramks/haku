@@ -24,7 +24,7 @@ async function callGemini(prompt: string, key: string): Promise<string> {
   const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? []
   // Gemini 2.5 Flash returns thought parts first; skip them to get the actual response
   const textParts = parts.filter(p => p.text && !p.thought)
-  return textParts.map(p => p.text).join('') || parts[0]?.text ?? ''
+  return (textParts.map(p => p.text).join('') || parts[0]?.text) ?? ''
 }
 
 async function callClaude(prompt: string, key: string): Promise<string> {
