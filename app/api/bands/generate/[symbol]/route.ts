@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
 import { decrypt } from '@/lib/encrypt'
@@ -467,6 +468,9 @@ export async function POST(
 
     generatedTranches = inserted ?? []
   }
+
+  revalidateTag('buy_bands')
+  revalidateTag('buy_tranches')
 
   return NextResponse.json({
     symbol: upperSymbol,

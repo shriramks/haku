@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
@@ -115,6 +116,8 @@ export async function POST(
     .select()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  revalidateTag('buy_tranches')
 
   return NextResponse.json({ symbol: upperSymbol, tranches: inserted ?? [] })
 }
