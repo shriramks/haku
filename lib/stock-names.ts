@@ -3,9 +3,13 @@
 // Add new entries here as stocks are added to the watchlist.
 
 const NAMES: Record<string, string> = {
-  BEL:       'Bharat Electronics',
-  CAMS:      'CAMS',
-  DMART:     'Avenue Supermarts',
+  BEL:        'Bharat Electronics',
+  CAMS:       'Computer Age Mgmt Services',
+  DMART:      'Avenue Supermarts',
+  EMBASSY:    'Embassy Office Parks REIT',
+  JUNIORBEES: 'Nifty Next 50 Index ETF',
+  NIFTYBEES:  'Nifty 50 Index ETF',
+  TCS:        'Tata Consultancy Services',
   HAL:       'Hindustan Aeronautics',
   HDFCBANK:  'HDFC Bank',
   ICICIBANK: 'ICICI Bank',

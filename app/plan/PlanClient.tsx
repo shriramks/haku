@@ -25,7 +25,7 @@ const SHORT_CAT: Record<string, string> = {
   'Insurance — Life':   'Ins.Life',
   'Insurance — General':'Ins.Gen',
   'IT/Technology':      'IT',
-  'Index/ETF':          'ETF',
+  'Index/ETF':          'Passive',
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -503,11 +503,11 @@ function PlanTab({
                 style={{ borderColor: 'var(--border-faint)' }}>
                 {/* Sector types — always visible */}
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-4 flex-wrap">
+                  <div className="flex gap-3 flex-nowrap overflow-x-auto">
                     {(['Defensive', 'Cyclical', 'Growth', 'REIT', 'Passive'] as const)
                       .filter(t => byType[t])
                       .map(t => (
-                        <span key={t} className="text-[15px] tabnum font-semibold"
+                        <span key={t} className="text-[13px] tabnum font-semibold whitespace-nowrap"
                               style={{ color: typeColors[t] }}>
                           {t} {(byType[t] ?? 0).toFixed(0)}%
                         </span>
