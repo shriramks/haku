@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate } from '@/lib/formatter'
@@ -22,6 +22,8 @@ export default function TransactionsClient({
 }) {
   const router = useRouter()
   const [txns, setTxns] = useState(initial)
+
+  useEffect(() => { setTxns(initial) }, [initial])
 
   function deleteTxn(id: string) {
     setTxns(prev => prev.filter(t => t.id !== id))
@@ -63,7 +65,7 @@ export default function TransactionsClient({
 
       {displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
-             style={{ height: 'calc(100dvh - 140px - env(safe-area-inset-bottom, 0px) - 64px)', color: 'var(--text-muted)' }}>
+             style={{ minHeight: 'calc(100dvh - max(env(safe-area-inset-top, 0px), 16px) - 100px - env(safe-area-inset-bottom, 0px) - 64px)', color: 'var(--text-muted)' }}>
           <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -72,7 +74,7 @@ export default function TransactionsClient({
           <p className="text-[15px]">Tap + to log your first trade</p>
         </div>
       ) : (
-        <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+        <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)', minHeight: 'calc(100dvh - max(env(safe-area-inset-top, 0px), 16px) - 100px - env(safe-area-inset-bottom, 0px) - 64px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
               <div className="flex items-baseline justify-between px-5 mb-2">
