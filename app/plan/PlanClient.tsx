@@ -324,7 +324,7 @@ function PlanTab({
                       type="number" inputMode="decimal"
                       value={budgetInput}
                       onChange={e => setBudgetInput(e.target.value)}
-                      className="text-[22px] font-bold w-36 tabnum outline-none rounded-lg px-2 py-0.5"
+                      className="text-[22px] font-bold w-28 tabnum outline-none rounded-lg px-2 py-0.5"
                       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
                       autoFocus
                     />
@@ -341,17 +341,40 @@ function PlanTab({
                 )}
               </div>
               {editBudget ? (
-                <div className="flex gap-2">
-                  <button onClick={() => setEditBudget(false)}
-                    className="px-3.5 py-2.5 rounded-xl text-[14px]"
-                    style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-                    Cancel
-                  </button>
-                  <button onClick={saveBudget} disabled={savingBudget}
-                    className="px-3.5 py-2.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
-                    style={{ background: 'rgba(10,132,255,0.15)' }}>
-                    {savingBudget ? 'Saving…' : 'Save'}
-                  </button>
+                <div className="flex gap-2 items-center">
+                  {confirmDeletePlan ? (
+                    <>
+                      <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                        {fyHasTxns ? 'Clear?' : 'Delete?'}
+                      </span>
+                      <button onClick={() => setConfirmDeletePlan(false)}
+                        className="px-3 py-2 rounded-xl text-[13px]"
+                        style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>No</button>
+                      <button onClick={() => { setConfirmDeletePlan(false); setEditBudget(false); onDeleteFY() }}
+                        className="px-3 py-2 rounded-xl text-[13px] font-semibold"
+                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                        {fyHasTxns ? 'Clear' : 'Delete'}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => setConfirmDeletePlan(true)}
+                        className="px-3 py-2 rounded-xl text-[13px]"
+                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                        {fyHasTxns ? 'Clear' : 'Delete'}
+                      </button>
+                      <button onClick={() => setEditBudget(false)}
+                        className="px-3.5 py-2.5 rounded-xl text-[14px]"
+                        style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
+                        Cancel
+                      </button>
+                      <button onClick={saveBudget} disabled={savingBudget}
+                        className="px-3.5 py-2.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
+                        style={{ background: 'rgba(10,132,255,0.15)' }}>
+                        {savingBudget ? 'Saving…' : 'Save'}
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <button onClick={() => { setBudgetInput(String(totalBudget)); setEditBudget(true) }}
@@ -362,32 +385,6 @@ function PlanTab({
               )}
             </div>
 
-            {/* Delete / Clear — shown in edit mode */}
-            {editBudget && (
-              <div className="flex justify-start mt-1 mb-2">
-                {confirmDeletePlan ? (
-                  <div className="flex items-center gap-3">
-                    <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
-                      {fyHasTxns ? `Clear allocations for ${selectedFY.label}?` : `Delete ${selectedFY.label}?`}
-                    </span>
-                    <button onClick={() => setConfirmDeletePlan(false)}
-                      className="text-[13px] px-3 py-1.5 rounded-lg"
-                      style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
-                    <button onClick={() => { setConfirmDeletePlan(false); setEditBudget(false); onDeleteFY() }}
-                      className="text-[13px] font-semibold px-3 py-1.5 rounded-lg"
-                      style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
-                      {fyHasTxns ? 'Clear' : 'Delete'}
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => setConfirmDeletePlan(true)}
-                    className="text-[13px] px-3 py-2 rounded-xl"
-                    style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
-                    {fyHasTxns ? 'Clear plan' : 'Delete plan'}
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Allocation bar */}
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
