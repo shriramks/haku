@@ -8,7 +8,7 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 // cache() deduplicates across all calls within a single request render
 
-const getUserId = cache(async (): Promise<string | null> => {
+export const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   return user?.id ?? null

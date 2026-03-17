@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands } from '@/lib/data'
 import DashboardClient from './DashboardClient'
 import BottomNav from '@/components/BottomNav'
@@ -9,10 +7,6 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ fy?: string }>
 }) {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const fiscalYears = await getFiscalYears()
   const { fy: fyParam } = await searchParams
 

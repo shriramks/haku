@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getFiscalYears, getAllocations } from '@/lib/data'
 import PlanClient from './PlanClient'
 import BottomNav from '@/components/BottomNav'
@@ -9,10 +7,6 @@ export default async function PlanPage({
 }: {
   searchParams: Promise<{ fy?: string }>
 }) {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const fiscalYears = await getFiscalYears()
   const { fy: fyParam } = await searchParams
 

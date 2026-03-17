@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches } from '@/lib/data'
 import { computeStockRows } from '@/lib/compute'
 import BandsClient from './BandsClient'
@@ -10,10 +8,6 @@ export default async function BandsPage({
 }: {
   searchParams: Promise<{ fy?: string }>
 }) {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const fiscalYears = await getFiscalYears()
   const { fy: fyParam } = await searchParams
   const today = new Date()

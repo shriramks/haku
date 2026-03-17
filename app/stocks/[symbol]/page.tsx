@@ -1,6 +1,4 @@
-import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getInvestability, getBuyTranches } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getInvestability, getBuyTranches, getUserId } from '@/lib/data'
 import StockDetailClient from './StockDetailClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -11,10 +9,6 @@ export default async function StockDetailPage({
   params: Promise<{ symbol: string }>
   searchParams: Promise<{ tab?: string }>
 }) {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const { symbol } = await params
   const { tab }    = await searchParams
 
@@ -49,7 +43,7 @@ export default async function StockDetailPage({
         band={band}
         tranches={stockTranches}
         investability={investability_}
-        userId={user.id}
+        userId={await getUserId() ?? ''}
         initialTab={tab ?? 'overview'}
       />
       <BottomNav />
