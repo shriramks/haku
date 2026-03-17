@@ -21,13 +21,15 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession() decodes JWT locally — no network call.
+  // Sufficient for redirect gating; data queries enforce user_id in DB.
+  const { data: { session } } = await supabase.auth.getSession()
   const path = request.nextUrl.pathname
 
-  if (!user && path !== '/login') {
+  if (!session && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url))
   }
-  if (user && path === '/login') {
+  if (session && path === '/login') {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
@@ -35,5 +37,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon-|manifest).*)'],
+  // Only run on app pages — skip static assets, API routes, and public files
+  matcher: ['/dashboard/:path*', '/bands/:path*', '/plan/:path*', '/transactions/:path*', '/stocks/:path*', '/add/:path*', '/login'],
 }
