@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   if (session && path === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/allocation', request.url))
   }
 
   return supabaseResponse
@@ -38,5 +38,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Only run on app pages — skip static assets, API routes, and public files
-  matcher: ['/dashboard/:path*', '/bands/:path*', '/plan/:path*', '/transactions/:path*', '/stocks/:path*', '/add/:path*', '/login'],
+  matcher: ['/allocation/:path*', '/bands/:path*', '/plan/:path*', '/transactions/:path*', '/stocks/:path*', '/add/:path*', '/login'],
 }

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
 
 const LEFT_TABS = [
-  { href: '/dashboard',     label: 'Allocation',   Icon: AllocationIcon  },
+  { href: '/allocation',    label: 'Allocation',   Icon: AllocationIcon  },
   { href: '/bands',         label: 'Buy Bands',    Icon: BandsIcon       },
 ] as const
 

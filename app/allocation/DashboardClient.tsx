@@ -24,25 +24,24 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
+  const rows = useMemo(() =>
+    computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0),
+    [allocations, transactions, bands, selectedFY]
+  )
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
-    router.replace(`/dashboard?fy=${encodeURIComponent(fy.label)}`)
+    router.replace(`/allocation?fy=${encodeURIComponent(fy.label)}`)
     const sb = getSupabaseBrowser()
     const [{ data: alloc }, { data: txns }] = await Promise.all([
       sb.from('stock_allocations').select('*').eq('fy_id', fy.id).order('allocation_pct', { ascending: false }),
-      sb.from('transactions').select('*').eq('fy_id', fy.id).order('trade_date', { ascending: false }),
+      sb.from('transactions').select('*').or(`fy_id.eq.${fy.id},advance_fy_id.eq.${fy.id}`).order('trade_date', { ascending: false }),
     ])
     setAllocations(alloc ?? [])
     setTransactions(txns ?? [])
     setLoading(false)
   }
-
-  const rows = useMemo(() =>
-    computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0),
-    [allocations, transactions, bands, selectedFY]
-  )
 
   const sortedRows = useMemo(() =>
     [...rows].sort((a, b) => {

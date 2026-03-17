@@ -2,7 +2,7 @@
   "name": "Haku",
   "short_name": "Haku",
   "description": "Personal Indian stock portfolio tracker",
-  "start_url": "/dashboard",
+  "start_url": "/allocation",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

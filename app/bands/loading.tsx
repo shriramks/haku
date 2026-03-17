@@ -54,7 +54,7 @@ function BottomNavShell({ active }: { active: string }) {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}>
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-1">
-        <NavItem href="/dashboard" label="Allocation" active={active === '/dashboard'}>
+        <NavItem href="/allocation" label="Allocation" active={active === '/allocation'}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />

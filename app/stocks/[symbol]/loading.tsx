@@ -10,7 +10,7 @@ export default function Loading() {
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">
-          <a href="/dashboard" className="flex items-center gap-1 text-[17px]" style={{ color: '#0A84FF' }}>
+          <a href="/allocation" className="flex items-center gap-1 text-[17px]" style={{ color: '#0A84FF' }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
