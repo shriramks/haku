@@ -144,7 +144,7 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
   const isDone = row.remaining <= 0
 
   return (
-    <Link href={`/stocks/${row.symbol}`}
+    <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(selectedFY?.label ?? '')}`}
           className="flex items-center gap-3 px-4 py-4 tap-row border-b"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
