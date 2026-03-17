@@ -21,7 +21,7 @@ export function computeStockRows(
     const spent   = buys.reduce((s, t) => s + t.amount, 0)
                   - sells.reduce((s, t) => s + t.amount, 0)
 
-    const budget    = (alloc.allocation_pct / 100) * totalBudget
+    const budget    = (alloc.allocation_pct / 100) * totalBudget + (alloc.carryover_inr ?? 0)
     const remaining = budget - spent
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null

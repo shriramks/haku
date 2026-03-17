@@ -56,7 +56,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const activeRows    = sortedRows.filter(r => r.remaining > 0)
   const completedRows = sortedRows.filter(r => r.remaining <= 0)
 
-  const totalBudget    = selectedFY?.total_budget_inr ?? 0
+  const stockBudgetTotal = rows.reduce((s, r) => s + r.budget, 0)
+  const unallocCarryover = selectedFY?.unallocated_carryover_inr ?? 0
+  const totalBudget    = stockBudgetTotal + unallocCarryover
   const totalDeployed  = rows.reduce((s, r) => s + r.spent, 0)
   const totalRemaining = totalBudget - totalDeployed
   const pctDeployed    = totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0
@@ -145,7 +147,7 @@ function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
     <Link href={`/stocks/${row.symbol}`}
           className="flex items-center gap-3 px-4 py-4 tap-row border-b"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
-      <div style={{ minWidth: '108px' }}>
+      <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
         <span className="font-semibold text-[17px]">{row.symbol}</span>
         {getStockName(row.symbol) && (
           <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
