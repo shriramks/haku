@@ -103,7 +103,7 @@ export default function StockDetailClient({
         ))}
       </div>
 
-      <div className="overflow-y-auto pb-24">
+      <div className="overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
         {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
         {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />}
         {activeTab === 'transactions' && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}

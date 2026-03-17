@@ -34,7 +34,7 @@ export default function TrancheSection({
       <div className="flex items-center justify-between px-2 mb-2">
         <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
         <span className="text-[11px] tabnum" style={{ color: 'var(--text-muted)' }}>
-          {formatINR(plannedTotal)} / {formatINR(remaining)} Allocated
+          {formatINR(plannedTotal)} planned · {formatINR(remaining)} left
         </span>
       </div>
 

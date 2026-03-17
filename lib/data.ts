@@ -52,7 +52,7 @@ const _getTransactions = unstable_cache(
       .from('transactions')
       .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, advance_fy_id, notes')
       .eq('user_id', userId)
-      .or(`and(fy_id.eq.${fyId},advance_fy_id.is.null),advance_fy_id.eq.${fyId}`)
+      .eq('fy_id', fyId)
       .order('trade_date', { ascending: false })
     return data ?? []
   },

@@ -62,6 +62,7 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
       user_id: user.id, symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
+      amount: parseFloat(qty) * parseFloat(price),
       fy_id: fyId,
     })
 
