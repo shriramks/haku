@@ -10,8 +10,11 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, 
 
 export const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
+  // getSession() decodes the JWT locally — no network call.
+  // Middleware already validates the session exists before pages run,
+  // so a local decode is sufficient for identifying the user.
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user.id ?? null
 })
 
 // ── Cached fetchers (service role — no cookies needed) ────────────────────────
