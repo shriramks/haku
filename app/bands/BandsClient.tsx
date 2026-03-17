@@ -331,6 +331,14 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const hasBands = buyLow != null && trimPrice != null
           const isDone = row.remaining <= 0 || (stockTranches.length > 0 && stockTranches.every(t => t.allocated))
 
+          const signal = (cmp && buyLow && buyHigh && trimPrice)
+            ? cmp < buyLow ? 'deep'
+            : cmp <= buyHigh ? 'buy'
+            : cmp <= (midHigh ?? trimPrice) ? 'hold'
+            : 'trim'
+            : 'unknown'
+          const dotColor = signal === 'deep' ? '#34d399' : signal === 'buy' ? '#34C759' : null
+
           return (
             <div key={row.symbol}>
               {showDivider && (
@@ -344,19 +352,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[17px]">{row.symbol}</span>
-                    {cmp && (
-                      <span className="text-[15px] tabnum" style={{ color: 'var(--text-muted)' }}>
-                        ₹{Math.round(cmp).toLocaleString('en-IN')}
-                      </span>
-                    )}
-                  </div>
-                  {getStockName(row.symbol) && (
-                    <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-2)' }}>
-                      {getStockName(row.symbol)}
-                    </p>
+                <div className="flex-1 min-w-0 flex items-baseline gap-2">
+                  {dotColor && (
+                    <div className="flex-shrink-0 self-center" style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, marginBottom: 1 }} />
+                  )}
+                  <span className="font-bold text-[17px]">{row.symbol}</span>
+                  {cmp && (
+                    <span className="text-[15px] tabnum" style={{ color: 'var(--text-muted)' }}>
+                      ₹{Math.round(cmp).toLocaleString('en-IN')}
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
