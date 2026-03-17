@@ -27,7 +27,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Pharma':             { buyLow: 22, buyHigh: 28, midLow: 29, midHigh: 35, trim: 38 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   // Index/ETF: Nifty PE thresholds; "eps" passed in = etfPrice / indexPE (computed in generate route)
-  'Index/ETF':          { buyLow: 16, buyHigh: 19, midLow: 20, midHigh: 23, trim: 25 },
+  'Index/ETF':          { buyLow: 17, buyHigh: 21, midLow: 22, midHigh: 25, trim: 27 },
   // REIT: price/DPU multiple (inverse of yield); "eps" passed in = annual DPU per unit
   // 12x = 8.3% yield (deep value), 20x = 5% yield (trim)
   'REIT':               { buyLow: 12, buyHigh: 14, midLow: 15, midHigh: 18, trim: 20 },
