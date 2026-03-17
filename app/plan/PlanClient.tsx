@@ -219,10 +219,45 @@ function PlanTab({
   const [confirmDeletePlan, setConfirmDeletePlan] = useState(false)
   const [copying, setCopying] = useState(false)
   const [showCatDetail, setShowCatDetail] = useState(false)
+  const [carryoverAmt, setCarryoverAmt] = useState<number | null>(null)
+  const [carryoverDismissed, setCarryoverDismissed] = useState(false)
+  const [applyingCarryover, setApplyingCarryover] = useState(false)
 
   const sortedFYs = [...fiscalYears].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
   const currentFYIdx = sortedFYs.findIndex(fy => fy.id === selectedFY?.id)
   const prevFY = currentFYIdx > 0 ? sortedFYs[currentFYIdx - 1] : null
+
+  // Check if prev FY has undeployed budget to carry over
+  useEffect(() => {
+    setCarryoverAmt(null)
+    setCarryoverDismissed(false)
+    if (!prevFY || !selectedFY) return
+    if (new Date(prevFY.end_date) >= new Date()) return // prev FY hasn't ended yet
+    if ((selectedFY.unallocated_carryover_inr ?? 0) > 0) return // already applied
+    const dismissKey = `carryover_dismissed_${selectedFY.id}`
+    if (typeof window !== 'undefined' && localStorage.getItem(dismissKey)) { setCarryoverDismissed(true); return }
+    // Fetch prev FY net spent
+    getSupabaseBrowser()
+      .from('transactions')
+      .select('trade_type, amount')
+      .eq('fy_id', prevFY.id)
+      .then(({ data }) => {
+        const spent = (data ?? []).reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+        const leftover = (prevFY.total_budget_inr ?? 0) - spent
+        if (leftover > 0) setCarryoverAmt(leftover)
+      })
+  }, [prevFY?.id, selectedFY?.id])
+
+  async function applyCarryover() {
+    if (!selectedFY || !carryoverAmt) return
+    setApplyingCarryover(true)
+    await getSupabaseBrowser().from('fiscal_years')
+      .update({ unallocated_carryover_inr: carryoverAmt })
+      .eq('id', selectedFY.id)
+    revalidateTags('fiscal_years')
+    setCarryoverAmt(null)
+    setApplyingCarryover(false)
+  }
 
   async function saveBudget() {
     if (!selectedFY) return
@@ -306,6 +341,42 @@ function PlanTab({
 
       {selectedFY ? (
         <>
+          {/* Carryover banner */}
+          {carryoverAmt !== null && !carryoverDismissed && prevFY && (
+            <div className="mx-4 mt-3 p-3 rounded-2xl"
+                 style={{ background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.2)' }}>
+              <div className="flex items-start gap-2.5">
+                <span className="text-[18px] mt-0.5">↩</span>
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold" style={{ color: '#0A84FF' }}>
+                    {prevFY.label} carryover available
+                  </p>
+                  <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {formatINR(carryoverAmt)} undeployed · add to {selectedFY.label} budget?
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-2.5">
+                <button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') localStorage.setItem(`carryover_dismissed_${selectedFY.id}`, '1')
+                    setCarryoverDismissed(true)
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-[13px]"
+                  style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={applyCarryover}
+                  disabled={applyingCarryover}
+                  className="px-3 py-1.5 rounded-xl text-[13px] font-semibold disabled:opacity-40"
+                  style={{ background: '#0A84FF', color: '#fff' }}>
+                  {applyingCarryover ? '…' : 'Add'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Budget flat strip */}
           {(() => {
             const stockCarryover = allocations.reduce((s, a) => s + (a.carryover_inr ?? 0), 0)

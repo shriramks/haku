@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Carryover Mock</title>
+<style>
+  :root {
+    --bg-primary: #f2f2f7;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e5e5ea;
+    --bg-nav: rgba(242,242,247,0.92);
+    --text-primary: #000;
+    --text-muted: #3c3c4399;
+    --text-faint: #3c3c4366;
+    --border: #c6c6c8;
+    --border-faint: #e5e5ea;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; }
+  body { background: var(--bg-primary); color: var(--text-primary); max-width: 390px; margin: 0 auto; }
+
+  .header {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg-nav); border-bottom: 1px solid var(--border);
+    padding: 16px 16px 12px; backdrop-filter: blur(20px);
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 28px; font-weight: 700; }
+  .pill { background: var(--bg-tertiary); border-radius: 20px; padding: 6px 12px; font-size: 14px; display: flex; align-items: center; gap: 4px; }
+
+  .state-label {
+    text-align: center; font-size: 11px; font-weight: 600;
+    color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 16px 0 8px;
+  }
+  .divider { height: 20px; background: var(--bg-primary); }
+
+  /* ── Plan page ── */
+  .budget-strip {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border-faint);
+    background: var(--bg-secondary);
+  }
+  .budget-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+  .budget-amt { font-size: 22px; font-weight: 700; }
+  .budget-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .edit-btn { background: var(--bg-tertiary); border: none; border-radius: 12px; padding: 8px 14px; font-size: 14px; color: var(--text-muted); }
+  .alloc-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 5px; }
+  .alloc-fill { height: 100%; border-radius: 99px; background: #30D158; }
+  .alloc-label { font-size: 12px; color: var(--text-muted); text-align: right; }
+
+  .carryover-banner {
+    margin: 10px 16px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(10,132,255,0.08);
+    border: 1px solid rgba(10,132,255,0.2);
+  }
+  .banner-top { display: flex; align-items: center; gap: 10px; }
+  .banner-icon { font-size: 18px; flex-shrink: 0; }
+  .banner-text { flex: 1; }
+  .banner-title { font-size: 13px; font-weight: 600; color: #0A84FF; margin-bottom: 2px; }
+  .banner-desc { font-size: 12px; color: var(--text-muted); }
+  .banner-btns { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+  .btn-dismiss { background: none; border: 1px solid var(--border); font-size: 13px; color: var(--text-muted); padding: 7px 12px; border-radius: 10px; }
+  .btn-apply { background: #0A84FF; color: #fff; border: none; border-radius: 10px; padding: 7px 14px; font-size: 13px; font-weight: 600; }
+
+  .carryover-applied {
+    margin: 10px 16px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(48,209,88,0.08);
+    border: 1px solid rgba(48,209,88,0.2);
+    font-size: 12px; color: #30D158; font-weight: 500;
+  }
+
+  .stock-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border-faint);
+    background: var(--bg-secondary);
+  }
+  .stock-left { width: 108px; flex-shrink: 0; overflow: hidden; }
+  .stock-symbol { font-size: 17px; font-weight: 600; }
+  .stock-name { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stock-bar { flex: 1; height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+  .stock-bar-fill { height: 100%; border-radius: 99px; background: #30D158; }
+  .stock-right { font-size: 14px; color: var(--text-muted); min-width: 64px; text-align: right; }
+  .chevron { color: var(--text-faint); font-size: 18px; }
+
+  /* ── Add Txn modal ── */
+  .modal-sheet {
+    background: var(--bg-secondary);
+    border-radius: 20px 20px 0 0;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 99px; margin: 0 auto 16px; }
+  .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+
+  .trade-toggle { display: flex; background: var(--bg-tertiary); border-radius: 10px; padding: 2px; margin-bottom: 16px; }
+  .trade-btn { flex: 1; padding: 7px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; background: none; color: var(--text-muted); }
+  .trade-btn.active-buy { background: #fff; color: #000; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .trade-btn.active-sell { background: #fff; color: #FF3B30; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+  .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .form-label { font-size: 13px; color: var(--text-muted); }
+  .form-input {
+    background: var(--bg-tertiary); border: none; border-radius: 12px;
+    padding: 12px 14px; font-size: 17px; color: var(--text-primary); outline: none; width: 100%;
+  }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+
+  /* Redeploy toggle row */
+  .redeploy-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    background: rgba(255,59,48,0.06);
+    border: 1px solid rgba(255,59,48,0.15);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .redeploy-text { flex: 1; margin-right: 12px; }
+  .redeploy-label { font-size: 14px; font-weight: 500; }
+  .redeploy-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* iOS-style toggle */
+  .ios-toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+  .ios-toggle input { opacity: 0; width: 0; height: 0; }
+  .ios-slider {
+    position: absolute; inset: 0;
+    background: #ccc; border-radius: 99px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .ios-slider:before {
+    content: ''; position: absolute;
+    width: 27px; height: 27px; left: 2px; bottom: 2px;
+    background: white; border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+  }
+  .ios-toggle input:checked + .ios-slider { background: #34C759; }
+  .ios-toggle input:checked + .ios-slider:before { transform: translateX(20px); }
+
+  .save-btn {
+    width: 100%; padding: 16px; border-radius: 14px; border: none;
+    font-size: 17px; font-weight: 600; color: #fff; background: #0A84FF;
+  }
+
+  .bottom-nav {
+    background: var(--bg-nav); border-top: 1px solid var(--border);
+    padding: 8px 0 28px;
+    display: flex; align-items: center; justify-content: space-around;
+  }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text-muted); flex: 1; }
+  .nav-item.active { color: #0A84FF; }
+  .nav-plus { width: 48px; height: 48px; background: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- SECTION A: PLAN PAGE — CARRYOVER BANNER    -->
+<!-- ═══════════════════════════════════════════ -->
+
+<div class="header">
+  <div class="header-row">
+    <h1>Plan</h1>
+    <div style="display:flex;gap:8px">
+      <div class="pill">FY26 ⌄</div>
+      <div class="pill" style="width:36px;justify-content:center">📖</div>
+      <div class="pill" style="width:36px;justify-content:center">👤</div>
+    </div>
+  </div>
+</div>
+
+<div class="state-label">A1 — carryover banner (start of FY26)</div>
+
+<div class="budget-strip">
+  <div class="budget-row">
+    <div>
+      <div class="budget-amt">₹24L</div>
+    </div>
+    <button class="edit-btn">Edit</button>
+  </div>
+  <div class="alloc-bar"><div class="alloc-fill" style="width:0%"></div></div>
+  <div class="alloc-label">0.0% allocated</div>
+</div>
+
+<div class="carryover-banner">
+  <div class="banner-top">
+    <div class="banner-icon">↩</div>
+    <div class="banner-text">
+      <div class="banner-title">FY25 carryover available</div>
+      <div class="banner-desc">₹2.1L undeployed last year · add to this year's budget?</div>
+    </div>
+  </div>
+  <div class="banner-btns">
+    <button class="btn-dismiss">Cancel</button>
+    <button class="btn-apply">Add</button>
+  </div>
+</div>
+
+<div style="background:var(--bg-secondary)">
+  <div class="stock-row">
+    <div class="stock-left"><div class="stock-symbol">NIFTYBEES</div></div>
+    <div class="stock-bar"><div class="stock-bar-fill" style="width:0%"></div></div>
+    <div class="stock-right">9.6L left</div>
+    <div class="chevron">›</div>
+  </div>
+  <div class="stock-row">
+    <div class="stock-left"><div class="stock-symbol">CAMS</div></div>
+    <div class="stock-bar"><div class="stock-bar-fill" style="width:0%"></div></div>
+    <div class="stock-right">2.64L left</div>
+    <div class="chevron">›</div>
+  </div>
+</div>
+
+<div class="divider"></div>
+<div class="state-label">A2 — after applying carryover</div>
+
+<div class="budget-strip">
+  <div class="budget-row">
+    <div>
+      <div class="budget-amt">₹26.1L</div>
+      <div class="budget-sub">₹24L base + ₹2.1L carryover from FY25</div>
+    </div>
+    <button class="edit-btn">Edit</button>
+  </div>
+  <div class="alloc-bar"><div class="alloc-fill" style="width:0%"></div></div>
+  <div class="alloc-label">0.0% allocated</div>
+</div>
+
+<div class="carryover-applied">✓ ₹2.1L carryover from FY25 added to budget</div>
+
+<div style="background:var(--bg-secondary)">
+  <div class="stock-row">
+    <div class="stock-left"><div class="stock-symbol">NIFTYBEES</div></div>
+    <div class="stock-bar"><div class="stock-bar-fill" style="width:0%"></div></div>
+    <div class="stock-right">10.44L left</div>
+    <div class="chevron">›</div>
+  </div>
+  <div class="stock-row">
+    <div class="stock-left"><div class="stock-symbol">CAMS</div></div>
+    <div class="stock-bar"><div class="stock-bar-fill" style="width:0%"></div></div>
+    <div class="stock-right">2.87L left</div>
+    <div class="chevron">›</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- SECTION B: ADD TXN MODAL — SELL WITH TOGGLE -->
+<!-- ═══════════════════════════════════════════ -->
+
+<div class="divider"></div>
+<div class="state-label">B1 — add txn modal · buy (no toggle)</div>
+
+<div class="modal-sheet">
+  <div class="modal-handle"></div>
+  <div class="modal-title">Log transaction · IEX</div>
+
+  <div class="trade-toggle">
+    <button class="trade-btn active-buy">Buy</button>
+    <button class="trade-btn">Sell</button>
+  </div>
+
+  <div class="form-row-2">
+    <div class="form-row">
+      <div class="form-label">Qty</div>
+      <input class="form-input" value="50" readonly />
+    </div>
+    <div class="form-row">
+      <div class="form-label">Price (₹)</div>
+      <input class="form-input" value="185" readonly />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-label">Date</div>
+    <input class="form-input" value="17 Mar 2026" readonly />
+  </div>
+
+  <!-- no redeploy toggle for buy -->
+
+  <button class="save-btn">Save · ₹9,250</button>
+</div>
+
+<div class="divider"></div>
+<div class="state-label">B2 — add txn modal · sell (toggle on by default)</div>
+
+<div class="modal-sheet">
+  <div class="modal-handle"></div>
+  <div class="modal-title">Log transaction · IEX</div>
+
+  <div class="trade-toggle">
+    <button class="trade-btn">Buy</button>
+    <button class="trade-btn active-sell">Sell</button>
+  </div>
+
+  <div class="form-row-2">
+    <div class="form-row">
+      <div class="form-label">Qty</div>
+      <input class="form-input" value="50" readonly />
+    </div>
+    <div class="form-row">
+      <div class="form-label">Price (₹)</div>
+      <input class="form-input" value="210" readonly />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-label">Date</div>
+    <input class="form-input" value="17 Mar 2026" readonly />
+  </div>
+
+  <!-- redeploy toggle — default ON for sell -->
+  <div class="redeploy-row">
+    <div class="redeploy-text">
+      <div class="redeploy-label">Redeploy proceeds to FY26</div>
+      <div class="redeploy-sub">Adds ₹10,500 to FY26 unallocated budget</div>
+    </div>
+    <label class="ios-toggle">
+      <input type="checkbox" checked onchange="this.closest('.redeploy-row').style.opacity = this.checked ? '1' : '0.5'" />
+      <span class="ios-slider"></span>
+    </label>
+  </div>
+
+  <button class="save-btn" style="background:#FF3B30">Save · ₹10,500</button>
+</div>
+
+<div class="divider"></div>
+<div class="state-label">B3 — sell with toggle off</div>
+
+<div class="modal-sheet">
+  <div class="modal-handle"></div>
+  <div class="modal-title">Log transaction · IEX</div>
+
+  <div class="trade-toggle">
+    <button class="trade-btn">Buy</button>
+    <button class="trade-btn active-sell">Sell</button>
+  </div>
+
+  <div class="form-row-2">
+    <div class="form-row">
+      <div class="form-label">Qty</div>
+      <input class="form-input" value="50" readonly />
+    </div>
+    <div class="form-row">
+      <div class="form-label">Price (₹)</div>
+      <input class="form-input" value="210" readonly />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-label">Date</div>
+    <input class="form-input" value="17 Mar 2026" readonly />
+  </div>
+
+  <div class="redeploy-row" style="opacity:0.5">
+    <div class="redeploy-text">
+      <div class="redeploy-label">Redeploy proceeds to FY26</div>
+      <div class="redeploy-sub">Proceeds stay within IEX allocation</div>
+    </div>
+    <label class="ios-toggle">
+      <input type="checkbox" onchange="this.closest('.redeploy-row').style.opacity = this.checked ? '1' : '0.5'" />
+      <span class="ios-slider"></span>
+    </label>
+  </div>
+
+  <button class="save-btn" style="background:#FF3B30">Save · ₹10,500</button>
+</div>
+
+<div style="height:32px"></div>
+
+</body>
+</html>

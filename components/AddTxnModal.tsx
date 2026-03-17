@@ -12,6 +12,7 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
   const [date, setDate]             = useState(todayISO())
   const [qty, setQty]               = useState('')
   const [price, setPrice]           = useState('')
+  const [redeploy, setRedeploy]     = useState(true)
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [done, setDone]             = useState(false)
@@ -56,12 +57,22 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
       .lte('end_date', `${fyEndYear}-03-31`)
       .limit(1)
 
+    const fyId = fyRows?.[0]?.id ?? null
     const { error } = await sb.from('transactions').insert({
       user_id: user.id, symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
-      fy_id: fyRows?.[0]?.id ?? null,
+      fy_id: fyId,
     })
+
+    if (!error && type === 'sell' && redeploy && fyId) {
+      const { data: fy } = await sb.from('fiscal_years')
+        .select('unallocated_carryover_inr').eq('id', fyId).single()
+      const current = fy?.unallocated_carryover_inr ?? 0
+      await sb.from('fiscal_years')
+        .update({ unallocated_carryover_inr: current + amount })
+        .eq('id', fyId)
+    }
 
     setLoading(false)
     if (error) { setError(error.message); return }
@@ -179,6 +190,29 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
               <span className={`font-bold tabnum text-[20px] ${type === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
                 {formatINR(amount)}
               </span>
+            </div>
+          )}
+
+          {/* Redeploy toggle — sell only */}
+          {type === 'sell' && amount > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                 style={{ background: 'rgba(255,59,48,0.06)', border: '1px solid rgba(255,59,48,0.15)', opacity: redeploy ? 1 : 0.6 }}>
+              <div className="flex-1 mr-3">
+                <p className="text-[14px] font-medium">Redeploy proceeds</p>
+                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {redeploy ? `Adds ${formatINR(amount)} to this year's budget` : 'Proceeds stay in this stock\'s allocation'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRedeploy(r => !r)}
+                className="relative flex-shrink-0"
+                style={{ width: 51, height: 31 }}>
+                <div className="absolute inset-0 rounded-full transition-colors duration-200"
+                     style={{ background: redeploy ? '#34C759' : '#ccc' }} />
+                <div className="absolute top-0.5 rounded-full bg-white shadow transition-transform duration-200"
+                     style={{ width: 27, height: 27, left: 2, transform: redeploy ? 'translateX(20px)' : 'translateX(0)' }} />
+              </button>
             </div>
           )}
 
