@@ -34,7 +34,6 @@ import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
-import { revalidateTags } from '@/lib/revalidate-client'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -84,7 +83,6 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
       setAllocations([])
     }
 
-    revalidateTags('fiscal_years', 'allocations', 'buy_tranches')
     router.refresh()
   }
 
@@ -254,7 +252,6 @@ function PlanTab({
     await getSupabaseBrowser().from('fiscal_years')
       .update({ unallocated_carryover_inr: carryoverAmt })
       .eq('id', selectedFY.id)
-    revalidateTags('fiscal_years')
     setCarryoverAmt(null)
     setApplyingCarryover(false)
   }
@@ -266,7 +263,6 @@ function PlanTab({
     setSavingBudget(true)
     await getSupabaseBrowser().from('fiscal_years').update({ total_budget_inr: val }).eq('id', selectedFY.id)
     onFYBudgetChange(val)
-    revalidateTags('fiscal_years')
     setSavingBudget(false)
     setEditBudget(false)
   }
@@ -274,19 +270,16 @@ function PlanTab({
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
     await getSupabaseBrowser().from('stock_allocations').update({ allocation_pct: pct }).eq('id', alloc.id)
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, allocation_pct: pct } : a))
-    revalidateTags('allocations')
   }
 
   async function updateAllocCategory(alloc: StockAllocation, category: StockCategory) {
     await getSupabaseBrowser().from('stock_allocations').update({ category }).eq('id', alloc.id)
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, category } : a))
-    revalidateTags('allocations')
   }
 
   async function removeAlloc(id: string) {
     await getSupabaseBrowser().from('stock_allocations').delete().eq('id', id)
     onAllocationsChange(allocations.filter(a => a.id !== id))
-    revalidateTags('allocations')
   }
 
   async function addStock(symbol: string, category: StockCategory, pct: number) {
@@ -301,7 +294,6 @@ function PlanTab({
       two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
     }).select().single()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
-    revalidateTags('allocations')
     setShowAddStock(false)
   }
 
@@ -309,7 +301,6 @@ function PlanTab({
     if (!selectedFY) return
     await getSupabaseBrowser().from('stock_allocations').delete().eq('fy_id', selectedFY.id)
     onAllocationsChange([])
-    revalidateTags('allocations')
     setConfirmClear(false)
   }
 
@@ -330,7 +321,6 @@ function PlanTab({
       }))
     ).select()
     if (newAllocs) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
-    revalidateTags('allocations')
     setCopying(false)
   }
 
@@ -947,7 +937,6 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
       await sb.from('stock_allocations').insert(inserts)
     }
 
-    revalidateTags('fiscal_years', 'allocations')
     setCreating(false)
     onCreate()
   }

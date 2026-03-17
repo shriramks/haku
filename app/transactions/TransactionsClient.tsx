@@ -7,7 +7,6 @@ import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
-import { revalidateTags } from '@/lib/revalidate-client'
 
 export default function TransactionsClient({
   transactions: initial,
@@ -64,8 +63,11 @@ export default function TransactionsClient({
       </div>
 
       {displayed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 text-center px-6 py-20"
-             style={{ color: 'var(--text-muted)' }}>
+        <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
+             style={{
+               color: 'var(--text-muted)',
+               minHeight: 'calc(100dvh - var(--nav-h, 64px) - var(--safe-bottom, 0px) - 100px)',
+             }}>
           <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -153,7 +155,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
     onSaved({ ...txn, ...patch, amount: qty * price })
-    revalidateTags('transactions', 'transactions_all')
     setSaving(false)
     setEditing(false)
   }
@@ -161,7 +162,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   async function doDelete() {
     await getSupabaseBrowser().from('transactions').delete().eq('id', txn.id)
     onDelete(txn.id)
-    revalidateTags('transactions', 'transactions_all')
   }
 
   const editAmount = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)

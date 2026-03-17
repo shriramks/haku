@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR } from '@/lib/formatter'
-import { revalidateTags } from '@/lib/revalidate-client'
 
 export default function AddTxnModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
@@ -79,8 +78,7 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
     setLoading(false)
     if (error) { setError(error.message); return }
     setDone(true)
-    setTimeout(async () => {
-      await revalidateTags('transactions', 'transactions_all')
+    setTimeout(() => {
       router.refresh()
       onClose()
     }, 700)
