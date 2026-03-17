@@ -3,14 +3,9 @@ import { useState } from 'react'
 import { formatINR } from '@/lib/formatter'
 import type { BuyTranche } from '@/lib/types'
 
-// Shared TrancheSection used by both BandsClient (inline mode) and StockDetailClient (card mode).
-// card=false (default): outer border-t separator, for use inside an already-bordered expanded row
-// card=true: outer rounded card with border, for use as a standalone section
-
 export default function TrancheSection({
   symbol, tranches, remaining, hasBands,
   onToggle, onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
-  card = false,
 }: {
   symbol: string
   tranches: BuyTranche[]
@@ -23,13 +18,12 @@ export default function TrancheSection({
   onGenerate: () => void
   onClear: () => Promise<void>
   generating: boolean
-  card?: boolean
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
 
-  const inner = (
-    <>
+  return (
+    <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-2 mb-2">
         <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
@@ -66,9 +60,10 @@ export default function TrancheSection({
       </div>
 
       {/* Tranche list */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
         {editingId === 'new' && (
           <TrancheInputRow
+            maxAmount={remaining - plannedTotal}
             onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
             onCancel={() => setEditingId(null)}
           />
@@ -79,6 +74,7 @@ export default function TrancheSection({
                 key={t.id}
                 initialQty={String(Math.round(t.qty))}
                 initialPrice={String(t.price)}
+                maxAmount={remaining - plannedTotal + t.qty * t.price}
                 onSave={async (qty, price) => { await onUpdate(t.id, qty, price); setEditingId(null) }}
                 onDelete={() => { onDelete(t.id); setEditingId(null) }}
                 onCancel={() => setEditingId(null)}
@@ -89,29 +85,16 @@ export default function TrancheSection({
           <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>No tranches yet — tap Generate</p>
         )}
       </div>
-    </>
-  )
-
-  if (card) {
-    return (
-      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)', padding: '6px 4px 4px 4px', background: 'var(--bg-secondary)' }}>
-        {inner}
-      </div>
-    )
-  }
-
-  return (
-    <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
-      {inner}
     </div>
   )
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function TrancheInputRow({ initialQty = '', initialPrice = '', onSave, onDelete, onCancel }: {
+function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave, onDelete, onCancel }: {
   initialQty?: string
   initialPrice?: string
+  maxAmount: number
   onSave: (qty: number, price: number) => Promise<void>
   onDelete?: () => void
   onCancel?: () => void
@@ -120,38 +103,57 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', onSave, onDelete,
   const [price, setPrice] = useState(initialPrice)
   const [saving, setSaving] = useState(false)
 
+  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
+  const overBudget = amount > 0 && amount > maxAmount
+
   async function save() {
     const q = parseFloat(qty), p = parseFloat(price)
-    if (!q || !p) return
+    if (!q || !p || overBudget) return
     setSaving(true)
     await onSave(q, p)
     setSaving(false)
   }
 
   return (
-    <div className="flex items-center gap-1.5 p-2 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-      <input type="text" inputMode="numeric" placeholder="Qty" value={qty}
-        onChange={e => setQty(e.target.value)}
-        style={{ width: 80, padding: '8px', borderRadius: 10, fontSize: 14, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
-      <span style={{ fontSize: 12, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
-      <input type="text" inputMode="decimal" placeholder="Price ₹" value={price}
-        onChange={e => setPrice(e.target.value)}
-        style={{ width: 150, padding: '8px', borderRadius: 10, fontSize: 14, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
-      <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', flexShrink: 0 }}>
-        <button onClick={save} disabled={saving || !qty || !price}
-          style={{ width: 50, height: 50, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer', opacity: (saving || !qty || !price) ? 0.4 : 1 }}>
-          <SaveIcon className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
-        </button>
-        {onDelete && (
-          <button onClick={onDelete}
-            style={{ width: 50, height: 50, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-            <TrashIcon className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
+    <div className="px-4 py-3" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <input type="text" inputMode="numeric" placeholder="Qty" value={qty}
+          onChange={e => setQty(e.target.value)}
+          className="tabnum"
+          style={{ flex: 1, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
+        <span style={{ fontSize: 13, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
+        <input type="text" inputMode="decimal" placeholder="Price ₹" value={price}
+          onChange={e => setPrice(e.target.value)}
+          className="tabnum"
+          style={{ flex: 2, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
+      </div>
+
+      {overBudget && (
+        <p className="text-[12px] mb-2 tabnum" style={{ color: '#FF3B30' }}>
+          Exceeds allocation by {formatINR(amount - maxAmount)} — max {formatINR(maxAmount)}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <button onClick={save} disabled={saving || !qty || !price || overBudget}
+            className="px-4 py-2.5 rounded-xl text-[14px] font-semibold disabled:opacity-40 text-white"
+            style={{ background: '#0A84FF' }}>
+            {saving ? '…' : 'Save'}
           </button>
-        )}
+          {onDelete && (
+            <button onClick={onDelete}
+              className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
+              style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
+              Delete
+            </button>
+          )}
+        </div>
         {onCancel && (
           <button onClick={onCancel}
-            style={{ width: 50, height: 50, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-            <XIcon className="w-5 h-5" style={{ color: 'var(--text-2)' }} />
+            className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
+            style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+            Cancel
           </button>
         )}
       </div>
@@ -166,11 +168,14 @@ function TrancheRow({ tranche, onToggle, onEdit }: {
 }) {
   const amount = tranche.qty * tranche.price
   return (
-    <div className="flex items-center px-4 py-4 gap-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+    <div className="flex items-center px-4 py-3 gap-3">
+      {/* Checkbox — 44pt tap target */}
       <button onClick={() => onToggle(tranche.id, !tranche.allocated)}
-        className="w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-        style={tranche.allocated ? { background: '#30D158', borderColor: '#30D158' } : { background: 'transparent', borderColor: 'var(--border)' }}>
-        {tranche.allocated && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+        className="w-11 h-11 flex items-center justify-center flex-shrink-0 -ml-2">
+        <div className="w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-colors"
+          style={tranche.allocated ? { background: '#30D158', borderColor: '#30D158' } : { background: 'transparent', borderColor: 'var(--border)' }}>
+          {tranche.allocated && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+        </div>
       </button>
       <p className="flex-1 text-[13px] tabnum"
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)', textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
@@ -180,7 +185,9 @@ function TrancheRow({ tranche, onToggle, onEdit }: {
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
         {formatINR(amount)}
       </p>
-      <button onClick={onEdit} className="flex-shrink-0 p-2.5" style={{ color: 'var(--text-faint)' }}>
+      {/* Edit — 44pt tap target */}
+      <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
+              style={{ color: 'var(--text-faint)' }}>
         <PencilIcon className="w-4 h-4" />
       </button>
     </div>
@@ -210,22 +217,6 @@ function XIcon({ className, style }: { className?: string; style?: React.CSSProp
   return (
     <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
-}
-
-function SaveIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  )
-}
-
-function TrashIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   )
 }

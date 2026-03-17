@@ -391,7 +391,6 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
 
           {/* Tranches — same component as Buy Bands page */}
           <TrancheSection
-            card
             symbol={symbol}
             tranches={sortedTranches}
             remaining={remaining}
@@ -420,7 +419,6 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
           />
 
           <TrancheSection
-            card
             symbol={symbol}
             tranches={sortedTranches}
             remaining={remaining}

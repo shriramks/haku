@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -24,9 +24,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
-
-  useEffect(() => { setAllocations(initialAllocations) }, [initialAllocations])
-  useEffect(() => { setTransactions(initialTransactions) }, [initialTransactions])
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
