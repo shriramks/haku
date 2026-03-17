@@ -122,13 +122,13 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       ) : (
         <div className="mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-          {activeRows.map(row => <BarRow key={row.symbol} row={row} />)}
+          {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
           {completedRows.length > 0 && (
             <>
               <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
                 <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
               </div>
-              {completedRows.map(row => <BarRow key={row.symbol} row={row} dim />)}
+              {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
             </>
           )}
         </div>
@@ -139,12 +139,12 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function BarRow({ row, dim }: { row: StockRow; dim?: boolean }) {
+function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
   const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
   const isDone = row.remaining <= 0
 
   return (
-    <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(selectedFY?.label ?? '')}`}
+    <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="flex items-center gap-3 px-4 py-4 tap-row border-b"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
