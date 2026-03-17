@@ -226,21 +226,28 @@ export async function POST(
     }, { status: 422 })
   }
 
-  // Call AI provider with search grounding
+  // Call AI provider with search grounding (retry once on transient failure)
   let aiText: string
   const prompt = isIndex ? indexPrompt(upperSymbol)
     : isInsurance ? insurancePrompt(upperSymbol)
     : isBank ? bankPrompt(upperSymbol)
     : isReit ? reitPrompt(upperSymbol)
     : stockPrompt(upperSymbol, category === 'Capital Goods')
+  const callAI = () => aiProvider === 'claude'
+    ? callClaude(prompt, activeKey)
+    : callGemini(prompt, activeKey)
+  const providerName = aiProvider === 'claude' ? 'Claude' : 'Gemini'
   try {
-    aiText = aiProvider === 'claude'
-      ? await callClaude(prompt, activeKey)
-      : await callGemini(prompt, activeKey)
+    aiText = await callAI()
   } catch (e: unknown) {
-    return NextResponse.json({
-      error: `${aiProvider === 'claude' ? 'Claude' : 'Gemini'} fetch failed: ${e instanceof Error ? e.message : String(e)}`,
-    }, { status: 502 })
+    try {
+      // Retry once on transient network failure
+      aiText = await callAI()
+    } catch (e2: unknown) {
+      return NextResponse.json({
+        error: `${providerName} fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
+      }, { status: 502 })
+    }
   }
 
   // Parse JSON from AI text response
@@ -324,6 +331,21 @@ export async function POST(
     borrowingsCr = Number(parsed.borrowingsCr) || null
     cashCr       = Number(parsed.cashCr)       || null
     sharesCr     = Number(parsed.sharesCr)     || null
+
+    // If all key values are null (Gemini search miss), retry once
+    if (!eps && !opProfitCr && !sharesCr) {
+      try {
+        const retryText = await callAI()
+        const retryParsed = extractJSON(retryText)
+        eps          = Number(retryParsed.eps)          || null
+        opProfitCr   = Number(retryParsed.opProfitCr)   || null
+        borrowingsCr = Number(retryParsed.borrowingsCr) || null
+        cashCr       = Number(retryParsed.cashCr)       || null
+        sharesCr     = Number(retryParsed.sharesCr)     || null
+        if (retryParsed.asOf) asOf = String(retryParsed.asOf)
+        aiText = retryText
+      } catch { /* ignore retry failure, fall through to band calc error */ }
+    }
   }
 
   const netDebtCr = (borrowingsCr !== null && cashCr !== null)
