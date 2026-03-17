@@ -62,8 +62,8 @@ export default function TransactionsClient({
       </div>
 
       {displayed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-20"
-             style={{ color: 'var(--text-muted)' }}>
+        <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
+             style={{ height: 'calc(100dvh - 140px)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)', color: 'var(--text-muted)' }}>
           <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
