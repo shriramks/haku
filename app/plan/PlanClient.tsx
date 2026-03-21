@@ -881,16 +881,19 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
         .eq('fy_id', prior!.id)
         .in('symbol', symbols)
 
-      const netBySymbol: Record<string, number> = {}
+      // Only count buys — sells are tracked separately via unallocated_carryover (redeploy).
+      // Using net (buys - sells) would inflate carryover when positions are sold and reinvested.
+      const buysBySymbol: Record<string, number> = {}
       for (const t of txns ?? []) {
-        const sign = t.trade_type === 'buy' ? 1 : -1
-        netBySymbol[t.symbol] = (netBySymbol[t.symbol] ?? 0) + sign * t.amount
+        if (t.trade_type === 'buy') {
+          buysBySymbol[t.symbol] = (buysBySymbol[t.symbol] ?? 0) + t.amount
+        }
       }
       const carryover: Record<string, number> = {}
       for (const a of allocs) {
         const stockBudget = (a.allocation_pct / 100) * prior!.total_budget_inr
-        const spent = netBySymbol[a.symbol] ?? 0
-        carryover[a.symbol] = Math.max(0, stockBudget - spent)
+        const bought = buysBySymbol[a.symbol] ?? 0
+        carryover[a.symbol] = Math.max(0, stockBudget - bought)
       }
       setCarryoverBySymbol(carryover)
     }
@@ -1049,9 +1052,9 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function ChevronIcon({ className }: { className?: string }) {
+function ChevronIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
     </svg>
   )

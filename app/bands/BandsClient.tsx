@@ -725,26 +725,26 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function RefreshIcon({ className }: { className?: string }) {
+function RefreshIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
     </svg>
   )
 }
 
-function ChevronIcon({ className }: { className?: string }) {
+function ChevronIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
     </svg>
   )
 }
 
-function ListIcon({ className }: { className?: string }) {
+function ListIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" {...props}>
       <rect x="2" y="2" width="12" height="2" rx="1"/>
       <rect x="2" y="6" width="9" height="2" rx="1"/>
       <rect x="2" y="10" width="11" height="2" rx="1"/>
@@ -753,9 +753,9 @@ function ListIcon({ className }: { className?: string }) {
   )
 }
 
-function SparkleIcon({ className }: { className?: string }) {
+function SparkleIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
     </svg>
