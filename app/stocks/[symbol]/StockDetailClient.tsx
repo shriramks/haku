@@ -99,14 +99,7 @@ export default function StockDetailClient({
           <M label={`${fiscalYear?.label ?? 'This Year'} Remaining`} value={formatINR(remaining)}
              color={remaining < 0 ? 'text-red-400' : undefined} />
         </div>
-        {budget > 0 && (
-          <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-            {(() => { const p = Math.min(100, (spent / budget) * 100); return (
-              <div className={`h-full rounded-full ${p > 100 ? 'bg-red-500' : p > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
-                   style={{ width: `${p}%` }} />
-            )})()}
-          </div>
-        )}
+
         {qty > 0 && (
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-faint)' }}>
             <M label="Shares"   value={`${Math.round(qty)}`} />
@@ -132,7 +125,7 @@ export default function StockDetailClient({
         </Collapsible>
 
         {/* Transactions */}
-        <Collapsible title="Transactions" defaultOpen>
+        <Collapsible title="Transactions">
           <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />
         </Collapsible>
       </div>
@@ -525,17 +518,9 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
 
   const inner = (
     <>
-      {/* Header row: action buttons only (collapsible provides the title) */}
+      {/* Header row: edit button only */}
       {!editing && (
-        <div className="flex justify-end gap-2 mb-3">
-          <button
-            onClick={generate}
-            disabled={generating}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[14px] font-medium disabled:opacity-40"
-            style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-            <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
-            {generating ? '…' : 'Generate'}
-          </button>
+        <div className="flex justify-end mb-3">
           <button
             onClick={() => setEditing(true)}
             className="w-9 h-9 rounded-lg flex items-center justify-center"
@@ -623,7 +608,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
           </button>
         </>
       ) : hasData ? (
-        <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
+        <div className="grid grid-cols-2 gap-y-4 gap-x-4">
           {band?.eps            && <InputRow k="EPS"            v={`₹${band.eps}`} />}
           {band?.bvps           && <InputRow k="BVPS"           v={`₹${band.bvps}`} />}
           {band?.ebitda         && <InputRow k="EBITDA"         v={`${band.ebitda} Cr`} />}
@@ -683,9 +668,9 @@ function BandBarSimple({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
 
 function InputRow({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex justify-between">
-      <span style={{ color: 'var(--text-muted)' }}>{k}</span>
-      <span className="tabnum" style={{ color: 'var(--text-primary)' }}>{v}</span>
+    <div>
+      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{k}</p>
+      <p className="font-semibold tabnum text-[15px]" style={{ color: 'var(--text-primary)' }}>{v}</p>
     </div>
   )
 }
