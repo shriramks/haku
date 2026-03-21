@@ -37,7 +37,7 @@ export default async function StockDetailPage({
 
   const allFYBudget = symbolAllocations.reduce((sum, alloc) => {
     const fyRow = fiscalYears.find(f => f.id === alloc.fy_id)
-    return sum + (fyRow ? (alloc.allocation_pct / 100) * fyRow.total_budget_inr + (alloc.carryover_inr ?? 0) : 0)
+    return sum + (fyRow ? (alloc.allocation_pct / 100) * (fyRow.total_budget_inr + (fyRow.unallocated_carryover_inr ?? 0)) + (alloc.carryover_inr ?? 0) : 0)
   }, 0)
 
   return (

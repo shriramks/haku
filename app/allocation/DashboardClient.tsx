@@ -25,7 +25,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
   const rows = useMemo(() =>
-    computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0, selectedFY?.id ?? undefined),
+    computeStockRows(allocations, transactions, bands, (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0), selectedFY?.id ?? undefined),
     [allocations, transactions, bands, selectedFY]
   )
 
@@ -55,9 +55,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const activeRows    = sortedRows.filter(r => r.remaining > 0)
   const completedRows = sortedRows.filter(r => r.remaining <= 0)
 
-  const stockBudgetTotal = rows.reduce((s, r) => s + r.budget, 0)
-  const unallocCarryover = selectedFY?.unallocated_carryover_inr ?? 0
-  const totalBudget    = stockBudgetTotal + unallocCarryover
+  const totalBudget    = rows.reduce((s, r) => s + r.budget, 0)
   const totalDeployed  = rows.reduce((s, r) => s + r.spent, 0)
   const totalRemaining = totalBudget - totalDeployed
   const pctDeployed    = totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0
