@@ -200,7 +200,7 @@ export default function UserMenu() {
                 alignItems: 'center',
                 textDecoration: 'none',
               }}>
-              <UploadIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' }} />
+              <UploadIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
               Import from Zerodha CSV
             </a>
           </div>
