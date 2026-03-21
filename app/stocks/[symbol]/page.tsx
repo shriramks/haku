@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getInvestability, getBuyTranches, getUserId } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getSymbolAllocations, getBuyBands, getInvestability, getBuyTranches, getUserId } from '@/lib/data'
 import StockDetailClient from './StockDetailClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -18,21 +18,29 @@ export default async function StockDetailPage({
     ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[0])
     : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[0])
 
-  const [allocations, transactions, bands, investability, allTranches] = fy
+  const [allocations, transactions, bands, investability, allTranches, symbolAllocations, allTxns] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
         getBuyBands(),
         getInvestability(),
         getBuyTranches(fy.id),
+        getSymbolAllocations(symbol),
+        getTransactions(),
       ])
-    : [[], [], [], [], []]
+    : [[], [], [], [], [], [], []]
 
   const allocation     = allocations.find(a => a.symbol === symbol) ?? null
   const band           = bands.find(b => b.symbol === symbol) ?? null
   const investability_ = investability.find(i => i.symbol === symbol) ?? null
   const stockTxns      = transactions.filter(t => t.symbol === symbol)
+  const allSymbolTxns  = allTxns.filter(t => t.symbol === symbol)
   const stockTranches  = allTranches.filter(t => t.symbol === symbol)
+
+  const allFYBudget = symbolAllocations.reduce((sum, alloc) => {
+    const fyRow = fiscalYears.find(f => f.id === alloc.fy_id)
+    return sum + (fyRow ? (alloc.allocation_pct / 100) * fyRow.total_budget_inr + (alloc.carryover_inr ?? 0) : 0)
+  }, 0)
 
   return (
     <>
@@ -41,7 +49,8 @@ export default async function StockDetailPage({
         fiscalYear={fy ?? null}
         allocation={allocation}
         transactions={stockTxns}
-        allTransactions={transactions}
+        allTransactions={allSymbolTxns}
+        allFYBudget={allFYBudget}
         band={band}
         tranches={stockTranches}
         investability={investability_}

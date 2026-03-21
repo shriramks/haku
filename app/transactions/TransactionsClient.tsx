@@ -21,6 +21,8 @@ export default function TransactionsClient({
 }) {
   const router = useRouter()
   const [txns, setTxns] = useState(initial)
+  const [typeFilter, setTypeFilter] = useState<'all' | 'buy' | 'sell'>('all')
+  const [symbolFilter, setSymbolFilter] = useState<string>('all')
 
   useEffect(() => { setTxns(initial) }, [initial])
 
@@ -32,7 +34,11 @@ export default function TransactionsClient({
     setTxns(prev => prev.map(t => t.id === updated.id ? updated : t))
   }
 
-  const displayed = filterSymbol ? txns.filter(t => t.symbol === filterSymbol) : txns
+  const symbols = Array.from(new Set(txns.map(t => t.symbol))).sort()
+  const displayed = txns
+    .filter(t => !filterSymbol || t.symbol === filterSymbol)
+    .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
+    .filter(t => typeFilter === 'all' || t.trade_type === typeFilter)
   const grouped = groupByMonth(displayed)
 
   return (
@@ -59,6 +65,29 @@ export default function TransactionsClient({
             />
             <UserMenu />
           </div>
+        </div>
+
+        {/* Filter chips */}
+        <div className="flex gap-2 mt-2 flex-wrap">
+          {(['all', 'buy', 'sell'] as const).map(t => (
+            <button key={t} onClick={() => setTypeFilter(t)}
+              className="px-3 py-1 rounded-full text-[13px] font-medium transition-colors"
+              style={typeFilter === t
+                ? { background: t === 'buy' ? 'rgba(52,199,89,0.2)' : t === 'sell' ? 'rgba(255,59,48,0.2)' : 'var(--text-primary)', color: t === 'buy' ? '#34C759' : t === 'sell' ? '#FF3B30' : 'var(--bg-primary)' }
+                : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
+            </button>
+          ))}
+          {!filterSymbol && (
+            <select
+              value={symbolFilter}
+              onChange={e => setSymbolFilter(e.target.value)}
+              className="px-3 py-1 rounded-full text-[13px] font-medium outline-none"
+              style={{ background: symbolFilter !== 'all' ? 'rgba(10,132,255,0.15)' : 'var(--bg-tertiary)', color: symbolFilter !== 'all' ? '#0A84FF' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              <option value="all">All stocks</option>
+              {symbols.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
         </div>
       </div>
 

@@ -24,6 +24,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
+  const [view, setView]                 = useState<'bars' | 'details'>('bars')
   const rows = useMemo(() =>
     computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0, selectedFY?.id ?? undefined),
     [allocations, transactions, bands, selectedFY]
@@ -109,6 +110,22 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       )}
 
+      {/* View toggle */}
+      {rows.length > 0 && !loading && (
+        <div className="flex border-b px-4 gap-1" style={{ borderColor: 'var(--border)' }}>
+          {(['bars', 'details'] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className="px-3 py-3 text-[15px] font-medium border-b-2 -mb-px transition-colors"
+              style={{
+                borderColor: view === v ? '#0A84FF' : 'transparent',
+                color: view === v ? '#0A84FF' : 'var(--text-muted)',
+              }}>
+              {v === 'bars' ? 'Allocation' : 'Details'}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-2 rounded-full animate-spin"
@@ -119,7 +136,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
           <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
         </div>
-      ) : (
+      ) : view === 'bars' ? (
         <div className="mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
           {completedRows.length > 0 && (
@@ -131,6 +148,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             </>
           )}
         </div>
+      ) : (
+        <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
       )}
     </div>
   )
@@ -167,6 +186,42 @@ function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: b
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </Link>
+  )
+}
+
+function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) {
+  return (
+    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+      {/* Header row */}
+      <div className="grid px-4 py-2 border-b text-[11px] uppercase tracking-widest font-semibold"
+           style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', borderColor: 'var(--border)', color: 'var(--text-faint)' }}>
+        <span>Stock</span>
+        <span className="text-right">Alloc</span>
+        <span className="text-right">Spent</span>
+        <span className="text-right">Left</span>
+        <span className="text-right">Left%</span>
+      </div>
+      {rows.map(row => {
+        const leftPct = row.budget > 0 ? (row.remaining / row.budget) * 100 : 0
+        const isOver  = row.remaining < 0
+        return (
+          <Link key={row.symbol}
+            href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
+            className="grid px-4 py-3 border-b tap-row tabnum text-[13px]"
+            style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', borderColor: 'var(--border-faint)' }}>
+            <span className="font-semibold text-[14px]" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
+            <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.budget)}</span>
+            <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.spent)}</span>
+            <span className="text-right" style={{ color: isOver ? '#FF3B30' : 'var(--text-2)' }}>
+              {isOver ? '−' : ''}{formatAmt(Math.abs(row.remaining))}
+            </span>
+            <span className="text-right" style={{ color: isOver ? '#FF3B30' : leftPct < 20 ? '#FF9500' : '#30D158' }}>
+              {isOver ? `−${Math.abs(leftPct).toFixed(0)}%` : `${leftPct.toFixed(0)}%`}
+            </span>
+          </Link>
+        )
+      })}
+    </div>
   )
 }
 
