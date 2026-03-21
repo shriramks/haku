@@ -881,16 +881,19 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
         .eq('fy_id', prior!.id)
         .in('symbol', symbols)
 
-      const netBySymbol: Record<string, number> = {}
+      // Only count buys — sells are tracked separately via unallocated_carryover (redeploy).
+      // Using net (buys - sells) would inflate carryover when positions are sold and reinvested.
+      const buysBySymbol: Record<string, number> = {}
       for (const t of txns ?? []) {
-        const sign = t.trade_type === 'buy' ? 1 : -1
-        netBySymbol[t.symbol] = (netBySymbol[t.symbol] ?? 0) + sign * t.amount
+        if (t.trade_type === 'buy') {
+          buysBySymbol[t.symbol] = (buysBySymbol[t.symbol] ?? 0) + t.amount
+        }
       }
       const carryover: Record<string, number> = {}
       for (const a of allocs) {
         const stockBudget = (a.allocation_pct / 100) * prior!.total_budget_inr
-        const spent = netBySymbol[a.symbol] ?? 0
-        carryover[a.symbol] = Math.max(0, stockBudget - spent)
+        const bought = buysBySymbol[a.symbol] ?? 0
+        carryover[a.symbol] = Math.max(0, stockBudget - bought)
       }
       setCarryoverBySymbol(carryover)
     }
