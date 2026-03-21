@@ -701,18 +701,18 @@ function InputRow({ k, v }: { k: string; v: string }) {
   )
 }
 
-function SparkleIcon({ className }: { className?: string }) {
+function SparkleIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
     </svg>
   )
 }
 
-function PencilIcon({ className }: { className?: string }) {
+function PencilIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
     </svg>
   )
