@@ -17,6 +17,7 @@ interface Props {
   allocation: StockAllocation | null
   transactions: Transaction[]
   allTransactions: Transaction[]
+  allFYBudget: number
   band: BuyBand | null
   tranches: BuyTranche[]
   investability: Investability | null
@@ -33,7 +34,7 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 export default function StockDetailClient({
-  symbol, fiscalYear, allocation, transactions, allTransactions, band: initialBand,
+  symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, band: initialBand,
   tranches, investability: initialInv, userId, initialTab,
 }: Props) {
   const router = useRouter()
@@ -41,17 +42,26 @@ export default function StockDetailClient({
   const [band, setBand] = useState(initialBand)
   const [inv, setInv]   = useState(initialInv)
 
-  const buys  = transactions.filter(t => t.trade_type === 'buy')
-  const sells = transactions.filter(t => t.trade_type === 'sell')
+  // Filter out advance buys tagged for a different FY — mirrors computeStockRows logic
+  const fyTxns = fiscalYear
+    ? transactions.filter(t => t.advance_fy_id == null || t.advance_fy_id === fiscalYear.id)
+    : transactions
+  const buys  = fyTxns.filter(t => t.trade_type === 'buy')
+  const sells = fyTxns.filter(t => t.trade_type === 'sell')
   const totalBought   = buys.reduce((s, t) => s + t.quantity, 0)
   const totalBuyValue = buys.reduce((s, t) => s + t.amount, 0)
   const totalSold     = sells.reduce((s, t) => s + t.quantity, 0)
   const qty     = Math.max(0, totalBought - totalSold)
   const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
-  const spent   = buys.reduce((s, t) => s + t.amount, 0) - sells.reduce((s, t) => s + t.amount, 0)
+  const spent   = buys.reduce((s, t) => s + t.amount, 0)
 
-  const budget    = allocation && fiscalYear ? (allocation.allocation_pct / 100) * fiscalYear.total_budget_inr : 0
+  const budget    = allocation && fiscalYear
+    ? (allocation.allocation_pct / 100) * fiscalYear.total_budget_inr + (allocation.carryover_inr ?? 0)
+    : 0
   const remaining = budget - spent
+
+  // All-FY aggregates (buys only, no advance filter needed — each txn belongs to one FY)
+  const allFYSpent = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0)
   const cmp       = band?.manual_cmp ?? null
   const pnl       = cmp !== null && qty > 0 ? (cmp - avgCost) * qty : null
   const pnlPct    = (cmp !== null && avgCost > 0) ? (cmp - avgCost) / avgCost * 100 : null
@@ -103,7 +113,7 @@ export default function StockDetailClient({
       </div>
 
       <div className="overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-        {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
+        {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, allFYBudget, allFYSpent, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
         {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />}
         {activeTab === 'transactions' && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}
       </div>
@@ -113,8 +123,10 @@ export default function StockDetailClient({
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved }: {
-  symbol: string; budget: number; spent: number; remaining: number; qty: number; avgCost: number
+function OverviewTab({ symbol, budget, spent, remaining, allFYBudget, allFYSpent, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved }: {
+  symbol: string; budget: number; spent: number; remaining: number
+  allFYBudget: number; allFYSpent: number
+  qty: number; avgCost: number
   cmp: number | null; pnl: number | null; pnlPct: number | null
   allocation: StockAllocation | null; fiscalYear: FiscalYear | null
   band: BuyBand | null; onBandSaved: (b: BuyBand) => void
@@ -138,30 +150,43 @@ function OverviewTab({ symbol, budget, spent, remaining, qty, avgCost, cmp, pnl,
   }
 
   return (
-    <div className="px-4 py-4 space-y-4">
-      <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-        <p className="text-xs mb-3 uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Budget</p>
-        <div className="h-2 rounded-full overflow-hidden mb-3" style={{ background: 'var(--border)' }}>
-          <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.min(100, pctSpent)}%` }} />
+    <div>
+      {/* This FY budget — flat section */}
+      <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+          {fiscalYear?.label ?? 'This Year'} Budget
+        </p>
+        <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'var(--border)' }}>
+          <div className={`h-full rounded-full ${pctSpent > 100 ? 'bg-red-500' : pctSpent > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
+               style={{ width: `${Math.min(100, pctSpent)}%` }} />
         </div>
         <div className="grid grid-cols-3 gap-2">
           <M label="Budget"    value={formatINR(budget)} />
           <M label="Spent"     value={formatINR(spent)} />
           <M label="Remaining" value={formatINR(remaining)} color={remaining < 0 ? 'text-red-400' : undefined} />
         </div>
-        {allocation && fiscalYear && (
-          <p className="text-xs mt-2 tabnum" style={{ color: 'var(--text-faint)' }}>
-            {formatPct(allocation.allocation_pct)} of {formatINR(fiscalYear.total_budget_inr)} total
-          </p>
-        )}
       </div>
 
+      {/* All-FY budget — flat section */}
+      {allFYBudget > 0 && (
+        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>All Years</p>
+          <div className="grid grid-cols-3 gap-2">
+            <M label="Total Budget" value={formatINR(allFYBudget)} />
+            <M label="Total Spent"  value={formatINR(allFYSpent)} />
+            <M label="Remaining"    value={formatINR(allFYBudget - allFYSpent)}
+               color={(allFYBudget - allFYSpent) < 0 ? 'text-red-400' : undefined} />
+          </div>
+        </div>
+      )}
+
+      {/* Holdings — flat section */}
       {qty > 0 && (
-        <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
+        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
             <button onClick={refreshCMP} disabled={refreshing}
-              className="text-[14px] px-2.5 py-2 rounded-lg disabled:opacity-40"
+              className="text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
               style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
               {refreshing ? '…' : '↻ CMP'}
             </button>

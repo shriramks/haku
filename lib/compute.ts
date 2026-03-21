@@ -24,7 +24,6 @@ export function computeStockRows(
     const qty     = Math.max(0, totalBought - totalSold)
     const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
     const spent   = buys.reduce((s, t) => s + t.amount, 0)
-                  - sells.reduce((s, t) => s + t.amount, 0)
 
     const budget    = (alloc.allocation_pct / 100) * totalBudget + (alloc.carryover_inr ?? 0)
     const remaining = budget - spent

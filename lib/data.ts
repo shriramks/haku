@@ -50,6 +50,18 @@ export const getTransactions = cache(async (fyId?: string): Promise<Transaction[
   return data ?? []
 })
 
+export const getSymbolAllocations = cache(async (symbol: string): Promise<StockAllocation[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const { data } = await createSupabaseServiceClient()
+    .from('stock_allocations')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase, carryover_inr')
+    .eq('user_id', userId)
+    .eq('symbol', symbol)
+    .order('fy_id', { ascending: true })
+  return data ?? []
+})
+
 export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
   const userId = await getUserId()
   if (!userId) return []

@@ -684,13 +684,16 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
             )}
           </div>
           <div className="text-right">
-            <p className="text-[15px] font-medium" style={{ color: 'var(--text-2)' }}>
+            <p className="text-[11px]" style={{ color: 'var(--text-2)' }}>
               {alloc.category.split('/')[0]}
             </p>
             <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {formatINR(budget)}
               {(alloc.carryover_inr ?? 0) > 0 && (
-                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr)}</span>
+                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr!)}</span>
+              )}
+              {(alloc.carryover_inr ?? 0) < 0 && (
+                <span style={{ color: '#FF3B30' }}> −{formatINR(Math.abs(alloc.carryover_inr!))}</span>
               )}
             </p>
           </div>
@@ -893,7 +896,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
       for (const a of allocs) {
         const stockBudget = (a.allocation_pct / 100) * prior!.total_budget_inr
         const bought = buysBySymbol[a.symbol] ?? 0
-        carryover[a.symbol] = Math.max(0, stockBudget - bought)
+        carryover[a.symbol] = stockBudget - bought
       }
       setCarryoverBySymbol(carryover)
     }
@@ -1015,32 +1018,34 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                 <p className="text-[15px]">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
                 <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
                   Allocation %s and categories are copied
-                  {copyStocks && totalCarryover > 0 && ` · ${formatINR(totalCarryover)} carryover carried in`}
-                  {!copyStocks && totalCarryover > 0 && ` · ${formatINR(totalCarryover)} goes to unallocated`}
+                  {copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} net carryover carried in`}
+                  {!copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} carryover goes to unallocated`}
                 </p>
               </div>
             </label>
           )}
 
-          {totalCarryover > 0 && copyStocks && (
+          {totalCarryover !== 0 && copyStocks && (
             <div className="rounded-2xl p-3 space-y-1"
                  style={{ background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)' }}>
               <p className="text-[12px] font-semibold" style={{ color: '#30D158' }}>
                 Carryover from previous plan
               </p>
               {Object.entries(carryoverBySymbol)
-                .filter(([, v]) => v > 0)
+                .filter(([, v]) => v !== 0)
                 .sort((a, b) => b[1] - a[1])
                 .map(([sym, amt]) => (
                   <div key={sym} className="flex justify-between text-[12px] tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
-                    <span style={{ color: '#30D158' }}>{formatINR(amt)}</span>
+                    <span style={{ color: amt >= 0 ? '#30D158' : '#FF3B30' }}>
+                      {amt >= 0 ? '+' : '−'}{formatINR(Math.abs(amt))}
+                    </span>
                   </div>
                 ))}
               <div className="flex justify-between text-[12px] font-semibold tabnum pt-1 border-t"
-                   style={{ borderColor: 'rgba(48,209,88,0.2)', color: '#30D158' }}>
-                <span>Total</span>
-                <span>{formatINR(totalCarryover)}</span>
+                   style={{ borderColor: 'rgba(48,209,88,0.2)', color: totalCarryover >= 0 ? '#30D158' : '#FF3B30' }}>
+                <span>Net</span>
+                <span>{totalCarryover >= 0 ? '+' : '−'}{formatINR(Math.abs(totalCarryover))}</span>
               </div>
             </div>
           )}
