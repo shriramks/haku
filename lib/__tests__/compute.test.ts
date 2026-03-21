@@ -35,15 +35,15 @@ const noBands: BuyBand[] = []
 const totalBudget = 1_000_000
 
 describe('computeStockRows — basic spend', () => {
-  it('spent = buys only, sells do not reduce budget spent', () => {
+  it('spent = net buys minus sell proceeds', () => {
     const allocs = [mkAlloc('INFY', 10)]
     const txns   = [mkTxn('INFY', 'buy', 100, 1500), mkTxn('INFY', 'sell', 20, 1600)]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
-    // spent tracks budget commitment — sells don't free up budget
-    expect(row.spent).toBe(100 * 1500)
+    // net capital committed = buys - sell proceeds
+    expect(row.spent).toBe(100 * 1500 - 20 * 1600)
   })
 
-  it('sells still reduce qty (holdings tracking)', () => {
+  it('sells also reduce qty', () => {
     const allocs = [mkAlloc('INFY', 10)]
     const txns   = [mkTxn('INFY', 'buy', 100, 1500), mkTxn('INFY', 'sell', 20, 1600)]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
@@ -59,18 +59,18 @@ describe('computeStockRows — basic spend', () => {
     expect(row.remaining).toBe(50_000)
   })
 
-  it('mid-FY plan change: sell all does not show budget as available again', () => {
-    // User buys ₹1L, then sells everything and starts a new plan.
-    // Old plan's remaining should be 0 (budget used), not full budget.
-    const allocs = [mkAlloc('ITC', 10)]   // budget = 100_000
+  it('sell-high-buy-low: sell proceeds free up budget for rebuy', () => {
+    // Buy 100 @ ₹1000 = ₹1L, sell 100 @ ₹1100 = receives ₹1.1L, buy 200 @ ₹900 = ₹1.8L
+    // Net spent = ₹1L - ₹1.1L + ₹1.8L = ₹1.7L
+    const allocs = [mkAlloc('ITC', 20)]   // budget = 200_000
     const txns   = [
-      mkTxn('ITC', 'buy',  100, 1000),   // spent ₹1,00,000
-      mkTxn('ITC', 'sell', 100,  980),   // sold everything — should NOT reset spent
+      mkTxn('ITC', 'buy',  100, 1000),
+      mkTxn('ITC', 'sell', 100, 1100),
+      mkTxn('ITC', 'buy',  200,  900),
     ]
     const [row] = computeStockRows(allocs, txns, noBands, totalBudget)
-    expect(row.spent).toBe(100 * 1000)   // ₹1,00,000 committed
-    expect(row.remaining).toBe(0)        // nothing left — no double-count
-    expect(row.qty).toBe(0)             // holdings correctly zero
+    expect(row.spent).toBe(100*1000 - 100*1100 + 200*900)   // 170_000
+    expect(row.qty).toBe(200)
   })
 })
 

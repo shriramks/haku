@@ -19,14 +19,13 @@ interface Props {
   allTransactions: Transaction[]
   allFYBudget: number
   band: BuyBand | null
-  tranches: BuyTranche[]
   investability: Investability | null
   userId: string
 }
 
 export default function StockDetailClient({
   symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, band: initialBand,
-  tranches, investability: initialInv, userId,
+  investability: initialInv, userId,
 }: Props) {
   const router = useRouter()
   const [band, setBand] = useState(initialBand)
@@ -43,15 +42,18 @@ export default function StockDetailClient({
   const totalSold     = sells.reduce((s, t) => s + t.quantity, 0)
   const qty     = Math.max(0, totalBought - totalSold)
   const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
-  const spent   = buys.reduce((s, t) => s + t.amount, 0)
+  const totalSellValue = sells.reduce((s, t) => s + t.amount, 0)
+  const spent   = totalBuyValue - totalSellValue
 
   const budget    = allocation && fiscalYear
     ? (allocation.allocation_pct / 100) * fiscalYear.total_budget_inr + (allocation.carryover_inr ?? 0)
     : 0
   const remaining = budget - spent
 
-  // All-FY aggregates (buys only, no advance filter needed — each txn belongs to one FY)
-  const allFYSpent = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0)
+  // All-FY aggregates — net capital (buys minus sells across all FYs)
+  const allFYBuys  = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t)  => s + t.amount, 0)
+  const allFYSells = allTransactions.filter(t => t.trade_type === 'sell').reduce((s, t) => s + t.amount, 0)
+  const allFYSpent = allFYBuys - allFYSells
   const cmp       = band?.manual_cmp ?? null
   const pnl       = cmp !== null && qty > 0 ? (cmp - avgCost) * qty : null
   const pnlPct    = (cmp !== null && avgCost > 0) ? (cmp - avgCost) / avgCost * 100 : null
@@ -88,53 +90,48 @@ export default function StockDetailClient({
         </div>
       </div>
 
-      {/* Budget summary — always visible flat section */}
-      <div className="px-4 pt-3 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      {/* Budget + holdings — always visible flat section */}
+      <div className="px-4 pt-3 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <M label="All Years Budget" value={formatINR(allFYBudget)} />
-          <M label="All Years Spent"  value={formatINR(allFYSpent)} />
+          <M label="Total Budget" value={formatINR(allFYBudget)} />
+          <M label="Total Spent"  value={formatINR(allFYSpent)} />
           <M label={`${fiscalYear?.label ?? 'This Year'} Budget`}    value={formatINR(budget)} />
           <M label={`${fiscalYear?.label ?? 'This Year'} Remaining`} value={formatINR(remaining)}
              color={remaining < 0 ? 'text-red-400' : undefined} />
         </div>
+        {budget > 0 && (
+          <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+            {(() => { const p = Math.min(100, (spent / budget) * 100); return (
+              <div className={`h-full rounded-full ${p > 100 ? 'bg-red-500' : p > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
+                   style={{ width: `${p}%` }} />
+            )})()}
+          </div>
+        )}
+        {qty > 0 && (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+            <M label="Shares"   value={`${Math.round(qty)}`} />
+            <M label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost)}` : '—'} />
+            {cmp !== null && <M label="CMP" value={`₹${Math.round(cmp)}`} />}
+            {pnl !== null && (
+              <M label="Unrealised P&L"
+                 value={`${formatPnL(pnl)}${pnlPct !== null ? ` (${formatPct(pnlPct)})` : ''}`}
+                 color={pnl >= 0 ? 'text-green-500' : 'text-red-400'} />
+            )}
+          </div>
+        )}
       </div>
 
       <div className="overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-        {/* Section 2: This year's summary */}
-        <Collapsible title={`${fiscalYear?.label ?? 'This Year'} Summary`} defaultOpen>
-          <div className="px-4 pb-4">
-            <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'var(--border)' }}>
-              {(() => { const p = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0; return (
-                <div className={`h-full rounded-full ${p > 100 ? 'bg-red-500' : p > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
-                     style={{ width: `${p}%` }} />
-              )})()}
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <M label="Budget"    value={formatINR(budget)} />
-              <M label="Spent"     value={formatINR(spent)} />
-              <M label="Remaining" value={formatINR(remaining)} color={remaining < 0 ? 'text-red-400' : undefined} />
-            </div>
-            {qty > 0 && (
-              <div className="grid grid-cols-2 gap-3 pt-3 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                <M label="Shares"   value={`${Math.round(qty)}`} />
-                <M label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost)}` : '—'} />
-                {cmp !== null && <M label="CMP" value={`₹${Math.round(cmp)}`} />}
-                {pnl !== null && (
-                  <M label="Unrealised P&L"
-                     value={`${formatPnL(pnl)}${pnlPct !== null ? ` (${formatPct(pnlPct)})` : ''}`}
-                     color={pnl >= 0 ? 'text-green-500' : 'text-red-400'} />
-                )}
-              </div>
-            )}
-          </div>
+        {/* Financials */}
+        <Collapsible title="Financials">
+          <FinancialsCard
+            symbol={symbol} band={band} allocation={allocation}
+            fyId={fiscalYear?.id ?? ''} hasKey={null}
+            onBandSaved={setBand} onTranchesUpdated={() => {}} flat
+          />
         </Collapsible>
 
-        {/* Section 3: Financials */}
-        <Collapsible title="Financials" defaultOpen>
-          <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />
-        </Collapsible>
-
-        {/* Section 4: Transactions */}
+        {/* Transactions */}
         <Collapsible title="Transactions" defaultOpen>
           <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />
         </Collapsible>
@@ -149,9 +146,10 @@ function Collapsible({ title, defaultOpen = false, children }: { title: string; 
     <div className="border-b" style={{ borderColor: 'var(--border-faint)' }}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between w-full px-4 py-3">
-        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>{title}</span>
-        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+        className="flex items-center justify-between w-full px-4"
+        style={{ minHeight: '44px' }}>
+        <span className="text-[15px] font-semibold">{title}</span>
+        <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
              style={{ color: 'var(--text-faint)' }}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -411,7 +409,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
 
 // ── Financials card ────────────────────────────────────────────────────────────
 
-function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, onTranchesUpdated }: {
+function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, onBandSaved, onTranchesUpdated, flat }: {
   symbol: string
   band: BuyBand | null
   allocation: StockAllocation | null
@@ -419,7 +417,16 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
   hasKey: boolean | null
   onBandSaved: (b: BuyBand) => void
   onTranchesUpdated: (t: BuyTranche[]) => void
+  flat?: boolean
 }) {
+  const [hasKey, setHasKey] = useState(hasKeyProp)
+  useEffect(() => {
+    if (hasKeyProp !== null) { setHasKey(hasKeyProp); return }
+    fetch('/api/settings/gemini-key')
+      .then(r => r.json())
+      .then(d => setHasKey(d.hasKey ?? false))
+      .catch(() => setHasKey(false))
+  }, [hasKeyProp])
   // Derive anchor from stored band.anchor_type first (most accurate),
   // then fall back to allocation.category if no band yet
   const anchor: 'PE' | 'EV' | 'PB' | 'PEV' =
@@ -516,30 +523,27 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
 
   const hasData = !!(band?.eps || band?.bvps || band?.ebitda || band?.embedded_value)
 
-  return (
-    <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[12px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>Financials</p>
-        {!editing && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={generate}
-              disabled={generating}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[14px] font-medium disabled:opacity-40"
-              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-              <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
-              {generating ? '…' : 'Generate'}
-            </button>
-            <button
-              onClick={() => setEditing(true)}
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-              <PencilIcon className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-      </div>
+  const inner = (
+    <>
+      {/* Header row: action buttons only (collapsible provides the title) */}
+      {!editing && (
+        <div className="flex justify-end gap-2 mb-3">
+          <button
+            onClick={generate}
+            disabled={generating}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[14px] font-medium disabled:opacity-40"
+            style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+            <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
+            {generating ? '…' : 'Generate'}
+          </button>
+          <button
+            onClick={() => setEditing(true)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+            <PencilIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {genError && <p className="text-[12px] text-red-400 mb-2">{genError}</p>}
 
@@ -630,8 +634,12 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, onBandSaved, o
       ) : (
         <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>No data — tap pencil to enter, or Generate to auto-fill</p>
       )}
-    </div>
+    </>
   )
+
+  return flat
+    ? <div className="px-4 pb-4">{inner}</div>
+    : <div className="p-4 rounded-2xl border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>{inner}</div>
 }
 
 function BandBarSimple({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
