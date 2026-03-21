@@ -737,7 +737,7 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
   return (
     <div className="px-4 py-4">
       <button
-        onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn'))}
+        onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn', { detail: { symbol } }))}
         className="flex items-center justify-center gap-2 py-3 rounded-xl w-full font-medium text-sm mb-4"
         style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
         <span className="text-lg">+</span> Add transaction for {symbol}

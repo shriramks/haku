@@ -5,10 +5,15 @@ export function computeStockRows(
   allocations: StockAllocation[],
   transactions: Transaction[],
   bands: BuyBand[],
-  totalBudget: number
+  totalBudget: number,
+  fyId?: string
 ): StockRow[] {
   return allocations.map(alloc => {
-    const txns  = transactions.filter(t => t.symbol === alloc.symbol)
+    // Exclude transactions earmarked for a different FY via advance_fy_id
+    const txns  = transactions.filter(t =>
+      t.symbol === alloc.symbol &&
+      (fyId == null || t.advance_fy_id == null || t.advance_fy_id === fyId)
+    )
     const buys  = txns.filter(t => t.trade_type === 'buy')
     const sells = txns.filter(t => t.trade_type === 'sell')
 

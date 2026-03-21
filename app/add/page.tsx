@@ -134,11 +134,11 @@ export default function AddPage() {
           </div>
 
           {/* Date */}
-          <div>
+          <div className="overflow-hidden">
             <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-3.5 rounded-2xl text-[17px] outline-none"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
+              className="w-full px-3 py-2.5 rounded-2xl text-[15px] outline-none max-w-full"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
           </div>
 
           {/* Qty × Price */}
