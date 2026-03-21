@@ -22,23 +22,13 @@ interface Props {
   tranches: BuyTranche[]
   investability: Investability | null
   userId: string
-  initialTab: string
 }
-
-type Tab = 'overview' | 'bands' | 'transactions'
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview',     label: 'Overview' },
-  { id: 'bands',        label: 'Bands' },
-  { id: 'transactions', label: 'Transactions' },
-]
 
 export default function StockDetailClient({
   symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, band: initialBand,
-  tranches, investability: initialInv, userId, initialTab,
+  tranches, investability: initialInv, userId,
 }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab as Tab ?? 'overview')
   const [band, setBand] = useState(initialBand)
   const [inv, setInv]   = useState(initialInv)
 
@@ -98,114 +88,80 @@ export default function StockDetailClient({
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex border-b px-4 gap-1" style={{ borderColor: 'var(--border)' }}>
-        {TABS.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className="px-3 py-3 text-[15px] font-medium border-b-2 -mb-px transition-colors"
-            style={{
-              borderColor: activeTab === tab.id ? '#0A84FF' : 'transparent',
-              color: activeTab === tab.id ? '#0A84FF' : 'var(--text-muted)',
-            }}>
-            {tab.label}
-          </button>
-        ))}
+      {/* Budget summary — always visible flat section */}
+      <div className="px-4 pt-3 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <M label="All Years Budget" value={formatINR(allFYBudget)} />
+          <M label="All Years Spent"  value={formatINR(allFYSpent)} />
+          <M label={`${fiscalYear?.label ?? 'This Year'} Budget`}    value={formatINR(budget)} />
+          <M label={`${fiscalYear?.label ?? 'This Year'} Remaining`} value={formatINR(remaining)}
+             color={remaining < 0 ? 'text-red-400' : undefined} />
+        </div>
       </div>
 
       <div className="overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-        {activeTab === 'overview'     && <OverviewTab {...{ symbol, budget, spent, remaining, allFYBudget, allFYSpent, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved: setBand }} />}
-        {activeTab === 'bands'        && <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />}
-        {activeTab === 'transactions' && <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />}
-      </div>
-    </div>
-  )
-}
-
-// ── Overview tab ──────────────────────────────────────────────────────────────
-
-function OverviewTab({ symbol, budget, spent, remaining, allFYBudget, allFYSpent, qty, avgCost, cmp, pnl, pnlPct, allocation, fiscalYear, band, onBandSaved }: {
-  symbol: string; budget: number; spent: number; remaining: number
-  allFYBudget: number; allFYSpent: number
-  qty: number; avgCost: number
-  cmp: number | null; pnl: number | null; pnlPct: number | null
-  allocation: StockAllocation | null; fiscalYear: FiscalYear | null
-  band: BuyBand | null; onBandSaved: (b: BuyBand) => void
-}) {
-  const [refreshing, setRefreshing] = useState(false)
-  const pctSpent = budget > 0 ? (spent / budget) * 100 : 0
-
-  async function refreshCMP() {
-    setRefreshing(true)
-    try {
-      const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
-      if (!res.ok) throw new Error()
-      const { price } = await res.json()
-      if (band) {
-        const sb = getSupabaseBrowser()
-        await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
-        onBandSaved({ ...band, manual_cmp: price })
-      }
-    } catch {}
-    setRefreshing(false)
-  }
-
-  return (
-    <div>
-      {/* This FY budget — flat section */}
-      <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-          {fiscalYear?.label ?? 'This Year'} Budget
-        </p>
-        <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'var(--border)' }}>
-          <div className={`h-full rounded-full ${pctSpent > 100 ? 'bg-red-500' : pctSpent > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
-               style={{ width: `${Math.min(100, pctSpent)}%` }} />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <M label="Budget"    value={formatINR(budget)} />
-          <M label="Spent"     value={formatINR(spent)} />
-          <M label="Remaining" value={formatINR(remaining)} color={remaining < 0 ? 'text-red-400' : undefined} />
-        </div>
-      </div>
-
-      {/* All-FY budget — flat section */}
-      {allFYBudget > 0 && (
-        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>All Years</p>
-          <div className="grid grid-cols-3 gap-2">
-            <M label="Total Budget" value={formatINR(allFYBudget)} />
-            <M label="Total Spent"  value={formatINR(allFYSpent)} />
-            <M label="Remaining"    value={formatINR(allFYBudget - allFYSpent)}
-               color={(allFYBudget - allFYSpent) < 0 ? 'text-red-400' : undefined} />
-          </div>
-        </div>
-      )}
-
-      {/* Holdings — flat section */}
-      {qty > 0 && (
-        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Holdings</p>
-            <button onClick={refreshCMP} disabled={refreshing}
-              className="text-[13px] px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-              style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-              {refreshing ? '…' : '↻ CMP'}
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <M label="Shares"   value={`${Math.round(qty)}`} />
-            <M label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost)}` : '—'} />
-            {cmp !== null && <M label="CMP" value={`₹${Math.round(cmp)}`} />}
-            {pnl !== null && (
-              <M label="Unrealised P&L"
-                 value={`${formatPnL(pnl)}${pnlPct !== null ? ` (${formatPct(pnlPct)})` : ''}`}
-                 color={pnl >= 0 ? 'text-green-500' : 'text-red-400'} />
+        {/* Section 2: This year's summary */}
+        <Collapsible title={`${fiscalYear?.label ?? 'This Year'} Summary`} defaultOpen>
+          <div className="px-4 pb-4">
+            <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'var(--border)' }}>
+              {(() => { const p = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0; return (
+                <div className={`h-full rounded-full ${p > 100 ? 'bg-red-500' : p > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
+                     style={{ width: `${p}%` }} />
+              )})()}
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <M label="Budget"    value={formatINR(budget)} />
+              <M label="Spent"     value={formatINR(spent)} />
+              <M label="Remaining" value={formatINR(remaining)} color={remaining < 0 ? 'text-red-400' : undefined} />
+            </div>
+            {qty > 0 && (
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                <M label="Shares"   value={`${Math.round(qty)}`} />
+                <M label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost)}` : '—'} />
+                {cmp !== null && <M label="CMP" value={`₹${Math.round(cmp)}`} />}
+                {pnl !== null && (
+                  <M label="Unrealised P&L"
+                     value={`${formatPnL(pnl)}${pnlPct !== null ? ` (${formatPct(pnlPct)})` : ''}`}
+                     color={pnl >= 0 ? 'text-green-500' : 'text-red-400'} />
+                )}
+              </div>
             )}
           </div>
-        </div>
-      )}
+        </Collapsible>
+
+        {/* Section 3: Financials */}
+        <Collapsible title="Financials" defaultOpen>
+          <BandsTab symbol={symbol} band={band} initialTranches={tranches} allocation={allocation} fiscalYear={fiscalYear} remaining={remaining} onBandSaved={setBand} userId={userId} />
+        </Collapsible>
+
+        {/* Section 4: Transactions */}
+        <Collapsible title="Transactions" defaultOpen>
+          <TxnsTab symbol={symbol} transactions={transactions} userId={userId} fiscalYear={fiscalYear} onAdded={() => router.refresh()} />
+        </Collapsible>
+      </div>
     </div>
   )
 }
+
+function Collapsible({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between w-full px-4 py-3">
+        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>{title}</span>
+        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+             style={{ color: 'var(--text-faint)' }}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
 
 function M({ label, value, color }: { label: string; value: string; color?: string }) {
   return (

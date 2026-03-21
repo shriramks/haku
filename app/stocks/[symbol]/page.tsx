@@ -7,10 +7,10 @@ export default async function StockDetailPage({
   searchParams,
 }: {
   params: Promise<{ symbol: string }>
-  searchParams: Promise<{ tab?: string; fy?: string }>
+  searchParams: Promise<{ fy?: string }>
 }) {
   const { symbol } = await params
-  const { tab, fy: fyParam } = await searchParams
+  const { fy: fyParam } = await searchParams
 
   const fiscalYears = await getFiscalYears()
   const today = new Date()
@@ -55,7 +55,6 @@ export default async function StockDetailPage({
         tranches={stockTranches}
         investability={investability_}
         userId={await getUserId() ?? ''}
-        initialTab={tab ?? 'overview'}
       />
       <BottomNav />
     </>

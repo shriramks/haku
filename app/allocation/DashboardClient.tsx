@@ -24,7 +24,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
-  const [view, setView]                 = useState<'bars' | 'details'>('bars')
   const rows = useMemo(() =>
     computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0, selectedFY?.id ?? undefined),
     [allocations, transactions, bands, selectedFY]
@@ -110,22 +109,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       )}
 
-      {/* View toggle */}
-      {rows.length > 0 && !loading && (
-        <div className="flex border-b px-4 gap-1" style={{ borderColor: 'var(--border)' }}>
-          {(['bars', 'details'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className="px-3 py-3 text-[15px] font-medium border-b-2 -mb-px transition-colors"
-              style={{
-                borderColor: view === v ? '#0A84FF' : 'transparent',
-                color: view === v ? '#0A84FF' : 'var(--text-muted)',
-              }}>
-              {v === 'bars' ? 'Allocation' : 'Details'}
-            </button>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-6 h-6 border-2 rounded-full animate-spin"
@@ -136,20 +119,28 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
           <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
         </div>
-      ) : view === 'bars' ? (
-        <div className="mt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-          {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
-          {completedRows.length > 0 && (
-            <>
-              <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
-              </div>
-              {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
-            </>
-          )}
-        </div>
       ) : (
-        <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
+        <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+          {/* Allocation bars */}
+          <div className="mt-2">
+            {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
+            {completedRows.length > 0 && (
+              <>
+                <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                  <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                </div>
+                {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
+              </>
+            )}
+          </div>
+          {/* Details table — same page, below bars */}
+          <div className="mt-4 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+            <div className="px-4 py-2">
+              <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Details</span>
+            </div>
+            <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
+          </div>
+        </div>
       )}
     </div>
   )
