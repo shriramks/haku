@@ -1,5 +1,64 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow } from './types'
+import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from './types'
 import { getBandSignal } from './band-calculator'
+
+/**
+ * Given a previous FY's allocations + transactions, return a map of
+ * symbol → remaining budget (negative = over-allocated debt, positive = credit).
+ * Pass this as the auto-carryover for the next FY.
+ */
+export function buildAutoCarryover(
+  prevAllocations: StockAllocation[],
+  prevTransactions: Transaction[],
+  prevTotalBudget: number,
+  prevFyId: string,
+): Map<string, number> {
+  const rows = computeStockRows(prevAllocations, prevTransactions, [], prevTotalBudget, prevFyId)
+  return new Map(rows.map(r => [r.symbol, r.remaining]))
+}
+
+/**
+ * For a single stock present across multiple FYs, compute the effective
+ * carryover for each FY by chaining: each FY's remaining becomes the next
+ * FY's carryover (overriding the DB carryover_inr field).
+ *
+ * Returns a Map of fyId → carryover_inr to apply for that FY.
+ * Falls back to DB carryover_inr for the first FY the stock appears in.
+ *
+ * @param symbolAllocations - all FY allocations for this symbol, in any order
+ * @param allSymbolTransactions - all transactions for this symbol across all FYs
+ * @param fiscalYears - all FYs sorted by start_date ascending
+ */
+export function computeSymbolCarryoverChain(
+  symbolAllocations: StockAllocation[],
+  allSymbolTransactions: Transaction[],
+  fiscalYears: FiscalYear[],
+): Map<string, number> {
+  const result = new Map<string, number>()
+  let prevRemaining: number | null = null
+
+  for (const fy of fiscalYears) {
+    const alloc = symbolAllocations.find(a => a.fy_id === fy.id)
+    if (!alloc) {
+      prevRemaining = null // chain resets when stock not present in a FY
+      continue
+    }
+
+    const carryover: number = prevRemaining ?? (alloc.carryover_inr ?? 0)
+    result.set(fy.id, carryover)
+
+    const totalBudget = fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0)
+    const budget = (alloc.allocation_pct / 100) * totalBudget + carryover
+
+    // Same filtering logic as computeStockRows: exclude advance buys for other FYs
+    const spent = allSymbolTransactions
+      .filter(t => t.advance_fy_id == null ? t.fy_id === fy.id : t.advance_fy_id === fy.id)
+      .reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+
+    prevRemaining = budget - spent
+  }
+
+  return result
+}
 
 export function computeStockRows(
   allocations: StockAllocation[],

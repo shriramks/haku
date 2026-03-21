@@ -46,7 +46,7 @@ export default function StockDetailClient({
   const spent   = totalBuyValue - totalSellValue
 
   const budget    = allocation && fiscalYear
-    ? (allocation.allocation_pct / 100) * fiscalYear.total_budget_inr + (allocation.carryover_inr ?? 0)
+    ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + (allocation.carryover_inr ?? 0)
     : 0
   const remaining = budget - spent
 
@@ -181,7 +181,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
   const [generatingTranches, setGeneratingTranches] = useState(false)
   const [hasKey, setHasKey]                         = useState<boolean | null>(null)
   const signal = band ? getBandSignal(band) : 'unknown'
-  const totalCapital = fiscalYear?.total_budget_inr ?? 0
+  const totalCapital = (fiscalYear?.total_budget_inr ?? 0) + (fiscalYear?.unallocated_carryover_inr ?? 0)
   const tranche = band?.buy_low != null ? trancheSuggestion(remaining, totalCapital) : null
 
   useEffect(() => {
