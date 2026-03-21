@@ -18,13 +18,18 @@ export default async function DashboardPage({
         new Date(fy.start_date) <= today && today <= new Date(fy.end_date)
       ) ?? fiscalYears[0])
 
-  const [allocations, transactions, bands] = currentFY
+  const fyIdx = fiscalYears.findIndex(f => f.id === currentFY?.id)
+  const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
+
+  const [allocations, transactions, bands, prevAllocations, prevTransactions] = currentFY
     ? await Promise.all([
         getAllocations(currentFY.id),
         getTransactions(currentFY.id),
         getBuyBands(),
+        prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
+        prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
       ])
-    : [[], [], []]
+    : [[], [], [], [], []]
 
   return (
     <>
@@ -33,6 +38,9 @@ export default async function DashboardPage({
         initialFY={currentFY ?? null}
         initialAllocations={allocations}
         initialTransactions={transactions}
+        initialPrevFY={prevFY ?? null}
+        initialPrevAllocations={prevAllocations}
+        initialPrevTransactions={prevTransactions}
         bands={bands}
       />
       <BottomNav />

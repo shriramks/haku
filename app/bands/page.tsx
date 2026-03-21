@@ -1,5 +1,5 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches } from '@/lib/data'
-import { computeStockRows } from '@/lib/compute'
+import { computeStockRows, buildAutoCarryover } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -16,11 +16,29 @@ export default async function BandsPage({
     ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears[0])
     : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[fiscalYears.length - 1])
 
-  const [allocations, transactions, bands, tranches] = fy
-    ? await Promise.all([getAllocations(fy.id), getTransactions(fy.id), getBuyBands(), getBuyTranches(fy.id)])
-    : [[], [], [], []]
+  const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
+  const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-  const rows = computeStockRows(allocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), fy?.id)
+  const [allocations, transactions, bands, tranches, prevAllocations, prevTransactions] = fy
+    ? await Promise.all([
+        getAllocations(fy.id),
+        getTransactions(fy.id),
+        getBuyBands(),
+        getBuyTranches(fy.id),
+        prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
+        prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
+      ])
+    : [[], [], [], [], [], []]
+
+  const autoCarryover = prevFY
+    ? buildAutoCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id)
+    : new Map<string, number>()
+
+  const effectiveAllocations = allocations.map(a =>
+    autoCarryover.has(a.symbol) ? { ...a, carryover_inr: autoCarryover.get(a.symbol)! } : a
+  )
+
+  const rows = computeStockRows(effectiveAllocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), fy?.id)
 
   const sorted = [...rows].sort((a, b) => {
     const aAll      = tranches.filter(t => t.symbol === a.symbol)

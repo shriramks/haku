@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { computeStockRows } from '@/lib/compute'
+import { computeStockRows, buildAutoCarryover } from '@/lib/compute'
 import { formatAmt, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -15,31 +15,65 @@ interface Props {
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
   initialTransactions: Transaction[]
+  initialPrevFY: FiscalYear | null
+  initialPrevAllocations: StockAllocation[]
+  initialPrevTransactions: Transaction[]
   bands: BuyBand[]
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, bands }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPrevFY, initialPrevAllocations, initialPrevTransactions, bands }: Props) {
   const router = useRouter()
-  const [selectedFY, setSelectedFY]     = useState(initialFY)
-  const [allocations, setAllocations]   = useState(initialAllocations)
-  const [transactions, setTransactions] = useState(initialTransactions)
-  const [loading, setLoading]           = useState(false)
+  const [selectedFY, setSelectedFY]         = useState(initialFY)
+  const [allocations, setAllocations]       = useState(initialAllocations)
+  const [transactions, setTransactions]     = useState(initialTransactions)
+  const [prevFY, setPrevFY]                 = useState(initialPrevFY)
+  const [prevAllocations, setPrevAllocations] = useState(initialPrevAllocations)
+  const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)
+  const [loading, setLoading]               = useState(false)
+
+  // Auto-carryover: previous FY's remaining per stock becomes current FY's carryover
+  const autoCarryover = useMemo(() => {
+    if (!prevFY) return new Map<string, number>()
+    const prevBudget = prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0)
+    return buildAutoCarryover(prevAllocations, prevTransactions, prevBudget, prevFY.id)
+  }, [prevFY, prevAllocations, prevTransactions])
+
+  const effectiveAllocations = useMemo(() =>
+    allocations.map(a =>
+      autoCarryover.has(a.symbol) ? { ...a, carryover_inr: autoCarryover.get(a.symbol)! } : a
+    ),
+    [allocations, autoCarryover]
+  )
+
   const rows = useMemo(() =>
-    computeStockRows(allocations, transactions, bands, (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0), selectedFY?.id ?? undefined),
-    [allocations, transactions, bands, selectedFY]
+    computeStockRows(effectiveAllocations, transactions, bands, (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0), selectedFY?.id ?? undefined),
+    [effectiveAllocations, transactions, bands, selectedFY]
   )
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
     router.replace(`/allocation?fy=${encodeURIComponent(fy.label)}`)
+
+    const fyIdx = fiscalYears.findIndex(f => f.id === fy.id)
+    const pFY   = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
+
     const sb = getSupabaseBrowser()
-    const [{ data: alloc }, { data: txns }] = await Promise.all([
+    const [{ data: alloc }, { data: txns }, prevAllocRes, prevTxnRes] = await Promise.all([
       sb.from('stock_allocations').select('*').eq('fy_id', fy.id).order('allocation_pct', { ascending: false }),
       sb.from('transactions').select('*').or(`fy_id.eq.${fy.id},advance_fy_id.eq.${fy.id}`).order('trade_date', { ascending: false }),
+      pFY
+        ? sb.from('stock_allocations').select('*').eq('fy_id', pFY.id).order('allocation_pct', { ascending: false })
+        : Promise.resolve({ data: [] as StockAllocation[] }),
+      pFY
+        ? sb.from('transactions').select('*').or(`fy_id.eq.${pFY.id},advance_fy_id.eq.${pFY.id}`).order('trade_date', { ascending: false })
+        : Promise.resolve({ data: [] as Transaction[] }),
     ])
     setAllocations(alloc ?? [])
     setTransactions(txns ?? [])
+    setPrevFY(pFY ?? null)
+    setPrevAllocations(prevAllocRes.data ?? [])
+    setPrevTransactions(prevTxnRes.data ?? [])
     setLoading(false)
   }
 
