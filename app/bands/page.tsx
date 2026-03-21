@@ -20,7 +20,7 @@ export default async function BandsPage({
     ? await Promise.all([getAllocations(fy.id), getTransactions(fy.id), getBuyBands(), getBuyTranches(fy.id)])
     : [[], [], [], []]
 
-  const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0)
+  const rows = computeStockRows(allocations, transactions, bands, fy?.total_budget_inr ?? 0, fy?.id)
 
   const sorted = [...rows].sort((a, b) => {
     const aAll      = tranches.filter(t => t.symbol === a.symbol)

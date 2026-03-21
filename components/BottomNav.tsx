@@ -17,8 +17,19 @@ const RIGHT_TABS = [
 export default function BottomNav() {
   const path = usePathname()
   const [addOpen, setAddOpen] = useState(false)
+  const [addSymbol, setAddSymbol] = useState<string | undefined>(undefined)
   const [onboarding, setOnboarding] = useState<string | null>(null)
   const [storedFY, setStoredFY] = useState<string | null>(null)
+
+  useEffect(() => {
+    function handleOpenAddTxn(e: Event) {
+      const symbol = (e as CustomEvent).detail?.symbol as string | undefined
+      setAddSymbol(symbol || undefined)
+      setAddOpen(true)
+    }
+    document.addEventListener('open-add-txn', handleOpenAddTxn)
+    return () => document.removeEventListener('open-add-txn', handleOpenAddTxn)
+  }, [])
 
   useEffect(() => {
     setOnboarding(localStorage.getItem('haku_onboarding'))
@@ -77,7 +88,7 @@ export default function BottomNav() {
           })}
 
           {/* Centre add button */}
-          <button onClick={() => setAddOpen(true)}
+          <button onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
             className="flex items-center justify-center w-14 h-14 rounded-full -mt-5
                        shadow-lg active:scale-95 transition-transform"
             style={{ background: 'var(--text-primary)' }}>
@@ -103,7 +114,7 @@ export default function BottomNav() {
         </div>
       </nav>
 
-      {addOpen && <AddTxnModal onClose={() => setAddOpen(false)} />}
+      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} />}
     </>
   )
 }

@@ -25,7 +25,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [transactions, setTransactions] = useState(initialTransactions)
   const [loading, setLoading]           = useState(false)
   const rows = useMemo(() =>
-    computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0),
+    computeStockRows(allocations, transactions, bands, selectedFY?.total_budget_inr ?? 0, selectedFY?.id ?? undefined),
     [allocations, transactions, bands, selectedFY]
   )
 

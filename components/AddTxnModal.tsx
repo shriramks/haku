@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR } from '@/lib/formatter'
 
-export default function AddTxnModal({ onClose }: { onClose: () => void }) {
+export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () => void; initialSymbol?: string }) {
   const router = useRouter()
-  const [symbol, setSymbol]         = useState('')
+  const [symbol, setSymbol]         = useState(initialSymbol ?? '')
   const [planSymbols, setPlanSymbols] = useState<string[]>([])
   const [type, setType]             = useState<'buy' | 'sell'>('buy')
   const [date, setDate]             = useState(todayISO())
@@ -20,20 +20,15 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     async function loadSymbols() {
       const sb = getSupabaseBrowser()
-      const today = new Date().toISOString().slice(0, 10)
-      const { data: fys } = await sb
-        .from('fiscal_years')
-        .select('id')
-        .lte('start_date', today)
-        .gte('end_date', today)
-        .limit(1)
-      if (!fys?.length) return
+      // Load symbols from ALL fiscal years so stocks planned for future FYs are selectable
       const { data: allocs } = await sb
         .from('stock_allocations')
         .select('symbol')
-        .eq('fy_id', fys[0].id)
         .order('symbol')
-      if (allocs) setPlanSymbols(allocs.map(a => a.symbol))
+      if (allocs) {
+        const unique = [...new Set(allocs.map(a => a.symbol))].sort()
+        setPlanSymbols(unique)
+      }
     }
     loadSymbols()
   }, [])
@@ -62,7 +57,6 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
       user_id: user.id, symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
-      amount: parseFloat(qty) * parseFloat(price),
       fy_id: fyId,
     })
 
@@ -157,13 +151,14 @@ export default function AddTxnModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Date */}
-          <div>
+          <div className="overflow-hidden">
             <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-3.5 rounded-2xl text-[17px] outline-none"
+              className="w-full px-3 py-2.5 rounded-2xl text-[15px] outline-none max-w-full"
               style={{
                 background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                 border: '1px solid var(--border)', colorScheme: 'light dark',
+                boxSizing: 'border-box',
               }} />
           </div>
 
