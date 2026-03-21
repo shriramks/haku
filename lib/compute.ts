@@ -43,7 +43,7 @@ export function computeSymbolCarryoverChain(
       continue
     }
 
-    const carryover = prevRemaining ?? (alloc.carryover_inr ?? 0)
+    const carryover: number = prevRemaining ?? (alloc.carryover_inr ?? 0)
     result.set(fy.id, carryover)
 
     const totalBudget = fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0)
