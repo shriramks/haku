@@ -234,8 +234,8 @@ function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) 
         return (
           <Link key={row.symbol}
             href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-            className="grid px-4 py-3 border-b tap-row tabnum text-[13px]"
-            style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border-faint)' }}>
+            className="grid items-center px-4 border-b tap-row tabnum text-[13px]"
+            style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border-faint)', minHeight: '52px' }}>
             <span className="font-semibold text-[14px]" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
             <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.spent)}</span>
             <span className="text-right" style={{ color: leftColor }}>
@@ -256,9 +256,9 @@ function CollapsibleSection({ title, children }: { title: string; children: Reac
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center justify-between w-full px-4"
-        style={{ minHeight: '44px' }}>
-        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>{title}</span>
-        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+        style={{ minHeight: '52px' }}>
+        <span className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
              style={{ color: 'var(--text-faint)' }}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -280,14 +280,14 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
             Exited in {prevFYLabel}
           </p>
           {orphans.map(o => (
-            <div key={o.symbol} className="flex justify-between py-1.5">
+            <div key={o.symbol} className="flex justify-between items-center py-3">
               <span className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
               <span className="tabnum text-[14px]" style={{ color: o.remaining >= 0 ? '#30D158' : '#FF3B30' }}>
                 {o.remaining >= 0 ? '+' : '−'}{formatAmt(Math.abs(o.remaining))} → pool
               </span>
             </div>
           ))}
-          <div className="flex justify-between py-1.5 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
             <span className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
             <span className="tabnum text-[13px] font-medium" style={{ color: poolTotal >= 0 ? '#30D158' : '#FF3B30' }}>
               {poolTotal >= 0 ? '+' : '−'}{formatAmt(Math.abs(poolTotal))}
@@ -299,15 +299,12 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
       {/* Per-stock adjustments */}
       {result.adjustments.size > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
-            Adjustments this FY
-          </p>
           {Array.from(result.adjustments.entries()).map(([sym, total]) => {
             const d = direct.get(sym) ?? 0
             const p = poolShares.get(sym) ?? 0
             if (total === 0) return null
             return (
-              <div key={sym} className="flex justify-between items-baseline py-1.5">
+              <div key={sym} className="flex justify-between items-center py-3">
                 <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
                 <div className="text-right">
                   <span className="tabnum text-[14px]" style={{ color: total >= 0 ? '#30D158' : '#FF3B30' }}>
