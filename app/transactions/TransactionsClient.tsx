@@ -68,25 +68,35 @@ export default function TransactionsClient({
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 mt-2 flex-wrap">
+        <div className="flex gap-2 mt-2 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {(['all', 'buy', 'sell'] as const).map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className="px-3 py-1 rounded-full text-[13px] font-medium transition-colors"
-              style={typeFilter === t
-                ? { background: t === 'buy' ? 'rgba(52,199,89,0.2)' : t === 'sell' ? 'rgba(255,59,48,0.2)' : 'var(--text-primary)', color: t === 'buy' ? '#34C759' : t === 'sell' ? '#FF3B30' : 'var(--bg-primary)' }
-                : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              className="px-3.5 rounded-full text-[13px] font-medium transition-colors flex-shrink-0"
+              style={{
+                minHeight: '34px',
+                ...(typeFilter === t
+                  ? { background: t === 'buy' ? 'rgba(52,199,89,0.2)' : t === 'sell' ? 'rgba(255,59,48,0.2)' : 'var(--text-primary)', color: t === 'buy' ? '#34C759' : t === 'sell' ? '#FF3B30' : 'var(--bg-primary)' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
+              }}>
               {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
             </button>
           ))}
-          {!filterSymbol && (
-            <select
-              value={symbolFilter}
-              onChange={e => setSymbolFilter(e.target.value)}
-              className="px-3 py-1 rounded-full text-[13px] font-medium outline-none"
-              style={{ background: symbolFilter !== 'all' ? 'rgba(10,132,255,0.15)' : 'var(--bg-tertiary)', color: symbolFilter !== 'all' ? '#0A84FF' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
-              <option value="all">All stocks</option>
-              {symbols.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+          {!filterSymbol && symbols.length > 0 && (
+            <>
+              <div className="w-px flex-shrink-0 self-stretch my-1" style={{ background: 'var(--border)' }} />
+              {symbols.map(s => (
+                <button key={s} onClick={() => setSymbolFilter(sym => sym === s ? 'all' : s)}
+                  className="px-3.5 rounded-full text-[13px] font-medium flex-shrink-0"
+                  style={{
+                    minHeight: '34px',
+                    ...(symbolFilter === s
+                      ? { background: 'rgba(10,132,255,0.15)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
+                      : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
+                  }}>
+                  {s}
+                </button>
+              ))}
+            </>
           )}
         </div>
       </div>

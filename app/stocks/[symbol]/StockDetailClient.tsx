@@ -63,7 +63,7 @@ export default function StockDetailClient({
     <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Back + header */}
       <div className="px-4 pt-3 pb-2 flex items-start gap-3">
-        <button onClick={() => router.back()} style={{ color: 'var(--text-muted)' }} className="mt-0.5 p-2 -ml-2">
+        <button onClick={() => router.back()} style={{ color: 'var(--text-muted)' }} className="mt-0.5 p-3 -ml-3">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -157,11 +157,11 @@ function Collapsible({ title, defaultOpen = false, children }: { title: string; 
 function M({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div>
-      <p className={`font-semibold tabnum ${color ?? ''}`}
+      <p className={`font-semibold tabnum text-[17px] ${color ?? ''}`}
          style={color ? undefined : { color: 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }
@@ -523,7 +523,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
         <div className="flex justify-end mb-3">
           <button
             onClick={() => setEditing(true)}
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            className="w-11 h-11 rounded-xl flex items-center justify-center"
             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
             <PencilIcon className="w-4 h-4" />
           </button>
@@ -712,8 +712,8 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
     <div className="px-4 py-4">
       <button
         onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn', { detail: { symbol } }))}
-        className="flex items-center justify-center gap-2 py-3 rounded-xl w-full font-medium text-sm mb-4"
-        style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+        className="flex items-center justify-center gap-2 rounded-xl w-full font-medium text-sm mb-4"
+        style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)', minHeight: '44px' }}>
         <span className="text-lg">+</span> Add transaction for {symbol}
       </button>
 
@@ -735,8 +735,8 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
                 </p>
               </div>
               <button onClick={() => del(t.id)} disabled={deleting === t.id}
-                className="text-[15px] px-3 py-2 rounded-lg disabled:opacity-40"
-                style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.08)' }}>
+                className="text-[15px] px-3 rounded-lg disabled:opacity-40 flex items-center justify-center flex-shrink-0"
+                style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.08)', minWidth: '44px', minHeight: '44px' }}>
                 {deleting === t.id ? '…' : '×'}
               </button>
             </div>

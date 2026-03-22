@@ -167,9 +167,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Details table — same page, below bars */}
           <div className="mt-4 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-            <div className="px-4 py-2">
-              <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Details</span>
-            </div>
             <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
           </div>
         </div>
@@ -217,29 +214,25 @@ function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) 
     <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header row */}
       <div className="grid px-4 py-2 border-b text-[11px] uppercase tracking-widest font-semibold"
-           style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', borderColor: 'var(--border)', color: 'var(--text-faint)' }}>
+           style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border)', color: 'var(--text-faint)' }}>
         <span>Stock</span>
-        <span className="text-right">Alloc</span>
         <span className="text-right">Spent</span>
         <span className="text-right">Left</span>
-        <span className="text-right">Left%</span>
       </div>
       {rows.map(row => {
         const leftPct = row.budget > 0 ? (row.remaining / row.budget) * 100 : 0
         const isOver  = row.remaining < 0
+        const leftColor = isOver ? '#FF3B30' : leftPct < 20 ? '#FF9500' : '#30D158'
         return (
           <Link key={row.symbol}
             href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
             className="grid px-4 py-3 border-b tap-row tabnum text-[13px]"
-            style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', borderColor: 'var(--border-faint)' }}>
+            style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border-faint)' }}>
             <span className="font-semibold text-[14px]" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
-            <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.budget)}</span>
             <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.spent)}</span>
-            <span className="text-right" style={{ color: isOver ? '#FF3B30' : 'var(--text-2)' }}>
+            <span className="text-right" style={{ color: leftColor }}>
               {isOver ? '−' : ''}{formatAmt(Math.abs(row.remaining))}
-            </span>
-            <span className="text-right" style={{ color: isOver ? '#FF3B30' : leftPct < 20 ? '#FF9500' : '#30D158' }}>
-              {isOver ? `−${Math.abs(leftPct).toFixed(0)}%` : `${leftPct.toFixed(0)}%`}
+              <span className="text-[11px] ml-1">({isOver ? `−${Math.abs(leftPct).toFixed(0)}` : leftPct.toFixed(0)}%)</span>
             </span>
           </Link>
         )
