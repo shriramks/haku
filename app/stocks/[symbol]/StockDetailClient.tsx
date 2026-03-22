@@ -18,14 +18,15 @@ interface Props {
   transactions: Transaction[]
   allTransactions: Transaction[]
   allFYBudget: number
+  carryoverInr: number
   band: BuyBand | null
   investability: Investability | null
   userId: string
 }
 
 export default function StockDetailClient({
-  symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, band: initialBand,
-  investability: initialInv, userId,
+  symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, carryoverInr,
+  band: initialBand, investability: initialInv, userId,
 }: Props) {
   const router = useRouter()
   const [band, setBand] = useState(initialBand)
@@ -46,7 +47,7 @@ export default function StockDetailClient({
   const spent   = totalBuyValue - totalSellValue
 
   const budget    = allocation && fiscalYear
-    ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + (allocation.carryover_inr ?? 0)
+    ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + carryoverInr
     : 0
   const remaining = budget - spent
 
@@ -98,6 +99,11 @@ export default function StockDetailClient({
           <M label={`${fiscalYear?.label ?? 'This Year'} Budget`}    value={formatINR(budget)} />
           <M label={`${fiscalYear?.label ?? 'This Year'} Remaining`} value={formatINR(remaining)}
              color={remaining < 0 ? 'text-red-400' : undefined} />
+          {carryoverInr !== 0 && (
+            <M label="Carryover"
+               value={`${carryoverInr > 0 ? '+' : '−'}${formatINR(Math.abs(carryoverInr))}`}
+               color={carryoverInr > 0 ? 'text-green-500' : 'text-red-400'} />
+          )}
         </div>
 
         {qty > 0 && (

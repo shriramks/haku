@@ -60,7 +60,7 @@ export async function POST(
   const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
     supabase.from('fiscal_years').select('total_budget_inr, unallocated_carryover_inr').eq('id', fyId).single(),
     supabase.from('stock_allocations')
-      .select('allocation_pct, carryover_inr')
+      .select('allocation_pct')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('transactions')
@@ -69,7 +69,7 @@ export async function POST(
   ])
 
   const allocBudget = (fyAlloc && fy)
-    ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0)) + (fyAlloc.carryover_inr ?? 0)
+    ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0))
     : 0
   const netSpent = (txns ?? []).reduce(
     (s: number, t: { trade_type: string; amount: number }) =>

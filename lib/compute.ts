@@ -1,71 +1,80 @@
 import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from './types'
 import { getBandSignal } from './band-calculator'
 
+// ── Carryover ─────────────────────────────────────────────────────────────────
+
+export interface CarryoverBreakdown {
+  /** Direct remaining from prev FY for stocks present in both FYs */
+  direct: Map<string, number>
+  /** Sum of remaining for stocks that exited (not present in next FY) */
+  poolTotal: number
+  /** Each next-FY stock's proportional share of the orphan pool */
+  poolShares: Map<string, number>
+  /** Stocks from prev FY not present in next FY, with their remaining */
+  orphans: Array<{ symbol: string; remaining: number }>
+}
+
+export interface CarryoverResult {
+  /** Total adjustment per symbol = direct + pool share */
+  adjustments: Map<string, number>
+  breakdown: CarryoverBreakdown
+}
+
 /**
- * Given a previous FY's allocations + transactions, return a map of
- * symbol → remaining budget (negative = over-allocated debt, positive = credit).
- * Pass this as the auto-carryover for the next FY.
+ * Compute carryover adjustments from a previous FY into the next FY.
+ *
+ * Rules:
+ * 1. Stock present in both FYs → its remaining budget carries over directly.
+ * 2. Stock not present in next FY → its remaining goes into an orphan pool,
+ *    distributed proportionally (by allocation_pct) among all next-FY stocks.
+ * 3. Both may apply to the same stock — they are summed.
  */
-export function buildAutoCarryover(
+export function computeCarryover(
   prevAllocations: StockAllocation[],
   prevTransactions: Transaction[],
   prevTotalBudget: number,
   prevFyId: string,
-): Map<string, number> {
-  const rows = computeStockRows(prevAllocations, prevTransactions, [], prevTotalBudget, prevFyId)
-  return new Map(rows.map(r => [r.symbol, r.remaining]))
-}
+  nextAllocations: StockAllocation[],
+): CarryoverResult {
+  const prevRows = computeStockRows(prevAllocations, prevTransactions, [], prevTotalBudget, prevFyId)
+  const nextSymbols = new Set(nextAllocations.map(a => a.symbol))
 
-/**
- * For a single stock present across multiple FYs, compute the effective
- * carryover for each FY by chaining: each FY's remaining becomes the next
- * FY's carryover (overriding the DB carryover_inr field).
- *
- * Returns a Map of fyId → carryover_inr to apply for that FY.
- * Falls back to DB carryover_inr for the first FY the stock appears in.
- *
- * @param symbolAllocations - all FY allocations for this symbol, in any order
- * @param allSymbolTransactions - all transactions for this symbol across all FYs
- * @param fiscalYears - all FYs sorted by start_date ascending
- */
-export function computeSymbolCarryoverChain(
-  symbolAllocations: StockAllocation[],
-  allSymbolTransactions: Transaction[],
-  fiscalYears: FiscalYear[],
-): Map<string, number> {
-  const result = new Map<string, number>()
-  let prevRemaining: number | null = null
+  const direct = new Map<string, number>()
+  const orphans: Array<{ symbol: string; remaining: number }> = []
+  let poolTotal = 0
 
-  for (const fy of fiscalYears) {
-    const alloc = symbolAllocations.find(a => a.fy_id === fy.id)
-    if (!alloc) {
-      prevRemaining = null // chain resets when stock not present in a FY
-      continue
+  for (const row of prevRows) {
+    if (nextSymbols.has(row.symbol)) {
+      direct.set(row.symbol, row.remaining)
+    } else {
+      orphans.push({ symbol: row.symbol, remaining: row.remaining })
+      poolTotal += row.remaining
     }
-
-    const carryover: number = prevRemaining ?? (alloc.carryover_inr ?? 0)
-    result.set(fy.id, carryover)
-
-    const totalBudget = fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0)
-    const budget = (alloc.allocation_pct / 100) * totalBudget + carryover
-
-    // Same filtering logic as computeStockRows: exclude advance buys for other FYs
-    const spent = allSymbolTransactions
-      .filter(t => t.advance_fy_id == null ? t.fy_id === fy.id : t.advance_fy_id === fy.id)
-      .reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
-
-    prevRemaining = budget - spent
   }
 
-  return result
+  // Distribute pool proportionally by allocation_pct
+  const totalPct = nextAllocations.reduce((s, a) => s + a.allocation_pct, 0)
+  const poolShares = new Map<string, number>()
+  const adjustments = new Map<string, number>()
+
+  for (const alloc of nextAllocations) {
+    const share = totalPct > 0 ? (alloc.allocation_pct / totalPct) * poolTotal : 0
+    poolShares.set(alloc.symbol, share)
+    adjustments.set(alloc.symbol, (direct.get(alloc.symbol) ?? 0) + share)
+  }
+
+  return { adjustments, breakdown: { direct, poolTotal, poolShares, orphans } }
 }
+
+// ── Stock rows ────────────────────────────────────────────────────────────────
 
 export function computeStockRows(
   allocations: StockAllocation[],
   transactions: Transaction[],
   bands: BuyBand[],
   totalBudget: number,
-  fyId?: string
+  fyId?: string,
+  carryoverMap?: Map<string, number>,
 ): StockRow[] {
   return allocations.map(alloc => {
     // Exclude transactions earmarked for a different FY via advance_fy_id
@@ -76,16 +85,17 @@ export function computeStockRows(
     const buys  = txns.filter(t => t.trade_type === 'buy')
     const sells = txns.filter(t => t.trade_type === 'sell')
 
-    const totalBought   = buys.reduce((s, t)  => s + t.quantity, 0)
-    const totalBuyValue = buys.reduce((s, t)  => s + t.amount,   0)
-    const totalSold     = sells.reduce((s, t) => s + t.quantity,  0)
-    const totalSellValue = sells.reduce((s, t) => s + t.amount,   0)
+    const totalBought    = buys.reduce((s, t)  => s + t.quantity, 0)
+    const totalBuyValue  = buys.reduce((s, t)  => s + t.amount,   0)
+    const totalSold      = sells.reduce((s, t) => s + t.quantity,  0)
+    const totalSellValue = sells.reduce((s, t) => s + t.amount,    0)
 
     const qty     = Math.max(0, totalBought - totalSold)
     const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
     const spent   = totalBuyValue - totalSellValue
 
-    const budget    = (alloc.allocation_pct / 100) * totalBudget + (alloc.carryover_inr ?? 0)
+    const carryover = carryoverMap?.get(alloc.symbol) ?? 0
+    const budget    = (alloc.allocation_pct / 100) * totalBudget + carryover
     const remaining = budget - spent
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null

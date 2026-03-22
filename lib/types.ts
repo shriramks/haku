@@ -22,7 +22,6 @@ export interface StockAllocation {
   two_weak_quarters: boolean
   two_strong_quarters: boolean
   is_hospital_ramp_phase: boolean
-  carryover_inr: number | null
 }
 
 export interface Transaction {

@@ -3,7 +3,8 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { computeStockRows, buildAutoCarryover } from '@/lib/compute'
+import { computeStockRows, computeCarryover } from '@/lib/compute'
+import type { CarryoverResult } from '@/lib/compute'
 import { formatAmt, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -31,23 +32,20 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)
   const [loading, setLoading]               = useState(false)
 
-  // Auto-carryover: previous FY's remaining per stock becomes current FY's carryover
-  const autoCarryover = useMemo(() => {
-    if (!prevFY) return new Map<string, number>()
+  const carryoverResult = useMemo<CarryoverResult | null>(() => {
+    if (!prevFY) return null
     const prevBudget = prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0)
-    return buildAutoCarryover(prevAllocations, prevTransactions, prevBudget, prevFY.id)
-  }, [prevFY, prevAllocations, prevTransactions])
-
-  const effectiveAllocations = useMemo(() =>
-    allocations.map(a =>
-      autoCarryover.has(a.symbol) ? { ...a, carryover_inr: autoCarryover.get(a.symbol)! } : a
-    ),
-    [allocations, autoCarryover]
-  )
+    return computeCarryover(prevAllocations, prevTransactions, prevBudget, prevFY.id, allocations)
+  }, [prevFY, prevAllocations, prevTransactions, allocations])
 
   const rows = useMemo(() =>
-    computeStockRows(effectiveAllocations, transactions, bands, (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0), selectedFY?.id ?? undefined),
-    [effectiveAllocations, transactions, bands, selectedFY]
+    computeStockRows(
+      allocations, transactions, bands,
+      (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
+      selectedFY?.id ?? undefined,
+      carryoverResult?.adjustments,
+    ),
+    [allocations, transactions, bands, selectedFY, carryoverResult]
   )
 
   async function switchFY(fy: FiscalYear) {
@@ -165,10 +163,20 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               </>
             )}
           </div>
-          {/* Details table — same page, below bars */}
-          <div className="mt-4 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+          {/* Details table — collapsible */}
+          <CollapsibleSection title="Details">
             <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
-          </div>
+          </CollapsibleSection>
+
+          {/* Carryover breakdown — only when there's a previous FY with data */}
+          {carryoverResult && prevFY && (
+            carryoverResult.breakdown.orphans.length > 0 ||
+            carryoverResult.breakdown.direct.size > 0
+          ) && (
+            <CollapsibleSection title={`Carryover from ${prevFY.label}`}>
+              <CarryoverSection result={carryoverResult} prevFYLabel={prevFY.label} />
+            </CollapsibleSection>
+          )}
         </div>
       )}
     </div>
@@ -237,6 +245,85 @@ function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) 
           </Link>
         )
       })}
+    </div>
+  )
+}
+
+function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-t" style={{ borderColor: 'var(--border-faint)' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between w-full px-4"
+        style={{ minHeight: '44px' }}>
+        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>{title}</span>
+        <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+             style={{ color: 'var(--text-faint)' }}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
+function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; prevFYLabel: string }) {
+  const { direct, poolTotal, poolShares, orphans } = result.breakdown
+  return (
+    <div className="px-4 pb-4 space-y-4">
+      {/* Orphaned stocks */}
+      {orphans.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
+            Exited in {prevFYLabel}
+          </p>
+          {orphans.map(o => (
+            <div key={o.symbol} className="flex justify-between py-1.5">
+              <span className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
+              <span className="tabnum text-[14px]" style={{ color: o.remaining >= 0 ? '#30D158' : '#FF3B30' }}>
+                {o.remaining >= 0 ? '+' : '−'}{formatAmt(Math.abs(o.remaining))} → pool
+              </span>
+            </div>
+          ))}
+          <div className="flex justify-between py-1.5 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
+            <span className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
+            <span className="tabnum text-[13px] font-medium" style={{ color: poolTotal >= 0 ? '#30D158' : '#FF3B30' }}>
+              {poolTotal >= 0 ? '+' : '−'}{formatAmt(Math.abs(poolTotal))}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Per-stock adjustments */}
+      {result.adjustments.size > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
+            Adjustments this FY
+          </p>
+          {Array.from(result.adjustments.entries()).map(([sym, total]) => {
+            const d = direct.get(sym) ?? 0
+            const p = poolShares.get(sym) ?? 0
+            if (total === 0) return null
+            return (
+              <div key={sym} className="flex justify-between items-baseline py-1.5">
+                <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
+                <div className="text-right">
+                  <span className="tabnum text-[14px]" style={{ color: total >= 0 ? '#30D158' : '#FF3B30' }}>
+                    {total >= 0 ? '+' : '−'}{formatAmt(Math.abs(total))}
+                  </span>
+                  {d !== 0 && p !== 0 && (
+                    <p className="text-[11px] tabnum" style={{ color: 'var(--text-faint)' }}>
+                      {d >= 0 ? '+' : '−'}{formatAmt(Math.abs(d))} direct · {p >= 0 ? '+' : '−'}{formatAmt(Math.abs(p))} pool
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -369,10 +369,8 @@ function PlanTab({
 
           {/* Budget flat strip */}
           {(() => {
-            const stockCarryover = allocations.reduce((s, a) => s + (a.carryover_inr ?? 0), 0)
             const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
-            const totalCarryover = stockCarryover + unallocCarryover
-            const effectiveBudget = totalBudget + totalCarryover
+            const effectiveBudget = totalBudget + unallocCarryover
             return (
           <div className="px-4 pt-4 pb-3 border-b"
                style={{ borderColor: 'var(--border)' }}>
@@ -689,12 +687,6 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
             </p>
             <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {formatINR(budget)}
-              {(alloc.carryover_inr ?? 0) > 0 && (
-                <span style={{ color: '#30D158' }}> +{formatINR(alloc.carryover_inr!)}</span>
-              )}
-              {(alloc.carryover_inr ?? 0) < 0 && (
-                <span style={{ color: '#FF3B30' }}> −{formatINR(Math.abs(alloc.carryover_inr!))}</span>
-              )}
             </p>
           </div>
         </button>
@@ -938,7 +930,6 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
         symbol: a.symbol, exchange: a.exchange,
         allocation_pct: a.allocation_pct, category: a.category,
         two_weak_quarters: false, is_hospital_ramp_phase: a.is_hospital_ramp_phase,
-        carryover_inr: carryoverBySymbol[a.symbol] ?? 0,
       }))
       await sb.from('stock_allocations').insert(inserts)
     }

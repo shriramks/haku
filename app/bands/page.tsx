@@ -1,5 +1,5 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches } from '@/lib/data'
-import { computeStockRows, buildAutoCarryover } from '@/lib/compute'
+import { computeStockRows, computeCarryover } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -30,15 +30,11 @@ export default async function BandsPage({
       ])
     : [[], [], [], [], [], []]
 
-  const autoCarryover = prevFY
-    ? buildAutoCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id)
-    : new Map<string, number>()
+  const carryoverMap = prevFY
+    ? computeCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id, allocations).adjustments
+    : undefined
 
-  const effectiveAllocations = allocations.map(a =>
-    autoCarryover.has(a.symbol) ? { ...a, carryover_inr: autoCarryover.get(a.symbol)! } : a
-  )
-
-  const rows = computeStockRows(effectiveAllocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), fy?.id)
+  const rows = computeStockRows(allocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), fy?.id, carryoverMap)
 
   const sorted = [...rows].sort((a, b) => {
     const aAll      = tranches.filter(t => t.symbol === a.symbol)
