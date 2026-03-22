@@ -42,13 +42,19 @@ export function formatINRFull(amount: number): string {
   }).format(amount)
 }
 
-/** Parse "YYYY-MM-DD" to a display string like "12 Mar 2025" */
+/** Parse "YYYY-MM-DD" → "12 Mar" (current year) or "12 Mar '25" (other year) */
 export function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  const d = new Date(isoDate + 'T00:00:00')
+  const base = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  return d.getFullYear() === new Date().getFullYear()
+    ? base
+    : base + " '" + String(d.getFullYear()).slice(2)
+}
+
+/** "Mar '26" — compact month + 2-digit year, e.g. for band anchor timestamps */
+export function shortMonthYear(dateStr: string): string {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-IN', { month: 'short' }) + " '" + String(d.getFullYear()).slice(2)
 }
 
 /** Today as YYYY-MM-DD */

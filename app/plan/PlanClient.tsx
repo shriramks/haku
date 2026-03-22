@@ -143,9 +143,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
       </div>
 
       {fiscalYears.length === 0 && (
-        <div className="mx-4 mt-4 p-4 rounded-2xl border"
-             style={{ background: 'var(--bg-secondary)', borderColor: 'rgba(10,132,255,0.3)',
-                      boxShadow: '0 0 0 1px rgba(10,132,255,0.1)' }}>
+        <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Welcome to Haku
           </p>
@@ -154,8 +152,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
           </p>
           <button
             onClick={() => setShowNewPlan(true)}
-            className="w-full py-2.5 rounded-xl text-[14px] font-semibold text-white"
-            style={{ background: '#0A84FF' }}>
+            className="text-[14px] font-semibold"
+            style={{ color: '#0A84FF' }}>
             Create Plan →
           </button>
         </div>
@@ -333,8 +331,8 @@ function PlanTab({
         <>
           {/* Carryover banner */}
           {carryoverAmt !== null && !carryoverDismissed && prevFY && (
-            <div className="mx-4 mt-3 p-3 rounded-2xl"
-                 style={{ background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.2)' }}>
+            <div className="px-4 py-3 border-b"
+                 style={{ background: 'rgba(10,132,255,0.04)', borderColor: 'var(--border)' }}>
               <div className="flex items-start gap-2.5">
                 <span className="text-[18px] mt-0.5">↩</span>
                 <div className="flex-1">

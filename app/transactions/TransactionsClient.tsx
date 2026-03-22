@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatDate } from '@/lib/formatter'
+import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -68,12 +68,12 @@ export default function TransactionsClient({
         </div>
 
         {/* Filter chips */}
-        <div className="flex gap-2 mt-2 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+        <div className="flex items-center gap-2 mt-2">
           {(['all', 'buy', 'sell'] as const).map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className="px-3.5 rounded-full text-[13px] font-medium transition-colors flex-shrink-0"
+              className="px-4 rounded-full text-[13px] font-medium transition-colors flex-shrink-0 flex items-center"
               style={{
-                minHeight: '34px',
+                minHeight: '44px',
                 ...(typeFilter === t
                   ? { background: t === 'buy' ? 'rgba(52,199,89,0.2)' : t === 'sell' ? 'rgba(255,59,48,0.2)' : 'var(--text-primary)', color: t === 'buy' ? '#34C759' : t === 'sell' ? '#FF3B30' : 'var(--bg-primary)' }
                   : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
@@ -83,19 +83,28 @@ export default function TransactionsClient({
           ))}
           {!filterSymbol && symbols.length > 0 && (
             <>
-              <div className="w-px flex-shrink-0 self-stretch my-1" style={{ background: 'var(--border)' }} />
-              {symbols.map(s => (
-                <button key={s} onClick={() => setSymbolFilter(sym => sym === s ? 'all' : s)}
-                  className="px-3.5 rounded-full text-[13px] font-medium flex-shrink-0"
-                  style={{
-                    minHeight: '34px',
-                    ...(symbolFilter === s
-                      ? { background: 'rgba(10,132,255,0.15)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
-                      : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
-                  }}>
-                  {s}
-                </button>
-              ))}
+              <div className="w-px self-stretch my-2" style={{ background: 'var(--border)' }} />
+              <div className="relative flex-shrink-0">
+                <div className="flex items-center gap-1.5 px-4 rounded-full text-[13px] font-medium pointer-events-none"
+                     style={{
+                       minHeight: '44px',
+                       ...(symbolFilter !== 'all'
+                         ? { background: 'rgba(10,132,255,0.15)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
+                         : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
+                     }}>
+                  <span>{symbolFilter === 'all' ? 'Stock' : symbolFilter}</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+                <select
+                  value={symbolFilter}
+                  onChange={e => setSymbolFilter(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                  <option value="all">All stocks</option>
+                  {symbols.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
             </>
           )}
         </div>
@@ -283,9 +292,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
                     <div>
                       <p className="text-[15px] font-medium" style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
                       <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(fy.start_date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })}
-                        {' – '}
-                        {new Date(fy.end_date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })}
+                        {shortMonthYear(fy.start_date)} – {shortMonthYear(fy.end_date)}
                       </p>
                     </div>
                     {advanceFyId === fy.id && (

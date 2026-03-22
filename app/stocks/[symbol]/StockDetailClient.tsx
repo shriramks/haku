@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, getBandSignal, trancheSuggestion } from '@/lib/band-calculator'
 import { BandSignalBadge, TradeTypeBadge, GateSignalIcon, InvestableBadge } from '@/components/SignalBadge'
-import { formatINR, formatPnL, formatPct, formatDate } from '@/lib/formatter'
+import { formatINR, formatPnL, formatPct, formatDate, shortMonthYear } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, GateSignal, BuyTranche } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
@@ -333,7 +333,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
             <BandBarSimple buyLow={buyLow!} buyHigh={buyHigh!} midLow={midLow!} midHigh={midHigh!} trimPrice={trimPrice!} cmp={band.manual_cmp} />
 
             <p className="text-xs mt-3" style={{ color: 'var(--text-faint)' }}>
-              Anchor: {band.anchor_type} · {new Date(band.last_updated_at).toLocaleDateString('en-IN')}
+              Anchor: {band.anchor_type} · {shortMonthYear(band.last_updated_at)}
             </p>
           </div>
 
@@ -715,21 +715,22 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
   }
 
   return (
-    <div className="px-4 py-4">
-      <button
-        onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn', { detail: { symbol } }))}
-        className="flex items-center justify-center gap-2 rounded-xl w-full font-medium text-sm mb-4"
-        style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)', minHeight: '44px' }}>
-        <span className="text-lg">+</span> Add transaction for {symbol}
-      </button>
+    <div>
+      <div className="px-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <button
+          onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn', { detail: { symbol } }))}
+          className="flex items-center gap-2 font-medium text-[14px]"
+          style={{ color: '#0A84FF', minHeight: '44px' }}>
+          <span className="text-lg leading-none">+</span> Add transaction for {symbol}
+        </button>
+      </div>
 
       {transactions.length === 0 ? (
         <p className="text-center py-8" style={{ color: 'var(--text-muted)' }}>No transactions yet</p>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
           {transactions.map(t => (
-            <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl border"
-                 style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
+            <div key={t.id} className="flex items-center gap-3 px-4 py-3">
               <TradeTypeBadge type={t.trade_type} />
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between">
