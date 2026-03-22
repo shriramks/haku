@@ -391,9 +391,9 @@ function PlanTab({
                 ) : (
                   <div>
                     <p className="text-[22px] font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
-                    {totalCarryover > 0 && (
+                    {unallocCarryover > 0 && (
                       <p className="text-[11px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {formatINR(totalBudget)} base + {formatINR(totalCarryover)} carryover
+                        {formatINR(totalBudget)} base + {formatINR(unallocCarryover)} carryover
                       </p>
                     )}
                   </div>
