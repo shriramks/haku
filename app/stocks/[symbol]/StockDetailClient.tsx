@@ -71,17 +71,17 @@ export default function StockDetailClient({
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">{symbol}</h1>
+            <h1 className="text-title-1 font-bold">{symbol}</h1>
             <BandSignalBadge signal={signal} />
           </div>
           {getStockName(symbol) && (
-            <p className="text-[12px]" style={{ color: 'var(--text-faint)' }}>{getStockName(symbol)}</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>{getStockName(symbol)}</p>
           )}
           {qty > 0 && (
-            <p className="text-sm tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {Math.round(qty)} shares · avg ₹{Math.round(avgCost)}
               {pnl !== null && (
-                <span className={pnl >= 0 ? ' text-green-500' : ' text-red-400'}>
+                <span className={pnl >= 0 ? ' text-positive' : ' text-negative'}>
                   {' '}· {formatPnL(pnl)}
                   {pnlPct !== null && ` (${formatPct(pnlPct)})`}
                 </span>
@@ -98,11 +98,11 @@ export default function StockDetailClient({
           <M label="Total Spent"  value={formatINR(allFYSpent)} />
           <M label={`${fiscalYear?.label ?? 'This Year'} Budget`}    value={formatINR(budget)} />
           <M label={`${fiscalYear?.label ?? 'This Year'} Remaining`} value={formatINR(remaining)}
-             color={remaining < 0 ? 'text-red-400' : undefined} />
+             color={remaining < 0 ? 'text-negative' : undefined} />
           {carryoverInr !== 0 && (
             <M label="Carryover"
                value={`${carryoverInr > 0 ? '+' : '−'}${formatINR(Math.abs(carryoverInr))}`}
-               color={carryoverInr > 0 ? 'text-green-500' : 'text-red-400'} />
+               color={carryoverInr > 0 ? 'text-positive' : 'text-negative'} />
           )}
         </div>
 
@@ -114,7 +114,7 @@ export default function StockDetailClient({
             {pnl !== null && (
               <M label="Unrealised P&L"
                  value={`${formatPnL(pnl)}${pnlPct !== null ? ` (${formatPct(pnlPct)})` : ''}`}
-                 color={pnl >= 0 ? 'text-green-500' : 'text-red-400'} />
+                 color={pnl >= 0 ? 'text-positive' : 'text-negative'} />
             )}
           </div>
         )}
@@ -147,7 +147,7 @@ function Collapsible({ title, defaultOpen = false, children }: { title: string; 
         onClick={() => setOpen(o => !o)}
         className="flex items-center justify-between w-full px-4"
         style={{ minHeight: '44px' }}>
-        <span className="text-[15px] font-semibold">{title}</span>
+        <span className="text-body font-semibold">{title}</span>
         <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
              style={{ color: 'var(--text-faint)' }}>
@@ -163,11 +163,11 @@ function Collapsible({ title, defaultOpen = false, children }: { title: string; 
 function M({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div>
-      <p className={`font-semibold tabnum text-[17px] ${color ?? ''}`}
+      <p className={`font-semibold tabnum text-headline ${color ?? ''}`}
          style={color ? undefined : { color: 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }
@@ -302,79 +302,79 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
         </div>
       )}
 
-      {genError && <p className="text-[12px] text-red-400 mb-2">{genError}</p>}
+      {genError && <p className="text-subheadline text-negative mb-2">{genError}</p>}
 
       {editing ? (
         <>
-          <p className="text-[12px] mb-3" style={{ color: 'var(--text-faint)' }}>
+          <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
             {category ? `${category} · ` : ''}{anchor === 'EV' ? 'EV/EBITDA' : anchor === 'PB' ? 'P/B' : anchor === 'PEV' ? 'P/EV' : 'PE'}
           </p>
           <div className="grid grid-cols-2 gap-3">
             {(anchor === 'PE') && (
               <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
                   onChange={e => setEps(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
             )}
             {(anchor === 'EV') && (<>
               <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>EBITDA (₹Cr)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EBITDA (₹Cr)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 1200" value={ebitda}
                   onChange={e => setEbitda(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Net Debt (₹Cr)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Net Debt (₹Cr)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 500" value={netDebt}
                   onChange={e => setNetDebt(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 3.8" value={shares}
                   onChange={e => setShares(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
             </>)}
             {(anchor === 'PB') && (
               <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Book Value per Share (₹)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Book Value per Share (₹)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 250" value={bvps}
                   onChange={e => setBvps(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
             )}
             {(anchor === 'PEV') && (<>
               <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Embedded Value (₹Cr)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Embedded Value (₹Cr)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 92400" value={ev}
                   onChange={e => setEv(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
                 <input type="number" inputMode="decimal" placeholder="e.g. 10" value={shares}
                   onChange={e => setShares(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3.5 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
             </>)}
           </div>
           <button onClick={save} disabled={saving}
-            className="w-full mt-4 py-4 rounded-2xl text-[17px] font-semibold disabled:opacity-40"
+            className="w-full mt-4 py-4 rounded-2xl text-headline font-semibold disabled:opacity-40"
             style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
           <button onClick={() => setEditing(false)}
-            className="w-full mt-2 py-3 rounded-2xl text-[15px]"
+            className="w-full mt-2 py-3 rounded-2xl text-body"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
             Cancel
           </button>
@@ -389,7 +389,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
           {band?.embedded_value && <InputRow k="Embedded Value" v={`${band.embedded_value} Cr`} />}
         </div>
       ) : (
-        <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>No data — tap pencil to enter, or Generate to auto-fill</p>
+        <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No data — tap pencil to enter, or Generate to auto-fill</p>
       )}
     </>
   )
@@ -403,8 +403,8 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
 function InputRow({ k, v }: { k: string; v: string }) {
   return (
     <div>
-      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{k}</p>
-      <p className="font-semibold tabnum text-[15px]" style={{ color: 'var(--text-primary)' }}>{v}</p>
+      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{k}</p>
+      <p className="font-semibold tabnum text-body" style={{ color: 'var(--text-primary)' }}>{v}</p>
     </div>
   )
 }
@@ -447,8 +447,8 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
       <div className="px-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <button
           onClick={() => document.dispatchEvent(new CustomEvent('open-add-txn', { detail: { symbol } }))}
-          className="flex items-center gap-2 font-medium text-[14px]"
-          style={{ color: '#0A84FF', minHeight: '44px' }}>
+          className="flex items-center gap-2 font-medium text-body text-accent"
+          style={{ minHeight: '44px' }}>
           <span className="text-lg leading-none">+</span> Add transaction for {symbol}
         </button>
       </div>
@@ -462,16 +462,16 @@ function TxnsTab({ symbol, transactions, userId, fiscalYear, onAdded }: {
               <TradeTypeBadge type={t.trade_type} />
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between">
-                  <span className="text-sm tabnum">{Math.round(t.quantity)} × ₹{Math.round(t.price)}</span>
-                  <span className="font-semibold tabnum text-sm">{formatINR(t.amount)}</span>
+                  <span className="text-subheadline tabnum">{Math.round(t.quantity)} × ₹{Math.round(t.price)}</span>
+                  <span className="font-semibold tabnum text-subheadline">{formatINR(t.amount)}</span>
                 </div>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>
                   {formatDate(t.trade_date)}{t.notes ? ` · ${t.notes}` : ''}
                 </p>
               </div>
               <button onClick={() => del(t.id)} disabled={deleting === t.id}
-                className="text-[15px] px-3 rounded-lg disabled:opacity-40 flex items-center justify-center flex-shrink-0"
-                style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.08)', minWidth: '44px', minHeight: '44px' }}>
+                className="text-body px-3 rounded-lg disabled:opacity-40 flex items-center justify-center flex-shrink-0 text-negative"
+                style={{ background: 'rgba(255,59,48,0.08)', minWidth: '44px', minHeight: '44px' }}>
                 {deleting === t.id ? '…' : '×'}
               </button>
             </div>
@@ -547,10 +547,10 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
       <div className="flex items-center justify-between p-4 rounded-2xl border"
            style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
         <InvestableBadge investable={editing ? draft.investable : (inv?.investable ?? true)} />
-        <div className="text-right text-sm">
-          <span className="text-green-500">{passes} ✅</span>
-          {cautions > 0 && <span className="text-orange-400 ml-2">{cautions} ⚠️</span>}
-          {fails > 0    && <span className="text-red-400 ml-2">{fails} ❌</span>}
+        <div className="text-right text-body">
+          <span className="text-positive">{passes} ✅</span>
+          {cautions > 0 && <span className="text-warning ml-2">{cautions} ⚠️</span>}
+          {fails > 0    && <span className="text-negative ml-2">{fails} ❌</span>}
         </div>
       </div>
 
@@ -558,11 +558,11 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
         <div className="space-y-1">
           <div className="flex items-center justify-between p-3 rounded-xl border"
                style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
-            <span className="text-sm">Investable?</span>
+            <span className="text-body">Investable?</span>
             <div className="flex gap-1">
               {[true, false].map(v => (
                 <button key={String(v)} onClick={() => setDraft(d => ({ ...d, investable: v }))}
-                  className="px-3 py-1 rounded-lg text-xs font-bold"
+                  className="px-3 py-1 rounded-lg text-footnote font-bold"
                   style={draft.investable === v
                     ? { background: v ? '#34C759' : '#FF3B30', color: '#fff' }
                     : { background: 'var(--border)', color: 'var(--text-muted)' }}>
@@ -576,11 +576,11 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
             <div key={gate.key} className="p-3 rounded-xl border space-y-2"
                  style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
               <div className="flex items-center justify-between">
-                <span className="text-sm">{gate.label}</span>
+                <span className="text-body">{gate.label}</span>
                 <div className="flex gap-1">
                   {(['pass', 'caution', 'fail'] as GateSignal[]).map(sig => (
                     <button key={sig} onClick={() => setDraft(d => ({ ...d, [gate.key]: sig }))}
-                      className="px-2 py-0.5 rounded text-xs font-medium"
+                      className="px-2 py-0.5 rounded text-footnote font-medium"
                       style={(draft as Record<string, unknown>)[gate.key] === sig
                         ? { background: sig === 'pass' ? '#34C759' : sig === 'caution' ? '#FF9500' : '#FF3B30', color: '#fff' }
                         : { background: 'var(--border)', color: 'var(--text-muted)' }}>
@@ -592,17 +592,17 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
               <input type="text" placeholder="Note (optional)"
                 value={((draft as Record<string, unknown>)[gate.noteKey] as string) ?? ''}
                 onChange={e => setDraft(d => ({ ...d, [gate.noteKey]: e.target.value }))}
-                className="w-full px-2 py-1.5 rounded text-xs outline-none"
+                className="w-full px-2 py-1.5 rounded text-footnote outline-none"
                 style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }} />
             </div>
           ))}
 
           <div className="flex gap-2 pt-2">
             <button onClick={() => setEditing(false)}
-              className="flex-1 py-2.5 rounded-xl text-sm"
+              className="flex-1 py-2.5 rounded-xl text-body"
               style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>Cancel</button>
             <button onClick={save} disabled={saving}
-              className="flex-1 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-xl font-bold text-body disabled:opacity-40"
               style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -619,19 +619,19 @@ function InvestabilityTab({ symbol, inv, onSaved }: {
                    style={{ borderColor: 'var(--border-faint)' }}>
                 <GateSignalIcon signal={sig} compact />
                 <div className="flex-1">
-                  <p className="text-sm" style={{ color: 'var(--text-2)' }}>{gate.label}</p>
-                  {note && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{note}</p>}
+                  <p className="text-body" style={{ color: 'var(--text-2)' }}>{gate.label}</p>
+                  {note && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{note}</p>}
                 </div>
               </div>
             )
           })}
           {inv && (
-            <p className="text-xs pt-1" style={{ color: 'var(--text-faint)' }}>
+            <p className="text-footnote pt-1" style={{ color: 'var(--text-faint)' }}>
               Last assessed: {formatDate(inv.assessed_at)}
             </p>
           )}
           <button onClick={() => setEditing(true)}
-            className="w-full py-3 rounded-xl border text-sm mt-2"
+            className="w-full py-3 rounded-xl border text-body mt-2"
             style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
             Edit Assessment
           </button>

@@ -72,9 +72,8 @@ export default function BottomNav() {
                 style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 {showPulse && (
                   <span className="absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap
-                                   text-[10px] font-semibold text-white px-2 py-0.5 rounded-md"
-                        style={{ background: '#0A84FF', bottom: 'calc(100% + 2px)', top: 'auto',
-                                 position: 'absolute' }}>
+                                   text-footnote font-semibold text-white px-2 py-0.5 rounded-md bg-accent"
+                        style={{ bottom: 'calc(100% + 2px)', top: 'auto', position: 'absolute' }}>
                     Generate buy bands →
                   </span>
                 )}
@@ -82,7 +81,7 @@ export default function BottomNav() {
                   <Icon className="w-6 h-6" />
                   {showPulse && <PulseDot />}
                 </div>
-                <span className="text-[11px] font-medium">{label}</span>
+                <span className="text-footnote font-medium">{label}</span>
               </Link>
             )
           })}
@@ -106,7 +105,7 @@ export default function BottomNav() {
                   <Icon className="w-6 h-6" />
                   {showPulse && <PulseDot />}
                 </div>
-                <span className="text-[11px] font-medium">{label}</span>
+                <span className="text-footnote font-medium">{label}</span>
               </Link>
             )
           })}
@@ -122,10 +121,8 @@ export default function BottomNav() {
 function PulseDot() {
   return (
     <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-            style={{ background: '#0A84FF' }} />
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 border border-black"
-            style={{ background: '#0A84FF' }} />
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 bg-accent" />
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 border border-black bg-accent" />
     </span>
   )
 }

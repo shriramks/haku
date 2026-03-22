@@ -103,7 +103,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">
-          <h1 className="text-[28px] font-bold">Allocation</h1>
+          <h1 className="text-display font-bold">Allocation</h1>
           <div className="flex items-center gap-2">
             <FYPicker
               fiscalYears={fiscalYears}
@@ -127,13 +127,13 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
             <div
               className={`h-full rounded-full transition-all ${
-                pctDeployed > 90 ? 'bg-red-500' :
-                pctDeployed > 70 ? 'bg-orange-500' : 'bg-green-500'
+                pctDeployed > 90 ? 'bg-negative' :
+                pctDeployed > 70 ? 'bg-warning' : 'bg-positive'
               }`}
               style={{ width: `${Math.min(100, pctDeployed)}%` }}
             />
           </div>
-          <p className="text-[12px] mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-subheadline mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
             {formatPct(pctDeployed)} deployed
           </p>
         </div>
@@ -146,8 +146,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
-          <p className="text-[17px] font-medium mb-1">No stocks in this plan</p>
-          <Link href="/plan" className="text-[15px] text-[#0A84FF]">Add stocks in Plan →</Link>
+          <p className="text-headline font-medium mb-1">No stocks in this plan</p>
+          <Link href="/plan" className="text-body text-accent">Add stocks in Plan →</Link>
         </div>
       ) : (
         <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
@@ -157,7 +157,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             {completedRows.length > 0 && (
               <>
                 <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                  <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                  <span className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                 </div>
                 {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
               </>
@@ -194,19 +194,19 @@ function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: b
           className="flex items-center gap-3 px-4 py-4 tap-row border-b"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
-        <span className="font-semibold text-[17px]">{row.symbol}</span>
+        <span className="font-semibold text-headline">{row.symbol}</span>
         {getStockName(row.symbol) && (
-          <p className="text-[11px] truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
+          <p className="text-footnote truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
         )}
       </div>
       <div className="flex-1">
         <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
           <div className={`h-full rounded-full ${
-            isDone ? 'bg-gray-400' : pct > 70 ? 'bg-orange-400' : 'bg-green-500'
+            isDone ? 'bg-gray-400' : pct > 70 ? 'bg-warning' : 'bg-positive'
           }`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-      <p className="text-[14px] tabnum text-right flex-shrink-0" style={{ color: 'var(--text-muted)', minWidth: '64px' }}>
+      <p className="text-body tabnum text-right flex-shrink-0" style={{ color: 'var(--text-muted)', minWidth: '64px' }}>
         {isDone ? 'Done' : `${formatAmt(row.remaining)} left`}
       </p>
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -221,7 +221,7 @@ function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) 
   return (
     <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header row */}
-      <div className="grid px-4 py-2 border-b text-[11px] uppercase tracking-widest font-semibold"
+      <div className="grid px-4 py-2 border-b text-footnote uppercase tracking-widest font-semibold"
            style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border)', color: 'var(--text-faint)' }}>
         <span>Stock</span>
         <span className="text-right">Spent</span>
@@ -230,17 +230,17 @@ function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) 
       {rows.map(row => {
         const leftPct = row.budget > 0 ? (row.remaining / row.budget) * 100 : 0
         const isOver  = row.remaining < 0
-        const leftColor = isOver ? '#FF3B30' : leftPct < 20 ? '#FF9500' : '#30D158'
+        const leftColorClass = isOver ? 'text-negative' : leftPct < 20 ? 'text-warning' : 'text-positive'
         return (
           <Link key={row.symbol}
             href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-            className="grid items-center px-4 border-b tap-row tabnum text-[13px]"
+            className="grid items-center px-4 border-b tap-row tabnum text-subheadline"
             style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border-faint)', minHeight: '52px' }}>
-            <span className="font-semibold text-[14px]" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
+            <span className="font-semibold text-body" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
             <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.spent)}</span>
-            <span className="text-right" style={{ color: leftColor }}>
+            <span className={`text-right ${leftColorClass}`}>
               {isOver ? '−' : ''}{formatAmt(Math.abs(row.remaining))}
-              <span className="text-[11px] ml-1">({isOver ? `−${Math.abs(leftPct).toFixed(0)}` : leftPct.toFixed(0)}%)</span>
+              <span className="text-footnote ml-1">({isOver ? `−${Math.abs(leftPct).toFixed(0)}` : leftPct.toFixed(0)}%)</span>
             </span>
           </Link>
         )
@@ -257,7 +257,7 @@ function CollapsibleSection({ title, children }: { title: string; children: Reac
         onClick={() => setOpen(o => !o)}
         className="flex items-center justify-between w-full px-4"
         style={{ minHeight: '52px' }}>
-        <span className="text-[15px] font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
         <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
              style={{ color: 'var(--text-faint)' }}>
@@ -276,20 +276,20 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
       {/* Orphaned stocks */}
       {orphans.length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
+          <p className="text-footnote uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
             Exited in {prevFYLabel}
           </p>
           {orphans.map(o => (
             <div key={o.symbol} className="flex justify-between items-center py-3">
-              <span className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
-              <span className="tabnum text-[14px]" style={{ color: o.remaining >= 0 ? '#30D158' : '#FF3B30' }}>
+              <span className="text-body" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
+              <span className={`tabnum text-body ${o.remaining >= 0 ? 'text-positive' : 'text-negative'}`}>
                 {o.remaining >= 0 ? '+' : '−'}{formatAmt(Math.abs(o.remaining))} → pool
               </span>
             </div>
           ))}
           <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
-            <span className="text-[13px] font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
-            <span className="tabnum text-[13px] font-medium" style={{ color: poolTotal >= 0 ? '#30D158' : '#FF3B30' }}>
+            <span className="text-subheadline font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
+            <span className={`tabnum text-subheadline font-medium ${poolTotal >= 0 ? 'text-positive' : 'text-negative'}`}>
               {poolTotal >= 0 ? '+' : '−'}{formatAmt(Math.abs(poolTotal))}
             </span>
           </div>
@@ -305,13 +305,13 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
             if (total === 0) return null
             return (
               <div key={sym} className="flex justify-between items-center py-3">
-                <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
+                <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
                 <div className="text-right">
-                  <span className="tabnum text-[14px]" style={{ color: total >= 0 ? '#30D158' : '#FF3B30' }}>
+                  <span className={`tabnum text-body ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
                     {total >= 0 ? '+' : '−'}{formatAmt(Math.abs(total))}
                   </span>
                   {d !== 0 && p !== 0 && (
-                    <p className="text-[11px] tabnum" style={{ color: 'var(--text-faint)' }}>
+                    <p className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
                       {d >= 0 ? '+' : '−'}{formatAmt(Math.abs(d))} direct · {p >= 0 ? '+' : '−'}{formatAmt(Math.abs(p))} pool
                     </p>
                   )}
@@ -328,10 +328,10 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
 function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
     <div className="text-center">
-      <p className="font-bold tabnum text-[22px]" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+      <p className="font-bold tabnum text-title-1" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }

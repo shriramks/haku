@@ -83,7 +83,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px] max-h-[92vh] overflow-y-auto"
+        className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl max-h-[92vh] overflow-y-auto"
         style={{
           background: 'var(--bg-secondary)',
           paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)',
@@ -95,8 +95,8 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-1 pb-4">
-          <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Cancel</button>
-          <p className="font-semibold text-[17px]">New Transaction</p>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <p className="font-semibold text-headline">New Transaction</p>
           <div className="w-16" />
         </div>
 
@@ -105,10 +105,10 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
           {/* Stock chips */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
+              <p className="text-footnote uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
               {symbol && (
                 <button type="button" onClick={() => setSymbol('')}
-                  className="text-[12px]" style={{ color: 'var(--text-faint)' }}>
+                  className="text-subheadline" style={{ color: 'var(--text-faint)' }}>
                   clear
                 </button>
               )}
@@ -120,7 +120,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
                     key={s}
                     type="button"
                     onClick={() => setSymbol(s)}
-                    className="px-3 py-2 rounded-2xl text-[14px] font-semibold transition-colors"
+                    className="px-3 py-2 rounded-2xl text-body font-semibold transition-colors"
                     style={symbol === s
                       ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
                       : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }
@@ -130,17 +130,17 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
                 ))}
               </div>
             ) : (
-              <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+              <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
             )}
           </div>
 
           {/* Buy / Sell toggle */}
           <div>
-            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
+            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
             <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               {(['buy', 'sell'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
-                  className="flex-1 py-3.5 text-[15px] font-bold transition-colors"
+                  className="flex-1 py-3.5 text-body font-bold transition-colors"
                   style={type === t
                     ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
                     : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
@@ -152,9 +152,9 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
 
           {/* Date */}
           <div className="overflow-hidden">
-            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
+            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-2xl text-[15px] outline-none max-w-full"
+              className="w-full px-3 py-2.5 rounded-2xl text-body outline-none max-w-full"
               style={{
                 background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                 border: '1px solid var(--border)', colorScheme: 'light dark',
@@ -169,10 +169,10 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
               { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50', decimal: true },
             ].map(({ label, val, set, ph, decimal }) => (
               <div key={label}>
-                <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
-                  className="w-full px-3 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{
                     background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                     border: '1px solid var(--border)',
@@ -185,8 +185,8 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
           {amount > 0 && (
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
                  style={{ background: 'var(--bg-tertiary)' }}>
-              <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>Total</span>
-              <span className={`font-bold tabnum text-[20px] ${type === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
+              <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
+              <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
                 {formatINR(amount)}
               </span>
             </div>
@@ -197,8 +197,8 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
                  style={{ background: 'rgba(255,59,48,0.06)', border: '1px solid rgba(255,59,48,0.15)', opacity: redeploy ? 1 : 0.6 }}>
               <div className="flex-1 mr-3">
-                <p className="text-[14px] font-medium">Redeploy proceeds</p>
-                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-body font-medium">Redeploy proceeds</p>
+                <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {redeploy ? `Adds ${formatINR(amount)} to this year's budget` : 'Proceeds stay in this stock\'s allocation'}
                 </p>
               </div>
@@ -207,18 +207,17 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
                 onClick={() => setRedeploy(r => !r)}
                 className="relative flex-shrink-0"
                 style={{ width: 51, height: 31 }}>
-                <div className="absolute inset-0 rounded-full transition-colors duration-200"
-                     style={{ background: redeploy ? '#34C759' : '#ccc' }} />
+                <div className={`absolute inset-0 rounded-full transition-colors duration-200 ${redeploy ? 'bg-positive' : 'bg-[#ccc]'}`} />
                 <div className="absolute top-0.5 rounded-full bg-white shadow transition-transform duration-200"
                      style={{ width: 27, height: 27, left: 2, transform: redeploy ? 'translateX(20px)' : 'translateX(0)' }} />
               </button>
             </div>
           )}
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-negative text-body text-center">{error}</p>}
 
           <button type="submit" disabled={loading || !symbol || !qty || !price}
-            className="w-full py-4 rounded-2xl font-bold text-[17px] transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+            className="w-full py-4 rounded-2xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
             style={{ background: done ? 'var(--border)' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>

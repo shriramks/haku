@@ -102,23 +102,23 @@ export default function UserMenu() {
         <div
           className="absolute right-0 top-10 w-72 rounded-2xl p-4 z-50 shadow-xl"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <p className="text-[11px] uppercase tracking-widest mb-1"
+          <p className="text-footnote uppercase tracking-widest mb-1"
              style={{ color: 'var(--text-muted)' }}>Account</p>
-          <p className="text-[14px] font-medium truncate mb-4"
+          <p className="text-body font-medium truncate mb-4"
              style={{ color: 'var(--text-primary)' }}>
             {email ?? '…'}
           </p>
 
           {/* AI Settings */}
           <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <p className="text-[11px] uppercase tracking-widest mb-2"
+            <p className="text-footnote uppercase tracking-widest mb-2"
                style={{ color: 'var(--text-muted)' }}>AI Settings</p>
 
             {/* Provider toggle */}
             <div className="flex rounded-xl overflow-hidden border mb-2" style={{ borderColor: 'var(--border)' }}>
               {(['gemini', 'claude'] as const).map(p => (
                 <button key={p} onClick={() => { setAiProvider(p); setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                  className="flex-1 py-2 text-[12px] font-medium transition-colors"
+                  className="flex-1 py-2 text-subheadline font-medium transition-colors"
                   style={aiProvider === p
                     ? { background: '#0A84FF', color: '#fff' }
                     : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
@@ -127,14 +127,14 @@ export default function UserMenu() {
               ))}
             </div>
             {aiProvider === 'gemini' && (
-              <p className="text-[10px] mb-2 text-center" style={{ color: '#34C759' }}>★ Recommended for band generation</p>
+              <p className="text-footnote mb-2 text-center text-positive">★ Recommended for band generation</p>
             )}
 
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[13px]" style={{ color: 'var(--text-2)' }}>
+              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>
                 {aiProvider === 'gemini' ? 'Gemini' : 'Claude'} API Key
               </p>
-              <span className={`text-[11px] px-1.5 py-0.5 rounded-md ${hasKey ? 'text-green-500' : ''}`}
+              <span className={`text-footnote px-1.5 py-0.5 rounded-md ${hasKey ? 'text-positive' : ''}`}
                     style={hasKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
                 {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
               </span>
@@ -143,8 +143,8 @@ export default function UserMenu() {
             {!showKeyInput ? (
               <button
                 onClick={() => setShowKeyInput(true)}
-                className="w-full py-2 rounded-xl text-[13px]"
-                style={{ background: 'var(--bg-tertiary)', color: '#0A84FF', border: '1px solid var(--border)' }}>
+                className="w-full py-2 rounded-xl text-subheadline text-accent"
+                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
                 {hasKey ? 'Update Key' : 'Add Key'}
               </button>
             ) : (
@@ -154,26 +154,26 @@ export default function UserMenu() {
                   placeholder={aiProvider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'}
                   value={keyInput}
                   onChange={e => setKeyInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-[13px] outline-none"
+                  className="w-full px-3 py-2 rounded-xl text-subheadline outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                   autoFocus
                 />
-                {keyError && <p className="text-[11px] text-red-400">{keyError}</p>}
+                {keyError && <p className="text-footnote text-negative">{keyError}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                    className="flex-1 py-1.5 rounded-xl text-[13px]"
+                    className="flex-1 py-1.5 rounded-xl text-subheadline"
                     style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>
                     Cancel
                   </button>
                   {hasKey && (
                     <button onClick={clearKey} disabled={savingKey}
-                      className="flex-1 py-1.5 rounded-xl text-[13px] text-red-400 disabled:opacity-40"
+                      className="flex-1 py-1.5 rounded-xl text-subheadline text-negative disabled:opacity-40"
                       style={{ background: 'rgba(255,59,48,0.10)' }}>
                       Clear
                     </button>
                   )}
                   <button onClick={saveKey} disabled={savingKey || !keyInput.trim()}
-                    className="flex-1 py-1.5 rounded-xl text-[13px] font-semibold text-[#0A84FF] disabled:opacity-40"
+                    className="flex-1 py-1.5 rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.15)' }}>
                     {savingKey ? '…' : 'Save'}
                   </button>
@@ -184,12 +184,12 @@ export default function UserMenu() {
 
           {/* Data */}
           <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <p className="text-[11px] uppercase tracking-widest mb-2"
+            <p className="text-footnote uppercase tracking-widest mb-2"
                style={{ color: 'var(--text-muted)' }}>Data</p>
             <a
               href="/import"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 w-full rounded-xl text-[15px] font-medium"
+              className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
               style={{
                 minHeight: 44,
                 padding: '0 12px',
@@ -208,7 +208,7 @@ export default function UserMenu() {
           <button
             onClick={signOut}
             disabled={signingOut}
-            className="w-full py-2.5 rounded-xl text-[15px] font-semibold text-red-400 disabled:opacity-40"
+            className="w-full py-2.5 rounded-xl text-body font-semibold text-negative disabled:opacity-40"
             style={{ background: 'rgba(255,59,48,0.10)' }}>
             {signingOut ? 'Signing out…' : 'Sign Out'}
           </button>

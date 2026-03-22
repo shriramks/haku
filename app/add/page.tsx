@@ -75,7 +75,7 @@ export default function AddPage() {
            style={{ background: 'var(--bg-primary)' }}>
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <h1 className="text-[20px] font-bold">New Transaction</h1>
+          <h1 className="text-title-2 font-bold">New Transaction</h1>
         </div>
 
         <form onSubmit={submit} className="px-4 pt-4 space-y-4 pb-28">
@@ -83,19 +83,19 @@ export default function AddPage() {
           {/* Stock chips */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
+              <p className="text-footnote uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
               {symbol && (
                 <button type="button" onClick={() => setSymbol('')}
-                  className="text-[12px]" style={{ color: 'var(--text-faint)' }}>clear</button>
+                  className="text-subheadline" style={{ color: 'var(--text-faint)' }}>clear</button>
               )}
             </div>
             {!symbolsLoaded ? (
-              <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+              <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
             ) : planSymbols.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {planSymbols.map(s => (
                   <button key={s} type="button" onClick={() => setSymbol(s)}
-                    className="px-3 py-2 rounded-2xl text-[14px] font-semibold transition-colors"
+                    className="px-3 py-2 rounded-2xl text-body font-semibold transition-colors"
                     style={symbol === s
                       ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
                       : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
@@ -106,11 +106,11 @@ export default function AddPage() {
             ) : (
               <div className="rounded-2xl p-4"
                    style={{ background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.2)' }}>
-                <p className="text-[14px] font-semibold mb-1" style={{ color: '#0A84FF' }}>No stocks in current plan</p>
-                <p className="text-[13px] mb-2" style={{ color: 'var(--text-2)' }}>
+                <p className="text-body font-semibold mb-1 text-accent">No stocks in current plan</p>
+                <p className="text-subheadline mb-2" style={{ color: 'var(--text-2)' }}>
                   Add stocks to your plan before logging transactions.
                 </p>
-                <a href="/plan" className="text-[14px] font-semibold" style={{ color: '#0A84FF' }}>
+                <a href="/plan" className="text-body font-semibold text-accent">
                   Go to Plan →
                 </a>
               </div>
@@ -119,11 +119,11 @@ export default function AddPage() {
 
           {/* Buy / Sell */}
           <div>
-            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
+            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
             <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               {(['buy', 'sell'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
-                  className="flex-1 py-3.5 text-[15px] font-bold transition-colors"
+                  className="flex-1 py-3.5 text-body font-bold transition-colors"
                   style={type === t
                     ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
                     : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
@@ -135,9 +135,9 @@ export default function AddPage() {
 
           {/* Date */}
           <div className="overflow-hidden">
-            <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
+            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-2xl text-[15px] outline-none max-w-full"
+              className="w-full px-3 py-2.5 rounded-2xl text-body outline-none max-w-full"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
           </div>
 
@@ -148,10 +148,10 @@ export default function AddPage() {
               { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50', decimal: true },
             ].map(({ label, val, set, ph, decimal }) => (
               <div key={label}>
-                <p className="text-[11px] mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
-                  className="w-full px-3 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+                  className="w-full px-3 py-3.5 rounded-2xl text-headline tabnum outline-none"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </div>
             ))}
@@ -161,17 +161,17 @@ export default function AddPage() {
           {amount > 0 && (
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
                  style={{ background: 'var(--bg-tertiary)' }}>
-              <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>Total</span>
-              <span className={`font-bold tabnum text-[20px] ${type === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
+              <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
+              <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
                 {formatINR(amount)}
               </span>
             </div>
           )}
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+          {error && <p className="text-negative text-subheadline text-center">{error}</p>}
 
           <button type="submit" disabled={loading || !symbol || !qty || !price}
-            className="w-full py-4 rounded-2xl font-bold text-[17px] transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+            className="w-full py-4 rounded-2xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
             style={{ background: done ? '#30D158' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>

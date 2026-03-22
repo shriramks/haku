@@ -134,7 +134,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between px-4 pb-3">
-          <h1 className="text-[28px] font-bold">Plan</h1>
+          <h1 className="text-display font-bold">Plan</h1>
           <div className="flex items-center gap-2">
             <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={switchFY} onNew={() => setShowNewPlan(true)} />
             <UserMenu />
@@ -144,16 +144,15 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
 
       {fiscalYears.length === 0 && (
         <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-[15px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Welcome to Haku
           </p>
-          <p className="text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-subheadline mb-3" style={{ color: 'var(--text-muted)' }}>
             Start by creating your annual investment plan.
           </p>
           <button
             onClick={() => setShowNewPlan(true)}
-            className="text-[14px] font-semibold"
-            style={{ color: '#0A84FF' }}>
+            className="text-body font-semibold text-accent">
             Create Plan →
           </button>
         </div>
@@ -336,10 +335,10 @@ function PlanTab({
               <div className="flex items-start gap-2.5">
                 <span className="text-[18px] mt-0.5">↩</span>
                 <div className="flex-1">
-                  <p className="text-[13px] font-semibold" style={{ color: '#0A84FF' }}>
+                  <p className="text-subheadline font-semibold text-accent">
                     {prevFY.label} carryover available
                   </p>
-                  <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {formatINR(carryoverAmt)} undeployed · add to {selectedFY.label} budget?
                   </p>
                 </div>
@@ -350,15 +349,14 @@ function PlanTab({
                     if (typeof window !== 'undefined') localStorage.setItem(`carryover_dismissed_${selectedFY.id}`, '1')
                     setCarryoverDismissed(true)
                   }}
-                  className="px-3 py-1.5 rounded-xl text-[13px]"
+                  className="px-3 py-1.5 rounded-xl text-subheadline"
                   style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                   Cancel
                 </button>
                 <button
                   onClick={applyCarryover}
                   disabled={applyingCarryover}
-                  className="px-3 py-1.5 rounded-xl text-[13px] font-semibold disabled:opacity-40"
-                  style={{ background: '#0A84FF', color: '#fff' }}>
+                  className="px-3 py-1.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 bg-accent text-white">
                   {applyingCarryover ? '…' : 'Add'}
                 </button>
               </div>
@@ -376,21 +374,21 @@ function PlanTab({
               <div>
                 {editBudget ? (
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[17px]" style={{ color: 'var(--text-muted)' }}>₹</span>
+                    <span className="text-headline" style={{ color: 'var(--text-muted)' }}>₹</span>
                     <input
                       type="number" inputMode="decimal"
                       value={budgetInput}
                       onChange={e => setBudgetInput(e.target.value)}
-                      className="text-[22px] font-bold w-28 tabnum outline-none rounded-lg px-2 py-0.5"
+                      className="text-title-1 font-bold w-28 tabnum outline-none rounded-lg px-2 py-0.5"
                       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
                       autoFocus
                     />
                   </div>
                 ) : (
                   <div>
-                    <p className="text-[22px] font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
+                    <p className="text-title-1 font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
                     {unallocCarryover > 0 && (
-                      <p className="text-[11px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
                         {formatINR(totalBudget)} base + {formatINR(unallocCarryover)} carryover
                       </p>
                     )}
@@ -401,32 +399,32 @@ function PlanTab({
                 <div className="flex gap-2 items-center">
                   {confirmDeletePlan ? (
                     <>
-                      <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                         {fyHasTxns ? 'Clear?' : 'Delete?'}
                       </span>
                       <button onClick={() => setConfirmDeletePlan(false)}
-                        className="px-3 py-2 rounded-xl text-[13px]"
+                        className="px-3 py-2 rounded-xl text-subheadline"
                         style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>No</button>
                       <button onClick={() => { setConfirmDeletePlan(false); setEditBudget(false); onDeleteFY() }}
-                        className="px-3 py-2 rounded-xl text-[13px] font-semibold"
-                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                        className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative"
+                        style={{ background: 'rgba(255,59,48,0.10)' }}>
                         {fyHasTxns ? 'Clear' : 'Delete'}
                       </button>
                     </>
                   ) : (
                     <>
                       <button onClick={() => setConfirmDeletePlan(true)}
-                        className="px-3 py-2 rounded-xl text-[13px]"
-                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>
+                        className="px-3 py-2 rounded-xl text-subheadline text-negative"
+                        style={{ background: 'rgba(255,59,48,0.10)' }}>
                         {fyHasTxns ? 'Clear' : 'Delete'}
                       </button>
                       <button onClick={() => setEditBudget(false)}
-                        className="px-3.5 py-2.5 rounded-xl text-[14px]"
+                        className="px-3.5 py-2.5 rounded-xl text-body"
                         style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                         Cancel
                       </button>
                       <button onClick={saveBudget} disabled={savingBudget}
-                        className="px-3.5 py-2.5 rounded-xl text-[14px] font-semibold text-[#0A84FF] disabled:opacity-40"
+                        className="px-3.5 py-2.5 rounded-xl text-body font-semibold text-accent disabled:opacity-40"
                         style={{ background: 'rgba(10,132,255,0.15)' }}>
                         {savingBudget ? 'Saving…' : 'Save'}
                       </button>
@@ -435,7 +433,7 @@ function PlanTab({
                 </div>
               ) : (
                 <button onClick={() => { setBudgetInput(String(totalBudget)); setEditBudget(true) }}
-                  className="px-3.5 py-2.5 rounded-xl text-[14px]"
+                  className="px-3.5 py-2.5 rounded-xl text-body"
                   style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
                   Edit
                 </button>
@@ -446,17 +444,14 @@ function PlanTab({
             {/* Allocation bar */}
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
               <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min(100, totalPct)}%`,
-                  background: totalPct > 100 ? '#FF3B30' : pctOk ? '#34C759' : '#0A84FF',
-                }}
+                className={`h-full rounded-full transition-all ${totalPct > 100 ? 'bg-negative' : pctOk ? 'bg-positive' : 'bg-accent'}`}
+                style={{ width: `${Math.min(100, totalPct)}%` }}
               />
             </div>
-            <div className="flex items-center justify-between mt-1.5 text-[12px] tabnum"
+            <div className="flex items-center justify-between mt-1.5 text-subheadline tabnum"
                  style={{ color: 'var(--text-muted)' }}>
               <span>{allocations.length} stocks</span>
-              <span className={totalPct > 100 ? 'text-red-400' : pctOk ? 'text-green-500' : ''}>
+              <span className={totalPct > 100 ? 'text-negative' : pctOk ? 'text-positive' : ''}>
                 {formatPct(totalPct)} allocated
                 {!pctOk && totalPct <= 100 && ` · ${formatPct(100 - totalPct)} free`}
                 {totalPct > 100 && ` · over by ${formatPct(totalPct - 100)}`}
@@ -493,7 +488,7 @@ function PlanTab({
                     {(['Defensive', 'Cyclical', 'Growth', 'REIT', 'Passive'] as const)
                       .filter(t => byType[t])
                       .map(t => (
-                        <span key={t} className="text-[13px] tabnum font-semibold whitespace-nowrap"
+                        <span key={t} className="text-subheadline tabnum font-semibold whitespace-nowrap"
                               style={{ color: typeColors[t] }}>
                           {t} {(byType[t] ?? 0).toFixed(0)}%
                         </span>
@@ -507,10 +502,10 @@ function PlanTab({
                        style={{ borderColor: 'var(--border-faint)' }}>
                     {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
                       <div key={cat} className="flex items-baseline justify-between">
-                        <span className="text-[13px] truncate" style={{ color: 'var(--text-2)' }}>
+                        <span className="text-subheadline truncate" style={{ color: 'var(--text-2)' }}>
                           {SHORT_CAT[cat] ?? cat}
                         </span>
-                        <span className="text-[13px] font-semibold tabnum ml-2 flex-shrink-0"
+                        <span className="text-subheadline font-semibold tabnum ml-2 flex-shrink-0"
                               style={{ color: 'var(--text-primary)' }}>
                           {pct.toFixed(0)}%
                         </span>
@@ -538,7 +533,7 @@ function PlanTab({
                   {allocations.length > 0 && !confirmClear && (
                     <>
                       <button onClick={() => setConfirmClear(true)}
-                        className="text-[15px] px-3 py-2.5 rounded-xl"
+                        className="text-body px-3 py-2.5 rounded-xl"
                         style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
                         Clear All
                       </button>
@@ -563,7 +558,7 @@ function PlanTab({
                             await navigator.clipboard.writeText(text)
                           }
                         }}
-                        className="text-[15px] px-3 py-2.5 rounded-xl"
+                        className="text-body px-3 py-2.5 rounded-xl"
                         style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
                         Export
                       </button>
@@ -572,17 +567,17 @@ function PlanTab({
                   {confirmClear && (
                     <>
                       <button onClick={() => setConfirmClear(false)}
-                        className="text-[15px] px-3 py-2.5 rounded-xl"
+                        className="text-body px-3 py-2.5 rounded-xl"
                         style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
                       <button onClick={clearAllStocks}
-                        className="text-[15px] font-semibold px-3 py-2.5 rounded-xl"
-                        style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
+                        className="text-body font-semibold px-3 py-2.5 rounded-xl text-negative"
+                        style={{ background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
                     </>
                   )}
                   {!confirmClear && (
                     <button onClick={() => setShowAddStock(v => !v)}
-                      className="text-[14px] font-medium px-3 py-2 rounded-xl"
-                      style={{ color: '#0A84FF', background: 'rgba(10,132,255,0.12)' }}>
+                      className="text-body font-medium px-3 py-2 rounded-xl text-accent"
+                      style={{ background: 'rgba(10,132,255,0.12)' }}>
                       {showAddStock ? 'Cancel' : '+ Add Stock'}
                     </button>
                   )}
@@ -613,14 +608,14 @@ function PlanTab({
                 <div className="px-4 pt-4 space-y-2">
                   {prevFY && (
                     <button onClick={copyFromPrevFY} disabled={copying}
-                      className="w-full py-3 rounded-2xl text-[15px] font-semibold disabled:opacity-40"
+                      className="w-full py-3 rounded-2xl text-body font-semibold disabled:opacity-40"
                       style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
                       {copying ? 'Copying…' : `Copy stocks from ${prevFY.label}`}
                     </button>
                   )}
                   <button onClick={() => setShowAddStock(true)}
-                    className="w-full py-3 rounded-2xl text-[15px] font-medium"
-                    style={{ color: '#0A84FF', border: '1px solid rgba(10,132,255,0.3)', background: 'transparent' }}>
+                    className="w-full py-3 rounded-2xl text-body font-medium text-accent"
+                    style={{ border: '1px solid rgba(10,132,255,0.3)', background: 'transparent' }}>
                     + Add Stock manually
                   </button>
                 </div>
@@ -630,8 +625,8 @@ function PlanTab({
         </>
       ) : (
         <div className="text-center py-20 px-6" style={{ color: 'var(--text-muted)' }}>
-          <p className="text-[17px] font-medium mb-2">No plan yet</p>
-          <p className="text-[15px] mb-4">Create a plan to start allocating your investments for the year.</p>
+          <p className="text-headline font-medium mb-2">No plan yet</p>
+          <p className="text-body mb-4">Create a plan to start allocating your investments for the year.</p>
         </div>
       )}
     </div>
@@ -659,11 +654,11 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
   if (confirming) {
     return (
       <div className="flex items-center justify-between px-4 py-3.5">
-        <p className="text-[15px]" style={{ color: 'var(--text-2)' }}>Remove {alloc.symbol}?</p>
-        <p className="text-[12px] flex-1 px-3" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
+        <p className="text-body" style={{ color: 'var(--text-2)' }}>Remove {alloc.symbol}?</p>
+        <p className="text-subheadline flex-1 px-3" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
         <div className="flex gap-4">
-          <button onClick={() => setConfirming(false)} className="text-[#0A84FF] text-[15px]">Keep</button>
-          <button onClick={() => onRemove(alloc.id)} className="text-red-400 text-[15px] font-semibold">Remove</button>
+          <button onClick={() => setConfirming(false)} className="text-accent text-body">Keep</button>
+          <button onClick={() => onRemove(alloc.id)} className="text-negative text-body font-semibold">Remove</button>
         </div>
       </div>
     )
@@ -674,16 +669,16 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
       <div className="flex items-center gap-3 px-4 py-3.5">
         <button onClick={() => setExpanded(v => !v)} className="flex-1 flex items-center gap-3 text-left">
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-[17px]">{alloc.symbol}</p>
+            <p className="font-bold text-headline">{alloc.symbol}</p>
             {getStockName(alloc.symbol) && (
-              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
+              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
             )}
           </div>
           <div className="text-right">
-            <p className="text-[11px]" style={{ color: 'var(--text-2)' }}>
+            <p className="text-footnote" style={{ color: 'var(--text-2)' }}>
               {alloc.category.split('/')[0]}
             </p>
-            <p className="text-[13px] tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {formatINR(budget)}
             </p>
           </div>
@@ -699,13 +694,13 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
                 const val = parseFloat(pct)
                 if (val > 0 && val !== alloc.allocation_pct) onPctChange(alloc, val)
               }}
-              className="w-14 px-2 py-2.5 rounded-xl text-[15px] tabnum text-right outline-none"
+              className="w-14 px-2 py-2.5 rounded-xl text-body tabnum text-right outline-none"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             />
-            <span className="text-[15px]" style={{ color: 'var(--text-muted)' }}>%</span>
+            <span className="text-body" style={{ color: 'var(--text-muted)' }}>%</span>
           </div>
           {parsedPct !== alloc.allocation_pct && (
-            <span className={`text-[12px] tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
+            <span className={`text-subheadline tabnum ${remaining < 0 ? 'text-negative' : remaining === 0 ? 'text-positive' : ''}`}
                   style={remaining > 0 ? { color: 'var(--text-muted)' } : undefined}>
               {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
             </span>
@@ -720,11 +715,11 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
       {expanded && (
         <div className="px-4 pb-4 border-t space-y-3" style={{ borderColor: 'var(--border-faint)' }}>
           <div className="pt-3">
-            <p className="text-[12px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Category</p>
+            <p className="text-subheadline mb-1.5" style={{ color: 'var(--text-muted)' }}>Category</p>
             <select
               value={alloc.category}
               onChange={e => onCategoryChange(alloc, e.target.value as StockCategory)}
-              className="w-full px-3 py-2.5 rounded-xl text-[14px] outline-none"
+              className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
               style={{
                 background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                 border: '1px solid var(--border)',
@@ -734,7 +729,7 @@ function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryCh
           </div>
 
           <button onClick={() => setConfirming(true)}
-            className="w-full py-2.5 rounded-xl text-[15px] text-red-400"
+            className="w-full py-2.5 rounded-xl text-body text-negative"
             style={{ background: 'rgba(255,59,48,0.10)' }}>
             Remove from Plan
           </button>
@@ -770,8 +765,8 @@ function AddStockForm({ totalPct, onAdd }: {
          style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
       {/* Remaining % indicator */}
       <div className="flex items-center justify-between">
-        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>Allocated so far: {totalPct.toFixed(1)}%</p>
-        <p className={`text-[12px] font-semibold tabnum ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-500' : ''}`}
+        <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Allocated so far: {totalPct.toFixed(1)}%</p>
+        <p className={`text-subheadline font-semibold tabnum ${remaining < 0 ? 'text-negative' : remaining === 0 ? 'text-positive' : ''}`}
            style={remaining > 0 ? { color: 'var(--text-2)' } : undefined}>
           {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
         </p>
@@ -785,7 +780,7 @@ function AddStockForm({ totalPct, onAdd }: {
             setSymbol(s)
             if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
           }}
-          className="px-3 py-3 rounded-xl text-[15px] outline-none uppercase placeholder:normal-case"
+          className="px-3 py-3 rounded-xl text-body outline-none uppercase placeholder:normal-case"
           style={{
             background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
             border: '1px solid var(--border)',
@@ -793,17 +788,17 @@ function AddStockForm({ totalPct, onAdd }: {
         <div className="relative">
           <input type="number" inputMode="decimal" placeholder="10"
             value={pct} onChange={e => setPct(e.target.value)}
-            className="w-full px-3 pr-8 py-3 rounded-xl text-[15px] tabnum outline-none"
+            className="w-full px-3 pr-8 py-3 rounded-xl text-body tabnum outline-none"
             style={{
               background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
               border: '1px solid var(--border)',
             }} />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[15px] pointer-events-none"
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-body pointer-events-none"
                 style={{ color: 'var(--text-muted)' }}>%</span>
         </div>
       </div>
       <select value={category} onChange={e => setCategory(e.target.value as StockCategory)}
-        className="w-full px-3 py-2.5 rounded-xl text-[14px] outline-none"
+        className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
         style={{
           background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
           border: '1px solid var(--border)',
@@ -811,7 +806,7 @@ function AddStockForm({ totalPct, onAdd }: {
         {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
       <button onClick={submit} disabled={saving || !symbol || !pct}
-        className="w-full py-3 rounded-xl font-bold text-[15px] disabled:opacity-30"
+        className="w-full py-3 rounded-xl font-bold text-body disabled:opacity-30"
         style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
         {saving ? 'Adding…' : 'Add Stock'}
       </button>
@@ -941,7 +936,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px] overflow-hidden"
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-hidden"
            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -950,21 +945,21 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b"
              style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Cancel</button>
-          <p className="font-semibold text-[17px]">New Plan</p>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <p className="font-semibold text-headline">New Plan</p>
           <button onClick={create} disabled={creating}
-            className="text-[#0A84FF] text-[17px] font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40">
             {creating ? 'Creating…' : 'Create'}
           </button>
         </div>
 
         <div className="px-5 pt-4 space-y-4">
           {error && (
-            <p className="text-red-400 text-[14px] text-center">{error}</p>
+            <p className="text-negative text-body text-center">{error}</p>
           )}
 
           <div>
-            <p className="text-[13px] mb-2" style={{ color: 'var(--text-muted)' }}>Fiscal Year</p>
+            <p className="text-subheadline mb-2" style={{ color: 'var(--text-muted)' }}>Fiscal Year</p>
             <div className="flex gap-2 flex-wrap">
               {yearRange.map(yr => {
                 const taken = existingLabels.has(`FY${yr}`)
@@ -973,7 +968,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                   <button key={yr} type="button"
                     onClick={() => !taken && setSelectedYear(yr)}
                     disabled={taken}
-                    className="px-4 py-2.5 rounded-xl text-[15px] font-semibold transition-colors disabled:opacity-35"
+                    className="px-4 py-2.5 rounded-xl text-body font-semibold transition-colors disabled:opacity-35"
                     style={active
                       ? { background: 'var(--text-primary)', color: 'var(--bg-primary)' }
                       : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
@@ -983,18 +978,18 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
               })}
             </div>
             {selectedYear && (
-              <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-faint)' }}>
+              <p className="text-subheadline mt-1.5" style={{ color: 'var(--text-faint)' }}>
                 Apr {selectedYear} – Mar {selectedYear + 1}
               </p>
             )}
           </div>
 
           <div>
-            <p className="text-[13px] mb-1.5" style={{ color: 'var(--text-muted)' }}>Total Budget (₹)</p>
+            <p className="text-subheadline mb-1.5" style={{ color: 'var(--text-muted)' }}>Total Budget (₹)</p>
             <input
               type="number" inputMode="decimal" placeholder="2400000"
               value={budget} onChange={e => setBudget(e.target.value)}
-              className="w-full px-4 py-3.5 rounded-2xl text-[17px] tabnum outline-none"
+              className="w-full px-4 py-3.5 rounded-2xl text-headline tabnum outline-none"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
           </div>
 
@@ -1002,10 +997,10 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
             <label className="flex items-center gap-3 cursor-pointer">
               <input type="checkbox" checked={copyStocks}
                 onChange={e => setCopyStocks(e.target.checked)}
-                className="w-5 h-5 rounded accent-[#0A84FF]" />
+                className="w-5 h-5 rounded accent-accent" />
               <div>
-                <p className="text-[15px]">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
-                <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-body">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
+                <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                   Allocation %s and categories are copied
                   {copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} net carryover carried in`}
                   {!copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} carryover goes to unallocated`}
@@ -1017,22 +1012,22 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
           {totalCarryover !== 0 && copyStocks && (
             <div className="rounded-2xl p-3 space-y-1"
                  style={{ background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.2)' }}>
-              <p className="text-[12px] font-semibold" style={{ color: '#30D158' }}>
+              <p className="text-subheadline font-semibold text-positive">
                 Carryover from previous plan
               </p>
               {Object.entries(carryoverBySymbol)
                 .filter(([, v]) => v !== 0)
                 .sort((a, b) => b[1] - a[1])
                 .map(([sym, amt]) => (
-                  <div key={sym} className="flex justify-between text-[12px] tabnum">
+                  <div key={sym} className="flex justify-between text-subheadline tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
-                    <span style={{ color: amt >= 0 ? '#30D158' : '#FF3B30' }}>
+                    <span className={amt >= 0 ? 'text-positive' : 'text-negative'}>
                       {amt >= 0 ? '+' : '−'}{formatINR(Math.abs(amt))}
                     </span>
                   </div>
                 ))}
-              <div className="flex justify-between text-[12px] font-semibold tabnum pt-1 border-t"
-                   style={{ borderColor: 'rgba(48,209,88,0.2)', color: totalCarryover >= 0 ? '#30D158' : '#FF3B30' }}>
+              <div className={`flex justify-between text-subheadline font-semibold tabnum pt-1 border-t ${totalCarryover >= 0 ? 'text-positive' : 'text-negative'}`}
+                   style={{ borderColor: 'rgba(48,209,88,0.2)' }}>
                 <span>Net</span>
                 <span>{totalCarryover >= 0 ? '+' : '−'}{formatINR(Math.abs(totalCarryover))}</span>
               </div>

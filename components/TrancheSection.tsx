@@ -27,8 +27,8 @@ export default function TrancheSection({
     <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-2 mb-2">
-        <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
-        <span className="text-[13px] font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+        <p className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
+        <span className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
           {formatINR(remaining)} / {formatINR(budget)} left
         </span>
       </div>
@@ -38,14 +38,14 @@ export default function TrancheSection({
         <button
           onClick={onGenerate}
           disabled={!hasBands || generating}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium disabled:opacity-40"
           style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
           {generating ? '…' : 'Generate'}
         </button>
         <button
           onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium"
           style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
           <PlusIcon className="w-3.5 h-3.5" />
           Add
@@ -53,7 +53,7 @@ export default function TrancheSection({
         <button
           onClick={() => onClear()}
           disabled={tranches.length === 0}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium disabled:opacity-40"
           style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
           <XIcon className="w-3.5 h-3.5" />
           Clear All
@@ -83,7 +83,7 @@ export default function TrancheSection({
             : <TrancheRow key={t.id} tranche={t} onToggle={onToggle} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
         )}
         {tranches.length === 0 && editingId !== 'new' && (
-          <p className="px-4 py-3 text-[12px]" style={{ color: 'var(--text-faint)' }}>No tranches yet — tap Generate</p>
+          <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No tranches yet — tap Generate</p>
         )}
       </div>
     </div>
@@ -130,7 +130,7 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
       </div>
 
       {overBudget && (
-        <p className="text-[12px] mb-2 tabnum" style={{ color: '#FF3B30' }}>
+        <p className="text-subheadline mb-2 tabnum text-negative">
           Exceeds allocation by {formatINR(amount - maxAmount)} — max {formatINR(maxAmount)}
         </p>
       )}
@@ -138,21 +138,20 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
           <button onClick={save} disabled={saving || !qty || !price || overBudget}
-            className="px-4 py-2.5 rounded-xl text-[14px] font-semibold disabled:opacity-40 text-white"
-            style={{ background: '#0A84FF' }}>
+            className="px-4 py-2.5 rounded-xl text-body font-semibold disabled:opacity-40 text-white bg-accent">
             {saving ? '…' : 'Save'}
           </button>
           {onDelete && (
             <button onClick={onDelete}
-              className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
-              style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
+              className="px-4 py-2.5 rounded-xl text-body font-medium text-negative"
+              style={{ background: 'rgba(255,59,48,0.10)', border: '1px solid rgba(255,59,48,0.20)' }}>
               Delete
             </button>
           )}
         </div>
         {onCancel && (
           <button onClick={onCancel}
-            className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
+            className="px-4 py-2.5 rounded-xl text-body font-medium"
             style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
             Cancel
           </button>
@@ -174,15 +173,15 @@ function TrancheRow({ tranche, onToggle, onEdit }: {
       <button onClick={() => onToggle(tranche.id, !tranche.allocated)}
         className="w-11 h-11 flex items-center justify-center flex-shrink-0 -ml-2">
         <div className="w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-colors"
-          style={tranche.allocated ? { background: '#30D158', borderColor: '#30D158' } : { background: 'transparent', borderColor: 'var(--border)' }}>
+          style={tranche.allocated ? { background: '#34C759', borderColor: '#34C759' } : { background: 'transparent', borderColor: 'var(--border)' }}>
           {tranche.allocated && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
         </div>
       </button>
-      <p className="flex-1 text-[13px] tabnum"
+      <p className="flex-1 text-subheadline tabnum"
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)', textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
         {Math.round(tranche.qty)} × ₹{tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
       </p>
-      <p className="text-[13px] font-semibold tabnum"
+      <p className="text-subheadline font-semibold tabnum"
          style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
         {formatINR(amount)}
       </p>

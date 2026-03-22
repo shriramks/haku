@@ -41,7 +41,7 @@ export default function TxnsClient({ transactions: initial }: { transactions: Tr
           </button>
         </div>
         {txns.length > 0 && (
-          <p className="text-[13px] text-white/40 mt-0.5">{txns.length} total</p>
+          <p className="text-subheadline text-white/40 mt-0.5">{txns.length} total</p>
         )}
       </div>
 
@@ -51,8 +51,8 @@ export default function TxnsClient({ transactions: initial }: { transactions: Tr
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <p className="text-[17px] font-medium">No transactions yet</p>
-          <p className="text-[15px]">Tap + to log your first trade</p>
+          <p className="text-headline font-medium">No transactions yet</p>
+          <p className="text-body">Tap + to log your first trade</p>
         </div>
       ) : (
         <div className="py-4 space-y-5">
@@ -60,8 +60,8 @@ export default function TxnsClient({ transactions: initial }: { transactions: Tr
             <section key={month}>
               {/* Month header */}
               <div className="flex items-baseline justify-between px-5 mb-2">
-                <p className="text-[13px] font-semibold text-white/40 uppercase tracking-widest">{month}</p>
-                <div className="flex gap-3 text-[12px] tabnum">
+                <p className="text-subheadline font-semibold text-white/40 uppercase tracking-widest">{month}</p>
+                <div className="flex gap-3 text-subheadline tabnum">
                   {buyTotal > 0 && (
                     <span className="text-[#30D158]/70" style={privacy ? { filter: 'blur(6px)', userSelect: 'none' } : {}}>
                       +{formatINR(buyTotal)}
@@ -99,10 +99,10 @@ function TxnRow({ txn, onDelete, privacy }: { txn: Transaction; onDelete: (id: s
   if (confirming) {
     return (
       <div className="flex items-center justify-between px-5 py-4">
-        <p className="text-[15px] text-white/60">Delete this transaction?</p>
+        <p className="text-body text-white/60">Delete this transaction?</p>
         <div className="flex gap-4">
-          <button onClick={() => setConfirming(false)} className="text-[#0A84FF] text-[15px]">Keep</button>
-          <button onClick={() => onDelete(txn.id)} className="text-[#FF453A] text-[15px] font-semibold">Delete</button>
+          <button onClick={() => setConfirming(false)} className="text-accent text-body">Keep</button>
+          <button onClick={() => onDelete(txn.id)} className="text-negative text-body font-semibold">Delete</button>
         </div>
       </div>
     )
@@ -117,25 +117,25 @@ function TxnRow({ txn, onDelete, privacy }: { txn: Transaction; onDelete: (id: s
       {/* Symbol + meta */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[16px]">{txn.symbol}</span>
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md
-            ${isBuy ? 'bg-[#30D158]/15 text-[#30D158]' : 'bg-[#FF453A]/15 text-[#FF453A]'}`}>
+          <span className="font-semibold text-headline">{txn.symbol}</span>
+          <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md
+            ${isBuy ? 'bg-positive/15 text-positive' : 'bg-negative/15 text-negative'}`}>
             {isBuy ? 'BUY' : 'SELL'}
           </span>
         </div>
-        <p className="text-[13px] text-white/40 tabnum mt-0.5">
+        <p className="text-subheadline text-white/40 tabnum mt-0.5">
           <span style={blurStyle}>{Math.round(txn.quantity)} shares</span>
           {' · '}₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           {' · '}{formatDate(txn.trade_date)}
         </p>
         {txn.notes && (
-          <p className="text-[12px] text-white/30 mt-0.5 truncate">{txn.notes}</p>
+          <p className="text-subheadline text-white/30 mt-0.5 truncate">{txn.notes}</p>
         )}
       </div>
 
       {/* Amount + delete */}
       <div className="flex items-center gap-3">
-        <p className={`font-bold tabnum text-[16px] ${isBuy ? 'text-white' : 'text-[#FF453A]'}`}
+        <p className={`font-bold tabnum text-headline ${isBuy ? 'text-white' : 'text-negative'}`}
            style={blurStyle}>
           {isBuy ? '' : '−'}{formatINR(txn.amount)}
         </p>

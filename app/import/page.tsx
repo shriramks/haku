@@ -118,8 +118,8 @@ export default function ImportPage() {
 
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <h1 className="text-[20px] font-bold">Import from Zerodha</h1>
-          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <h1 className="text-title-2 font-bold">Import from Zerodha</h1>
+          <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Upload your Zerodha trade book CSV
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function ImportPage() {
             />
             <button
               onClick={() => fileRef.current?.click()}
-              className="w-full py-4 rounded-2xl font-medium text-[15px] border-2 border-dashed"
+              className="w-full py-4 rounded-2xl font-medium text-body border-2 border-dashed"
               style={{ borderColor: 'var(--border)', color: 'var(--text-2)', background: 'var(--bg-secondary)' }}>
               {fileName ? `📄 ${fileName}` : '+ Choose CSV file'}
             </button>
@@ -147,17 +147,17 @@ export default function ImportPage() {
           {rows.length > 0 && (
             <div className="rounded-2xl p-4 space-y-1"
                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-faint)' }}>
-              <p className="text-[15px] font-semibold">{rows.length} rows parsed</p>
-              <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-body font-semibold">{rows.length} rows parsed</p>
+              <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                 {validRows.length} valid &nbsp;·&nbsp; {invalidRows.length} with errors
               </p>
               {validRows.filter(r => r.trade_type === 'buy').length > 0 && (
-                <p className="text-[13px]" style={{ color: '#34C759' }}>
+                <p className="text-subheadline text-positive">
                   {validRows.filter(r => r.trade_type === 'buy').length} buys
                 </p>
               )}
               {sellRows.length > 0 && (
-                <p className="text-[13px]" style={{ color: '#FF9500' }}>
+                <p className="text-subheadline text-warning">
                   {sellRows.length} sells · {formatINR(sellTotal)} total proceeds
                 </p>
               )}
@@ -169,8 +169,8 @@ export default function ImportPage() {
             <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
                  style={{ background: 'rgba(255,149,0,0.06)', border: '1px solid rgba(255,149,0,0.18)', opacity: redeploy ? 1 : 0.6 }}>
               <div className="flex-1 mr-3">
-                <p className="text-[14px] font-medium">Redeploy sell proceeds</p>
-                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-body font-medium">Redeploy sell proceeds</p>
+                <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {redeploy
                     ? `Adds ${formatINR(sellTotal)} to respective FY budgets`
                     : "Proceeds stay within each stock's allocation"}
@@ -194,20 +194,20 @@ export default function ImportPage() {
             <div className="rounded-2xl overflow-hidden"
                  style={{ border: '1px solid rgba(255,59,48,0.2)' }}>
               <div className="px-4 py-2.5" style={{ background: 'rgba(255,59,48,0.06)' }}>
-                <p className="text-[12px] font-semibold" style={{ color: '#FF3B30' }}>
+                <p className="text-subheadline font-semibold text-negative">
                   {invalidRows.length} row{invalidRows.length > 1 ? 's' : ''} skipped (will not be imported)
                 </p>
               </div>
               <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
                 {invalidRows.slice(0, 10).map((r, i) => (
                   <div key={i} className="px-4 py-2" style={{ background: 'var(--bg-secondary)' }}>
-                    <p className="text-[13px] font-medium">{r.symbol || '(empty)'}</p>
-                    <p className="text-[12px]" style={{ color: '#FF3B30' }}>{r.error}</p>
+                    <p className="text-subheadline font-medium">{r.symbol || '(empty)'}</p>
+                    <p className="text-subheadline text-negative">{r.error}</p>
                   </div>
                 ))}
                 {invalidRows.length > 10 && (
                   <div className="px-4 py-2" style={{ background: 'var(--bg-secondary)' }}>
-                    <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                       …and {invalidRows.length - 10} more
                     </p>
                   </div>
@@ -221,12 +221,12 @@ export default function ImportPage() {
             <div className="rounded-2xl overflow-hidden"
                  style={{ border: '1px solid var(--border-faint)' }}>
               <div className="px-4 py-2.5" style={{ background: 'var(--bg-secondary)' }}>
-                <p className="text-[12px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-subheadline font-semibold" style={{ color: 'var(--text-muted)' }}>
                   PREVIEW ({validRows.length} rows)
                 </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+                <table className="w-full text-subheadline" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
                       {['Symbol', 'Date', 'Type', 'Qty', 'Price', 'Amount'].map(h => (
@@ -239,8 +239,7 @@ export default function ImportPage() {
                       <tr key={i} style={{ borderTop: '1px solid var(--border-faint)', background: 'var(--bg-secondary)' }}>
                         <td className="px-3 py-2 font-semibold">{r.symbol}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--text-2)' }}>{r.trade_date}</td>
-                        <td className="px-3 py-2 font-medium"
-                            style={{ color: r.trade_type === 'buy' ? '#34C759' : '#FF3B30' }}>
+                        <td className={`px-3 py-2 font-medium ${r.trade_type === 'buy' ? 'text-positive' : 'text-negative'}`}>
                           {r.trade_type}
                         </td>
                         <td className="px-3 py-2 tabnum" style={{ color: 'var(--text-2)' }}>{r.quantity}</td>
@@ -262,13 +261,13 @@ export default function ImportPage() {
           )}
 
           {importError && (
-            <p className="text-red-400 text-sm text-center px-4">{importError}</p>
+            <p className="text-negative text-subheadline text-center px-4">{importError}</p>
           )}
 
           {importedCount !== null && (
             <div className="rounded-2xl px-4 py-3 text-center"
                  style={{ background: 'rgba(52,199,89,0.1)', border: '1px solid rgba(52,199,89,0.25)' }}>
-              <p className="font-semibold" style={{ color: '#34C759' }}>
+              <p className="font-semibold text-positive">
                 ✓ {importedCount} transactions imported
               </p>
             </div>
@@ -279,8 +278,7 @@ export default function ImportPage() {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="w-full py-4 rounded-2xl font-bold text-[17px] text-white transition-all active:scale-[0.98] disabled:opacity-40"
-              style={{ background: '#0A84FF' }}>
+              className="w-full py-4 rounded-2xl font-bold text-headline text-white transition-all active:scale-[0.98] disabled:opacity-40 bg-accent">
               {importing ? 'Importing…' : `Import ${validRows.length} transaction${validRows.length !== 1 ? 's' : ''}`}
             </button>
           )}
@@ -288,11 +286,11 @@ export default function ImportPage() {
           {/* Help text */}
           <div className="rounded-2xl p-4 space-y-1.5"
                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-faint)' }}>
-            <p className="text-[13px] font-semibold" style={{ color: 'var(--text-2)' }}>How to export from Zerodha</p>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-subheadline font-semibold" style={{ color: 'var(--text-2)' }}>How to export from Zerodha</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
               Console → Reports → Trade book → Select date range → Download CSV
             </p>
-            <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
               Required columns: symbol, trade_date, trade_type, quantity, price, exchange
             </p>
           </div>

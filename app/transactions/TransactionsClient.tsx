@@ -52,9 +52,9 @@ export default function TransactionsClient({
         }}>
         <div className="flex items-center justify-between pt-1">
           <div>
-            <h1 className="text-[28px] font-bold">{filterSymbol ?? 'Transactions'}</h1>
+            <h1 className="text-display font-bold">{filterSymbol ?? 'Transactions'}</h1>
             {filterSymbol && (
-              <a href="/transactions" className="text-[13px]" style={{ color: '#0A84FF' }}>← All</a>
+              <a href="/transactions" className="text-subheadline text-accent">← All</a>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export default function TransactionsClient({
         <div className="flex items-center gap-2 mt-2">
           {(['all', 'buy', 'sell'] as const).map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className="px-4 rounded-full text-[13px] font-medium transition-colors flex-shrink-0 flex items-center"
+              className="px-4 rounded-full text-subheadline font-medium transition-colors flex-shrink-0 flex items-center"
               style={{
                 minHeight: '44px',
                 ...(typeFilter === t
@@ -85,14 +85,14 @@ export default function TransactionsClient({
             <>
               <div className="w-px self-stretch my-2" style={{ background: 'var(--border)' }} />
               <div className="relative flex-shrink-0">
-                <div className="flex items-center gap-1.5 px-4 rounded-full text-[13px] font-medium pointer-events-none"
+                <div className="flex items-center gap-1.5 px-4 rounded-full text-subheadline font-medium pointer-events-none"
                      style={{
                        minHeight: '44px',
                        ...(symbolFilter !== 'all'
                          ? { background: 'rgba(10,132,255,0.15)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
                          : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
                      }}>
-                  <span>{symbolFilter === 'all' ? 'Stock' : symbolFilter}</span>
+                  <span className="text-subheadline">{symbolFilter === 'all' ? 'Stock' : symbolFilter}</span>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
@@ -120,19 +120,19 @@ export default function TransactionsClient({
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <p className="text-[17px] font-medium">No transactions yet</p>
-          <p className="text-[15px]">Tap + to log your first trade</p>
+          <p className="text-headline font-medium">No transactions yet</p>
+          <p className="text-body">Tap + to log your first trade</p>
         </div>
       ) : (
         <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
               <div className="flex items-baseline justify-between px-5 mb-2">
-                <p className="text-[13px] font-semibold uppercase tracking-widest"
+                <p className="text-subheadline font-semibold uppercase tracking-widest"
                    style={{ color: 'var(--text-muted)' }}>{month}</p>
-                <div className="flex gap-3 text-[12px] tabnum">
-                  {buyTotal > 0 && <span className="text-green-500">+{formatINR(buyTotal)}</span>}
-                  {sellTotal > 0 && <span className="text-red-400">−{formatINR(sellTotal)}</span>}
+                <div className="flex gap-3 text-subheadline tabnum">
+                  {buyTotal > 0 && <span className="text-positive">+{formatINR(buyTotal)}</span>}
+                  {sellTotal > 0 && <span className="text-negative">−{formatINR(sellTotal)}</span>}
                 </div>
               </div>
               <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
@@ -222,17 +222,16 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         {/* Header — frozen */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isBuy ? 'bg-green-500' : 'bg-red-400'}`} />
-            <span className="font-semibold text-[16px]">{txn.symbol}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
+            <span className="font-semibold text-headline">{txn.symbol}</span>
+            <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md ${isBuy ? 'text-positive' : 'text-negative'}`}
                   style={{
                     background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)',
-                    color: isBuy ? '#34C759' : '#FF3B30',
                   }}>
               {isBuy ? 'BUY' : 'SELL'}
             </span>
           </div>
-          <span className="font-bold tabnum text-[15px]" style={{ color: 'var(--text-2)' }}>
+          <span className="font-bold tabnum text-body" style={{ color: 'var(--text-2)' }}>
             {editAmount > 0 ? formatINR(editAmount) : formatINR(txn.amount)}
           </span>
         </div>
@@ -240,23 +239,23 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         {/* Fields */}
         <div className="grid grid-cols-2 gap-2 mb-2">
           <div>
-            <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</p>
+            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</p>
             <input type="number" inputMode="numeric" value={editQty} onChange={e => setEditQty(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-[15px] tabnum outline-none"
+              className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Price (₹)</p>
+            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Price (₹)</p>
             <input type="number" inputMode="decimal" value={editPrice} onChange={e => setEditPrice(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-[15px] tabnum outline-none"
+              className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Date</p>
+            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-[15px] outline-none"
+              className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
           </div>
           <div />
@@ -267,14 +266,14 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           <div className="border-t pt-3 mb-3" style={{ borderColor: 'var(--border-faint)' }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[14px] font-medium">Count toward a different FY</p>
-                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Apply this to another year's plan</p>
+                <p className="text-body font-medium">Count toward a different FY</p>
+                <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>Apply this to another year's plan</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setAdvanceOn(v => !v); setAdvanceFyId(null) }}
-                className="w-[51px] h-[31px] rounded-full relative flex-shrink-0 transition-colors"
-                style={{ background: advanceOn ? '#34C759' : 'var(--border)' }}>
+                className={`w-[51px] h-[31px] rounded-full relative flex-shrink-0 transition-colors ${advanceOn ? 'bg-positive' : ''}`}
+                style={advanceOn ? undefined : { background: 'var(--border)' }}>
                 <span className="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white transition-all"
                       style={{ left: advanceOn ? '22px' : '2px', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
               </button>
@@ -290,8 +289,8 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
                       background: advanceFyId === fy.id ? 'rgba(10,132,255,0.06)' : 'var(--bg-secondary)',
                     }}>
                     <div>
-                      <p className="text-[15px] font-medium" style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
-                      <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-body font-medium" style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                         {shortMonthYear(fy.start_date)} – {shortMonthYear(fy.end_date)}
                       </p>
                     </div>
@@ -310,28 +309,27 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         {/* Actions */}
         {confirming ? (
           <div className="flex items-center justify-between">
-            <p className="text-[14px]" style={{ color: 'var(--text-2)' }}>Delete this transaction?</p>
+            <p className="text-body" style={{ color: 'var(--text-2)' }}>Delete this transaction?</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirming(false)} className="text-[14px]" style={{ color: '#0A84FF' }}>Keep</button>
-              <button onClick={doDelete} className="text-[14px] font-semibold text-red-400">Delete</button>
+              <button onClick={() => setConfirming(false)} className="text-body text-accent">Keep</button>
+              <button onClick={doDelete} className="text-body font-semibold text-negative">Delete</button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between">
             <button onClick={() => setConfirming(true)}
-              className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
-              style={{ background: 'rgba(255,59,48,0.1)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.2)' }}>
+              className="px-4 py-2.5 rounded-xl text-body font-medium text-negative"
+              style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)' }}>
               Delete
             </button>
             <div className="flex gap-2">
               <button onClick={cancelEdit}
-                className="px-4 py-2.5 rounded-xl text-[14px] font-medium"
+                className="px-4 py-2.5 rounded-xl text-body font-medium"
                 style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
                 Cancel
               </button>
               <button onClick={save} disabled={saveDisabled}
-                className="px-5 py-2.5 rounded-xl text-[14px] font-semibold disabled:opacity-40 text-white"
-                style={{ background: '#0A84FF' }}>
+                className="px-5 py-2.5 rounded-xl text-body font-semibold disabled:opacity-40 text-white bg-accent">
                 {saving ? '…' : 'Save'}
               </button>
             </div>
@@ -344,41 +342,41 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   // ── Normal display ──
   return (
     <div className="flex items-start px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
-      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] ${isBuy ? 'bg-green-500' : 'bg-red-400'}`} />
+      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
 
       {/* Left: symbol + name */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[16px]">{txn.symbol}</span>
+          <span className="font-semibold text-headline">{txn.symbol}</span>
           {txn.advance_fy_id && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
-                  style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+            <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent"
+                  style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
               {`→ ${getFYLabel(txn.advance_fy_id, fiscalYears)}`}
             </span>
           )}
         </div>
         {getStockName(txn.symbol) && (
-          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(txn.symbol)}</p>
+          <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(txn.symbol)}</p>
         )}
       </div>
 
       {/* Middle: qty / price / date */}
       <div className="text-right flex-shrink-0 pr-4">
-        <p className="text-[14px] tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
+        <p className="text-body tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
           {Math.round(txn.quantity)} qty
         </p>
-        <p className="text-[12px] tabnum" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
           ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
         </p>
-        <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+        <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>
           {formatDate(txn.trade_date)}
         </p>
       </div>
 
       {/* Right: amount + edit */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <p className="font-bold tabnum text-[16px]"
-           style={{ color: isBuy ? 'var(--text-primary)' : '#FF3B30' }}>
+        <p className={`font-bold tabnum text-headline ${isBuy ? '' : 'text-negative'}`}
+           style={isBuy ? { color: 'var(--text-primary)' } : undefined}>
           {isBuy ? '' : '−'}{formatINR(txn.amount)}
         </p>
         <button onClick={openEdit}

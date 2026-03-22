@@ -31,8 +31,8 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
              style={{ borderColor: 'var(--border)' }}>
-          <p className="font-semibold text-[17px]">Fiscal Year</p>
-          <button onClick={() => setOpen(false)} className="text-[17px]" style={{ color: '#0A84FF' }}>Done</button>
+          <p className="font-semibold text-headline">Fiscal Year</p>
+          <button onClick={() => setOpen(false)} className="text-headline text-accent">Done</button>
         </div>
         <div className="py-1">
           {fiscalYears.map(fy => {
@@ -50,8 +50,8 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
                 }}
                 className="w-full flex items-center justify-between px-5 py-3.5 tap-row">
                 <div className="text-left">
-                  <p className="text-[17px] font-medium" style={{ color: 'var(--text-primary)' }}>{fy.label}</p>
-                  <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{start} – {end}</p>
+                  <p className="text-headline font-medium" style={{ color: 'var(--text-primary)' }}>{fy.label}</p>
+                  <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{start} – {end}</p>
                 </div>
                 {active && (
                   <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24"
@@ -67,7 +67,7 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
               onClick={() => { onNew(); setOpen(false) }}
               className="w-full flex items-center justify-between px-5 py-3.5 tap-row border-t"
               style={{ borderColor: 'var(--border)' }}>
-              <p className="text-[17px] font-medium" style={{ color: '#0A84FF' }}>New fiscal year</p>
+              <p className="text-headline font-medium text-accent">New fiscal year</p>
               <svg className="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="#0A84FF" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
@@ -83,7 +83,7 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[15px] font-medium"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-body font-medium"
         style={{ background: 'var(--border)', color: 'var(--text-primary)' }}>
         {selectedFY?.label ?? '—'}
         <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

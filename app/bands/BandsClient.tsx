@@ -267,7 +267,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold">Buy Bands</h1>
+          <h1 className="text-display font-bold">Buy Bands</h1>
           <div className="flex items-center gap-2">
             <FYPicker
               fiscalYears={fiscalYears}
@@ -328,13 +328,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             : cmp <= (midHigh ?? trimPrice) ? 'hold'
             : 'trim'
             : 'unknown'
-          const dotColor = signal === 'deep' ? '#34d399' : signal === 'buy' ? '#34C759' : null
+          const dotSignalClass = signal === 'deep' ? 'bg-signal-deep' : signal === 'buy' ? 'bg-signal-buy' : null
 
           return (
             <div key={row.symbol}>
               {showDivider && (
                 <div className="px-4 py-2">
-                  <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
+                  <span className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
                 </div>
               )}
             <div className="border-b"
@@ -344,12 +344,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
                 <div className="flex-1 min-w-0 flex items-baseline gap-2">
-                  {dotColor && (
-                    <div className="flex-shrink-0 self-center" style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, marginBottom: 1 }} />
+                  {dotSignalClass && (
+                    <div className={`flex-shrink-0 self-center w-2 h-2 rounded-full ${dotSignalClass}`} style={{ marginBottom: 1 }} />
                   )}
-                  <span className="font-bold text-[17px]">{row.symbol}</span>
+                  <span className="font-bold text-headline">{row.symbol}</span>
                   {cmp && (
-                    <span className="text-[15px] tabnum" style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-body tabnum" style={{ color: 'var(--text-muted)' }}>
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
                     </span>
                   )}
@@ -359,8 +359,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   <button
                     onClick={e => { e.stopPropagation(); generateBands(row.symbol) }}
                     disabled={generating[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
-                    style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-subheadline font-medium disabled:opacity-40 text-accent"
+                    style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
                     <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
                     Bands
                   </button>
@@ -368,7 +368,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   <button
                     onClick={e => { e.stopPropagation(); refreshCMP(row.symbol) }}
                     disabled={refreshing[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-[14px] font-medium disabled:opacity-40"
+                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-subheadline font-medium disabled:opacity-40"
                     style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
                     <RefreshIcon className={`w-3.5 h-3.5 ${refreshing[row.symbol] ? 'spin' : ''}`} />
                     CMP
@@ -402,11 +402,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     </div>
                   ) : (
                     <div className="px-4 pt-4 pb-2">
-                      <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>No bands yet</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet</p>
                     </div>
                   )}
                   {genError[row.symbol] && (
-                    <p className="px-4 pb-2 text-[12px] text-red-400">{genError[row.symbol]}</p>
+                    <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
                   )}
 
                   {/* Controls: Bear/Normal/Bull + ⓘ */}
@@ -435,9 +435,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                                     else if (alloc.two_strong_quarters) toggleQuarters(row.symbol, 'two_strong_quarters', false)
                                   }
                                 }}
-                                className="flex-1 px-2.5 py-2.5 text-[13px] font-medium capitalize transition-colors text-center"
+                                className="flex-1 px-2.5 py-2.5 text-subheadline font-medium capitalize transition-colors text-center"
                                 style={mode === m
-                                  ? m === 'bear'   ? { background: 'rgba(255,159,10,0.15)', color: '#FF9F0A', fontWeight: 600 }
+                                  ? m === 'bear'   ? { background: 'rgba(255,159,10,0.15)', color: '#FF9500', fontWeight: 600 }
                                   : m === 'bull'   ? { background: 'rgba(52,199,89,0.15)',  color: '#34C759', fontWeight: 600 }
                                   :                  { background: 'var(--bg-tertiary)',      color: 'var(--text-primary)', fontWeight: 600 }
                                   : { background: 'transparent', color: 'var(--text-faint)' }}>
@@ -448,12 +448,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         )
                       })()}
                       <button onClick={() => setShowQuartersInfo(true)}
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-footnote font-semibold flex-shrink-0"
                         style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', border: '1px solid var(--border)' }}>
                         i
                       </button>
                       {alloc?.category === 'Hospitals' && (
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[13px]"
+                        <label className="flex items-center gap-1.5 cursor-pointer text-subheadline"
                                style={{ color: 'var(--text-2)' }}>
                           <input type="checkbox"
                             checked={alloc.is_hospital_ramp_phase}
@@ -523,17 +523,17 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
         {/* Deep zone */}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${deepW}%`, background: 'rgba(4,120,87,0.28)' }}>
-          {deepW > 8 && <span className="text-[11px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>}
+          {deepW > 8 && <span className="text-footnote font-semibold truncate px-1 text-signal-buy">DEEP</span>}
         </div>
         {/* Buy zone */}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }}>
-          <span className="text-[10px] font-semibold text-green-500 truncate px-1">BUY</span>
+          <span className="text-footnote font-semibold text-signal-buy truncate px-1">BUY</span>
         </div>
         {/* Mid zone (buyHigh → midHigh) */}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
-          <span className="text-[10px] font-semibold text-orange-400 truncate px-1">MID</span>
+          <span className="text-footnote font-semibold text-signal-hold truncate px-1">MID</span>
         </div>
 
         {/* CMP pin */}
@@ -544,21 +544,21 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
       </div>
 
       {/* Values row */}
-      <div className="flex justify-between mt-2 text-[11px] tabnum">
+      <div className="flex justify-between mt-2 text-footnote tabnum">
         <div className="text-center">
-          <p className="font-semibold" style={{ color: '#34d399' }}>&lt;₹{Math.round(buyLow)}</p>
+          <p className="font-semibold text-signal-buy">&lt;₹{Math.round(buyLow)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Deep</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-green-500">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p>
+          <p className="font-semibold text-signal-buy">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Buy</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-orange-400">₹{Math.round(midLow)}–{Math.round(midHigh)}</p>
+          <p className="font-semibold text-signal-hold">₹{Math.round(midLow)}–{Math.round(midHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Mid / Hold</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-red-400">≥₹{Math.round(trimPrice)}</p>
+          <p className="font-semibold text-signal-trim">≥₹{Math.round(trimPrice)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Trim</p>
         </div>
       </div>
@@ -572,19 +572,19 @@ function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px]"
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="w-14" />
-          <p className="font-semibold text-[17px]">Recent Quarters</p>
-          <button onClick={onClose} className="text-[#0A84FF] text-[17px] w-14 text-right">Done</button>
+          <p className="font-semibold text-headline">Recent Quarters</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right">Done</button>
         </div>
 
         <div className="px-5 pt-4 space-y-4">
-          <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+          <p className="text-body leading-relaxed" style={{ color: 'var(--text-2)' }}>
             Adjusts band prices based on the last 2 quarters of reported results.
           </p>
 
@@ -604,8 +604,8 @@ function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
           ].map(({ mode, desc }) => (
             <div key={mode} className="rounded-2xl p-3.5"
                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
+              <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
+              <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -651,16 +651,16 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-[28px]"
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-[#0A84FF] text-[17px]">Cancel</button>
-          <p className="font-semibold text-[17px]">AI API Key</p>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <p className="font-semibold text-headline">AI API Key</p>
           <button onClick={save} disabled={saving || !key.trim()}
-            className="text-[#0A84FF] text-[17px] font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -670,7 +670,7 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
           <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
             {(['gemini', 'claude'] as const).map(p => (
               <button key={p} type="button" onClick={() => { setProvider(p); setKey(''); setError('') }}
-                className="flex-1 py-3 text-[14px] font-medium transition-colors"
+                className="flex-1 py-3 text-body font-medium transition-colors"
                 style={provider === p
                   ? { background: '#0A84FF', color: '#fff' }
                   : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
@@ -680,7 +680,7 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
           </div>
 
           {provider === 'gemini' && (
-            <p className="text-[12px] text-center" style={{ color: '#34C759' }}>
+            <p className="text-subheadline text-center text-positive">
               ★ Recommended — best accuracy for live financial data
             </p>
           )}
@@ -690,26 +690,26 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
             placeholder={placeholder}
             value={key}
             onChange={e => setKey(e.target.value)}
-            className="w-full px-4 py-3.5 rounded-2xl text-[17px] outline-none"
+            className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             autoFocus
           />
 
-          {error && <p className="text-red-400 text-[13px]">{error}</p>}
+          {error && <p className="text-negative text-subheadline">{error}</p>}
 
           <div className="rounded-2xl p-3.5"
                style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
-            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-2)' }}>
-              <span className="font-semibold" style={{ color: '#0A84FF' }}>Stored securely.</span>{' '}
+            <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              <span className="font-semibold text-accent">Stored securely.</span>{' '}
               Your API key lives in your database (Supabase) and is locked to your login via row-level security.
               Band generation runs entirely on the server — your browser never sees the key again after you save it.
               Only your session can retrieve it, and only to call the AI provider.
             </p>
           </div>
 
-          <p className="text-[13px] text-center" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-subheadline text-center" style={{ color: 'var(--text-muted)' }}>
             Get a key at{' '}
-            <span style={{ color: '#0A84FF' }}>{keyLink}</span>
+            <span className="text-accent">{keyLink}</span>
           </p>
         </div>
       </div>
