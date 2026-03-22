@@ -17,12 +17,11 @@ interface Props {
   allocations: StockAllocation[]
   initialTranches: BuyTranche[]
   fyId: string
-  fyLabel?: string
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
 }
 
-export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fyLabel, fiscalYears, selectedFY }: Props) {
+export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fiscalYears, selectedFY }: Props) {
   const router = useRouter()
   const [bands, setBands]           = useState(initialBands)
   const [allocState, setAllocState] = useState(allocations)
@@ -507,44 +506,41 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
   trimPrice: number; cmp: number | null
 }) {
   const min = buyLow * 0.9
-  const max = trimPrice * 1.15
+  const max = midHigh
   const range = max - min
 
-  function pct(v: number) { return ((v - min) / range) * 100 }
+  function pct(v: number) { return Math.min(100, Math.max(0, ((v - min) / range) * 100)) }
 
-  const buyWidth = pct(buyHigh) - pct(buyLow)
-  const midWidth = pct(midHigh) - pct(midLow)
-  const trimWidth = 100 - pct(trimPrice)
-  const cmpPct = cmp ? pct(cmp) : null
+  const deepW = pct(buyLow)
+  const buyW  = pct(buyHigh) - pct(buyLow)
+  const gapW  = pct(midLow) - pct(buyHigh)
+  const midW  = 100 - pct(midLow)
+  const cmpPct = cmp != null && cmp >= min && cmp <= max ? pct(cmp) : null
 
   return (
     <div>
       {/* Bar */}
       <div className="relative h-7 rounded-lg overflow-hidden flex" style={{ background: 'var(--bg-tertiary)' }}>
-        {/* Deep value zone (below buyLow) */}
+        {/* Deep zone */}
         <div className="h-full flex items-center justify-center"
-             style={{ width: `${pct(buyLow)}%`, background: 'rgba(4,120,87,0.28)' }}>
-          {pct(buyLow) > 8 && (
-            <span className="text-[11px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>
-          )}
+             style={{ width: `${deepW}%`, background: 'rgba(4,120,87,0.28)' }}>
+          {deepW > 8 && <span className="text-[11px] font-semibold truncate px-1" style={{ color: '#34d399' }}>DEEP</span>}
         </div>
+        {/* Buy zone */}
         <div className="h-full flex items-center justify-center"
-             style={{ width: `${buyWidth}%`, background: 'rgba(34,197,94,0.35)' }}>
+             style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }}>
           <span className="text-[10px] font-semibold text-green-500 truncate px-1">BUY</span>
         </div>
+        {/* Hold gap (buyHigh → midLow) */}
+        <div className="h-full" style={{ width: `${gapW}%` }} />
         {/* Mid zone */}
         <div className="h-full flex items-center justify-center"
-             style={{ width: `${midWidth}%`, background: 'rgba(249,115,22,0.30)' }}>
+             style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
           <span className="text-[10px] font-semibold text-orange-400 truncate px-1">MID</span>
-        </div>
-        {/* Trim zone */}
-        <div className="h-full flex items-center justify-center flex-1"
-             style={{ background: 'rgba(239,68,68,0.25)' }}>
-          <span className="text-[10px] font-semibold text-red-400 truncate px-1">TRIM</span>
         </div>
 
         {/* CMP pin */}
-        {cmpPct !== null && cmpPct >= 0 && cmpPct <= 100 && (
+        {cmpPct !== null && (
           <div className="absolute top-0 bottom-0 w-0.5 rounded-full"
                style={{ left: `${cmpPct}%`, background: 'var(--text-primary)' }} />
         )}

@@ -57,7 +57,6 @@ export default async function BandsPage({
           allocations={allocations}
           initialTranches={tranches}
           fyId={fy?.id ?? ''}
-          fyLabel={fy?.label}
           fiscalYears={fiscalYears}
           selectedFY={fy ?? null}
       />
