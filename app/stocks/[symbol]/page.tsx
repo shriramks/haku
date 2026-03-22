@@ -67,7 +67,6 @@ export default async function StockDetailPage({
         allFYBudget={allFYBudget}
         carryoverInr={carryoverInr}
         band={band}
-        investability={investability_}
         userId={await getUserId() ?? ''}
       />
       <BottomNav />

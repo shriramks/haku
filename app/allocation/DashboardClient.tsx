@@ -194,9 +194,9 @@ function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: b
           className="flex items-center gap-3 px-4 py-4 tap-row border-b"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
       <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
-        <span className="font-semibold text-headline">{row.symbol}</span>
+        <span className="font-semibold text-headline" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
         {getStockName(row.symbol) && (
-          <p className="text-footnote truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
+          <p className="text-footnote truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
         )}
       </div>
       <div className="flex-1">

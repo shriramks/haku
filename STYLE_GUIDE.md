@@ -212,6 +212,26 @@ Padding: p-4
 Border: 1px --border (optional, use for interactive/elevated cards)
 ```
 
+### DetailRow (label left, value right — used in Stock Detail and similar drill-down screens)
+```
+[body label, text-2]          [headline value, text-primary, tabnum]
+Height: min 44px (py-2.5)
+Padding: px-4
+Divider: border-b --divider between rows within a group
+Group header: footnote uppercase, text-faint, px-4 py-2 (SectionDivider)
+Background: none (rows sit on page bg; groups separated by a sep line)
+```
+
+Rules for DetailRow:
+- Label is always body (15px), colour text-2. Never bold.
+- Value is always headline (17px), colour text-primary, tabnum. Semibold.
+- Colour exceptions: positive values → text-positive, negative → text-negative,
+  warning → text-warning. The label colour never changes.
+- Stack variant (two values right-aligned): primary value headline, secondary value
+  footnote text-muted below it.
+- Groups are separated by a full-width sep line (--divider), not by background colour.
+- Group header (SectionDivider) labels the group above its first row.
+
 ### ValueLabel (inline pair — e.g. band range labels below the bar)
 ```
 [subheadline value, colour-coded]
@@ -256,3 +276,77 @@ When building or editing a component, ask in order:
 3. **Is this tappable?** → ensure 44px minimum touch target.
 4. **What kind of container is this?** → card, row, sheet — use the contract.
 5. **What spacing am I in?** → internal (8px), between related (12px), section (16px).
+
+---
+
+## 9. IA → Visual Mapping
+
+This section connects `INFORMATION_ARCHITECTURE.md` to the style decisions above.
+The IA defines *what* appears and in *what priority*. This section defines *how*
+that priority is expressed visually.
+
+### The core rule
+**Priority in IA maps directly to size and colour in the style guide.**
+If the IA says something is primary, it gets headline or larger + text-primary.
+If it's secondary, it gets body + text-2. If it's metadata, it gets footnote + text-faint.
+Never let visual weight conflict with IA priority — a footnote-sized element
+should never be more important than a headline-sized one on the same screen.
+
+### Screen-type → component mapping
+
+| Screen type | Primary info pattern | Secondary info pattern | Layout component |
+|-------------|---------------------|----------------------|-----------------|
+| Overview list (Allocation, Buy Bands) | headline symbol + signal | body/subheadline allocation | ListRow |
+| Detail drill-down (Stock Detail) | Band bar + signal badge | Label:value groups | DetailRow |
+| Summary strip (FY totals) | display/title-1 number | subheadline label below | MetricCard |
+| Edit/input (Financials sheet) | body labels + headline inputs | footnote hints | BottomSheet |
+| Planning (Plan screen) | headline allocation % | subheadline absolute amount | ListRow |
+
+### How IA priority maps to type roles
+
+| IA priority | Type role | Colour |
+|-------------|-----------|--------|
+| Hero / most important number | `display` or `title-1` | text-primary or semantic |
+| Primary field in a detail group | `headline` | text-primary (or positive/negative) |
+| Label for a primary field | `body` | text-2 |
+| Supporting context | `subheadline` | text-2 or text-muted |
+| Metadata (category, date, anchor) | `footnote` | text-faint |
+| Group header | `footnote` uppercase | text-faint |
+
+### The two layout patterns and when to use them
+
+**MetricCard** — use when you have 1–3 numbers that need to be immediately
+scannable at a glance. Examples: FY Remaining in a summary strip, total portfolio
+value. Not for detail views with 6+ fields.
+
+**DetailRow** — use for all detail screens with 4+ fields. Every field gets
+the same visual weight; hierarchy comes only from grouping (section headers)
+and colour (positive/negative values). This is the pattern for Stock Detail.
+
+SpendStack uses DetailRow exclusively in its detail views and reserves MetricCard
+for its dashboard summary only. This is why SpendStack feels clear and easy
+to read despite showing a lot of information: there is no visual competition
+between a big card and surrounding rows — everything is at the same structural
+weight, and the eye scans top to bottom.
+
+### Signal and colour as a second hierarchy axis
+
+Beyond size, colour communicates priority in a second dimension:
+- A `positive` coloured value in a DetailRow draws the eye even though it is
+  the same size as other values. Use this intentionally — only for values the
+  user needs to act on (FY Remaining, signal zone, P&L).
+- `text-muted` or `text-faint` values recede. Use for reference numbers the
+  user doesn't act on (Total Allocation ceiling, avg cost when not relevant).
+
+### What SpendStack does that validates Option B (DetailRow)
+
+SpendStack's detail screens (budget category drill-down) use:
+- All-caps small section headers above groups of rows
+- Label left (body weight, secondary colour) + value right (semibold, primary colour)
+- Positive values in green, negative in red, reference values in muted
+- No metric cards in detail views — cards only on the overview/dashboard
+
+The result: a screen with 8–10 fields reads clearly because the structure is
+uniform and hierarchy comes from grouping + colour, not from competing visual
+sizes. This is exactly why Option B (DetailRow) was chosen for Stock Detail
+over Option A (metric cards mixed with rows).
