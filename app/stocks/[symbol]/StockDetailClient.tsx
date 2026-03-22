@@ -636,28 +636,33 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
 function BandBarSimple({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
   buyLow: number; buyHigh: number; midLow: number; midHigh: number; trimPrice: number; cmp: number | null
 }) {
-  const min = buyLow * 0.9
-  const max = trimPrice * 1.1
+  const min = buyLow * 0.92
+  const max = midHigh
   const range = max - min
-  const pct = (v: number) => ((v - min) / range) * 100
-  const buyW  = pct(buyHigh) - pct(buyLow)
-  const midW  = pct(midHigh) - pct(midLow)
-  const cmpPct = cmp ? pct(cmp) : null
+  const pct = (v: number) => Math.min(100, Math.max(0, ((v - min) / range) * 100))
+  const preBuyW = pct(buyLow)
+  const buyW    = pct(buyHigh) - pct(buyLow)
+  const midW    = 100 - pct(midLow)
+  const cmpInBar = cmp != null && cmp >= min && cmp <= max
+  const cmpPct   = cmpInBar ? pct(cmp!) : null
+
+  let cmpZone = ''
+  if (cmp != null) {
+    if (cmp >= trimPrice) cmpZone = ' · trim zone'
+    else if (cmp >= midLow) cmpZone = ' · mid zone'
+  }
 
   return (
     <div>
-      <div className="relative h-7 rounded-lg overflow-hidden flex" style={{ background: 'var(--bg-tertiary)' }}>
-        <div className="h-full" style={{ width: `${pct(buyLow)}%` }} />
-        <div className="h-full flex items-center justify-center" style={{ width: `${buyW}%`, background: 'rgba(52,199,89,0.35)' }}>
-          <span className="text-[11px] font-bold text-green-500">BUY</span>
+      <div className="relative rounded-lg overflow-hidden flex" style={{ height: 24, background: 'var(--bg-tertiary)' }}>
+        <div className="h-full" style={{ width: `${preBuyW}%` }} />
+        <div className="h-full flex items-center justify-center" style={{ width: `${buyW}%`, background: 'rgba(52,199,89,0.30)' }}>
+          <span className="text-[10px] font-bold text-green-500">BUY</span>
         </div>
-        <div className="h-full flex items-center justify-center" style={{ width: `${midW}%`, background: 'rgba(255,149,0,0.30)' }}>
-          <span className="text-[11px] font-bold text-orange-400">MID</span>
+        <div className="h-full flex items-center justify-center" style={{ width: `${midW}%`, background: 'rgba(255,149,0,0.28)' }}>
+          <span className="text-[10px] font-bold text-orange-400">MID</span>
         </div>
-        <div className="h-full flex items-center justify-center flex-1" style={{ background: 'rgba(255,59,48,0.25)' }}>
-          <span className="text-[11px] font-bold text-red-400">TRIM</span>
-        </div>
-        {cmpPct !== null && cmpPct >= 0 && cmpPct <= 100 && (
+        {cmpPct !== null && (
           <div className="absolute top-0 bottom-0 w-0.5 rounded-full"
                style={{ left: `${cmpPct}%`, background: 'var(--text-primary)' }} />
         )}
@@ -665,9 +670,14 @@ function BandBarSimple({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
       <div className="flex justify-between mt-2 text-[11px] tabnum">
         <div><p className="font-semibold text-green-500">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p><p style={{ color: 'var(--text-faint)' }}>Buy</p></div>
         <div className="text-center"><p className="font-semibold text-orange-400">₹{Math.round(midLow)}–{Math.round(midHigh)}</p><p style={{ color: 'var(--text-faint)' }}>Mid</p></div>
-        <div className="text-right"><p className="font-semibold text-red-400">≥₹{Math.round(trimPrice)}</p><p style={{ color: 'var(--text-faint)' }}>Trim</p></div>
+        <div className="text-right" style={{ color: 'var(--text-faint)' }}>Trim &gt; ₹{Math.round(trimPrice)}</div>
       </div>
-      {cmp && <p className="text-center text-[11px] mt-1 tabnum" style={{ color: 'var(--text-muted)' }}>CMP ₹{Math.round(cmp).toLocaleString('en-IN')}</p>}
+      {cmp != null && (
+        <p className="text-center text-[11px] mt-1 tabnum" style={{ color: 'var(--text-muted)' }}>
+          CMP ₹{Math.round(cmp).toLocaleString('en-IN')}
+          {cmpZone && <span style={{ color: cmpZone.includes('trim') ? '#FF3B30' : '#FF9500' }}>{cmpZone}</span>}
+        </p>
+      )}
     </div>
   )
 }
