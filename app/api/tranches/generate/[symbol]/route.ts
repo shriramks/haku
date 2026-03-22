@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, trancheSuggestion } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -102,8 +102,12 @@ export async function POST(
   const allocatedAmt = allocatedTranches.reduce((s, t) => s + t.qty * t.price, 0)
   const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
 
-  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh)
-  const amtPerTranche = prices.length > 0 ? remainingAfterAllocated / prices.length : 0
+  const totalCapital = fy?.total_budget_inr ?? 0
+  const amtPerTranche = trancheSuggestion(remainingAfterAllocated, totalCapital)
+  const trancheCount = amtPerTranche > 0
+    ? Math.min(8, Math.max(2, Math.ceil(remainingAfterAllocated / amtPerTranche)))
+    : 3
+  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount)
 
   // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')
