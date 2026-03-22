@@ -188,6 +188,9 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
   const [hasKey, setHasKey]                         = useState<boolean | null>(null)
   const signal = band ? getBandSignal(band) : 'unknown'
   const totalCapital = (fiscalYear?.total_budget_inr ?? 0) + (fiscalYear?.unallocated_carryover_inr ?? 0)
+  const budget = allocation && fiscalYear
+    ? (allocation.allocation_pct / 100) * totalCapital
+    : 0
   const tranche = band?.buy_low != null ? trancheSuggestion(remaining, totalCapital) : null
 
   useEffect(() => {
@@ -363,6 +366,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
             symbol={symbol}
             tranches={sortedTranches}
             remaining={remaining}
+            budget={budget}
             hasBands={hasBands}
             onToggle={toggleTranche}
             onAdd={addTranche}
@@ -391,6 +395,7 @@ function BandsTab({ symbol, band, initialTranches, allocation, fiscalYear, remai
             symbol={symbol}
             tranches={sortedTranches}
             remaining={remaining}
+            budget={budget}
             hasBands={hasBands}
             onToggle={toggleTranche}
             onAdd={addTranche}

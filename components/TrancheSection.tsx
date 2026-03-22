@@ -4,12 +4,13 @@ import { formatINR } from '@/lib/formatter'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
-  symbol, tranches, remaining, hasBands,
+  symbol, tranches, remaining, budget, hasBands,
   onToggle, onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
 }: {
   symbol: string
   tranches: BuyTranche[]
   remaining: number
+  budget: number
   hasBands: boolean
   onToggle: (id: string, allocated: boolean) => void
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
@@ -28,7 +29,7 @@ export default function TrancheSection({
       <div className="flex items-center justify-between px-2 mb-2">
         <p className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
         <span className="text-[13px] font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-          {formatINR(remaining)} / {formatINR(plannedTotal)} left
+          {formatINR(remaining)} / {formatINR(budget)} left
         </span>
       </div>
 

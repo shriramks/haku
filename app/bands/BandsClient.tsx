@@ -478,6 +478,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     symbol={row.symbol}
                     tranches={stockTranches}
                     remaining={row.remaining}
+                    budget={row.budget}
                     hasBands={hasBands}
                     onToggle={toggleTranche}
                     onAdd={addTranche}
