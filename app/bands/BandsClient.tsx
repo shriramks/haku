@@ -513,8 +513,7 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
 
   const deepW = pct(buyLow)
   const buyW  = pct(buyHigh) - pct(buyLow)
-  const gapW  = pct(midLow) - pct(buyHigh)
-  const midW  = 100 - pct(midLow)
+  const midW  = 100 - pct(buyHigh)
   const cmpPct = cmp != null && cmp >= min && cmp <= max ? pct(cmp) : null
 
   return (
@@ -531,9 +530,7 @@ function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
              style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }}>
           <span className="text-[10px] font-semibold text-green-500 truncate px-1">BUY</span>
         </div>
-        {/* Hold gap (buyHigh → midLow) */}
-        <div className="h-full" style={{ width: `${gapW}%` }} />
-        {/* Mid zone */}
+        {/* Mid zone (buyHigh → midHigh) */}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
           <span className="text-[10px] font-semibold text-orange-400 truncate px-1">MID</span>
