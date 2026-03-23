@@ -110,16 +110,20 @@ export async function POST(
   const allocatedAmt = allocatedTranches.reduce((s, t) => s + t.qty * t.price, 0)
   const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
 
+  // Deep zone: CMP below buyLow — deploy only 50%, hold 50% as reserve
+  const isDeepZone = !!liveCmp && liveCmp < buyLow
+  const deployable = isDeepZone ? remainingAfterAllocated * 0.5 : remainingAfterAllocated
+
   const totalCapital = fy?.total_budget_inr ?? 0
-  const suggestedAmt = trancheSuggestion(remainingAfterAllocated, totalCapital)
+  const suggestedAmt = trancheSuggestion(deployable, totalCapital)
   const trancheCount = suggestedAmt > 0
-    ? Math.min(8, Math.max(2, Math.ceil(remainingAfterAllocated / suggestedAmt)))
+    ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
     : 3
   const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
-  const amounts = computeTrancheAmounts(remainingAfterAllocated, sortedPrices.length)
+  const amounts = computeTrancheAmounts(deployable, sortedPrices.length)
 
   // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')

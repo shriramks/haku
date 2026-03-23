@@ -144,11 +144,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       if (result) {
         const cmp       = band.manual_cmp ?? null
         const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
+        const isDeepZone = !!cmp && cmp < result.buyLow
+        const deployable = isDeepZone ? remaining * 0.5 : remaining
         const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
 
         // Conviction-weighted: sort highest→lowest, deeper tranches get more capital
         const sortedPrices = [...prices].sort((a, b) => b - a)
-        const amounts = computeTrancheAmounts(remaining, sortedPrices.length)
+        const amounts = computeTrancheAmounts(deployable, sortedPrices.length)
 
         // ② Optimistic band + tranche update — instant UI
         setBands(prev => prev.map(b => b.symbol === symbol ? {

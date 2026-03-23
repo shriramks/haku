@@ -187,12 +187,12 @@ export function computeTrancheAmounts(remaining: number, count: number): number[
 /**
  * Compute up to `count` tranche prices within the buy zone, CMP-aware.
  *
- * - CMP above buyHigh or unknown: limit orders across buyLow → buyHigh
+ * - CMP above buyHigh or unknown: limit orders across upper half of buy zone (buyLow+50% → buyHigh)
  * - CMP within buy zone:          floor = buyLow × 0.9, ceiling = CMP (never above market)
  * - CMP below buyLow (deep):      floor = CMP, ceiling = buyLow
  *
- * Prices are distributed with quadratic skew toward the lower end.
- * Deduplication handles very narrow bands (returns fewer than count).
+ * Prices are distributed with linear spacing (equal intervals).
+ * Minimum 3% gap between prices — narrow bands automatically reduce count.
  */
 export function computeTrancheprices(
   buyLow: number,
@@ -224,7 +224,7 @@ export function computeTrancheprices(
   const usedCount = Math.max(2, Math.min(count, Math.floor(range / minGap) + 1))
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
-    const t = usedCount > 1 ? Math.pow(i / (usedCount - 1), 2) : 0
+    const t = usedCount > 1 ? i / (usedCount - 1) : 0
     prices.push(Math.round(floor + t * range))
   }
   // Hard cap: no tranche ever above CMP regardless of how ceiling was computed
