@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTrancheprices, trancheSuggestion } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, trancheSuggestion } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -119,12 +119,7 @@ export async function POST(
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
-  const n = sortedPrices.length
-
-  // Conviction-weighted sizing: deeper tranches get more capital.
-  // Linear weights: index 0 (highest price) → weight 1, index n-1 (lowest) → weight n.
-  // e.g. 3 tranches: 1/6, 2/6, 3/6 of remaining → ₹16.7K, ₹33.3K, ₹50K for ₹1L remaining.
-  const totalWeight = (n * (n + 1)) / 2
+  const amounts = computeTrancheAmounts(remainingAfterAllocated, sortedPrices.length)
 
   // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')
@@ -135,8 +130,7 @@ export async function POST(
     .eq('allocated', false)
 
   const trancheRows = sortedPrices.map((price, i) => {
-    const weight = (i + 1) / totalWeight
-    const amt    = remainingAfterAllocated * weight
+    const amt = amounts[i] ?? 0
     return {
       user_id:    user.id,
       symbol:     upperSymbol,

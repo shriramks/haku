@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateBands, getBandSignal, computeTrancheprices, trancheSuggestion } from '../band-calculator'
+import { calculateBands, getBandSignal, computeTrancheprices, trancheSuggestion, computeTrancheAmounts } from '../band-calculator'
 import type { BuyBand } from '../types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -233,5 +233,58 @@ describe('trancheSuggestion', () => {
     // remaining*0.33 < 1% of capital → floor kicks in
     const result = trancheSuggestion(5_000, 1_000_000)
     expect(result).toBe(1_000_000 * 0.01)  // = 10_000
+  })
+})
+
+// ── computeTrancheAmounts ─────────────────────────────────────────────────────
+
+describe('computeTrancheAmounts — conviction-weighted sizing', () => {
+  it('returns empty array for count=0', () => {
+    expect(computeTrancheAmounts(100_000, 0)).toEqual([])
+  })
+
+  it('returns empty array for remaining=0', () => {
+    expect(computeTrancheAmounts(0, 3)).toEqual([])
+  })
+
+  it('single tranche gets the full remaining amount', () => {
+    const [amt] = computeTrancheAmounts(47_300, 1)
+    expect(amt).toBeCloseTo(47_300)
+  })
+
+  it('amounts sum exactly to remaining', () => {
+    for (const count of [2, 3, 4, 5, 8]) {
+      const remaining = 100_000
+      const amounts = computeTrancheAmounts(remaining, count)
+      const total = amounts.reduce((s, a) => s + a, 0)
+      expect(total).toBeCloseTo(remaining, 5)
+    }
+  })
+
+  it('amounts are strictly increasing (deeper tranches get more capital)', () => {
+    const amounts = computeTrancheAmounts(100_000, 4)
+    for (let i = 1; i < amounts.length; i++) {
+      expect(amounts[i]).toBeGreaterThan(amounts[i - 1])
+    }
+  })
+
+  it('3-tranche split: weights 1/6, 2/6, 3/6 of remaining', () => {
+    const remaining = 47_300
+    const [a, b, c] = computeTrancheAmounts(remaining, 3)
+    expect(a).toBeCloseTo(remaining * 1 / 6)
+    expect(b).toBeCloseTo(remaining * 2 / 6)
+    expect(c).toBeCloseTo(remaining * 3 / 6)
+  })
+
+  it('2-tranche split: weights 1/3 and 2/3', () => {
+    const remaining = 90_000
+    const [a, b] = computeTrancheAmounts(remaining, 2)
+    expect(a).toBeCloseTo(remaining * 1 / 3)
+    expect(b).toBeCloseTo(remaining * 2 / 3)
+  })
+
+  it('8-tranche split: last amount is 8× the first', () => {
+    const amounts = computeTrancheAmounts(360_000, 8)
+    expect(amounts[7] / amounts[0]).toBeCloseTo(8)
   })
 })

@@ -173,6 +173,18 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
 }
 
 /**
+ * Conviction-weighted tranche amounts: deeper tranches (higher index = lower price)
+ * get proportionally more capital. Linear weights: index 0 → weight 1, index n-1 → weight n.
+ * Input order is highest-price-first (index 0 = nearest to market).
+ * Returns amounts in the same order. Amounts sum exactly to `remaining`.
+ */
+export function computeTrancheAmounts(remaining: number, count: number): number[] {
+  if (count <= 0 || remaining <= 0) return []
+  const totalWeight = (count * (count + 1)) / 2
+  return Array.from({ length: count }, (_, i) => remaining * (i + 1) / totalWeight)
+}
+
+/**
  * Compute up to `count` tranche prices within the buy zone, CMP-aware.
  *
  * - CMP above buyHigh or unknown: limit orders across buyLow → buyHigh

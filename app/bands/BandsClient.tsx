@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
-import { getBandSignal } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, getBandSignal } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
@@ -149,8 +148,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
         // Conviction-weighted: sort highest→lowest, deeper tranches get more capital
         const sortedPrices = [...prices].sort((a, b) => b - a)
-        const n = sortedPrices.length
-        const totalWeight = (n * (n + 1)) / 2
+        const amounts = computeTrancheAmounts(remaining, sortedPrices.length)
 
         // ② Optimistic band + tranche update — instant UI
         setBands(prev => prev.map(b => b.symbol === symbol ? {
@@ -162,8 +160,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         setTranches(prev => [
           ...prev.filter(t => t.symbol !== symbol),
           ...sortedPrices.map((price, i) => {
-            const weight = (i + 1) / totalWeight
-            const amt    = remaining * weight
+            const amt = amounts[i] ?? 0
             return {
               id: `opt-${symbol}-${i}`, symbol, price,
               qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
@@ -188,8 +185,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           await sb.from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
           const { data: newTranches } = await sb.from('buy_tranches').insert(
             sortedPrices.map((price, i) => {
-              const weight = (i + 1) / totalWeight
-              const amt    = remaining * weight
+              const amt = amounts[i] ?? 0
               return {
                 user_id: userId, symbol, price,
                 qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,

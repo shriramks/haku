@@ -26,12 +26,17 @@ export default function TrancheSection({
   return (
     <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-2 mb-2">
+      <div className="flex items-center justify-between px-2 mb-1">
         <p className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
         <span className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
           {formatINR(remaining)} / {formatINR(budget)} left
         </span>
       </div>
+      {plannedTotal > 0 && (
+        <p className="px-2 mb-2 text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
+          {formatINR(remaining - plannedTotal)} available after planned tranches
+        </p>
+      )}
 
       {/* 3-button bar */}
       <div className="flex gap-1.5 px-2 mb-2">
@@ -129,13 +134,11 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
           style={{ flex: 2, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
       </div>
 
-      <p className="text-subheadline mb-2 tabnum" style={{ color: overBudget ? '#FF3B30' : 'var(--text-faint)' }}>
-        {overBudget
-          ? `Exceeds by ${formatINR(amount - maxAmount)} — max ${formatINR(maxAmount)}`
-          : amount > 0
-            ? `${formatINR(amount)} of ${formatINR(maxAmount)} available`
-            : `${formatINR(maxAmount)} available`}
-      </p>
+      {overBudget && (
+        <p className="text-subheadline mb-2 tabnum" style={{ color: '#FF3B30' }}>
+          Exceeds by {formatINR(amount - maxAmount)}
+        </p>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
