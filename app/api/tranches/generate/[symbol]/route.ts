@@ -65,7 +65,8 @@ export async function POST(
       .maybeSingle(),
     supabase.from('transactions')
       .select('trade_type, amount')
-      .eq('user_id', user.id).eq('symbol', upperSymbol).eq('fy_id', fyId),
+      .eq('user_id', user.id).eq('symbol', upperSymbol)
+      .or(`fy_id.eq.${fyId},advance_fy_id.eq.${fyId}`),
   ])
 
   const allocBudget = (fyAlloc && fy)
@@ -103,11 +104,13 @@ export async function POST(
   const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
 
   const totalCapital = fy?.total_budget_inr ?? 0
-  const amtPerTranche = trancheSuggestion(remainingAfterAllocated, totalCapital)
-  const trancheCount = amtPerTranche > 0
-    ? Math.min(8, Math.max(2, Math.ceil(remainingAfterAllocated / amtPerTranche)))
+  const suggestedAmt = trancheSuggestion(remainingAfterAllocated, totalCapital)
+  const trancheCount = suggestedAmt > 0
+    ? Math.min(8, Math.max(2, Math.ceil(remainingAfterAllocated / suggestedAmt)))
     : 3
   const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount)
+  // Distribute the full remaining evenly across however many prices were generated
+  const amtPerTranche = prices.length > 0 ? remainingAfterAllocated / prices.length : 0
 
   // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')
@@ -117,7 +120,9 @@ export async function POST(
     .eq('fy_id', fyId)
     .eq('allocated', false)
 
-  const trancheRows = prices.map((price, i) => ({
+  // Sort prices highest to lowest before inserting (first tranche = nearest to market)
+  const sortedPrices = [...prices].sort((a, b) => b - a)
+  const trancheRows = sortedPrices.map((price, i) => ({
     user_id:    user.id,
     symbol:     upperSymbol,
     price,

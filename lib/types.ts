@@ -122,37 +122,19 @@ export type GateSignal = 'pass' | 'caution' | 'fail'
 export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export type StockCategory =
-  | 'Index/ETF'
-  | 'REIT'
+  | 'Index/ETF — N50'
+  | 'Index/ETF — NN50'
   | 'Commodity'
   | 'Cap-Light Infra'
-  | 'Retail'
-  | 'Defence'
-  | 'Insurance — Life'
-  | 'Insurance — General'
-  | 'Capital Goods'
-  | 'Banks'
   | 'Hospitals'
-  | 'FMCG'
-  | 'Auto OEM'
-  | 'Pharma'
   | 'IT/Technology'
 
 export const ALL_CATEGORIES: StockCategory[] = [
-  'Index/ETF',
-  'REIT',
+  'Index/ETF — N50',
+  'Index/ETF — NN50',
   'Commodity',
   'Cap-Light Infra',
-  'Retail',
-  'Defence',
-  'Insurance — Life',
-  'Insurance — General',
-  'Capital Goods',
-  'Banks',
   'Hospitals',
-  'FMCG',
-  'Auto OEM',
-  'Pharma',
   'IT/Technology',
 ]
 
@@ -160,30 +142,15 @@ export const ALL_CATEGORIES: StockCategory[] = [
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   CAMS:        'Cap-Light Infra',
   IEX:         'Cap-Light Infra',
-  DMART:       'Retail',
-  BEL:         'Defence',
-  HAL:         'Defence',
-  SBILIFE:     'Insurance — Life',
-  HDFCLIFE:    'Insurance — Life',
-  LICI:        'Insurance — Life',
-  ICICIGI:     'Insurance — General',
-  POLYCAB:     'Capital Goods',
-  LT:          'Capital Goods',
   NARAYANAHRU: 'Hospitals',
-  ITC:         'FMCG',
-  TATAMOTORS:  'Auto OEM',
-  ZYDUSLIFE:   'Pharma',
   INFY:        'IT/Technology',
   TCS:         'IT/Technology',
   HCLTECH:     'IT/Technology',
   WIPRO:       'IT/Technology',
-  NIFTYBEES:   'Index/ETF',
-  JUNIORBEES:  'Index/ETF',
+  NIFTYBEES:   'Index/ETF — N50',
+  JUNIORBEES:  'Index/ETF — NN50',
   SETFGOLD:    'Commodity',
   GOLDBEES:    'Commodity',
-  EMBASSY:     'REIT',
-  BROOKFIELD:  'REIT',
-  NEXUS:       'REIT',
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────

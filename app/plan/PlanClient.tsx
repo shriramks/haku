@@ -2,30 +2,19 @@
 import { useState, useMemo, useEffect } from 'react'
 
 const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'REIT' | 'Passive'> = {
-  'FMCG':               'Defensive',
-  'Pharma':             'Defensive',
   'IT/Technology':      'Defensive',
-  'Insurance — Life':   'Defensive',
-  'Insurance — General':'Defensive',
-  'Auto OEM':           'Cyclical',
-  'Capital Goods':      'Cyclical',
-  'Banks':              'Cyclical',
-  'Defence':            'Cyclical',
   'Cap-Light Infra':    'Growth',
-  'Retail':             'Growth',
   'Hospitals':          'Growth',
-  'REIT':               'REIT',
-  'Index/ETF':          'Passive',
+  'Index/ETF — N50':    'Passive',
+  'Index/ETF — NN50':   'Passive',
   'Commodity':          'Passive',
 }
 
 const SHORT_CAT: Record<string, string> = {
   'Cap-Light Infra':    'Cap-light',
-  'Capital Goods':      'Cap.Goods',
-  'Insurance — Life':   'Ins.Life',
-  'Insurance — General':'Ins.Gen',
   'IT/Technology':      'IT',
-  'Index/ETF':          'Passive',
+  'Index/ETF — N50':    'N50',
+  'Index/ETF — NN50':   'NN50',
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'

@@ -16,40 +16,19 @@ interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: numbe
 
 const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra':    { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
-  // All Retail treated as quality compounders; hist PE floor ~60x
-  'Retail':             { buyLow: 54, buyHigh: 66, midLow: 67, midHigh: 81, trim: 93 },
-  // Post-2022 re-rating: captive demand + 3-7yr order visibility → one notch structural lift
-  'Defence':            { buyLow: 32, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'Capital Goods':      { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'FMCG':               { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
-  'Auto OEM':           { buyLow: 10, buyHigh: 12, midLow: 13, midHigh: 15, trim: 16 },
-  'Pharma':             { buyLow: 22, buyHigh: 28, midLow: 29, midHigh: 35, trim: 38 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
-  // Index/ETF: Nifty PE thresholds; "eps" passed in = etfPrice / indexPE (computed in generate route)
-  'Index/ETF':          { buyLow: 17, buyHigh: 21, midLow: 22, midHigh: 25, trim: 27 },
-  // REIT: price/DPU multiple (inverse of yield); "eps" passed in = annual DPU per unit
-  // 12x = 8.3% yield (deep value), 20x = 5% yield (trim)
-  'REIT':               { buyLow: 12, buyHigh: 14, midLow: 15, midHigh: 18, trim: 20 },
+  // Index ETFs: "eps" passed in = etfPrice / indexPE (computed in generate route)
+  'Index/ETF — N50':    { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
+  'Index/ETF — NN50':   { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
 }
-
 
 const EV: Partial<Record<StockCategory, Mult>> = {
-  'Defence':      { buyLow: 15,  buyHigh: 22,  midLow: 23, midHigh: 27, trim: 28  },
-  'Capital Goods':{ buyLow: 14,  buyHigh: 18,  midLow: 19, midHigh: 23, trim: 24  },
-  'Hospitals':    { buyLow: 18,  buyHigh: 22,  midLow: 23, midHigh: 28, trim: 29  },
-  'Auto OEM':     { buyLow: 4.5, buyHigh: 5.5, midLow: 6,  midHigh: 7,  trim: 7.5 },
-  'Pharma':       { buyLow: 10,  buyHigh: 13,  midLow: 14, midHigh: 16, trim: 17  },
+  'Hospitals': { buyLow: 18, buyHigh: 22, midLow: 23, midHigh: 28, trim: 29 },
 }
 
-const PB: Partial<Record<StockCategory, Mult>> = {
-  'Banks':               { buyLow: 1.6, buyHigh: 1.9, midLow: 2.0, midHigh: 2.5, trim: 2.6 },
-  'Insurance — General': { buyLow: 2.5, buyHigh: 3.2, midLow: 3.3, midHigh: 4.0, trim: 4.1 },
-}
-
-const PEV: Partial<Record<StockCategory, Mult>> = {
-  'Insurance — Life': { buyLow: 2.4, buyHigh: 2.8, midLow: 2.9, midHigh: 3.4, trim: 3.5 },
-}
+const PB:  Partial<Record<StockCategory, Mult>> = {}
+const PEV: Partial<Record<StockCategory, Mult>> = {}
 
 
 // ── Internal raw band ────────────────────────────────────────────────────────
@@ -139,33 +118,20 @@ export function calculateBands(input: BandInput): BandResult | null {
   let raw: Raw | null = null
 
   switch (input.category) {
-    case 'Index/ETF':
-    case 'REIT':
+    case 'Index/ETF — N50':
+    case 'Index/ETF — NN50':
     case 'Cap-Light Infra':
-    case 'Retail':
-    case 'Defence':
-    case 'FMCG':
-    case 'Auto OEM':
-    case 'Pharma':
     case 'IT/Technology':
       raw = tryPE()
-      break
-
-    case 'Capital Goods':
-      raw = tryEV()
       break
 
     case 'Hospitals':
       raw = input.isHospitalRampPhase ? tryEV() : tryPE()
       break
 
-    case 'Insurance — Life':
-      raw = tryPEV()
-      break
-
-    case 'Insurance — General':
-    case 'Banks':
-      raw = tryPB()
+    case 'Commodity':
+      // No band calculation for commodity ETFs
+      raw = null
       break
   }
 

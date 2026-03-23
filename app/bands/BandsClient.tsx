@@ -354,6 +354,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
                     </span>
                   )}
+                  {row.remaining > 0 && (
+                    <span className="text-subheadline tabnum text-positive">
+                      {formatINR(row.remaining)} left
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Bands button */}

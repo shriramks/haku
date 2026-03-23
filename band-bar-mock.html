@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Band Bar Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1c1c1e;
+    color: #fff;
+    padding: 24px 16px;
+    max-width: 390px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-size: 13px;
+    color: #8e8e93;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .signal-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .badge-buy  { background: rgba(52,199,89,0.2);  color: #34C759; }
+  .badge-hold { background: rgba(255,149,0,0.2);  color: #FF9500; }
+  .badge-trim { background: rgba(255,59,48,0.2);  color: #FF3B30; }
+
+  /* ── Band bar ── */
+  .band-bar-wrap { position: relative; }
+  .band-bar {
+    position: relative;
+    height: 24px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #3a3a3c;
+    display: flex;
+  }
+  .zone {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zone-buy  { background: rgba(52,199,89,0.30); }
+  .zone-mid  { background: rgba(255,149,0,0.28); }
+  .zone-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .zone-label-buy  { color: #34C759; }
+  .zone-label-mid  { color: #FF9500; }
+  .cmp-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: #fff;
+  }
+
+  /* ── Labels row ── */
+  .band-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 8px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .band-label-buy   { color: #34C759; font-weight: 600; }
+  .band-label-mid   { color: #FF9500; font-weight: 600; text-align: center; }
+  .band-label-trim  { color: #8e8e93; text-align: right; }
+  .band-sublabel    { color: #636366; margin-top: 2px; }
+
+  /* ── CMP line ── */
+  .cmp-text {
+    text-align: center;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: #8e8e93;
+    margin-top: 6px;
+  }
+  .tag-mid  { color: #FF9500; }
+  .tag-trim { color: #FF3B30; }
+
+  .divider { height: 1px; background: #3a3a3c; margin: 12px 0; }
+  .example-label { font-size: 10px; color: #636366; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.8px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-title">Band Bar — New Design</div>
+
+  <!-- Example 1: CMP inside buy zone -->
+  <div class="example-label">CMP in buy zone (INFY-like)</div>
+  <div id="ex1"></div>
+
+  <div class="divider"></div>
+
+  <!-- Example 2: CMP in mid zone -->
+  <div class="example-label">CMP in mid zone</div>
+  <div id="ex2"></div>
+
+  <div class="divider"></div>
+
+  <!-- Example 3: CMP above trim -->
+  <div class="example-label">CMP above trim</div>
+  <div id="ex3"></div>
+
+  <div class="divider"></div>
+
+  <!-- Example 4: CMP unknown -->
+  <div class="example-label">No CMP</div>
+  <div id="ex4"></div>
+</div>
+
+<script>
+function renderBar(container, { buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }) {
+  const min   = buyLow * 0.92
+  const max   = midHigh          // bar ends exactly at midHigh, no trailing empty
+  const range = max - min
+  const pct   = v => Math.min(100, Math.max(0, ((v - min) / range) * 100))
+
+  const preBuyW = pct(buyLow)
+  const buyW    = pct(buyHigh) - pct(buyLow)
+  const midW    = 100 - pct(midLow)
+
+  const cmpInBar = cmp != null && cmp >= min && cmp <= max
+  const cmpPct   = cmpInBar ? pct(cmp) : null
+
+  let cmpTag = ''
+  if (cmp != null) {
+    if (cmp >= trimPrice)   cmpTag = '<span class="tag-trim"> · trim zone</span>'
+    else if (cmp >= midLow) cmpTag = '<span class="tag-mid"> · mid zone</span>'
+  }
+
+  container.innerHTML = `
+    <div class="band-bar-wrap">
+      <div class="band-bar">
+        <div style="width:${preBuyW}%"></div>
+        <div class="zone zone-buy" style="width:${buyW}%">
+          <span class="zone-label zone-label-buy">BUY</span>
+        </div>
+        <div class="zone zone-mid" style="width:${midW}%">
+          <span class="zone-label zone-label-mid">MID</span>
+        </div>
+        ${cmpPct !== null ? `<div class="cmp-line" style="left:${cmpPct}%"></div>` : ''}
+      </div>
+
+      <div class="band-labels">
+        <div>
+          <div class="band-label-buy">₹${Math.round(buyLow)}–${Math.round(buyHigh)}</div>
+          <div class="band-sublabel">Buy</div>
+        </div>
+        <div style="text-align:center">
+          <div class="band-label-mid">₹${Math.round(midLow)}–${Math.round(midHigh)}</div>
+          <div class="band-sublabel">Mid</div>
+        </div>
+        <div>
+          <div class="band-label-trim">Trim &gt; ₹${Math.round(trimPrice)}</div>
+        </div>
+      </div>
+
+      ${cmp != null ? `<div class="cmp-text">CMP ₹${Math.round(cmp).toLocaleString('en-IN')}${cmpTag}</div>` : ''}
+    </div>
+  `
+}
+
+renderBar(document.getElementById('ex1'), {
+  buyLow: 1800, buyHigh: 2200, midLow: 2201, midHigh: 2600, trimPrice: 2800, cmp: 2050
+})
+renderBar(document.getElementById('ex2'), {
+  buyLow: 1800, buyHigh: 2200, midLow: 2201, midHigh: 2600, trimPrice: 2800, cmp: 2400
+})
+renderBar(document.getElementById('ex3'), {
+  buyLow: 1800, buyHigh: 2200, midLow: 2201, midHigh: 2600, trimPrice: 2800, cmp: 2950
+})
+renderBar(document.getElementById('ex4'), {
+  buyLow: 1800, buyHigh: 2200, midLow: 2201, midHigh: 2600, trimPrice: 2800, cmp: null
+})
+</script>
+
+</body>
+</html>

@@ -214,10 +214,7 @@ export async function POST(
   }
 
   const category = alloc.category as StockCategory
-  const isIndex     = category === 'Index/ETF'
-  const isInsurance = category === 'Insurance — Life'
-  const isBank      = category === 'Banks'
-  const isReit      = category === 'REIT'
+  const isIndex     = category === 'Index/ETF — N50' || category === 'Index/ETF — NN50'
   const isCommodity = category === 'Commodity'
 
   if (isCommodity) {
@@ -229,10 +226,7 @@ export async function POST(
   // Call AI provider with search grounding (retry once on transient failure)
   let aiText: string
   const prompt = isIndex ? indexPrompt(upperSymbol)
-    : isInsurance ? insurancePrompt(upperSymbol)
-    : isBank ? bankPrompt(upperSymbol)
-    : isReit ? reitPrompt(upperSymbol)
-    : stockPrompt(upperSymbol, category === 'Capital Goods')
+    : stockPrompt(upperSymbol, false)
   const callAI = () => aiProvider === 'claude'
     ? callClaude(prompt, activeKey)
     : callGemini(prompt, activeKey)
@@ -291,40 +285,6 @@ export async function POST(
 
     eps  = etfPrice / indexPE
     asOf = String(parsed.asOf ?? '')
-  } else if (isInsurance) {
-    embeddedValue = Number(parsed.embeddedValue) || null
-    sharesCr      = Number(parsed.sharesCr)      || null
-
-    if (!embeddedValue || !sharesCr) {
-      return NextResponse.json({
-        error: `Could not extract Embedded Value or shares for ${upperSymbol}. Got: EV=${embeddedValue}Cr, Shares=${sharesCr}Cr`,
-        raw: aiText.slice(0, 600),
-      }, { status: 422 })
-    }
-  } else if (isBank) {
-    bvps     = Number(parsed.bvps)     || null
-    sharesCr = Number(parsed.sharesCr) || null
-    eps      = Number(parsed.eps)      || null
-
-    if (!bvps) {
-      return NextResponse.json({
-        error: `Could not extract Book Value per share for ${upperSymbol}. Got: BVPS=${bvps}`,
-        raw: aiText.slice(0, 600),
-      }, { status: 422 })
-    }
-  } else if (isReit) {
-    const dpu          = Number(parsed.dpu)          || null
-    const pricePerUnit = Number(parsed.pricePerUnit) || null
-
-    if (!dpu) {
-      return NextResponse.json({
-        error: `Could not extract DPU for ${upperSymbol}. Got: DPU=₹${dpu}`,
-        raw: aiText.slice(0, 600),
-      }, { status: 422 })
-    }
-
-    eps  = dpu
-    asOf = `${upperSymbol} ₹${dpu} DPU @ ${pricePerUnit ? (dpu / pricePerUnit * 100).toFixed(1) : '?'}% yield | ${asOf}`
   } else {
     eps          = Number(parsed.eps)          || null
     opProfitCr   = Number(parsed.opProfitCr)   || null

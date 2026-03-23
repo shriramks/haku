@@ -107,57 +107,55 @@ describe('calculateBands — PE anchor (IT/Technology)', () => {
   })
 })
 
-describe('calculateBands — PB anchor (Banks)', () => {
-  // Table: buyLow: 1.6, buyHigh: 1.9, midLow: 2.0, midHigh: 2.5, trim: 2.6
-  const base = { category: 'Banks' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+describe('calculateBands — PE anchor (Index/ETF — N50)', () => {
+  // Table: buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24
+  const base = { category: 'Index/ETF — N50' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
 
-  it('returns correct band with bvps=500', () => {
-    const r = calculateBands({ ...base, bvps: 500 })!
+  it('returns correct band with eps=100', () => {
+    const r = calculateBands({ ...base, eps: 100 })!
     expect(r).not.toBeNull()
-    expect(r.anchorUsed).toBe('PB')
-    expect(r.buyLow).toBeCloseTo(1.6 * 500)
-    expect(r.buyHigh).toBeCloseTo(1.9 * 500)
-    expect(r.trimPrice).toBeCloseTo(2.6 * 500)
+    expect(r.anchorUsed).toBe('PE')
+    expect(r.buyLow).toBeCloseTo(18 * 100)
+    expect(r.buyHigh).toBeCloseTo(20 * 100)
+    expect(r.trimPrice).toBeCloseTo(24 * 100)
   })
 
-  it('returns null when bvps is missing', () => {
+  it('returns null when eps is missing', () => {
     expect(calculateBands({ ...base })).toBeNull()
   })
 })
 
-describe('calculateBands — EV/EBITDA anchor (Capital Goods)', () => {
-  // Table: buyLow: 14, buyHigh: 18, midLow: 19, midHigh: 23, trim: 24
-  const base = { category: 'Capital Goods' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+describe('calculateBands — PE anchor (Index/ETF — NN50)', () => {
+  // Table: buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28
+  const base = { category: 'Index/ETF — NN50' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
 
-  it('returns correct band with ebitda=1000Cr, netDebt=500Cr, shares=10Cr', () => {
-    // p(14) = (14*1000 - 500) / 10 = 1350
-    const r = calculateBands({ ...base, ebitda: 1000, netDebt: 500, shares: 10 })!
+  it('returns correct band with eps=100', () => {
+    const r = calculateBands({ ...base, eps: 100 })!
     expect(r).not.toBeNull()
-    expect(r.anchorUsed).toBe('EV/EBITDA')
-    expect(r.buyLow).toBeCloseTo((14 * 1000 - 500) / 10)
-  })
-
-  it('returns null when ebitda is missing', () => {
-    expect(calculateBands({ ...base, shares: 10 })).toBeNull()
-  })
-
-  it('returns null when shares is zero', () => {
-    expect(calculateBands({ ...base, ebitda: 1000, shares: 0 })).toBeNull()
+    expect(r.anchorUsed).toBe('PE')
+    expect(r.buyLow).toBeCloseTo(18 * 100)
+    expect(r.buyHigh).toBeCloseTo(21 * 100)
+    expect(r.trimPrice).toBeCloseTo(28 * 100)
   })
 })
 
-describe('calculateBands — P/EV anchor (Insurance — Life)', () => {
-  // Table: buyLow: 2.4, buyHigh: 2.8, midLow: 2.9, midHigh: 3.4, trim: 3.5
-  const base = { category: 'Insurance — Life' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+describe('calculateBands — EV/EBITDA anchor (Hospitals ramp phase)', () => {
+  // Table: buyLow: 18, buyHigh: 22, midLow: 23, midHigh: 28, trim: 29
+  const base = { category: 'Hospitals' as const, twoWeakQuarters: false, twoStrongQuarters: false }
 
-  it('returns correct band with embeddedValue=50000Cr, shares=600Cr', () => {
-    // evps = 50000 / 600 ≈ 83.33; buyLow = 2.4 * 83.33 ≈ 200
-    const evps = 50000 / 600
-    const r = calculateBands({ ...base, embeddedValue: 50000, shares: 600 })!
+  it('returns correct band with ebitda=500Cr, netDebt=100Cr, shares=20Cr', () => {
+    const r = calculateBands({ ...base, isHospitalRampPhase: true, ebitda: 500, netDebt: 100, shares: 20 })!
     expect(r).not.toBeNull()
-    expect(r.anchorUsed).toBe('P/EV')
-    expect(r.buyLow).toBeCloseTo(2.4 * evps)
-    expect(r.trimPrice).toBeCloseTo(3.5 * evps)
+    expect(r.anchorUsed).toBe('EV/EBITDA')
+    expect(r.buyLow).toBeCloseTo((18 * 500 - 100) / 20)
+  })
+
+  it('returns null when ebitda is missing', () => {
+    expect(calculateBands({ ...base, isHospitalRampPhase: true, shares: 20 })).toBeNull()
+  })
+
+  it('returns null when shares is zero', () => {
+    expect(calculateBands({ ...base, isHospitalRampPhase: true, ebitda: 500, shares: 0 })).toBeNull()
   })
 })
 
