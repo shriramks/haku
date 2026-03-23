@@ -146,7 +146,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         const cmp       = band.manual_cmp ?? null
         const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
         const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
-        const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
+
+        // Conviction-weighted: sort highest→lowest, deeper tranches get more capital
+        const sortedPrices = [...prices].sort((a, b) => b - a)
+        const n = sortedPrices.length
+        const totalWeight = (n * (n + 1)) / 2
 
         // ② Optimistic band + tranche update — instant UI
         setBands(prev => prev.map(b => b.symbol === symbol ? {
@@ -157,11 +161,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         } : b))
         setTranches(prev => [
           ...prev.filter(t => t.symbol !== symbol),
-          ...prices.map((price, i) => ({
-            id: `opt-${symbol}-${i}`, symbol, price,
-            qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-            allocated:  false, sort_order: i + 1, fy_id: fyId,
-          } as BuyTranche)),
+          ...sortedPrices.map((price, i) => {
+            const weight = (i + 1) / totalWeight
+            const amt    = remaining * weight
+            return {
+              id: `opt-${symbol}-${i}`, symbol, price,
+              qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
+              allocated: false, sort_order: i + 1, fy_id: fyId,
+            } as BuyTranche
+          }),
         ])
 
         // ③ Write to DB in background — 3 ops (was 5): alloc + band-in-place + tranches
@@ -179,11 +187,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         if (userId) {
           await sb.from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
           const { data: newTranches } = await sb.from('buy_tranches').insert(
-            prices.map((price, i) => ({
-              user_id: userId, symbol, price,
-              qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-              allocated:  false, sort_order: i + 1, fy_id: fyId,
-            }))
+            sortedPrices.map((price, i) => {
+              const weight = (i + 1) / totalWeight
+              const amt    = remaining * weight
+              return {
+                user_id: userId, symbol, price,
+                qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
+                allocated: false, sort_order: i + 1, fy_id: fyId,
+              }
+            })
           ).select()
           // Replace temp IDs with real DB IDs
           if (newTranches) setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...newTranches])
@@ -234,7 +246,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId }),
+        body: JSON.stringify({ fyId, remainingInr: rows.find(r => r.symbol === symbol)?.remaining ?? 0 }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) {

@@ -133,9 +133,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               style={{ width: `${Math.min(100, pctDeployed)}%` }}
             />
           </div>
-          <p className="text-subheadline mt-1 tabnum text-right" style={{ color: 'var(--text-muted)' }}>
-            {formatPct(pctDeployed)} deployed
-          </p>
         </div>
       )}
 
@@ -196,7 +193,7 @@ function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: b
       <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
         <span className="font-semibold text-headline" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
         {getStockName(row.symbol) && (
-          <p className="text-footnote truncate" style={{ color: 'var(--text-faint)' }}>{getStockName(row.symbol)}</p>
+          <p className="text-footnote truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
         )}
       </div>
       <div className="flex-1">
@@ -206,7 +203,8 @@ function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: b
           }`} style={{ width: `${pct}%` }} />
         </div>
       </div>
-      <p className="text-body tabnum text-right flex-shrink-0" style={{ color: 'var(--text-muted)', minWidth: '64px' }}>
+      <p className="text-body tabnum text-right flex-shrink-0 font-semibold"
+         style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)', minWidth: '64px' }}>
         {isDone ? 'Done' : `${formatAmt(row.remaining)} left`}
       </p>
       <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}

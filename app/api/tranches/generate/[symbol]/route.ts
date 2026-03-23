@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const { symbol } = await params
   const upperSymbol = symbol.toUpperCase()
-  const { fyId } = await req.json().catch(() => ({})) as { fyId?: string }
+  const { fyId, remainingInr } = await req.json().catch(() => ({})) as { fyId?: string; remainingInr?: number }
 
   if (!fyId) return NextResponse.json({ error: 'fyId required' }, { status: 400 })
 
@@ -69,13 +69,20 @@ export async function POST(
       .or(`fy_id.eq.${fyId},advance_fy_id.eq.${fyId}`),
   ])
 
-  const allocBudget = (fyAlloc && fy)
-    ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0))
-    : 0
-  const netSpent = (txns ?? []).reduce(
-    (s: number, t: { trade_type: string; amount: number }) =>
-      s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
-  const remaining = Math.max(0, allocBudget - netSpent)
+  // If the client passes remainingInr, use it directly — it already includes per-stock
+  // carryover adjustments that the server-side calculation would miss.
+  let remaining: number
+  if (remainingInr != null) {
+    remaining = Math.max(0, remainingInr)
+  } else {
+    const allocBudget = (fyAlloc && fy)
+      ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0))
+      : 0
+    const netSpent = (txns ?? []).reduce(
+      (s: number, t: { trade_type: string; amount: number }) =>
+        s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+    remaining = Math.max(0, allocBudget - netSpent)
+  }
 
   // Always use live CMP so stale stored values don't push tranches above market price
   let liveCmp: number | null = band.manual_cmp ?? null
@@ -109,8 +116,15 @@ export async function POST(
     ? Math.min(8, Math.max(2, Math.ceil(remainingAfterAllocated / suggestedAmt)))
     : 3
   const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount)
-  // Distribute the full remaining evenly across however many prices were generated
-  const amtPerTranche = prices.length > 0 ? remainingAfterAllocated / prices.length : 0
+
+  // Sort highest to lowest (index 0 = nearest to market, last = deepest)
+  const sortedPrices = [...prices].sort((a, b) => b - a)
+  const n = sortedPrices.length
+
+  // Conviction-weighted sizing: deeper tranches get more capital.
+  // Linear weights: index 0 (highest price) → weight 1, index n-1 (lowest) → weight n.
+  // e.g. 3 tranches: 1/6, 2/6, 3/6 of remaining → ₹16.7K, ₹33.3K, ₹50K for ₹1L remaining.
+  const totalWeight = (n * (n + 1)) / 2
 
   // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')
@@ -120,17 +134,19 @@ export async function POST(
     .eq('fy_id', fyId)
     .eq('allocated', false)
 
-  // Sort prices highest to lowest before inserting (first tranche = nearest to market)
-  const sortedPrices = [...prices].sort((a, b) => b - a)
-  const trancheRows = sortedPrices.map((price, i) => ({
-    user_id:    user.id,
-    symbol:     upperSymbol,
-    price,
-    qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-    allocated:  false,
-    sort_order: i + 1,
-    fy_id:      fyId,
-  }))
+  const trancheRows = sortedPrices.map((price, i) => {
+    const weight = (i + 1) / totalWeight
+    const amt    = remainingAfterAllocated * weight
+    return {
+      user_id:    user.id,
+      symbol:     upperSymbol,
+      price,
+      qty:        amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
+      allocated:  false,
+      sort_order: i + 1,
+      fy_id:      fyId,
+    }
+  })
 
   const { data: inserted, error } = await supabase
     .from('buy_tranches')

@@ -153,7 +153,7 @@ export default function StockDetailClient({
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId: fiscalYear.id }),
+        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: remaining }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) {
@@ -258,7 +258,13 @@ export default function StockDetailClient({
 
         {/* ── All-Time ─────────────────────────────────────────────────────── */}
         <SectionHeader title="All-Time" />
-        <DetailRow label="Total Allocated" value={formatINR(allFYSpent)} />
+        <DetailRow
+          label="Remaining"
+          value={formatINR(Math.abs(allFYBudget - allFYSpent))}
+          valueColor={allFYBudget - allFYSpent < 0 ? 'text-negative' : 'text-positive'}
+          prefix={allFYBudget - allFYSpent < 0 ? '−' : undefined}
+        />
+        <DetailRow label="Allocated" value={formatINR(allFYSpent)} />
         <DetailRow label="Total Allocation" value={formatINR(allFYBudget)} muted />
 
         {/* ── Position ─────────────────────────────────────────────────────── */}

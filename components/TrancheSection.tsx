@@ -129,11 +129,13 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
           style={{ flex: 2, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
       </div>
 
-      {overBudget && (
-        <p className="text-subheadline mb-2 tabnum text-negative">
-          Exceeds allocation by {formatINR(amount - maxAmount)} — max {formatINR(maxAmount)}
-        </p>
-      )}
+      <p className="text-subheadline mb-2 tabnum" style={{ color: overBudget ? '#FF3B30' : 'var(--text-faint)' }}>
+        {overBudget
+          ? `Exceeds by ${formatINR(amount - maxAmount)} — max ${formatINR(maxAmount)}`
+          : amount > 0
+            ? `${formatINR(amount)} of ${formatINR(maxAmount)} available`
+            : `${formatINR(maxAmount)} available`}
+      </p>
 
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
