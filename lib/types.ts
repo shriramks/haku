@@ -122,16 +122,16 @@ export type GateSignal = 'pass' | 'caution' | 'fail'
 export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export type StockCategory =
-  | 'Index/ETF — N50'
-  | 'Index/ETF — NN50'
+  | 'Nifty 50 Index'
+  | 'Nifty Next 50 Index'
   | 'Commodity'
   | 'Cap-Light Infra'
   | 'Hospitals'
   | 'IT/Technology'
 
 export const ALL_CATEGORIES: StockCategory[] = [
-  'Index/ETF — N50',
-  'Index/ETF — NN50',
+  'Nifty 50 Index',
+  'Nifty Next 50 Index',
   'Commodity',
   'Cap-Light Infra',
   'Hospitals',
@@ -147,8 +147,8 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   TCS:         'IT/Technology',
   HCLTECH:     'IT/Technology',
   WIPRO:       'IT/Technology',
-  NIFTYBEES:   'Index/ETF — N50',
-  JUNIORBEES:  'Index/ETF — NN50',
+  NIFTYBEES:   'Nifty 50 Index',
+  JUNIORBEES:  'Nifty Next 50 Index',
   SETFGOLD:    'Commodity',
   GOLDBEES:    'Commodity',
 }

@@ -5,16 +5,16 @@ const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'REIT' |
   'IT/Technology':      'Defensive',
   'Cap-Light Infra':    'Growth',
   'Hospitals':          'Growth',
-  'Index/ETF — N50':    'Passive',
-  'Index/ETF — NN50':   'Passive',
+  'Nifty 50 Index':    'Passive',
+  'Nifty Next 50 Index':   'Passive',
   'Commodity':          'Passive',
 }
 
 const SHORT_CAT: Record<string, string> = {
   'Cap-Light Infra':    'Cap-light',
   'IT/Technology':      'IT',
-  'Index/ETF — N50':    'N50',
-  'Index/ETF — NN50':   'NN50',
+  'Nifty 50 Index':    'N50',
+  'Nifty Next 50 Index':   'NN50',
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'

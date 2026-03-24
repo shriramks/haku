@@ -214,7 +214,7 @@ export async function POST(
   }
 
   const category = alloc.category as StockCategory
-  const isIndex     = category === 'Index/ETF — N50' || category === 'Index/ETF — NN50'
+  const isIndex     = category === 'Nifty 50 Index' || category === 'Nifty Next 50 Index'
   const isCommodity = category === 'Commodity'
 
   if (isCommodity) {

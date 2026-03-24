@@ -107,9 +107,9 @@ describe('calculateBands — PE anchor (IT/Technology)', () => {
   })
 })
 
-describe('calculateBands — PE anchor (Index/ETF — N50)', () => {
+describe('calculateBands — PE anchor (Nifty 50 Index)', () => {
   // Table: buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24
-  const base = { category: 'Index/ETF — N50' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+  const base = { category: 'Nifty 50 Index' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
 
   it('returns correct band with eps=100', () => {
     const r = calculateBands({ ...base, eps: 100 })!
@@ -125,9 +125,9 @@ describe('calculateBands — PE anchor (Index/ETF — N50)', () => {
   })
 })
 
-describe('calculateBands — PE anchor (Index/ETF — NN50)', () => {
+describe('calculateBands — PE anchor (Nifty Next 50 Index)', () => {
   // Table: buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28
-  const base = { category: 'Index/ETF — NN50' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+  const base = { category: 'Nifty Next 50 Index' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
 
   it('returns correct band with eps=100', () => {
     const r = calculateBands({ ...base, eps: 100 })!

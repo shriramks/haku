@@ -19,8 +19,8 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
   'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   // Index ETFs: "eps" passed in = etfPrice / indexPE (computed in generate route)
-  'Index/ETF — N50':    { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Index/ETF — NN50':   { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
+  'Nifty 50 Index':    { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
+  'Nifty Next 50 Index':   { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
 }
 
 const EV: Partial<Record<StockCategory, Mult>> = {
@@ -118,8 +118,8 @@ export function calculateBands(input: BandInput): BandResult | null {
   let raw: Raw | null = null
 
   switch (input.category) {
-    case 'Index/ETF — N50':
-    case 'Index/ETF — NN50':
+    case 'Nifty 50 Index':
+    case 'Nifty Next 50 Index':
     case 'Cap-Light Infra':
     case 'IT/Technology':
       raw = tryPE()
