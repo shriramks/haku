@@ -420,7 +420,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   {/* Controls: Bear/Normal/Bull + ⓘ */}
                   <div className="px-4 pt-4 pb-3">
                     <div className="flex items-center gap-2">
-                      {alloc && (() => {
+                      {alloc && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(alloc.category) && (() => {
                         const mode = alloc.two_weak_quarters ? 'bear' : alloc.two_strong_quarters ? 'bull' : 'normal'
                         return (
                           <div className="flex flex-1 rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
