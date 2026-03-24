@@ -11,11 +11,11 @@ const RULES: { sector?: string; industry?: string; category: StockCategory }[] =
   { industry: 'hospital',               category: 'Hospitals' },
   { industry: 'diagnostics',            category: 'Hospitals' },
 
-  // IT/Technology
-  { industry: 'it services',            category: 'IT/Technology' },
-  { industry: 'information technology', category: 'IT/Technology' },
-  { industry: 'software',               category: 'IT/Technology' },
-  { sector: 'technology',               category: 'IT/Technology' },
+  // FMCG
+  { industry: 'packaged foods',         category: 'FMCG' },
+  { industry: 'household products',     category: 'FMCG' },
+  { industry: 'personal products',      category: 'FMCG' },
+  { sector: 'consumer defensive',       category: 'FMCG' },
 
   // Cap-Light Infra
   { industry: 'asset management',       category: 'Cap-Light Infra' },

@@ -135,11 +135,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     if (band && (band.eps || band.bvps || band.ebitda)) {
       const result = calculateBands({
         category: updated.category as StockCategory,
-        twoWeakQuarters:     updated.two_weak_quarters,
-        twoStrongQuarters:   updated.two_strong_quarters,
-        isHospitalRampPhase: updated.is_hospital_ramp_phase,
-        eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
-        netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
+        twoWeakQuarters:   updated.two_weak_quarters,
+        twoStrongQuarters: updated.two_strong_quarters,
+        eps: band.eps,
       })
       if (result) {
         const cmp       = band.manual_cmp ?? null
@@ -316,11 +314,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           // Re-compute band result from stored financial inputs (for tightening display)
           const computed = (band && alloc) ? calculateBands({
             category: alloc.category as StockCategory,
-            twoWeakQuarters: alloc.two_weak_quarters,
+            twoWeakQuarters:   alloc.two_weak_quarters,
             twoStrongQuarters: alloc.two_strong_quarters,
-            isHospitalRampPhase: alloc.is_hospital_ramp_phase,
-            eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
-            netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
+            eps: band.eps,
           }) : null
 
           const buyLow   = computed?.buyLow   ?? band?.buy_low   ?? null
@@ -436,12 +432,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                                     toggleQuarters(row.symbol, 'two_weak_quarters', true)
                                   } else if (m === 'bull') {
                                     toggleQuarters(row.symbol, 'two_strong_quarters', true)
-                                    // For Hospitals, Bull also implies ramp phase
-                                    if (alloc.category === 'Hospitals' && !alloc.is_hospital_ramp_phase) {
-                                      const sb = getSupabaseBrowser()
-                                      await sb.from('stock_allocations').update({ is_hospital_ramp_phase: true }).eq('id', alloc.id)
-                                      setAllocState(prev => prev.map(a => a.id === alloc.id ? { ...a, is_hospital_ramp_phase: true } : a))
-                                    }
                                   } else {
                                     if (alloc.two_weak_quarters)   toggleQuarters(row.symbol, 'two_weak_quarters', false)
                                     else if (alloc.two_strong_quarters) toggleQuarters(row.symbol, 'two_strong_quarters', false)
@@ -464,22 +454,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', border: '1px solid var(--border)' }}>
                         i
                       </button>
-                      {alloc?.category === 'Hospitals' && (
-                        <label className="flex items-center gap-1.5 cursor-pointer text-subheadline"
-                               style={{ color: 'var(--text-2)' }}>
-                          <input type="checkbox"
-                            checked={alloc.is_hospital_ramp_phase}
-                            onChange={async e => {
-                              const sb = getSupabaseBrowser()
-                              const updated = { ...alloc, is_hospital_ramp_phase: e.target.checked }
-                              await sb.from('stock_allocations').update({ is_hospital_ramp_phase: e.target.checked }).eq('id', alloc.id)
-                              setAllocState(prev => prev.map(a => a.id === alloc.id ? updated : a))
-                            }}
-                            className="w-4 h-4 rounded accent-blue-400"
-                          />
-                          Ramp Phase
-                        </label>
-                      )}
                     </div>
 
                   </div>

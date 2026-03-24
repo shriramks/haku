@@ -63,113 +63,140 @@ describe('getBandSignal', () => {
 
 // ── calculateBands ────────────────────────────────────────────────────────────
 
-describe('calculateBands — PE anchor (IT/Technology)', () => {
-  // Table: buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33
-  const base = { category: 'IT/Technology' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+const normal = { twoWeakQuarters: false, twoStrongQuarters: false }
 
-  it('returns correct band with eps=100', () => {
-    const r = calculateBands({ ...base, eps: 100 })
-    expect(r).not.toBeNull()
-    expect(r!.anchorUsed).toBe('PE')
-    expect(r!.buyLow).toBe(20 * 100)
-    expect(r!.buyHigh).toBe(26 * 100)
-    expect(r!.midLow).toBe(27 * 100)
-    expect(r!.midHigh).toBe(32 * 100)
-    expect(r!.trimPrice).toBe(33 * 100)
+describe('calculateBands — Cap-Light Infra (bear/normal/bull)', () => {
+  const base = { category: 'Cap-Light Infra' as const, ...normal }
+
+  it('normal: full buy range 28–35×', () => {
+    const r = calculateBands({ ...base, eps: 100 })!
+    expect(r.anchorUsed).toBe('PE')
+    expect(r.buyLow).toBeCloseTo(28 * 100)
+    expect(r.buyHigh).toBeCloseTo(35 * 100)
+    expect(r.trimPrice).toBe(45 * 100)
   })
 
-  it('returns null when eps is missing', () => {
-    expect(calculateBands({ ...base })).toBeNull()
-  })
-
-  it('returns null when eps is zero', () => {
-    expect(calculateBands({ ...base, eps: 0 })).toBeNull()
-  })
-
-  it('tightens all buy/mid prices by 10% when twoWeakQuarters', () => {
+  it('bear: compresses buyHigh to midpoint (31.5×), trim unchanged', () => {
     const r = calculateBands({ ...base, eps: 100, twoWeakQuarters: true })!
     expect(r.isTightened).toBe(true)
-    expect(r.buyLow).toBeCloseTo(20 * 100 * 0.9)
-    expect(r.trimPrice).toBe(33 * 100)   // trim unchanged
+    expect(r.buyLow).toBeCloseTo(28 * 100)
+    expect(r.buyHigh).toBeCloseTo(31.5 * 100)
+    expect(r.trimPrice).toBe(45 * 100)
   })
 
-  it('expands buy/mid prices by 10% when twoStrongQuarters', () => {
+  it('bull: uses premium overlay (32–38×)', () => {
     const r = calculateBands({ ...base, eps: 100, twoStrongQuarters: true })!
     expect(r.isPremium).toBe(true)
-    expect(r.buyLow).toBeCloseTo(20 * 100 * 1.1)
-    expect(r.trimPrice).toBe(33 * 100)   // trim unchanged
+    expect(r.buyLow).toBeCloseTo(32 * 100)
+    expect(r.buyHigh).toBeCloseTo(38 * 100)
+    expect(r.midLow).toBeCloseTo(39 * 100)
+    expect(r.trimPrice).toBe(48 * 100)
   })
 
-  it('tighten takes precedence over premium when both set', () => {
+  it('bear wins when both flags set', () => {
     const r = calculateBands({ ...base, eps: 100, twoWeakQuarters: true, twoStrongQuarters: true })!
     expect(r.isTightened).toBe(true)
     expect(r.isPremium).toBe(false)
   })
+
+  it('returns null when eps missing', () => {
+    expect(calculateBands({ ...base })).toBeNull()
+  })
 })
 
-describe('calculateBands — PE anchor (Nifty 50 Index)', () => {
-  // Table: buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24
-  const base = { category: 'Nifty 50 Index' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+describe('calculateBands — Hospitals (bear/normal/bull, always PE)', () => {
+  const base = { category: 'Hospitals' as const, ...normal }
 
-  it('returns correct band with eps=100', () => {
-    const r = calculateBands({ ...base, eps: 100 })!
-    expect(r).not.toBeNull()
+  it('normal: full buy range 38–45×', () => {
+    const r = calculateBands({ ...base, eps: 50 })!
     expect(r.anchorUsed).toBe('PE')
+    expect(r.buyLow).toBeCloseTo(38 * 50)
+    expect(r.buyHigh).toBeCloseTo(45 * 50)
+    expect(r.trimPrice).toBe(56 * 50)
+  })
+
+  it('bear: buyHigh compresses to 41.5×, trim unchanged', () => {
+    const r = calculateBands({ ...base, eps: 50, twoWeakQuarters: true })!
+    expect(r.buyHigh).toBeCloseTo(41.5 * 50)
+    expect(r.trimPrice).toBe(56 * 50)
+  })
+
+  it('bull: buyLow shifts to 41.5× (upper half, no premium defined)', () => {
+    const r = calculateBands({ ...base, eps: 50, twoStrongQuarters: true })!
+    expect(r.isPremium).toBe(true)
+    expect(r.buyLow).toBeCloseTo(41.5 * 50)
+    expect(r.buyHigh).toBeCloseTo(45 * 50)
+    expect(r.trimPrice).toBe(56 * 50)
+  })
+})
+
+describe('calculateBands — Nifty 50 Index (flags ignored)', () => {
+  const base = { category: 'Nifty 50 Index' as const, ...normal }
+
+  it('returns correct band', () => {
+    const r = calculateBands({ ...base, eps: 100 })!
     expect(r.buyLow).toBeCloseTo(18 * 100)
     expect(r.buyHigh).toBeCloseTo(20 * 100)
     expect(r.trimPrice).toBeCloseTo(24 * 100)
   })
 
-  it('returns null when eps is missing', () => {
-    expect(calculateBands({ ...base })).toBeNull()
+  it('bear flag ignored — same as normal', () => {
+    const bear = calculateBands({ ...base, eps: 100, twoWeakQuarters: true })!
+    const norm = calculateBands({ ...base, eps: 100 })!
+    expect(bear.buyHigh).toBeCloseTo(norm.buyHigh)
+    expect(bear.isTightened).toBe(false)
+  })
+
+  it('bull flag ignored — same as normal', () => {
+    const bull = calculateBands({ ...base, eps: 100, twoStrongQuarters: true })!
+    const norm = calculateBands({ ...base, eps: 100 })!
+    expect(bull.buyLow).toBeCloseTo(norm.buyLow)
+    expect(bull.isPremium).toBe(false)
   })
 })
 
-describe('calculateBands — PE anchor (Nifty Next 50 Index)', () => {
-  // Table: buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28
-  const base = { category: 'Nifty Next 50 Index' as const, twoWeakQuarters: false, twoStrongQuarters: false, isHospitalRampPhase: false }
+describe('calculateBands — FMCG', () => {
+  const base = { category: 'FMCG' as const, ...normal }
 
-  it('returns correct band with eps=100', () => {
-    const r = calculateBands({ ...base, eps: 100 })!
-    expect(r).not.toBeNull()
-    expect(r.anchorUsed).toBe('PE')
-    expect(r.buyLow).toBeCloseTo(18 * 100)
-    expect(r.buyHigh).toBeCloseTo(21 * 100)
-    expect(r.trimPrice).toBeCloseTo(28 * 100)
+  it('normal: full buy range 35–50×', () => {
+    const r = calculateBands({ ...base, eps: 40 })!
+    expect(r.buyLow).toBeCloseTo(35 * 40)
+    expect(r.buyHigh).toBeCloseTo(50 * 40)
+    expect(r.trimPrice).toBe(61 * 40)
+  })
+
+  it('bear: buyHigh → 42.5×', () => {
+    const r = calculateBands({ ...base, eps: 40, twoWeakQuarters: true })!
+    expect(r.buyHigh).toBeCloseTo(42.5 * 40)
+    expect(r.trimPrice).toBe(61 * 40)
+  })
+
+  it('bull: buyLow → 42.5× (upper half)', () => {
+    const r = calculateBands({ ...base, eps: 40, twoStrongQuarters: true })!
+    expect(r.buyLow).toBeCloseTo(42.5 * 40)
+    expect(r.buyHigh).toBeCloseTo(50 * 40)
   })
 })
 
-describe('calculateBands — EV/EBITDA anchor (Hospitals ramp phase)', () => {
-  // Table: buyLow: 18, buyHigh: 22, midLow: 23, midHigh: 28, trim: 29
-  const base = { category: 'Hospitals' as const, twoWeakQuarters: false, twoStrongQuarters: false }
+describe('calculateBands — Tobacco Corp', () => {
+  const base = { category: 'Tobacco Corp' as const, ...normal }
 
-  it('returns correct band with ebitda=500Cr, netDebt=100Cr, shares=20Cr', () => {
-    const r = calculateBands({ ...base, isHospitalRampPhase: true, ebitda: 500, netDebt: 100, shares: 20 })!
-    expect(r).not.toBeNull()
-    expect(r.anchorUsed).toBe('EV/EBITDA')
-    expect(r.buyLow).toBeCloseTo((18 * 500 - 100) / 20)
+  it('normal: full buy range 20–25×', () => {
+    const r = calculateBands({ ...base, eps: 20 })!
+    expect(r.buyLow).toBeCloseTo(20 * 20)
+    expect(r.buyHigh).toBeCloseTo(25 * 20)
+    expect(r.trimPrice).toBe(31 * 20)
   })
 
-  it('returns null when ebitda is missing', () => {
-    expect(calculateBands({ ...base, isHospitalRampPhase: true, shares: 20 })).toBeNull()
-  })
-
-  it('returns null when shares is zero', () => {
-    expect(calculateBands({ ...base, isHospitalRampPhase: true, ebitda: 500, shares: 0 })).toBeNull()
+  it('bear: buyHigh → 22.5×', () => {
+    const r = calculateBands({ ...base, eps: 20, twoWeakQuarters: true })!
+    expect(r.buyHigh).toBeCloseTo(22.5 * 20)
   })
 })
 
-describe('calculateBands — Hospitals (EV in ramp, PE out of ramp)', () => {
-  const base = { category: 'Hospitals' as const, twoWeakQuarters: false, twoStrongQuarters: false }
-
-  it('uses EV/EBITDA during ramp phase', () => {
-    const r = calculateBands({ ...base, isHospitalRampPhase: true, ebitda: 500, shares: 20, netDebt: 100 })!
-    expect(r.anchorUsed).toBe('EV/EBITDA')
-  })
-
-  it('uses PE outside ramp phase', () => {
-    const r = calculateBands({ ...base, isHospitalRampPhase: false, eps: 50 })!
-    expect(r.anchorUsed).toBe('PE')
+describe('calculateBands — Commodity (no bands)', () => {
+  it('returns null', () => {
+    expect(calculateBands({ category: 'Commodity', ...normal, eps: 100 })).toBeNull()
   })
 })
 

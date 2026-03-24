@@ -127,7 +127,8 @@ export type StockCategory =
   | 'Commodity'
   | 'Cap-Light Infra'
   | 'Hospitals'
-  | 'IT/Technology'
+  | 'FMCG'
+  | 'Tobacco Corp'
 
 export const ALL_CATEGORIES: StockCategory[] = [
   'Nifty 50 Index',
@@ -135,7 +136,8 @@ export const ALL_CATEGORIES: StockCategory[] = [
   'Commodity',
   'Cap-Light Infra',
   'Hospitals',
-  'IT/Technology',
+  'FMCG',
+  'Tobacco Corp',
 ]
 
 /** Suggested category for well-known symbols — used as autocomplete hint only */
@@ -143,14 +145,13 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   CAMS:        'Cap-Light Infra',
   IEX:         'Cap-Light Infra',
   NARAYANAHRU: 'Hospitals',
-  INFY:        'IT/Technology',
-  TCS:         'IT/Technology',
-  HCLTECH:     'IT/Technology',
-  WIPRO:       'IT/Technology',
   NIFTYBEES:   'Nifty 50 Index',
   JUNIORBEES:  'Nifty Next 50 Index',
   SETFGOLD:    'Commodity',
   GOLDBEES:    'Commodity',
+  ITC:         'Tobacco Corp',
+  HUL:         'FMCG',
+  NESTLEIND:   'FMCG',
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────

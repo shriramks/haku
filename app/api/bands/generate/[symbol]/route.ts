@@ -201,7 +201,7 @@ export async function POST(
   // Fetch allocation for category + qualifier flags
   const { data: alloc } = await supabase
     .from('stock_allocations')
-    .select('category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+    .select('category, two_weak_quarters, two_strong_quarters')
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
     .limit(1)
@@ -315,15 +315,9 @@ export async function POST(
   // Calculate bands
   const result = calculateBands({
     category,
-    twoWeakQuarters:     alloc.two_weak_quarters     ?? false,
-    twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
-    isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
+    twoWeakQuarters:   alloc.two_weak_quarters   ?? false,
+    twoStrongQuarters: alloc.two_strong_quarters  ?? false,
     eps,
-    bvps,
-    ebitda:        opProfitCr,
-    netDebt:       netDebtCr,
-    shares:        sharesCr,
-    embeddedValue,
   })
 
   if (!result) {

@@ -1,12 +1,11 @@
 // TypeScript port of BandCalculator.swift
-// Implements AI Investment Playbook (Part B)
+// Implements AI Investment Playbook (Part B) — PE anchor only.
 //
-// EV/EBITDA formula (all in ₹Cr / Cr-shares):
-//   price (₹) = (multiple × ebitda − net_debt) / shares
-//
-// P/EV formula:
-//   evPerShare (₹) = embedded_value (₹Cr) / shares (Cr)
-//   price (₹) = multiple × evPerShare
+// Bear: compress buy range to lower half. Mid/Trim unchanged.
+// Normal: full range as defined.
+// Bull: use explicit premium overlay if defined; otherwise upper half of buy range.
+// Nifty 50 Index, Nifty Next 50 Index, Commodity: flags ignored, always normal.
+// Trim never moves — it is a valuation ceiling, not a momentum call.
 
 import type { StockCategory, BuyBand } from './types'
 
@@ -14,50 +13,24 @@ import type { StockCategory, BuyBand } from './types'
 
 interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: number; trim: number }
 
+// Base PE multiples
 const PE: Partial<Record<StockCategory, Mult>> = {
-  'Cap-Light Infra':    { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
-  'Hospitals':          { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'IT/Technology':      { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
-  // Index ETFs: "eps" passed in = etfPrice / indexPE (computed in generate route)
-  'Nifty 50 Index':    { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Nifty Next 50 Index':   { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
+  'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
+  'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
+  'FMCG':            { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
+  'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
+  // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
+  'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
+  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
 }
 
-const EV: Partial<Record<StockCategory, Mult>> = {
-  'Hospitals': { buyLow: 18, buyHigh: 22, midLow: 23, midHigh: 28, trim: 29 },
+// Explicit bull (premium) overlays — only where the playbook defines them
+const PREMIUM: Partial<Record<StockCategory, Mult>> = {
+  'Cap-Light Infra': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
 }
 
-const PB:  Partial<Record<StockCategory, Mult>> = {}
-const PEV: Partial<Record<StockCategory, Mult>> = {}
-
-
-// ── Internal raw band ────────────────────────────────────────────────────────
-
-interface Raw { anchor: string; buyLow: number; buyHigh: number; midLow: number; midHigh: number; trim: number }
-
-function fromPE(m: Mult, eps: number): Raw {
-  return { anchor: 'PE', buyLow: m.buyLow*eps, buyHigh: m.buyHigh*eps,
-           midLow: m.midLow*eps, midHigh: m.midHigh*eps, trim: m.trim*eps }
-}
-
-function fromPB(m: Mult, bvps: number): Raw {
-  return { anchor: 'PB', buyLow: m.buyLow*bvps, buyHigh: m.buyHigh*bvps,
-           midLow: m.midLow*bvps, midHigh: m.midHigh*bvps, trim: m.trim*bvps }
-}
-
-function fromEV(m: Mult, ebitda: number, netDebt: number, shares: number): Raw | null {
-  if (shares <= 0) return null
-  const p = (mult: number) => (mult * ebitda - netDebt) / shares
-  return { anchor: 'EV/EBITDA', buyLow: p(m.buyLow), buyHigh: p(m.buyHigh),
-           midLow: p(m.midLow), midHigh: p(m.midHigh), trim: p(m.trim) }
-}
-
-function fromPEV(m: Mult, ev: number, shares: number): Raw | null {
-  if (shares <= 0) return null
-  const evps = ev / shares
-  return { anchor: 'P/EV', buyLow: m.buyLow*evps, buyHigh: m.buyHigh*evps,
-           midLow: m.midLow*evps, midHigh: m.midHigh*evps, trim: m.trim*evps }
-}
+// Categories where bear/bull flags are ignored
+const FLAGS_IGNORED = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
 
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -66,13 +39,7 @@ export interface BandInput {
   category: StockCategory
   twoWeakQuarters: boolean
   twoStrongQuarters: boolean
-  isHospitalRampPhase: boolean
   eps?: number | null
-  bvps?: number | null
-  ebitda?: number | null
-  netDebt?: number | null
-  shares?: number | null
-  embeddedValue?: number | null
 }
 
 export interface BandResult {
@@ -87,70 +54,43 @@ export interface BandResult {
 }
 
 export function calculateBands(input: BandInput): BandResult | null {
-  // twoWeakQuarters takes precedence if both are set
-  const tighten  = input.twoWeakQuarters
-  const premium  = input.twoStrongQuarters && !tighten
+  const eps = input.eps
+  if (!eps || eps <= 0) return null
 
-  const tryPE = (): Raw | null => {
-    const m = PE[input.category]; const eps = input.eps
-    if (!m || !eps || eps <= 0) return null
-    return fromPE(m, eps)
+  const base = PE[input.category]
+  if (!base) return null  // Commodity or unknown
+
+  // Bear wins if both flags set; flags ignored for index/commodity
+  const isBear = !FLAGS_IGNORED.has(input.category) && input.twoWeakQuarters
+  const isBull = !FLAGS_IGNORED.has(input.category) && input.twoStrongQuarters && !isBear
+
+  let m: Mult
+  if (isBear) {
+    const midpoint = base.buyLow + (base.buyHigh - base.buyLow) / 2
+    m = { ...base, buyHigh: midpoint }
+  } else if (isBull) {
+    const premium = PREMIUM[input.category]
+    if (premium) {
+      m = premium
+    } else {
+      // Upper half formula — bull buys in the upper half of the buy range
+      const midpoint = base.buyLow + (base.buyHigh - base.buyLow) / 2
+      m = { ...base, buyLow: midpoint }
+    }
+  } else {
+    m = base
   }
 
-  const tryEV = (): Raw | null => {
-    const m = EV[input.category]; const { ebitda, shares } = input
-    if (!m || !ebitda || ebitda <= 0 || !shares || shares <= 0) return null
-    return fromEV(m, ebitda, input.netDebt ?? 0, shares)
-  }
-
-  const tryPB = (): Raw | null => {
-    const m = PB[input.category]; const bvps = input.bvps
-    if (!m || !bvps || bvps <= 0) return null
-    return fromPB(m, bvps)
-  }
-
-  const tryPEV = (): Raw | null => {
-    const m = PEV[input.category]; const { embeddedValue, shares } = input
-    if (!m || !embeddedValue || embeddedValue <= 0 || !shares || shares <= 0) return null
-    return fromPEV(m, embeddedValue, shares)
-  }
-
-  let raw: Raw | null = null
-
-  switch (input.category) {
-    case 'Nifty 50 Index':
-    case 'Nifty Next 50 Index':
-    case 'Cap-Light Infra':
-    case 'IT/Technology':
-      raw = tryPE()
-      break
-
-    case 'Hospitals':
-      raw = input.isHospitalRampPhase ? tryEV() : tryPE()
-      break
-
-    case 'Commodity':
-      // No band calculation for commodity ETFs
-      raw = null
-      break
-  }
-
-  if (!raw) return null
-
-  // Bear tightens by 10%; Bull expands by 10% (sector premium already in raw via PREMIUM_PE/PEV)
-  // Trim price is intentionally unchanged in both directions
-  const f = tighten ? 0.90 : premium ? 1.10 : 1.0
-  const suffix = tighten ? ' (tightened)' : premium ? ' (premium)' : ''
-
+  const suffix = isBear ? ' (bear)' : isBull ? ' (bull)' : ''
   return {
-    anchorUsed:  raw.anchor + suffix,
-    buyLow:      raw.buyLow  * f,
-    buyHigh:     raw.buyHigh * f,
-    midLow:      raw.midLow  * f,
-    midHigh:     raw.midHigh * f,
-    trimPrice:   raw.trim,
-    isTightened: tighten,
-    isPremium:   premium,
+    anchorUsed: 'PE' + suffix,
+    buyLow:     m.buyLow  * eps,
+    buyHigh:    m.buyHigh * eps,
+    midLow:     m.midLow  * eps,
+    midHigh:    m.midHigh * eps,
+    trimPrice:  m.trim    * eps,
+    isTightened: isBear,
+    isPremium:   isBull,
   }
 }
 

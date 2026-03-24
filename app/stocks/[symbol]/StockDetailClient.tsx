@@ -71,12 +71,10 @@ export default function StockDetailClient({
 
   // ── Band computations ────────────────────────────────────────────────────────
   const computed = (band && allocation) ? calculateBands({
-    category:            allocation.category as StockCategory,
-    twoWeakQuarters:     allocation.two_weak_quarters,
-    twoStrongQuarters:   allocation.two_strong_quarters,
-    isHospitalRampPhase: allocation.is_hospital_ramp_phase,
-    eps: band.eps, bvps: band.bvps, ebitda: band.ebitda,
-    netDebt: band.net_debt, shares: band.shares, embeddedValue: band.embedded_value,
+    category:          allocation.category as StockCategory,
+    twoWeakQuarters:   allocation.two_weak_quarters,
+    twoStrongQuarters: allocation.two_strong_quarters,
+    eps: band.eps,
   }) : null
 
   const buyLow    = computed?.buyLow    ?? band?.buy_low    ?? null
@@ -441,16 +439,7 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
       .catch(() => setHasKey(false))
   }, [hasKeyProp])
 
-  const anchor: 'PE' | 'EV' | 'PB' | 'PEV' =
-    band?.anchor_type === 'EV_EBITDA' ? 'EV'
-    : band?.anchor_type === 'PB'      ? 'PB'
-    : band?.anchor_type === 'P_EV'    ? 'PEV'
-    : band?.anchor_type === 'PE'      ? 'PE'
-    : allocation?.category === 'Capital Goods'       ? 'EV'
-    : allocation?.category === 'Hospitals' && allocation.is_hospital_ramp_phase ? 'EV'
-    : allocation?.category === 'Insurance — Life'    ? 'PEV'
-    : (allocation?.category === 'Banks' || allocation?.category === 'Insurance — General') ? 'PB'
-    : 'PE'
+  const anchor = 'PE'
 
   const category = allocation?.category
 
@@ -547,66 +536,16 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, on
       {editing ? (
         <>
           <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
-            {category ? `${category} · ` : ''}{anchor === 'EV' ? 'EV/EBITDA' : anchor === 'PB' ? 'P/B' : anchor === 'PEV' ? 'P/EV' : 'PE'}
+            {category ? `${category} · ` : ''}PE
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {anchor === 'PE' && (
-              <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
-                  onChange={e => setEps(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-            )}
-            {anchor === 'EV' && (<>
-              <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EBITDA (₹Cr)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 1200" value={ebitda}
-                  onChange={e => setEbitda(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Net Debt (₹Cr)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 500" value={netDebt}
-                  onChange={e => setNetDebt(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 3.8" value={shares}
-                  onChange={e => setShares(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-            </>)}
-            {anchor === 'PB' && (
-              <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Book Value per Share (₹)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 250" value={bvps}
-                  onChange={e => setBvps(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-            )}
-            {anchor === 'PEV' && (<>
-              <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Embedded Value (₹Cr)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 92400" value={ev}
-                  onChange={e => setEv(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Shares (Cr)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 10" value={shares}
-                  onChange={e => setShares(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-            </>)}
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
+              <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
+                onChange={e => setEps(e.target.value)}
+                className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+            </div>
           </div>
           <button onClick={save} disabled={saving}
             className="w-full mt-4 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"

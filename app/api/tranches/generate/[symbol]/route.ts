@@ -21,7 +21,7 @@ export async function POST(
   // Fetch allocation (category + qualifier flags) and current band (financials + CMP)
   const [{ data: alloc }, { data: band }] = await Promise.all([
     supabase.from('stock_allocations')
-      .select('category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+      .select('category, two_weak_quarters, two_strong_quarters')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
@@ -40,15 +40,9 @@ export async function POST(
   // This ensures tranches reflect any category change since the last band generation.
   const freshResult = alloc?.category ? calculateBands({
     category: alloc.category as StockCategory,
-    twoWeakQuarters:     alloc.two_weak_quarters     ?? false,
-    twoStrongQuarters:   alloc.two_strong_quarters    ?? false,
-    isHospitalRampPhase: alloc.is_hospital_ramp_phase ?? false,
+    twoWeakQuarters:   alloc.two_weak_quarters   ?? false,
+    twoStrongQuarters: alloc.two_strong_quarters  ?? false,
     eps:           band.eps,
-    bvps:          band.bvps,
-    ebitda:        band.ebitda,
-    netDebt:       band.net_debt,
-    shares:        band.shares,
-    embeddedValue: band.embedded_value,
   }) : null
 
   const buyLow  = freshResult?.buyLow  ?? band.buy_low
