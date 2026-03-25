@@ -16,6 +16,17 @@ Most apps let you monitor existing investments. Haku is for planning them.
 
 ---
 
+## Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/plan.jpeg" width="22%" alt="Plan" />
+  <img src="docs/screenshots/allocation.jpeg" width="22%" alt="Allocation" />
+  <img src="docs/screenshots/buy-bands.jpeg" width="22%" alt="Buy Bands" />
+  <img src="docs/screenshots/transactions.jpeg" width="22%" alt="Transactions" />
+</div>
+
+---
+
 ## The Problem
 
 Most apps let you monitor existing investments — but the planning happens outside the app, on ad-hoc spreadsheets, scattered notes, and reminders. This means:
