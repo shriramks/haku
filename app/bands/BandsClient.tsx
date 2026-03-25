@@ -501,29 +501,31 @@ function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-accent text-headline w-14 text-right">Done</button>
         </div>
 
-        <div className="px-5 pt-4 space-y-4">
-          <p className="text-body leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            Adjusts band prices based on the last 2 quarters of reported results.
+        <div className="px-5 pt-4">
+          <p className="text-body leading-relaxed mb-5" style={{ color: 'var(--text-2)' }}>
+            Adjusts buy band multiples based on the last 2 quarters of reported results.
           </p>
 
           {[
             {
               mode: 'Bear',
-              desc: 'Recent results have been soft. All band prices tighten by 10% — you demand a larger margin of safety before buying.',
+              desc: 'Two recent weak quarters. Buy range compresses to the lower half of standard multiples — you demand deeper discounts before committing.',
             },
             {
               mode: 'Normal',
-              desc: 'Base case. Standard multiples apply. Use this when recent quarters are in line with expectations.',
+              desc: 'Base case. Full standard multiples apply. Use when recent quarters are in line with expectations.',
             },
             {
               mode: 'Bull',
-              desc: 'Recent results have been strong. All band prices expand by 10%, reflecting improved earnings quality.',
+              desc: 'Two recent strong quarters. Buy range shifts to premium multiples (where defined) or the upper half of the standard range.',
             },
-          ].map(({ mode, desc }) => (
-            <div key={mode} className="rounded-2xl p-3.5"
-                 style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+          ].map(({ mode, desc }, i, arr) => (
+            <div key={mode}>
               <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
               <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
+              {i < arr.length - 1 && (
+                <div className="my-4" style={{ height: 1, background: 'var(--border-faint)' }} />
+              )}
             </div>
           ))}
         </div>

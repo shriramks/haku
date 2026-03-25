@@ -24,16 +24,13 @@ export default function TrancheSection({
   const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
 
   return (
-    <div className="border-t" style={{ borderColor: 'var(--border-faint)', padding: '6px 4px 4px 4px' }}>
+    <div style={{ padding: '6px 4px 4px 4px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-2 mb-1">
-        <p className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
-        <span className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-          {formatINR(remaining)} / {formatINR(budget)} left
-        </span>
+        <p className="text-subheadline font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
       </div>
       {plannedTotal > 0 && (
-        <p className="px-2 mb-2 text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
+        <p className="px-2 mb-2 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
           {formatINR(remaining - plannedTotal)} available after planned tranches
         </p>
       )}
@@ -126,12 +123,12 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
         <input type="text" inputMode="numeric" placeholder="Qty" value={qty}
           onChange={e => setQty(e.target.value)}
           className="tabnum"
-          style={{ flex: 1, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
+          style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
         <span style={{ fontSize: 13, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
         <input type="text" inputMode="decimal" placeholder="Price ₹" value={price}
           onChange={e => setPrice(e.target.value)}
           className="tabnum"
-          style={{ flex: 2, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
+          style={{ flex: 2, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
       </div>
 
       {overBudget && (

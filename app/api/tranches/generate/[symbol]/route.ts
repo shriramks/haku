@@ -104,9 +104,7 @@ export async function POST(
   const allocatedAmt = allocatedTranches.reduce((s, t) => s + t.qty * t.price, 0)
   const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
 
-  // Deep zone: CMP below buyLow — deploy only 50%, hold 50% as reserve
-  const isDeepZone = !!liveCmp && liveCmp < buyLow
-  const deployable = isDeepZone ? remainingAfterAllocated * 0.5 : remainingAfterAllocated
+  const deployable = remainingAfterAllocated
 
   const totalCapital = fy?.total_budget_inr ?? 0
   const suggestedAmt = trancheSuggestion(deployable, totalCapital)
