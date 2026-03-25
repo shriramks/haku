@@ -11,8 +11,10 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
 
   const deepW  = pct(buyLow)
   const buyW   = pct(buyHigh) - pct(buyLow)
-  const midW   = 100 - pct(buyHigh)
+  const waitW  = pct(midLow)  - pct(buyHigh)   // > 0 when Bear compresses buyHigh below midLow
+  const midW   = 100 - pct(midLow)
   const cmpPct = cmp != null && cmp >= min && cmp <= max ? pct(cmp) : null
+  const showWait = waitW > 1
 
   return (
     <div>
@@ -26,6 +28,13 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
              style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }}>
           <span className="text-footnote font-semibold text-signal-buy truncate px-1">BUY</span>
         </div>
+        {showWait && (
+          <div className="h-full flex items-center justify-center"
+               style={{ width: `${waitW}%`,
+                 background: 'repeating-linear-gradient(-45deg, #B8DECC 0px, #B8DECC 3px, #D6EDE5 3px, #D6EDE5 8px)' }}>
+            {waitW > 5 && <span className="text-footnote font-semibold truncate px-1" style={{ color: '#3A8A5A' }}>WAIT</span>}
+          </div>
+        )}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
           <span className="text-footnote font-semibold text-signal-hold truncate px-1">MID</span>
@@ -46,6 +55,12 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
           <p className="font-semibold text-signal-buy">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Buy</p>
         </div>
+        {showWait && (
+          <div className="text-center">
+            <p className="font-semibold" style={{ color: '#5EAA80' }}>₹{Math.round(buyHigh)}–{Math.round(midLow)}</p>
+            <p style={{ color: 'var(--text-faint)' }}>Wait</p>
+          </div>
+        )}
         <div className="text-center">
           <p className="font-semibold text-signal-hold">₹{Math.round(midLow)}–{Math.round(midHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Mid / Hold</p>
