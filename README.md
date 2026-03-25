@@ -14,10 +14,6 @@ Most apps let you monitor existing investments. Haku is for planning them.
 - [Security](#security)
 - [Docs](#docs)
 
----
-
-## Screenshots
-
 <div align="center">
   <img src="docs/screenshots/plan.jpeg" width="22%" alt="Plan" />
   <img src="docs/screenshots/allocation.jpeg" width="22%" alt="Allocation" />
