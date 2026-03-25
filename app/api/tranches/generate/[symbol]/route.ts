@@ -78,19 +78,24 @@ export async function POST(
     remaining = Math.max(0, allocBudget - netSpent)
   }
 
-  // Always use live CMP so stale stored values don't push tranches above market price
+  // Fetch 6-month daily chart: gives live CMP (from meta) + 24-week low (from daily lows)
   let liveCmp: number | null = band.manual_cmp ?? null
+  let twentyFourWeekLow: number | null = null
   try {
     const cmpRes = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS?range=6mo&interval=1d`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } }
     )
     if (cmpRes.ok) {
       const cmpJson = await cmpRes.json()
-      const livePrice: number | undefined = cmpJson?.chart?.result?.[0]?.meta?.regularMarketPrice
+      const result = cmpJson?.chart?.result?.[0]
+      const livePrice: number | undefined = result?.meta?.regularMarketPrice
       if (livePrice) liveCmp = livePrice
+      const dailyLows: (number | null)[] = result?.indicators?.quote?.[0]?.low ?? []
+      const validLows = dailyLows.filter((n): n is number => n != null && n > 0)
+      if (validLows.length > 0) twentyFourWeekLow = Math.min(...validLows)
     }
-  } catch { /* fall back to stored CMP */ }
+  } catch { /* fall back to stored CMP, no 24-week low */ }
 
   // Preserve allocated tranches — only regenerate unallocated ones
   const { data: existingTranches } = await supabase
@@ -111,7 +116,7 @@ export async function POST(
   const trancheCount = suggestedAmt > 0
     ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
     : 3
-  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount)
+  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount, twentyFourWeekLow)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
@@ -147,5 +152,13 @@ export async function POST(
 
   revalidateTag('buy_tranches', {})
 
-  return NextResponse.json({ symbol: upperSymbol, tranches: inserted ?? [] })
+  // Reachability warning: flag if >50% of tranches are >15% below CMP
+  const farCount = liveCmp
+    ? sortedPrices.filter(p => (liveCmp! - p) / liveCmp! > 0.15).length
+    : 0
+  const warning = liveCmp && farCount > sortedPrices.length / 2
+    ? '⚠️ Majority of capital parked >15% below CMP. Review whether deployment timing is appropriate.'
+    : null
+
+  return NextResponse.json({ symbol: upperSymbol, tranches: inserted ?? [], warning })
 }

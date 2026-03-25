@@ -127,47 +127,73 @@ export function computeTrancheAmounts(remaining: number, count: number): number[
 /**
  * Compute up to `count` tranche prices within the buy zone, CMP-aware.
  *
- * - CMP above buyHigh or unknown: limit orders across upper half of buy zone (buyLow+50% → buyHigh)
- * - CMP within buy zone:          floor = buyLow × 0.9, ceiling = CMP (never above market)
- * - CMP below buyLow (deep):      floor = CMP, ceiling = buyLow
+ * Zone detection:
+ *   Above buy  (CMP > buyHigh or unknown): floor = buyLow,   ceiling = buyHigh
+ *   In buy     (buyLow ≤ CMP ≤ buyHigh):   floor = max(24wkLow×0.98, buyLow×0.95), ceiling = CMP
+ *   Deep       (CMP < buyLow):             floor = max(24wkLow×0.98, CMP×0.97),    ceiling = buyLow
  *
- * Prices are distributed with linear spacing (equal intervals).
- * Minimum 3% gap between prices — narrow bands automatically reduce count.
+ * Price rounding: < ₹500 → nearest ₹5; ≥ ₹500 → nearest ₹10.
+ * Hard cap: no price above CMP. If floor ≥ ceiling, returns single tranche at CMP.
+ * Deduplicates after rounding.
+ *
+ * midLow / midHigh are accepted for API compatibility but unused.
  */
 export function computeTrancheprices(
   buyLow: number,
   buyHigh: number,
   cmp: number | null,
-  midLow = buyHigh,
-  midHigh = buyHigh,
+  midLow = buyHigh,   // unused — kept for call-site compat
+  midHigh = buyHigh,  // unused — kept for call-site compat
   count = 3,
+  twentyFourWeekLow?: number | null,
 ): number[] {
+  void midLow; void midHigh
+
   let floor: number, ceiling: number
 
   if (!cmp || cmp > buyHigh) {
-    // CMP above buy zone or unknown: use upper half of buy zone — lower tranches are unrealistic
-    floor = buyLow + (buyHigh - buyLow) * 0.5
+    // Above buy zone (or unknown CMP): spread across full buy range
+    floor   = buyLow
     ceiling = buyHigh
   } else if (cmp >= buyLow) {
-    // CMP inside buy zone: buy at market and lower — never above current price
-    floor = buyLow * 0.9
+    // CMP inside buy zone
+    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * 0.98 : 0
+    floor   = Math.max(wkFloor, buyLow * 0.95)
     ceiling = cmp
   } else {
-    // CMP below buyLow (deep value): accumulate from CMP up to buyLow
-    floor = cmp
+    // CMP below buyLow (deep)
+    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * 0.98 : 0
+    floor   = Math.max(wkFloor, cmp * 0.97)
     ceiling = buyLow
   }
 
-  const range = Math.max(ceiling - floor, floor * 0.05)
-  // Each tranche should be at least 3% of floor apart — shrink count for narrow bands
-  const minGap = floor * 0.03
+  // Collapse to single tranche at CMP if floor >= ceiling
+  if (floor >= ceiling) {
+    const ref  = cmp ?? floor
+    const snap = ref < 500 ? 5 : 10
+    return [Math.floor(ref / snap) * snap]
+  }
+
+  const range = ceiling - floor
+  const minGap    = floor * 0.03
   const usedCount = Math.max(2, Math.min(count, Math.floor(range / minGap) + 1))
+
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
-    const t = usedCount > 1 ? i / (usedCount - 1) : 0
-    prices.push(Math.round(floor + t * range))
+    const t    = usedCount > 1 ? i / (usedCount - 1) : 0
+    const raw  = floor + t * range
+    const snap = raw < 500 ? 5 : 10
+    prices.push(Math.round(raw / snap) * snap)
   }
-  // Hard cap: no tranche ever above CMP regardless of how ceiling was computed
-  const capped = cmp ? prices.map(p => Math.min(p, Math.floor(cmp))) : prices
+
+  // Hard cap: no tranche above CMP (snap down so we stay below)
+  const capped = cmp
+    ? prices.map(p => {
+        if (p <= cmp) return p
+        const snap = cmp < 500 ? 5 : 10
+        return Math.floor(cmp / snap) * snap
+      })
+    : prices
+
   return [...new Set(capped)]
 }

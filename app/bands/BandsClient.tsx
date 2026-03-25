@@ -30,6 +30,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [refreshing, setRefreshing]       = useState<Record<string, boolean>>({})
   const [generating, setGenerating]             = useState<Record<string, boolean>>({})
   const [genError, setGenError]                 = useState<Record<string, string>>({})
+  const [genWarning, setGenWarning]             = useState<Record<string, string>>({})
   const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
   const [hasKey, setHasKey]               = useState<boolean | null>(null)
   const [aiProvider, setAiProvider]       = useState<'gemini' | 'claude'>('gemini')
@@ -140,11 +141,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         eps: band.eps,
       })
       if (result) {
-        const cmp       = band.manual_cmp ?? null
-        const remaining = rows.find(r => r.symbol === symbol)?.remaining ?? 0
-        const isDeepZone = !!cmp && cmp < result.buyLow
-        const deployable = isDeepZone ? remaining * 0.5 : remaining
-        const prices    = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
+        const cmp        = band.manual_cmp ?? null
+        const deployable = rows.find(r => r.symbol === symbol)?.remaining ?? 0
+        const prices     = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
 
         // Conviction-weighted: sort highest→lowest, deeper tranches get more capital
         const sortedPrices = [...prices].sort((a, b) => b - a)
@@ -250,6 +249,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           ...prev.filter(t => t.symbol !== symbol),
           ...json.tranches,
         ])
+        if (json.warning) setGenWarning(prev => ({ ...prev, [symbol]: json.warning }))
+        else setGenWarning(prev => { const n = { ...prev }; delete n[symbol]; return n })
       }
     } catch {
       // silently fail — tranches are non-critical
@@ -415,6 +416,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   )}
                   {genError[row.symbol] && (
                     <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
+                  )}
+                  {genWarning[row.symbol] && (
+                    <p className="px-4 pb-2 text-subheadline" style={{ color: '#FF9500' }}>{genWarning[row.symbol]}</p>
                   )}
 
                   {/* Controls: Bear/Normal/Bull + ⓘ — hidden for index/commodity */}

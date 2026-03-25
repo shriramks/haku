@@ -202,14 +202,10 @@ describe('calculateBands — Commodity (no bands)', () => {
 
 // ── computeTrancheprices ──────────────────────────────────────────────────────
 
-describe('computeTrancheprices — whole number prices', () => {
-  it('all prices are integers', () => {
-    const prices = computeTrancheprices(1000, 1500, null)
-    expect(prices.every(p => Number.isInteger(p))).toBe(true)
-  })
-
-  it('CMP null: returns 3 prices within upper half of buy zone', () => {
-    const prices = computeTrancheprices(1000, 1500, null, 1500, 2000, 3)
+describe('computeTrancheprices', () => {
+  // Above buy zone (CMP > buyHigh or null): floor=buyLow, ceiling=buyHigh
+  it('CMP null: prices span full buy zone [buyLow, buyHigh]', () => {
+    const prices = computeTrancheprices(1000, 1500, null, undefined, undefined, 3)
     expect(prices.length).toBeGreaterThanOrEqual(2)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
@@ -217,29 +213,72 @@ describe('computeTrancheprices — whole number prices', () => {
     })
   })
 
-  it('CMP above buy zone: returns prices within upper half of buy zone', () => {
-    const prices = computeTrancheprices(1000, 1500, 2000, 1500, 2500, 3)
+  it('CMP above buy zone: prices span full buy zone [buyLow, buyHigh]', () => {
+    const prices = computeTrancheprices(1000, 1500, 2000, undefined, undefined, 3)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1500)
     })
   })
 
-  it('CMP inside buy zone: all prices at or below CMP', () => {
-    const prices = computeTrancheprices(1000, 1500, 1200, 1500, 2000, 3)
-    prices.forEach(p => expect(p).toBeLessThanOrEqual(1200))
+  // In buy zone: floor = max(24wkLow×0.98, buyLow×0.95), ceiling = CMP
+  it('CMP inside buy zone (no 24wk low): floor = buyLow×0.95, ceiling = CMP', () => {
+    // buyLow=1000 → floor=950, ceiling=1200
+    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(950)
+      expect(p).toBeLessThanOrEqual(1200)
+    })
   })
 
-  it('CMP below buy zone (deep): prices span CMP to buyLow', () => {
-    const prices = computeTrancheprices(1000, 1500, 800, 1500, 2000, 3)
-    expect(prices[0]).toBeGreaterThanOrEqual(800)
-    expect(prices[prices.length - 1]).toBeLessThanOrEqual(1000)
+  it('CMP inside buy zone (24wk low raises floor): floor = 24wkLow×0.98', () => {
+    // buyLow×0.95=950, 24wkLow×0.98=1078 → floor=1078
+    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3, 1100)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(Math.round(1100 * 0.98 / 10) * 10 - 10)
+      expect(p).toBeLessThanOrEqual(1200)
+    })
   })
 
-  it('returns deduplicated prices (no duplicates in very narrow band)', () => {
+  // Deep zone: CMP < buyLow — floor = max(24wkLow×0.98, CMP×0.97), ceiling = buyLow
+  it('CMP below buy zone (deep, no 24wk low): floor = CMP×0.97, ceiling = buyLow', () => {
+    // CMP=800 → floor=776, ceiling=1000
+    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(770) // ~776 snapped to ₹10
+      expect(p).toBeLessThanOrEqual(1000)
+    })
+  })
+
+  // Hard cap: floor >= ceiling → single tranche at CMP
+  it('collapses to single tranche when floor >= ceiling', () => {
+    // CMP=1005, buyLow=1000, 24wkLow=1100 → floor=max(1078,950)=1078, ceiling=1005 → floor>ceiling
+    const prices = computeTrancheprices(1000, 1500, 1005, undefined, undefined, 3, 1100)
+    expect(prices.length).toBe(1)
+    expect(prices[0]).toBeLessThanOrEqual(1005)
+  })
+
+  // Price rounding
+  it('prices < ₹500 snap to nearest ₹5', () => {
+    const prices = computeTrancheprices(200, 400, null, undefined, undefined, 3)
+    prices.forEach(p => expect(p % 5).toBe(0))
+  })
+
+  it('prices ≥ ₹500 snap to nearest ₹10', () => {
+    const prices = computeTrancheprices(1000, 1500, null, undefined, undefined, 3)
+    prices.forEach(p => expect(p % 10).toBe(0))
+  })
+
+  // No duplicates
+  it('returns deduplicated prices', () => {
     const prices = computeTrancheprices(1000, 1010, null)
-    const unique = [...new Set(prices)]
-    expect(prices.length).toBe(unique.length)
+    expect(prices.length).toBe(new Set(prices).size)
+  })
+
+  // Hard cap: no price above CMP
+  it('no price exceeds CMP', () => {
+    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 4)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(1200))
   })
 })
 
