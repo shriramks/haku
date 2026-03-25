@@ -1,11 +1,18 @@
 // Server-side data fetching helpers (used in Server Components only)
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche, Playbook } from './types'
 
-// cache() deduplicates calls with identical arguments within a single request.
-// No cross-request caching = always fresh data, no staleness bugs.
+// cache()         — deduplicates within a single request (per-render)
+// unstable_cache  — persists across requests in the Next.js Data Cache
+//
+// Caching policy:
+//   getFiscalYears : 1 hour   — changes only when user creates/edits a plan
+//   getBuyBands    : 5 min    — on-demand revalidated via revalidateTag('buy_bands') on generate
+//   getBuyTranches : 2 min    — on-demand revalidated via revalidateTag('buy_tranches') on generate
+//   everything else: no cross-request cache — mutated client-side without server invalidation paths
 
 export const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createSupabaseServerClient()
@@ -13,15 +20,23 @@ export const getUserId = cache(async (): Promise<string | null> => {
   return session?.user.id ?? null
 })
 
+const _fetchFiscalYears = unstable_cache(
+  async (userId: string): Promise<FiscalYear[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('fiscal_years')
+      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr')
+      .eq('user_id', userId)
+      .order('start_date', { ascending: true })
+    return data ?? []
+  },
+  ['fiscal_years'],
+  { revalidate: 3600, tags: ['fiscal_years'] }
+)
+
 export const getFiscalYears = cache(async (): Promise<FiscalYear[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('fiscal_years')
-    .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr')
-    .eq('user_id', userId)
-    .order('start_date', { ascending: true })
-  return data ?? []
+  return _fetchFiscalYears(userId)
 })
 
 export const getAllocations = cache(async (fyId: string): Promise<StockAllocation[]> => {
@@ -62,16 +77,24 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
   return data ?? []
 })
 
+const _fetchBuyBands = unstable_cache(
+  async (userId: string): Promise<BuyBand[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('buy_bands')
+      .select('id, symbol, anchor_type, eps, bvps, ebitda, net_debt, shares, embedded_value, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, last_updated_at, generated_at, is_current, notes')
+      .eq('user_id', userId)
+      .eq('is_current', true)
+      .order('generated_at', { ascending: false })
+    return data ?? []
+  },
+  ['buy_bands'],
+  { revalidate: 300, tags: ['buy_bands'] }
+)
+
 export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('buy_bands')
-    .select('id, symbol, anchor_type, eps, bvps, ebitda, net_debt, shares, embedded_value, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, last_updated_at, generated_at, is_current, notes')
-    .eq('user_id', userId)
-    .eq('is_current', true)
-    .order('generated_at', { ascending: false })
-  return data ?? []
+  return _fetchBuyBands(userId)
 })
 
 export const getInvestability = cache(async (): Promise<Investability[]> => {
@@ -84,17 +107,25 @@ export const getInvestability = cache(async (): Promise<Investability[]> => {
   return data ?? []
 })
 
+const _fetchBuyTranches = unstable_cache(
+  async (userId: string, fyId: string): Promise<BuyTranche[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('buy_tranches')
+      .select('id, symbol, qty, price, allocated, sort_order, fy_id, created_at')
+      .eq('user_id', userId)
+      .eq('fy_id', fyId)
+      .order('symbol')
+      .order('sort_order')
+    return data ?? []
+  },
+  ['buy_tranches'],
+  { revalidate: 120, tags: ['buy_tranches'] }
+)
+
 export const getBuyTranches = cache(async (fyId: string): Promise<BuyTranche[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('buy_tranches')
-    .select('id, symbol, qty, price, allocated, sort_order, fy_id, created_at')
-    .eq('user_id', userId)
-    .eq('fy_id', fyId)
-    .order('symbol')
-    .order('sort_order')
-  return data ?? []
+  return _fetchBuyTranches(userId, fyId)
 })
 
 export const getPlaybook = cache(async (): Promise<Playbook | null> => {
