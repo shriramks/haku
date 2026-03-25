@@ -114,14 +114,25 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
 
 /**
  * Conviction-weighted tranche amounts: deeper tranches (higher index = lower price)
- * get proportionally more capital. Linear weights: index 0 → weight 1, index n-1 → weight n.
+ * get proportionally more capital. Uses quadratic weights (i+1)² by default.
+ *
+ * Weight cap: if the largest quadratic weight exceeds 40% of the total, falls back
+ * to linear weights (i+1) to avoid a single tranche dominating (e.g. 80/20 on 2 tranches).
+ * Linear weights on 2 tranches → 33%/67% — still bottom-biased but balanced.
+ *
  * Input order is highest-price-first (index 0 = nearest to market).
  * Returns amounts in the same order. Amounts sum exactly to `remaining`.
  */
 export function computeTrancheAmounts(remaining: number, count: number): number[] {
   if (count <= 0 || remaining <= 0) return []
-  const totalWeight = (count * (count + 1)) / 2
-  return Array.from({ length: count }, (_, i) => remaining * (i + 1) / totalWeight)
+  const quadWeights  = Array.from({ length: count }, (_, i) => (i + 1) ** 2)
+  const quadTotal    = quadWeights.reduce((s, w) => s + w, 0)
+  const useQuadratic = Math.max(...quadWeights) / quadTotal <= 0.40
+  const weights      = useQuadratic
+    ? quadWeights
+    : Array.from({ length: count }, (_, i) => i + 1)
+  const total = weights.reduce((s, w) => s + w, 0)
+  return weights.map(w => remaining * w / total)
 }
 
 /**
@@ -161,10 +172,12 @@ export function computeTrancheprices(
     floor   = Math.max(wkFloor, buyLow * 0.95)
     ceiling = cmp
   } else {
-    // CMP below buyLow (deep)
+    // CMP below buyLow (deep) — ceiling is CMP (not buyLow) because hard cap would kill
+    // anything above CMP anyway, collapsing to a single tranche. 0.93 gives ~7% range
+    // for 2–3 tranches after rounding.
     const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * 0.98 : 0
-    floor   = Math.max(wkFloor, cmp * 0.97)
-    ceiling = buyLow
+    floor   = Math.max(wkFloor, cmp * 0.93)
+    ceiling = cmp
   }
 
   // Collapse to single tranche at CMP if floor >= ceiling

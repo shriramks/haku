@@ -240,13 +240,23 @@ describe('computeTrancheprices', () => {
     })
   })
 
-  // Deep zone: CMP < buyLow — floor = max(24wkLow×0.98, CMP×0.97), ceiling = buyLow
-  it('CMP below buy zone (deep, no 24wk low): floor = CMP×0.97, ceiling = buyLow', () => {
-    // CMP=800 → floor=776, ceiling=1000
+  // Deep zone: CMP < buyLow — floor = max(24wkLow×0.98, CMP×0.93), ceiling = CMP
+  it('CMP below buy zone (deep, no 24wk low): floor = CMP×0.93, ceiling = CMP', () => {
+    // CMP=800 → floor=max(0, 744)=744, ceiling=800
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
     prices.forEach(p => {
-      expect(p).toBeGreaterThanOrEqual(770) // ~776 snapped to ₹10
-      expect(p).toBeLessThanOrEqual(1000)
+      expect(p).toBeGreaterThanOrEqual(740) // ~744 snapped to ₹10
+      expect(p).toBeLessThanOrEqual(800)
+    })
+    expect(prices.length).toBeGreaterThanOrEqual(2) // 7% range supports multiple tranches
+  })
+
+  it('CMP below buy zone (deep, 24wk low raises floor): floor = 24wkLow×0.98', () => {
+    // CMP=800, 24wkLow=790 → floor=max(774, 744)=774, ceiling=800
+    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3, 790)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(770)
+      expect(p).toBeLessThanOrEqual(800)
     })
   })
 
@@ -342,15 +352,29 @@ describe('computeTrancheAmounts — conviction-weighted sizing', () => {
     expect(c).toBeCloseTo(remaining * 3 / 6)
   })
 
-  it('2-tranche split: weights 1/3 and 2/3', () => {
+  it('2-tranche split: falls back to linear (quad max 80% > 40%) → 1/3 and 2/3', () => {
+    // quad weights [1,4]: max/total = 4/5 = 80% > 40% → linear [1,2] → [1/3, 2/3]
     const remaining = 90_000
     const [a, b] = computeTrancheAmounts(remaining, 2)
     expect(a).toBeCloseTo(remaining * 1 / 3)
     expect(b).toBeCloseTo(remaining * 2 / 3)
   })
 
-  it('8-tranche split: last amount is 8× the first', () => {
+  it('8-tranche split: uses quadratic (max weight 64/204 ≈ 31% ≤ 40%) → last is 64× first', () => {
+    // quad weights [1,4,9,16,25,36,49,64]: max/total = 64/204 ≈ 0.314 ≤ 0.40 → quadratic
     const amounts = computeTrancheAmounts(360_000, 8)
-    expect(amounts[7] / amounts[0]).toBeCloseTo(8)
+    expect(amounts[7] / amounts[0]).toBeCloseTo(64)
+  })
+
+  it('weight cap: count=4 falls back to linear (quad max 53% > 40%) → last is 4× first', () => {
+    // quad weights [1,4,9,16]: max/total = 16/30 ≈ 0.533 > 0.40 → linear [1,2,3,4] → 4× ratio
+    const amounts = computeTrancheAmounts(100_000, 4)
+    expect(amounts[3] / amounts[0]).toBeCloseTo(4)
+  })
+
+  it('weight cap: count=5 uses quadratic (max weight 25/55 ≈ 45% > 40%) → falls back to linear', () => {
+    // quad [1,4,9,16,25]: max/total = 25/55 ≈ 0.454 > 0.40 → linear [1,2,3,4,5] → 5× ratio
+    const amounts = computeTrancheAmounts(100_000, 5)
+    expect(amounts[4] / amounts[0]).toBeCloseTo(5)
   })
 })
