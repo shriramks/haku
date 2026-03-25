@@ -93,7 +93,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const pctDeployed    = totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0
 
   return (
-    <div className="pb-4">
+    <div className="pb-4" style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"

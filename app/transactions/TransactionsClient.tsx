@@ -42,7 +42,7 @@ export default function TransactionsClient({
   const grouped = groupByMonth(displayed)
 
   return (
-    <div>
+    <div style={{ minHeight: '100dvh' }}>
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
         style={{

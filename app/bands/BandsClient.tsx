@@ -267,7 +267,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const completedRows = rows.filter(r => isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (
-    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+    <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"

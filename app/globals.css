@@ -49,7 +49,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
+  min-height: 100dvh;
 }
 
 /* ── Utility classes ─────────────────────────────────────────────────────── */
