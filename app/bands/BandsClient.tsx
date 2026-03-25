@@ -417,7 +417,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
                   )}
 
-                  {/* Controls: Bear/Normal/Bull + ⓘ */}
+                  {/* Controls: Bear/Normal/Bull + ⓘ — hidden for index/commodity */}
+                  {alloc && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(alloc.category) && (
                   <div className="px-4 pt-4 pb-3">
                     <div className="flex items-center gap-2">
                       {alloc && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(alloc.category) && (() => {
@@ -455,8 +456,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         i
                       </button>
                     </div>
-
                   </div>
+                  )}
 
                   {/* Tranches */}
                   <TrancheSection
