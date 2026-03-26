@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Deploy Capital — Plan Page Mock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1C1C1E; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; gap: 24px; padding: 32px 24px; flex-wrap: wrap; justify-content: center; }
+
+  .phone { width: 390px; background: #000; border-radius: 48px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.6); }
+  .screen { background: #000; color: #fff; min-height: 600px; }
+
+  /* Nav */
+  .nav { background: #1C1C1E; border-bottom: 1px solid #38383A; padding: 56px 16px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .nav h1 { font-size: 28px; font-weight: 700; }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
+  .fy-pill { background: #2C2C2E; border-radius: 12px; padding: 7px 12px; font-size: 14px; font-weight: 500; color: #fff; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #3A3A3C; }
+
+  /* Budget strip — Option A: two rows, same strip */
+  .budget-strip { padding: 16px; border-bottom: 1px solid #2C2C2E; }
+  .budget-row { display: flex; align-items: flex-start; justify-content: space-between; }
+  .budget-label { font-size: 12px; color: #8E8E93; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; margin-bottom: 3px; }
+  .budget-amount { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .budget-sub { font-size: 12px; color: #8E8E93; margin-top: 2px; }
+  .edit-btn { background: #2C2C2E; border-radius: 10px; padding: 6px 12px; font-size: 14px; color: #0A84FF; font-weight: 500; border: none; cursor: pointer; margin-top: 2px; }
+
+  .divider-vert { width: 1px; background: #38383A; margin: 4px 16px; align-self: stretch; }
+
+  .deploy-amount { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; color: #30D158; }
+
+  /* Option B: separate strip */
+  .deploy-strip { padding: 12px 16px; border-bottom: 1px solid #2C2C2E; display: flex; align-items: center; justify-content: space-between; background: rgba(48,209,88,0.06); }
+  .deploy-strip-label { font-size: 12px; color: #8E8E93; font-weight: 500; letter-spacing: 0.3px; text-transform: uppercase; }
+  .deploy-strip-amount { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: #30D158; }
+  .deploy-strip-right { display: flex; align-items: center; gap: 10px; }
+
+  /* Filter strip */
+  .filter-strip { padding: 12px 16px; border-bottom: 1px solid #2C2C2E; display: flex; align-items: center; justify-content: space-between; }
+  .filter-label { font-size: 14px; color: #8E8E93; }
+  .filter-link { font-size: 14px; color: #0A84FF; }
+
+  /* Stock rows */
+  .stock-row { padding: 14px 16px; border-bottom: 1px solid #1C1C1E; display: flex; align-items: center; justify-content: space-between; }
+  .stock-sym { font-size: 15px; font-weight: 600; }
+  .stock-cat { font-size: 12px; color: #8E8E93; margin-top: 1px; }
+  .bar-wrap { flex: 1; margin: 0 12px; }
+  .bar-bg { background: #2C2C2E; border-radius: 4px; height: 6px; }
+  .bar-fill { background: #0A84FF; border-radius: 4px; height: 6px; }
+  .stock-pct { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+
+  .label { font-size: 11px; color: #8E8E93; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; padding: 10px 16px 2px; }
+
+  /* Edit state */
+  .deploy-input { font-size: 24px; font-weight: 700; background: #2C2C2E; border: none; color: #30D158; border-radius: 10px; padding: 4px 10px; width: 120px; font-variant-numeric: tabular-nums; outline: none; }
+  .save-btn { background: #0A84FF; color: white; border: none; border-radius: 10px; padding: 7px 14px; font-size: 14px; font-weight: 600; }
+  .cancel-btn { background: #2C2C2E; color: #8E8E93; border: none; border-radius: 10px; padding: 7px 14px; font-size: 14px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- OPTION A: Single strip, two columns -->
+<div>
+  <p style="color:#8E8E93;font-size:13px;text-align:center;margin-bottom:12px;font-family:system-ui">Option A — side by side in budget strip</p>
+  <div class="phone">
+    <div class="screen">
+      <div class="nav">
+        <h1>Plan</h1>
+        <div class="nav-right">
+          <div class="fy-pill">FY26</div>
+          <div class="avatar"></div>
+        </div>
+      </div>
+
+      <!-- Budget strip: two columns -->
+      <div class="budget-strip">
+        <div class="budget-row">
+          <!-- Left: FY Budget -->
+          <div style="flex:1">
+            <div class="budget-label">FY Budget</div>
+            <div class="budget-amount">₹20L</div>
+          </div>
+
+          <div class="divider-vert"></div>
+
+          <!-- Right: Deploy Capital -->
+          <div style="flex:1">
+            <div class="budget-label">Deploy Capital</div>
+            <div class="deploy-amount">₹2.5L</div>
+            <div class="budget-sub">available today</div>
+          </div>
+
+          <!-- Edit button -->
+          <button class="edit-btn" style="margin-left:12px;align-self:flex-start">Edit</button>
+        </div>
+      </div>
+
+      <div class="filter-strip">
+        <span class="filter-label">All sectors</span>
+        <span class="filter-link">Manage</span>
+      </div>
+      <div class="stock-row"><div><div class="stock-sym">NIFTYBEES</div><div class="stock-cat">Nifty 50 Index</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div></div><div class="stock-pct">20%</div></div>
+      <div class="stock-row"><div><div class="stock-sym">INFY</div><div class="stock-cat">Cap-Light Infra</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:90%"></div></div></div><div class="stock-pct">18%</div></div>
+      <div class="stock-row"><div><div class="stock-sym">LICI</div><div class="stock-cat">Insurance</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:75%"></div></div></div><div class="stock-pct">15%</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTION B: Separate strip below budget -->
+<div>
+  <p style="color:#8E8E93;font-size:13px;text-align:center;margin-bottom:12px;font-family:system-ui">Option B — separate strip below budget</p>
+  <div class="phone">
+    <div class="screen">
+      <div class="nav">
+        <h1>Plan</h1>
+        <div class="nav-right">
+          <div class="fy-pill">FY26</div>
+          <div class="avatar"></div>
+        </div>
+      </div>
+
+      <!-- Budget strip: FY budget only -->
+      <div class="budget-strip">
+        <div class="budget-row">
+          <div>
+            <div class="budget-label">FY Budget</div>
+            <div class="budget-amount">₹20L</div>
+          </div>
+          <button class="edit-btn">Edit</button>
+        </div>
+      </div>
+
+      <!-- Deploy capital strip -->
+      <div class="deploy-strip">
+        <div>
+          <div class="deploy-strip-label">Deploy Capital</div>
+          <div class="deploy-strip-amount">₹2.5L</div>
+        </div>
+        <div class="deploy-strip-right">
+          <span style="font-size:12px;color:#8E8E93">available today</span>
+          <button class="edit-btn" style="margin-top:0">Edit</button>
+        </div>
+      </div>
+
+      <div class="filter-strip">
+        <span class="filter-label">All sectors</span>
+        <span class="filter-link">Manage</span>
+      </div>
+      <div class="stock-row"><div><div class="stock-sym">NIFTYBEES</div><div class="stock-cat">Nifty 50 Index</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div></div><div class="stock-pct">20%</div></div>
+      <div class="stock-row"><div><div class="stock-sym">INFY</div><div class="stock-cat">Cap-Light Infra</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:90%"></div></div></div><div class="stock-pct">18%</div></div>
+      <div class="stock-row"><div><div class="stock-sym">LICI</div><div class="stock-cat">Insurance</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:75%"></div></div></div><div class="stock-pct">15%</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OPTION A — Edit state -->
+<div>
+  <p style="color:#8E8E93;font-size:13px;text-align:center;margin-bottom:12px;font-family:system-ui">Option A — edit state</p>
+  <div class="phone">
+    <div class="screen">
+      <div class="nav">
+        <h1>Plan</h1>
+        <div class="nav-right">
+          <div class="fy-pill">FY26</div>
+          <div class="avatar"></div>
+        </div>
+      </div>
+
+      <div class="budget-strip">
+        <div class="budget-row" style="gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:140px">
+            <div class="budget-label">FY Budget</div>
+            <div class="budget-amount">₹20L</div>
+          </div>
+          <div class="divider-vert"></div>
+          <div style="flex:1;min-width:140px">
+            <div class="budget-label">Deploy Capital</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+              <span style="font-size:20px;font-weight:700;color:#30D158">₹</span>
+              <input class="deploy-input" value="2,50,000" />
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+          <button class="cancel-btn">Cancel</button>
+          <button class="save-btn">Save</button>
+        </div>
+      </div>
+
+      <div class="filter-strip">
+        <span class="filter-label">All sectors</span>
+        <span class="filter-link">Manage</span>
+      </div>
+      <div class="stock-row"><div><div class="stock-sym">NIFTYBEES</div><div class="stock-cat">Nifty 50 Index</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div></div><div class="stock-pct">20%</div></div>
+      <div class="stock-row"><div><div class="stock-sym">INFY</div><div class="stock-cat">Cap-Light Infra</div></div><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:90%"></div></div></div><div class="stock-pct">18%</div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
