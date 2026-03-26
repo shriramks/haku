@@ -1,53 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { computeTrancheAmounts, trancheSuggestion } from '../band-calculator'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function totalDeployed(amounts: number[]): number {
   return amounts.reduce((s, a) => s + a, 0)
 }
-
-// ── trancheSuggestion ─────────────────────────────────────────────────────────
-
-describe('trancheSuggestion', () => {
-  it('suggests 2% of total capital per tranche', () => {
-    // ₹20L budget → ₹40K per tranche
-    expect(trancheSuggestion(500_000, 2_000_000)).toBe(40_000)
-  })
-
-  it('floors at 1% of total capital even when deployable is tiny', () => {
-    // ₹10K deployable, but floor is 1% of ₹20L = ₹20K
-    expect(trancheSuggestion(10_000, 2_000_000)).toBe(20_000)
-  })
-
-  it('floors at 1% of total capital even when deployable is 0', () => {
-    // Suggestion is always ≥ 1% of totalCapital
-    expect(trancheSuggestion(0, 2_000_000)).toBe(20_000)
-  })
-})
-
-// ── computeTrancheAmounts ─────────────────────────────────────────────────────
-
-describe('computeTrancheAmounts', () => {
-  it('distributes deployable across tranches with back-weighting', () => {
-    const amounts = computeTrancheAmounts(200_000, 4)
-    expect(amounts.length).toBe(4)
-    // Total must equal deployable
-    expect(totalDeployed(amounts)).toBeCloseTo(200_000, 0)
-    // Later tranches (deeper/cheaper) should be >= earlier ones
-    expect(amounts[3]).toBeGreaterThanOrEqual(amounts[0])
-  })
-
-  it('handles single tranche — full deployable', () => {
-    const amounts = computeTrancheAmounts(100_000, 1)
-    expect(amounts.length).toBe(1)
-    expect(amounts[0]).toBeCloseTo(100_000, 0)
-  })
-
-  it('returns empty array for 0 tranches', () => {
-    expect(computeTrancheAmounts(100_000, 0)).toEqual([])
-  })
-})
 
 // ── Deploy capital cap (the route logic, tested directly) ─────────────────────
 

@@ -221,21 +221,30 @@ describe('computeTrancheprices', () => {
     })
   })
 
-  // In buy zone: floor = max(24wkLow×0.98, buyLow×0.95), ceiling = CMP
-  it('CMP inside buy zone (no 24wk low): floor = buyLow×0.95, ceiling = CMP', () => {
-    // buyLow=1000 → floor=950, ceiling=1200
+  // In buy zone: floor = max(24wkLow, buyLow), ceiling = CMP
+  it('CMP inside buy zone (no 24wk low): floor = buyLow, ceiling = CMP', () => {
+    // buyLow=1000 → floor=1000, ceiling=1200
     const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3)
     prices.forEach(p => {
-      expect(p).toBeGreaterThanOrEqual(950)
+      expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1200)
     })
   })
 
-  it('CMP inside buy zone (24wk low raises floor): floor = 24wkLow×0.98', () => {
-    // buyLow×0.95=950, 24wkLow×0.98=1078 → floor=1078
+  it('CMP inside buy zone (24wk low > buyLow): floor = 24wkLow', () => {
+    // buyLow=1000, 24wkLow=1100, CMP=1200 → floor=max(1100,1000)=1100, ceiling=1200
     const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3, 1100)
     prices.forEach(p => {
-      expect(p).toBeGreaterThanOrEqual(Math.round(1100 * 0.98 / 10) * 10 - 10)
+      expect(p).toBeGreaterThanOrEqual(1100)
+      expect(p).toBeLessThanOrEqual(1200)
+    })
+  })
+
+  it('CMP inside buy zone (24wk low < buyLow): floor = buyLow', () => {
+    // buyLow=1000, 24wkLow=900, CMP=1200 → floor=max(900,1000)=1000, ceiling=1200
+    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3, 900)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1200)
     })
   })
