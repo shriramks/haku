@@ -608,17 +608,4 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
   )
 }
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-function ListIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor" {...props}>
-      <rect x="2" y="2" width="12" height="2" rx="1"/>
-      <rect x="2" y="6" width="9" height="2" rx="1"/>
-      <rect x="2" y="10" width="11" height="2" rx="1"/>
-      <rect x="2" y="14" width="7" height="2" rx="1"/>
-    </svg>
-  )
-}
-
 
