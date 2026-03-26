@@ -336,7 +336,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             : cmp <= (midHigh ?? trimPrice) ? 'hold'
             : 'trim'
             : 'unknown'
-          const dotSignalClass = signal === 'deep' ? 'bg-signal-deep' : signal === 'buy' ? 'bg-signal-buy' : null
 
           return (
             <div key={row.symbol}>
@@ -346,15 +345,20 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <div className="flex-1 min-w-0 flex items-baseline gap-2">
-                  {dotSignalClass && (
-                    <div className={`flex-shrink-0 self-center w-2 h-2 rounded-full ${dotSignalClass}`} style={{ marginBottom: 1 }} />
-                  )}
-                  <span className="font-bold text-headline">{row.symbol}</span>
-                  {cmp && (
-                    <span className="text-body tabnum" style={{ color: 'var(--text-muted)' }}>
-                      ₹{Math.round(cmp).toLocaleString('en-IN')}
-                    </span>
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="font-bold text-headline" style={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.symbol}</span>
+                  {cmp != null && (
+                    signal === 'buy' || signal === 'deep' ? (
+                      <span
+                        className={`text-footnote tabnum font-semibold flex-shrink-0 ${signal === 'buy' ? 'text-signal-buy' : 'text-signal-deep'}`}
+                        style={{ padding: '2px 7px', borderRadius: 6, background: signal === 'buy' ? 'rgba(34,197,94,0.13)' : 'rgba(4,120,87,0.13)' }}>
+                        ₹{Math.round(cmp)}
+                      </span>
+                    ) : (
+                      <span className="text-footnote tabnum flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+                        ₹{Math.round(cmp)}
+                      </span>
+                    )
                   )}
 
                 </div>

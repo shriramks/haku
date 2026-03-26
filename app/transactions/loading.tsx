@@ -80,7 +80,7 @@ function BottomNavShell({ active }: { active: string }) {
           )
         })}
       </div>
-      <div className="flex items-center justify-center" style={{ ...pill, padding: '14px 16px' }}>
+      <div className="flex items-center justify-center" style={{ ...pill, padding: '23px 18px' }}>
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} style={{ color: 'var(--text-primary)' }}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
         </svg>
