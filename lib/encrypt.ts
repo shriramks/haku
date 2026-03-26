@@ -9,7 +9,7 @@ const IV_BYTES = 12  // 96-bit IV recommended for GCM
 
 function getSecretKey(): Promise<CryptoKey> {
   const hex = process.env.API_KEY_ENCRYPTION_SECRET
-  if (!hex || hex.length < 64) throw new Error('API_KEY_ENCRYPTION_SECRET not set or too short')
+  if (!hex || hex.length !== 64) throw new Error('API_KEY_ENCRYPTION_SECRET must be exactly 64 hex characters (32 bytes)')
   const raw = Buffer.from(hex.slice(0, 64), 'hex')
   return crypto.subtle.importKey('raw', raw, { name: ALG }, false, ['encrypt', 'decrypt'])
 }
