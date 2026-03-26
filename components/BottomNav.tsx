@@ -4,15 +4,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
 
-const LEFT_TABS = [
-  { href: '/allocation',    label: 'Allocation',   Icon: AllocationIcon  },
-  { href: '/bands',         label: 'Buy Bands',    Icon: BandsIcon       },
+const TABS = [
+  { href: '/allocation',   label: 'Allocation',   Icon: AllocationIcon },
+  { href: '/bands',        label: 'Buy Bands',    Icon: BandsIcon      },
+  { href: '/transactions', label: 'Transactions', Icon: TxnsIcon       },
+  { href: '/plan',         label: 'Plan',         Icon: PlanIcon       },
 ] as const
 
-const RIGHT_TABS = [
-  { href: '/transactions',  label: 'Transactions', Icon: TxnsIcon        },
-  { href: '/plan',          label: 'Plan',         Icon: PlanIcon        },
-] as const
+const pillStyle: React.CSSProperties = {
+  background: 'var(--bg-secondary)',
+  borderRadius: 28,
+  boxShadow: '0 8px 28px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
+}
 
 export default function BottomNav() {
   const path = usePathname()
@@ -55,62 +58,46 @@ export default function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t"
-        style={{
-          background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
-          paddingBottom: 'max(4px, calc(env(safe-area-inset-bottom, 0px) - 20px))',
-        }}>
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-1">
+        className="fixed bottom-0 left-0 right-0 z-40 flex items-center gap-2.5 px-3"
+        style={{ paddingBottom: 'max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px))', paddingTop: 8 }}>
 
-          {LEFT_TABS.map(({ href, label, Icon }) => {
-            const active = path === href || path.startsWith(href + '/')
-            const showPulse = href === '/bands' && pulseBands
+        {/* Tabs pill */}
+        <div className="flex items-center justify-around flex-1 p-1.5" style={pillStyle}>
+          {TABS.map(({ href, label, Icon }) => {
+            const active   = path === href || path.startsWith(href + '/')
+            const showPulse = (href === '/bands' && pulseBands) || (href === '/plan' && pulsePlan)
             return (
               <Link key={href} href={tabHref(href)}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
-                style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-2xl transition-colors relative"
+                style={{
+                  color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                  background: active ? 'var(--border)' : 'transparent',
+                }}>
                 {showPulse && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap
-                                   text-footnote font-semibold text-white px-2 py-0.5 rounded-md bg-accent"
-                        style={{ bottom: 'calc(100% + 2px)', top: 'auto', position: 'absolute' }}>
-                    Generate buy bands →
+                  <span className="absolute whitespace-nowrap text-footnote font-semibold text-white px-2 py-0.5 rounded-md bg-accent"
+                        style={{ bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', position: 'absolute' }}>
+                    {href === '/bands' ? 'Generate buy bands →' : 'Set up your plan →'}
                   </span>
                 )}
                 <div className="relative">
-                  <Icon className="w-6 h-6" />
+                  <Icon className="w-5 h-5" />
                   {showPulse && <PulseDot />}
                 </div>
-                <span className="text-footnote font-medium">{label}</span>
+                <span className="text-[10px] font-medium leading-none"
+                      style={{ fontWeight: active ? 600 : 500 }}>{label}</span>
               </Link>
             )
           })}
-
-          {/* Centre add button */}
-          <button onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
-            className="flex items-center justify-center w-14 h-14 rounded-full -mt-5
-                       shadow-lg active:scale-95 transition-transform"
-            style={{ background: 'var(--text-primary)' }}>
-            <PlusIcon className="w-7 h-7" style={{ color: 'var(--bg-primary)' }} />
-          </button>
-
-          {RIGHT_TABS.map(({ href, label, Icon }) => {
-            const active = path === href || path.startsWith(href + '/')
-            const showPulse = href === '/plan' && pulsePlan
-            return (
-              <Link key={href} href={tabHref(href)}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors relative"
-                style={{ color: active ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                <div className="relative">
-                  <Icon className="w-6 h-6" />
-                  {showPulse && <PulseDot />}
-                </div>
-                <span className="text-footnote font-medium">{label}</span>
-              </Link>
-            )
-          })}
-
         </div>
+
+        {/* Add pill */}
+        <button
+          onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
+          className="flex items-center justify-center active:scale-95 transition-transform"
+          style={{ ...pillStyle, padding: '14px 16px' }}>
+          <PlusIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
+        </button>
+
       </nav>
 
       {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} />}
@@ -151,7 +138,7 @@ function BandsIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
 
 function PlusIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} {...props}>
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
     </svg>
   )
