@@ -136,7 +136,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     const sb = getSupabaseBrowser()
     const band = bands.find(b => b.symbol === symbol)
 
-    if (band && (band.eps || band.bvps || band.ebitda)) {
+    if (band && band.eps) {
       const result = calculateBands({
         category: updated.category as StockCategory,
         twoWeakQuarters:   updated.two_weak_quarters,
