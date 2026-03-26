@@ -6,7 +6,7 @@ import AddTxnModal from './AddTxnModal'
 
 const TABS = [
   { href: '/allocation',   label: 'Allocation',   Icon: AllocationIcon },
-  { href: '/bands',        label: 'Buy Bands',    Icon: BandsIcon      },
+  { href: '/bands',        label: 'Bands',        Icon: BandsIcon      },
   { href: '/transactions', label: 'Transactions', Icon: TxnsIcon       },
   { href: '/plan',         label: 'Plan',         Icon: PlanIcon       },
 ] as const
@@ -94,7 +94,7 @@ export default function BottomNav() {
         <button
           onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
           className="flex items-center justify-center active:scale-95 transition-transform"
-          style={{ ...pillStyle, padding: '14px 18px' }}>
+          style={{ ...pillStyle, padding: '23px 18px' }}>
           <PlusIcon className="w-[25px] h-[25px]" style={{ color: 'var(--text-primary)' }} />
         </button>
 
