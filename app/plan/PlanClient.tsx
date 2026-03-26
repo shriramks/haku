@@ -24,6 +24,7 @@ import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
+import { revalidateFiscalYears } from '@/app/actions'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -638,6 +639,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
     const deploy = deployInput.trim() ? parseFloat(deployInput) : null
     setSaving(true)
     await onSave(budget, deploy && deploy > 0 ? deploy : null)
+    await revalidateFiscalYears()
     setSaving(false)
   }
 

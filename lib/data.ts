@@ -24,7 +24,7 @@ const _fetchFiscalYears = unstable_cache(
   async (userId: string): Promise<FiscalYear[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('fiscal_years')
-      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr')
+      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr')
       .eq('user_id', userId)
       .order('start_date', { ascending: true })
     return data ?? []
