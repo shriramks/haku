@@ -340,11 +340,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
           return (
             <div key={row.symbol}>
-              {showDivider && (
-                <div className="px-4 py-2">
-                  <span className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
-                </div>
-              )}
             <div className="border-b"
                  style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
               {/* Collapsed header — always visible */}

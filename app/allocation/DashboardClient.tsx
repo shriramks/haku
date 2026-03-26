@@ -151,14 +151,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           {/* Allocation bars */}
           <div className="mt-2">
             {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
-            {completedRows.length > 0 && (
-              <>
-                <div className="px-4 py-2 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                  <span className="text-footnote uppercase tracking-widest font-semibold" style={{ color: 'var(--text-faint)' }}>Completed</span>
-                </div>
-                {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
-              </>
-            )}
+            {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
           </div>
           {/* Details table — collapsible */}
           <CollapsibleSection title="Details">
