@@ -62,13 +62,13 @@ export default function BottomNav() {
         style={{ paddingBottom: 'max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px))', paddingTop: 8 }}>
 
         {/* Tabs pill */}
-        <div className="flex items-center justify-around flex-1 p-1.5" style={pillStyle}>
+        <div className="flex items-center justify-around flex-1 p-2" style={pillStyle}>
           {TABS.map(({ href, label, Icon }) => {
             const active   = path === href || path.startsWith(href + '/')
             const showPulse = (href === '/bands' && pulseBands) || (href === '/plan' && pulsePlan)
             return (
               <Link key={href} href={tabHref(href)}
-                className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-2xl transition-colors relative"
+                className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-colors relative"
                 style={{
                   color: active ? 'var(--text-primary)' : 'var(--text-muted)',
                   background: active ? 'var(--border)' : 'transparent',
@@ -80,7 +80,7 @@ export default function BottomNav() {
                   </span>
                 )}
                 <div className="relative">
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-[25px] h-[25px]" />
                   {showPulse && <PulseDot />}
                 </div>
                 <span className="text-[10px] font-medium leading-none"
@@ -94,8 +94,8 @@ export default function BottomNav() {
         <button
           onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
           className="flex items-center justify-center active:scale-95 transition-transform"
-          style={{ ...pillStyle, padding: '14px 16px' }}>
-          <PlusIcon className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
+          style={{ ...pillStyle, padding: '14px 18px' }}>
+          <PlusIcon className="w-[25px] h-[25px]" style={{ color: 'var(--text-primary)' }} />
         </button>
 
       </nav>
