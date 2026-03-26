@@ -240,24 +240,19 @@ describe('computeTrancheprices', () => {
     })
   })
 
-  // Deep zone: CMP < buyLow — floor = max(24wkLow×0.98, CMP×0.93), ceiling = CMP
-  it('CMP below buy zone (deep, no 24wk low): floor = CMP×0.93, ceiling = CMP', () => {
-    // CMP=800 → floor=max(0, 744)=744, ceiling=800
+  // Deep zone: CMP < buyLow — floor = max(24wkLow, buyLow) > CMP → collapses to 1 tranche at CMP
+  it('CMP below buy zone (deep, no 24wk low): floor = buyLow > CMP → single tranche at CMP', () => {
+    // buyLow=1000, CMP=800 → floor=1000, ceiling=800 → floor>ceiling → single tranche
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
-    prices.forEach(p => {
-      expect(p).toBeGreaterThanOrEqual(740) // ~744 snapped to ₹10
-      expect(p).toBeLessThanOrEqual(800)
-    })
-    expect(prices.length).toBeGreaterThanOrEqual(2) // 7% range supports multiple tranches
+    expect(prices.length).toBe(1)
+    expect(prices[0]).toBeLessThanOrEqual(800)
   })
 
-  it('CMP below buy zone (deep, 24wk low raises floor): floor = 24wkLow×0.98', () => {
-    // CMP=800, 24wkLow=790 → floor=max(774, 744)=774, ceiling=800
+  it('CMP below buy zone (deep, 24wk low): floor = max(24wkLow, buyLow) > CMP → single tranche at CMP', () => {
+    // buyLow=1000, 24wkLow=790, CMP=800 → floor=max(790,1000)=1000 > ceiling=800 → single tranche
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3, 790)
-    prices.forEach(p => {
-      expect(p).toBeGreaterThanOrEqual(770)
-      expect(p).toBeLessThanOrEqual(800)
-    })
+    expect(prices.length).toBe(1)
+    expect(prices[0]).toBeLessThanOrEqual(800)
   })
 
   // Hard cap: floor >= ceiling → single tranche at CMP
