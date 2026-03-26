@@ -6,3 +6,4 @@ node_modules/
 *.pem
 tsconfig.tsbuildinfo
 supabase/seed*.sql
+.claude/
