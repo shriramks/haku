@@ -247,7 +247,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         body: JSON.stringify({
           fyId,
           remainingInr:   rows.find(r => r.symbol === symbol)?.remaining ?? 0,
-          userLiquidInr:  rows.reduce((s, r) => s + Math.max(0, r.remaining), 0),
+          userLiquidInr:  selectedFY?.deploy_capital_inr ?? rows.reduce((s, r) => s + Math.max(0, r.remaining), 0),
         }),
       })
       const json = await res.json()

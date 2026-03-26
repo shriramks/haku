@@ -8,6 +8,7 @@ export interface FiscalYear {
   end_date: string
   total_budget_inr: number
   unallocated_carryover_inr: number
+  deploy_capital_inr?: number | null
   created_at?: string
 }
 

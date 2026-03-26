@@ -40,6 +40,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const router = useRouter()
   const [selectedFY, setSelectedFY] = useState(initialFY)
   const [allocations, setAllocations] = useState(initialAllocations)
+
   const [loading, setLoading] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
   const [fyHasTxns, setFyHasTxns] = useState(false)
@@ -159,8 +160,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         onSwitchFY={switchFY}
         onAllocationsChange={setAllocations}
         onNewPlan={() => setShowNewPlan(true)}
-        onFYBudgetChange={(budget) => {
-          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
+        onFYBudgetChange={(budget, deployCapital) => {
+          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget, deploy_capital_inr: deployCapital })
         }}
         onDeleteFY={deleteFY}
       />
@@ -193,15 +194,13 @@ function PlanTab({
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
   onNewPlan: () => void
-  onFYBudgetChange: (budget: number) => void
+  onFYBudgetChange: (budget: number, deployCapital: number | null) => void
   onDeleteFY: () => void
 }) {
-  const [editBudget, setEditBudget] = useState(false)
-  const [budgetInput, setBudgetInput] = useState(String(totalBudget))
-  const [savingBudget, setSavingBudget] = useState(false)
+  const [showBudgetSheet, setShowBudgetSheet] = useState(false)
+  const [editingAlloc, setEditingAlloc] = useState<StockAllocation | null>(null)
   const [showAddStock, setShowAddStock] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
-  const [confirmDeletePlan, setConfirmDeletePlan] = useState(false)
   const [copying, setCopying] = useState(false)
   const [showCatDetail, setShowCatDetail] = useState(false)
   const [carryoverAmt, setCarryoverAmt] = useState<number | null>(null)
@@ -243,15 +242,13 @@ function PlanTab({
     setApplyingCarryover(false)
   }
 
-  async function saveBudget() {
+  async function saveBudget(budget: number, deployCapital: number | null) {
     if (!selectedFY) return
-    const val = parseFloat(budgetInput)
-    if (!val || val <= 0) return
-    setSavingBudget(true)
-    await getSupabaseBrowser().from('fiscal_years').update({ total_budget_inr: val }).eq('id', selectedFY.id)
-    onFYBudgetChange(val)
-    setSavingBudget(false)
-    setEditBudget(false)
+    await getSupabaseBrowser().from('fiscal_years')
+      .update({ total_budget_inr: budget, deploy_capital_inr: deployCapital })
+      .eq('id', selectedFY.id)
+    onFYBudgetChange(budget, deployCapital)
+    setShowBudgetSheet(false)
   }
 
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
@@ -353,81 +350,33 @@ function PlanTab({
             </div>
           )}
 
-          {/* Budget flat strip */}
+          {/* Budget strip */}
           {(() => {
             const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
             const effectiveBudget = totalBudget + unallocCarryover
+            const deployCapital = selectedFY.deploy_capital_inr
             return (
           <div className="px-4 pt-4 pb-3 border-b"
                style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                {editBudget ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-headline" style={{ color: 'var(--text-muted)' }}>₹</span>
-                    <input
-                      type="number" inputMode="decimal"
-                      value={budgetInput}
-                      onChange={e => setBudgetInput(e.target.value)}
-                      className="text-title-1 font-bold w-28 tabnum outline-none rounded-lg px-2 py-0.5"
-                      style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-                      autoFocus
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-title-1 font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
-                    {unallocCarryover > 0 && (
-                      <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {formatINR(totalBudget)} base + {formatINR(unallocCarryover)} carryover
-                      </p>
-                    )}
-                  </div>
+                <p className="text-title-1 font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
+                {unallocCarryover > 0 && (
+                  <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {formatINR(totalBudget)} base + {formatINR(unallocCarryover)} carryover
+                  </p>
+                )}
+                {deployCapital != null && (
+                  <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {formatINR(deployCapital)} deploy capital
+                  </p>
                 )}
               </div>
-              {editBudget ? (
-                <div className="flex gap-2 items-center">
-                  {confirmDeletePlan ? (
-                    <>
-                      <span className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
-                        {fyHasTxns ? 'Clear?' : 'Delete?'}
-                      </span>
-                      <button onClick={() => setConfirmDeletePlan(false)}
-                        className="px-3 py-2 rounded-xl text-subheadline"
-                        style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>No</button>
-                      <button onClick={() => { setConfirmDeletePlan(false); setEditBudget(false); onDeleteFY() }}
-                        className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative"
-                        style={{ background: 'rgba(255,59,48,0.10)' }}>
-                        {fyHasTxns ? 'Clear' : 'Delete'}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => setConfirmDeletePlan(true)}
-                        className="px-3 py-2 rounded-xl text-subheadline text-negative"
-                        style={{ background: 'rgba(255,59,48,0.10)' }}>
-                        {fyHasTxns ? 'Clear' : 'Delete'}
-                      </button>
-                      <button onClick={() => setEditBudget(false)}
-                        className="px-3.5 py-2.5 rounded-xl text-body"
-                        style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-                        Cancel
-                      </button>
-                      <button onClick={saveBudget} disabled={savingBudget}
-                        className="px-3.5 py-2.5 rounded-xl text-body font-semibold text-accent disabled:opacity-40"
-                        style={{ background: 'rgba(10,132,255,0.15)' }}>
-                        {savingBudget ? 'Saving…' : 'Save'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <button onClick={() => { setBudgetInput(String(totalBudget)); setEditBudget(true) }}
-                  className="px-3.5 py-2.5 rounded-xl text-body"
-                  style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-                  Edit
-                </button>
-              )}
+              <button onClick={() => setShowBudgetSheet(true)}
+                className="px-3.5 py-2.5 rounded-xl text-body"
+                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
+                Edit
+              </button>
             </div>
 
 
@@ -586,10 +535,7 @@ function PlanTab({
                     key={alloc.id}
                     alloc={alloc}
                     totalBudget={totalBudget}
-                    totalPct={totalPct}
-                    onPctChange={updateAllocPct}
-                    onCategoryChange={updateAllocCategory}
-                    onRemove={removeAlloc}
+                    onEdit={() => setEditingAlloc(alloc)}
                   />
                 ))}
               </div>
@@ -619,113 +565,297 @@ function PlanTab({
           <p className="text-body mb-4">Create a plan to start allocating your investments for the year.</p>
         </div>
       )}
+
+      {showBudgetSheet && selectedFY && (
+        <BudgetSheet
+          selectedFY={selectedFY}
+          fyHasTxns={fyHasTxns}
+          onClose={() => setShowBudgetSheet(false)}
+          onSave={saveBudget}
+          onDeleteFY={() => { setShowBudgetSheet(false); onDeleteFY() }}
+        />
+      )}
+
+      {editingAlloc && (
+        <StockEditSheet
+          alloc={editingAlloc}
+          totalBudget={totalBudget}
+          totalPct={totalPct}
+          onClose={() => setEditingAlloc(null)}
+          onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
+          onCategoryChange={async (cat) => { await updateAllocCategory(editingAlloc, cat); setEditingAlloc({ ...editingAlloc, category: cat }) }}
+          onRemove={async () => { await removeAlloc(editingAlloc.id); setEditingAlloc(null) }}
+        />
+      )}
     </div>
   )
 }
 
 // ── Stock allocation row ──────────────────────────────────────────────────────
 
-function StockAllocRow({ alloc, totalBudget, totalPct, onPctChange, onCategoryChange, onRemove }: {
+function StockAllocRow({ alloc, totalBudget, onEdit }: {
   alloc: StockAllocation
   totalBudget: number
-  totalPct: number
-  onPctChange: (a: StockAllocation, pct: number) => void
-  onCategoryChange: (a: StockAllocation, cat: StockCategory) => void
-  onRemove: (id: string) => void
+  onEdit: () => void
 }) {
-  const [pct, setPct] = useState(alloc.allocation_pct.toString())
-  const [expanded, setExpanded] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const budget = (alloc.allocation_pct / 100) * totalBudget
-  const parsedPct = parseFloat(pct) || alloc.allocation_pct
-  const effectiveTotal = totalPct - alloc.allocation_pct + parsedPct
-  const remaining = 100 - effectiveTotal
-
-  if (confirming) {
-    return (
-      <div className="flex items-center justify-between px-4 py-3.5">
-        <p className="text-body" style={{ color: 'var(--text-2)' }}>Remove {alloc.symbol}?</p>
-        <p className="text-subheadline flex-1 px-3" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
-        <div className="flex gap-4">
-          <button onClick={() => setConfirming(false)} className="text-accent text-body">Keep</button>
-          <button onClick={() => onRemove(alloc.id)} className="text-negative text-body font-semibold">Remove</button>
-        </div>
+  return (
+    <button onClick={onEdit} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-headline">{alloc.symbol}</p>
+        {getStockName(alloc.symbol) && (
+          <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
+        )}
       </div>
-    )
+      <div className="text-right mr-2">
+        <p className="text-headline font-semibold tabnum">{alloc.allocation_pct}%</p>
+        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatINR(budget)}</p>
+      </div>
+      <ChevronIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+    </button>
+  )
+}
+
+// ── Budget edit sheet ─────────────────────────────────────────────────────────
+
+function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
+  selectedFY: FiscalYear
+  fyHasTxns: boolean
+  onClose: () => void
+  onSave: (budget: number, deployCapital: number | null) => Promise<void>
+  onDeleteFY: () => void
+}) {
+  const [budgetInput, setBudgetInput] = useState(String(selectedFY.total_budget_inr))
+  const [deployInput, setDeployInput] = useState(
+    selectedFY.deploy_capital_inr != null ? String(selectedFY.deploy_capital_inr) : ''
+  )
+  const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  async function handleSave() {
+    const budget = parseFloat(budgetInput)
+    if (!budget || budget <= 0) return
+    const deploy = deployInput.trim() ? parseFloat(deployInput) : null
+    setSaving(true)
+    await onSave(budget, deploy && deploy > 0 ? deploy : null)
+    setSaving(false)
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-3 px-4 py-3.5">
-        <button onClick={() => setExpanded(v => !v)} className="flex-1 flex items-center gap-3 text-left">
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-headline">{alloc.symbol}</p>
-            {getStockName(alloc.symbol) && (
-              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-footnote" style={{ color: 'var(--text-2)' }}>
-              {alloc.category.split('/')[0]}
-            </p>
-            <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {formatINR(budget)}
-            </p>
-          </div>
-        </button>
-
-        {/* Pct input */}
-        <div className="flex flex-col items-end gap-0.5">
-          <div className="flex items-center gap-1">
-            <input
-              type="number" inputMode="decimal" value={pct}
-              onChange={e => setPct(e.target.value)}
-              onBlur={() => {
-                const val = parseFloat(pct)
-                if (val > 0 && val !== alloc.allocation_pct) onPctChange(alloc, val)
-              }}
-              className="w-14 px-2 py-2.5 rounded-xl text-body tabnum text-right outline-none"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            />
-            <span className="text-body" style={{ color: 'var(--text-muted)' }}>%</span>
-          </div>
-          {parsedPct !== alloc.allocation_pct && (
-            <span className={`text-subheadline tabnum ${remaining < 0 ? 'text-negative' : remaining === 0 ? 'text-positive' : ''}`}
-                  style={remaining > 0 ? { color: 'var(--text-muted)' } : undefined}>
-              {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
-            </span>
-          )}
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
-
-        <button onClick={() => setExpanded(v => !v)} style={{ color: 'var(--text-faint)' }}>
-          <ChevronIcon className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="px-4 pb-4 border-t space-y-3" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="pt-3">
-            <p className="text-subheadline mb-1.5" style={{ color: 'var(--text-muted)' }}>Category</p>
-            <select
-              value={alloc.category}
-              onChange={e => onCategoryChange(alloc, e.target.value as StockCategory)}
-              className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
-              style={{
-                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-              }}>
-              {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <button onClick={() => setConfirming(true)}
-            className="w-full py-2.5 rounded-xl text-body text-negative"
-            style={{ background: 'rgba(255,59,48,0.10)' }}>
-            Remove from Plan
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <p className="font-semibold text-headline">{selectedFY.label} Budget</p>
+          <button onClick={handleSave} disabled={saving}
+            className="text-accent text-headline font-semibold disabled:opacity-40">
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
-      )}
-    </div>
+
+        {/* FY Budget field */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body">FY Budget</p>
+          <div className="flex items-center gap-1">
+            <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
+            <input
+              type="number" inputMode="decimal"
+              value={budgetInput} onChange={e => setBudgetInput(e.target.value)}
+              className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Deploy Capital field */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body">Deploy Capital</p>
+          <div className="flex items-center gap-1">
+            <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
+            <input
+              type="number" inputMode="decimal"
+              value={deployInput} onChange={e => setDeployInput(e.target.value)}
+              placeholder="Optional"
+              className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36 placeholder:font-normal"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        </div>
+        <p className="px-5 pt-2 pb-4 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+          Amount available to invest at time of generating tranches. If not set, tranches use the remaining allocation amount as the limit.
+        </p>
+
+        {/* Delete plan */}
+        <div className="px-5 pt-2">
+          {confirmDelete ? (
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>
+                {fyHasTxns ? 'Clear allocations?' : 'Delete this plan?'}
+              </p>
+              <button onClick={() => setConfirmDelete(false)}
+                className="px-3 py-2 rounded-xl text-subheadline"
+                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>No</button>
+              <button onClick={onDeleteFY}
+                className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative"
+                style={{ background: 'rgba(255,59,48,0.10)' }}>
+                {fyHasTxns ? 'Clear' : 'Delete'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmDelete(true)}
+              className="text-body text-negative">
+              {fyHasTxns ? 'Clear Plan…' : 'Delete Plan…'}
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Stock edit sheet ──────────────────────────────────────────────────────────
+
+function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCategoryChange, onRemove }: {
+  alloc: StockAllocation
+  totalBudget: number
+  totalPct: number
+  onClose: () => void
+  onSave: (pct: number) => Promise<void>
+  onCategoryChange: (cat: StockCategory) => Promise<void>
+  onRemove: () => Promise<void>
+}) {
+  const [pct, setPct] = useState(alloc.allocation_pct)
+  const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+
+  const freeWithoutThis = 100 - totalPct + alloc.allocation_pct
+  const sliderMax = Math.min(100, alloc.allocation_pct + freeWithoutThis)
+  const inrAmt = (pct / 100) * totalBudget
+  const totalInr = totalBudget
+
+  async function handleSave() {
+    if (pct <= 0) return
+    setSaving(true)
+    await onSave(pct)
+    setSaving(false)
+  }
+
+  async function handleRemove() {
+    setRemoving(true)
+    await onRemove()
+    setRemoving(false)
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <div>
+            <p className="font-semibold text-headline text-center">{alloc.symbol}</p>
+            {getStockName(alloc.symbol) && (
+              <p className="text-footnote text-center" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
+            )}
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            className="text-accent text-headline font-semibold disabled:opacity-40">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+
+        {/* % stepper + live ₹ */}
+        <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex items-center justify-center gap-4 mb-2">
+            <button
+              onClick={() => setPct(p => Math.max(1, parseFloat((p - 1).toFixed(1))))}
+              className="flex items-center justify-center rounded-full text-2xl font-light"
+              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+              −
+            </button>
+            <div className="flex items-baseline gap-1">
+              <input
+                type="number" inputMode="decimal"
+                value={pct}
+                onChange={e => setPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                className="font-bold tabnum text-right outline-none bg-transparent"
+                style={{ fontSize: 40, width: 72, color: 'var(--text-primary)' }}
+              />
+              <span className="font-bold" style={{ fontSize: 28, color: 'var(--text-primary)' }}>%</span>
+            </div>
+            <button
+              onClick={() => setPct(p => Math.min(sliderMax, parseFloat((p + 1).toFixed(1))))}
+              className="flex items-center justify-center rounded-full text-2xl font-light"
+              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+              +
+            </button>
+          </div>
+          {/* Live ₹ amount */}
+          <p className="font-bold tabnum" style={{ fontSize: 22, color: 'var(--text-primary)' }}>
+            {formatINR(inrAmt)}{' '}
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>of {formatINR(totalInr)}</span>
+          </p>
+          {/* Slider */}
+          <div className="mt-4 px-1">
+            <input
+              type="range" min={0} max={sliderMax} step={0.5}
+              value={pct}
+              onChange={e => setPct(parseFloat(e.target.value))}
+              className="w-full accent-accent"
+              style={{ height: 4 }}
+            />
+            <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
+              <span>0%</span>
+              <span>{sliderMax.toFixed(0)}% max</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Category picker */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body">Category</p>
+          <select
+            value={alloc.category}
+            onChange={e => onCategoryChange(e.target.value as StockCategory)}
+            className="text-body outline-none text-right"
+            style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
+            {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* Remove */}
+        <div className="px-5 pt-4">
+          {confirmRemove ? (
+            <div className="flex items-center gap-3">
+              <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
+              <button onClick={() => setConfirmRemove(false)}
+                className="px-3 py-2 rounded-xl text-subheadline"
+                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>Keep</button>
+              <button onClick={handleRemove} disabled={removing}
+                className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative disabled:opacity-40"
+                style={{ background: 'rgba(255,59,48,0.10)' }}>
+                {removing ? 'Removing…' : 'Remove'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmRemove(true)} className="text-body text-negative">
+              Remove from Plan…
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 
