@@ -72,7 +72,7 @@ function BottomNavShell() {
       style={{
         background: 'var(--bg-nav)',
         borderColor: 'var(--border)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: 'max(4px, calc(env(safe-area-inset-bottom, 0px) - 20px))',
       }}>
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-1">
         <NavItem label="Allocation" active={false}>
