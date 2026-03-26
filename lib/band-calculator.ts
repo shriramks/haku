@@ -29,8 +29,9 @@ const PREMIUM: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
 }
 
-// Categories where bear/bull flags are ignored
-const FLAGS_IGNORED = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
+// Categories where bear/bull quarter flags are ignored (index ETFs, commodities)
+export const CATEGORIES_WITHOUT_QUARTERS = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
+const FLAGS_IGNORED = CATEGORIES_WITHOUT_QUARTERS
 
 
 // ── Public API ───────────────────────────────────────────────────────────────
