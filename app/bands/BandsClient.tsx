@@ -244,7 +244,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId, remainingInr: rows.find(r => r.symbol === symbol)?.remaining ?? 0 }),
+        body: JSON.stringify({
+          fyId,
+          remainingInr:   rows.find(r => r.symbol === symbol)?.remaining ?? 0,
+          userLiquidInr:  rows.reduce((s, r) => s + Math.max(0, r.remaining), 0),
+        }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) {

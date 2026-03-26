@@ -33,15 +33,6 @@ export function formatAmt(amount: number): string {
   return formatINR(amount).replace('₹', '')
 }
 
-/** ₹1,25,000 style full Indian comma formatting */
-export function formatINRFull(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
 /** Parse "YYYY-MM-DD" → "12 Mar" (current year) or "12 Mar '25" (other year) */
 export function formatDate(isoDate: string): string {
   const d = new Date(isoDate + 'T00:00:00')

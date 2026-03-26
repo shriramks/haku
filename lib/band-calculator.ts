@@ -39,9 +39,6 @@ const FLAGS_IGNORED = CATEGORIES_WITHOUT_QUARTERS
 const SNAP_THRESHOLD  = 500   // ₹500: below this snap to ₹5, at/above snap to ₹10
 const SNAP_SMALL      = 5
 const SNAP_LARGE      = 10
-const WK_LOW_BUFFER   = 0.98  // 24-week-low floor: 2% below low
-const BUY_LOW_FLOOR   = 0.95  // In-zone floor: 5% below buyLow
-const DEEP_FLOOR      = 0.93  // Deep-zone floor: 7% below CMP
 const MIN_GAP_RATIO   = 0.03  // Minimum %-gap between adjacent tranches
 const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to linear
 
@@ -150,10 +147,12 @@ export function computeTrancheAmounts(remaining: number, count: number): number[
 /**
  * Compute up to `count` tranche prices within the buy zone, CMP-aware.
  *
- * Zone detection:
- *   Above buy  (CMP > buyHigh or unknown): floor = buyLow,   ceiling = buyHigh
- *   In buy     (buyLow ≤ CMP ≤ buyHigh):   floor = max(24wkLow×0.98, buyLow×0.95), ceiling = CMP
- *   Deep       (CMP < buyLow):             floor = max(24wkLow×0.98, CMP×0.97),    ceiling = buyLow
+ * Floor = max(24wkLow, buyLow) in all zones — never price below the recent low or
+ * the valuation floor. Ceiling depends on zone:
+ *   Above buy (CMP > buyHigh or unknown): ceiling = buyHigh
+ *   In buy / Deep (CMP ≤ buyHigh):        ceiling = CMP
+ *
+ * In deep zone (CMP < buyLow), floor > ceiling → collapses to single tranche at CMP.
  *
  * Price rounding: < ₹500 → nearest ₹5; ≥ ₹500 → nearest ₹10.
  * Hard cap: no price above CMP. If floor ≥ ceiling, returns single tranche at CMP.
@@ -172,25 +171,9 @@ export function computeTrancheprices(
 ): number[] {
   void midLow; void midHigh
 
-  let floor: number, ceiling: number
-
-  if (!cmp || cmp > buyHigh) {
-    // Above buy zone (or unknown CMP): spread across full buy range
-    floor   = buyLow
-    ceiling = buyHigh
-  } else if (cmp >= buyLow) {
-    // CMP inside buy zone
-    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * WK_LOW_BUFFER : 0
-    floor   = Math.max(wkFloor, buyLow * BUY_LOW_FLOOR)
-    ceiling = cmp
-  } else {
-    // CMP below buyLow (deep) — ceiling is CMP (not buyLow) because hard cap would kill
-    // anything above CMP anyway, collapsing to a single tranche. DEEP_FLOOR gives ~7%
-    // range for 2–3 tranches after rounding.
-    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * WK_LOW_BUFFER : 0
-    floor   = Math.max(wkFloor, cmp * DEEP_FLOOR)
-    ceiling = cmp
-  }
+  // Floor is the higher of 24-week low and buyLow — never price below either
+  const floor   = twentyFourWeekLow ? Math.max(twentyFourWeekLow, buyLow) : buyLow
+  const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
 
   // Collapse to single tranche at CMP if floor >= ceiling
   if (floor >= ceiling) {
