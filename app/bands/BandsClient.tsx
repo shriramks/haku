@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, getBandSignal } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, getBandSignal, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
@@ -136,7 +136,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     const sb = getSupabaseBrowser()
     const band = bands.find(b => b.symbol === symbol)
 
-    if (band && (band.eps || band.bvps || band.ebitda)) {
+    if (band && band.eps) {
       const result = calculateBands({
         category: updated.category as StockCategory,
         twoWeakQuarters:   updated.two_weak_quarters,
@@ -412,7 +412,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   )}
 
                   {/* Controls: Bear/Normal/Bull + ⓘ — hidden for index/commodity */}
-                  {alloc && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(alloc.category) && (
+                  {alloc && !CATEGORIES_WITHOUT_QUARTERS.has(alloc.category as StockCategory) && (
                   <div className="px-4 pt-4 pb-3">
                     <div className="flex items-center gap-2">
                       <QuartersToggle
@@ -605,19 +605,6 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
         </div>
       </div>
     </>
-  )
-}
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-function ListIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor" {...props}>
-      <rect x="2" y="2" width="12" height="2" rx="1"/>
-      <rect x="2" y="6" width="9" height="2" rx="1"/>
-      <rect x="2" y="10" width="11" height="2" rx="1"/>
-      <rect x="2" y="14" width="7" height="2" rx="1"/>
-    </svg>
   )
 }
 

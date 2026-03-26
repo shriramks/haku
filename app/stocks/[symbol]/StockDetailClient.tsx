@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, getBandSignal, computeTrancheprices, computeTrancheAmounts } from '@/lib/band-calculator'
+import { calculateBands, getBandSignal, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
@@ -284,7 +284,7 @@ export default function StockDetailClient({
         </div>
 
         {/* ── Bear / Normal / Bull ─────────────────────────────────────────────── */}
-        {allocState && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(allocState.category) && (
+        {allocState && !CATEGORIES_WITHOUT_QUARTERS.has(allocState.category as StockCategory) && (
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
             <QuartersToggle
               twoWeakQuarters={allocState.two_weak_quarters}

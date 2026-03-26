@@ -29,9 +29,21 @@ const PREMIUM: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
 }
 
-// Categories where bear/bull flags are ignored
-const FLAGS_IGNORED = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
+// Categories where bear/bull quarter flags are ignored (index ETFs, commodities)
+export const CATEGORIES_WITHOUT_QUARTERS = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
+const FLAGS_IGNORED = CATEGORIES_WITHOUT_QUARTERS
 
+
+// ── Tranche price constants ───────────────────────────────────────────────────
+
+const SNAP_THRESHOLD  = 500   // ₹500: below this snap to ₹5, at/above snap to ₹10
+const SNAP_SMALL      = 5
+const SNAP_LARGE      = 10
+const WK_LOW_BUFFER   = 0.98  // 24-week-low floor: 2% below low
+const BUY_LOW_FLOOR   = 0.95  // In-zone floor: 5% below buyLow
+const DEEP_FLOOR      = 0.93  // Deep-zone floor: 7% below CMP
+const MIN_GAP_RATIO   = 0.03  // Minimum %-gap between adjacent tranches
+const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to linear
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -127,7 +139,7 @@ export function computeTrancheAmounts(remaining: number, count: number): number[
   if (count <= 0 || remaining <= 0) return []
   const quadWeights  = Array.from({ length: count }, (_, i) => (i + 1) ** 2)
   const quadTotal    = quadWeights.reduce((s, w) => s + w, 0)
-  const useQuadratic = Math.max(...quadWeights) / quadTotal <= 0.40
+  const useQuadratic = Math.max(...quadWeights) / quadTotal <= WEIGHT_CAP
   const weights      = useQuadratic
     ? quadWeights
     : Array.from({ length: count }, (_, i) => i + 1)
@@ -168,34 +180,34 @@ export function computeTrancheprices(
     ceiling = buyHigh
   } else if (cmp >= buyLow) {
     // CMP inside buy zone
-    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * 0.98 : 0
-    floor   = Math.max(wkFloor, buyLow * 0.95)
+    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * WK_LOW_BUFFER : 0
+    floor   = Math.max(wkFloor, buyLow * BUY_LOW_FLOOR)
     ceiling = cmp
   } else {
     // CMP below buyLow (deep) — ceiling is CMP (not buyLow) because hard cap would kill
-    // anything above CMP anyway, collapsing to a single tranche. 0.93 gives ~7% range
-    // for 2–3 tranches after rounding.
-    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * 0.98 : 0
-    floor   = Math.max(wkFloor, cmp * 0.93)
+    // anything above CMP anyway, collapsing to a single tranche. DEEP_FLOOR gives ~7%
+    // range for 2–3 tranches after rounding.
+    const wkFloor = twentyFourWeekLow ? twentyFourWeekLow * WK_LOW_BUFFER : 0
+    floor   = Math.max(wkFloor, cmp * DEEP_FLOOR)
     ceiling = cmp
   }
 
   // Collapse to single tranche at CMP if floor >= ceiling
   if (floor >= ceiling) {
     const ref  = cmp ?? floor
-    const snap = ref < 500 ? 5 : 10
+    const snap = ref < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
     return [Math.floor(ref / snap) * snap]
   }
 
   const range = ceiling - floor
-  const minGap    = floor * 0.03
+  const minGap    = floor * MIN_GAP_RATIO
   const usedCount = Math.max(2, Math.min(count, Math.floor(range / minGap) + 1))
 
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
     const t    = usedCount > 1 ? i / (usedCount - 1) : 0
     const raw  = floor + t * range
-    const snap = raw < 500 ? 5 : 10
+    const snap = raw < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
     prices.push(Math.round(raw / snap) * snap)
   }
 
@@ -203,7 +215,7 @@ export function computeTrancheprices(
   const capped = cmp
     ? prices.map(p => {
         if (p <= cmp) return p
-        const snap = cmp < 500 ? 5 : 10
+        const snap = cmp < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
         return Math.floor(cmp / snap) * snap
       })
     : prices

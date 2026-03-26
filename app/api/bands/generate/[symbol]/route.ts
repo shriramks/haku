@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
+import { fetchCmp } from '@/lib/market-data'
 import { decrypt } from '@/lib/encrypt'
 import type { StockCategory } from '@/lib/types'
 
@@ -407,18 +408,7 @@ export async function POST(
     const remaining = Math.max(0, allocBudget - netSpent)
 
     // Fetch live CMP so tranches are never placed above current market price
-    let liveCmp: number | null = existingCmp
-    try {
-      const cmpRes = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS`,
-        { headers: { 'User-Agent': 'Mozilla/5.0' } }
-      )
-      if (cmpRes.ok) {
-        const cmpJson = await cmpRes.json()
-        const livePrice: number | undefined = cmpJson?.chart?.result?.[0]?.meta?.regularMarketPrice
-        if (livePrice) liveCmp = livePrice
-      }
-    } catch { /* fall back to stored CMP */ }
+    const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
 
     // Preserve allocated tranches — only regenerate unallocated ones
     const { data: existingTranches } = await supabase

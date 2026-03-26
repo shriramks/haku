@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getBuyBands } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY } from '@/lib/data'
 import DashboardClient from './DashboardClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -10,13 +10,7 @@ export default async function DashboardPage({
   const fiscalYears = await getFiscalYears()
   const { fy: fyParam } = await searchParams
 
-  // Default to current FY (Apr–Mar), fallback to most recent
-  const today = new Date()
-  const currentFY = fyParam
-    ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears[0])
-    : (fiscalYears.find(fy =>
-        new Date(fy.start_date) <= today && today <= new Date(fy.end_date)
-      ) ?? fiscalYears[0])
+  const currentFY = getCurrentFY(fiscalYears, fyParam)
 
   const fyIdx = fiscalYears.findIndex(f => f.id === currentFY?.id)
   const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
