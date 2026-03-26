@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transaction Filters — iOS Sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F2F2F7; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; padding: 0 0 100px; }
+
+  /* ── nav ── */
+  .nav-header {
+    background: rgba(242,242,247,0.94); border-bottom: 1px solid rgba(0,0,0,0.10);
+    backdrop-filter: blur(20px);
+    padding: 52px 16px 12px;
+  }
+  .nav-top { display: flex; align-items: center; justify-content: space-between; }
+  .nav-top h1 { font-size: 28px; font-weight: 700; }
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+  .fy-pill { padding: 6px 12px; border-radius: 10px; background: rgba(0,0,0,0.06); font-size: 13px; font-weight: 500; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center;
+    position: relative; flex-shrink: 0; cursor: pointer;
+  }
+  .filter-badge {
+    position: absolute; top: -3px; right: -3px;
+    background: #0A84FF; color: #fff;
+    font-size: 10px; font-weight: 700;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #F2F2F7;
+  }
+
+  /* ── txn list ── */
+  .txn-list { background: #fff; }
+  .month-header { padding: 8px 16px 6px; }
+  .month-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(0,0,0,0.38); }
+  .month-totals { font-size: 12px; color: rgba(0,0,0,0.38); font-variant-numeric: tabular-nums; }
+  .txn-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; border-top: 1px solid rgba(0,0,0,0.06); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .dot-buy { background: #34C759; } .dot-sell { background: #FF3B30; }
+  .txn-mid { text-align: right; flex-shrink: 0; padding-right: 10px; }
+  .txn-qty { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .txn-price { font-size: 13px; color: rgba(0,0,0,0.4); font-variant-numeric: tabular-nums; }
+  .txn-date  { font-size: 11px; color: rgba(0,0,0,0.28); }
+  .txn-amount { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .txn-amount.sell { color: #FF3B30; }
+
+  /* ── Bottom sheet ── */
+  .sheet-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); z-index: 50; }
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 51;
+    background: #F2F2F7; border-radius: 20px 20px 0 0;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    max-height: 85vh; overflow-y: auto;
+  }
+  .sheet-handle-row { display: flex; justify-content: center; padding: 10px 0 4px; }
+  .sheet-handle { width: 36px; height: 5px; border-radius: 3px; background: rgba(0,0,0,0.18); }
+  .sheet-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 16px 12px; border-bottom: 1px solid rgba(0,0,0,0.10);
+  }
+  .sheet-title { font-size: 17px; font-weight: 600; }
+  .sheet-clear { font-size: 15px; color: #0A84FF; font-weight: 500; }
+  .sheet-apply {
+    font-size: 15px; color: #0A84FF; font-weight: 600;
+  }
+
+  /* section inside sheet */
+  .sheet-section { margin: 12px 16px 0; }
+  .sheet-section-label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: rgba(0,0,0,0.4);
+    margin-bottom: 8px; padding-left: 4px;
+  }
+  .sheet-card { background: #fff; border-radius: 14px; overflow: hidden; }
+
+  /* Type — segmented control */
+  .seg-control { display: flex; padding: 4px; gap: 3px; }
+  .seg-item {
+    flex: 1; padding: 7px 4px; border-radius: 9px; text-align: center;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    color: rgba(0,0,0,0.5); transition: background 0.15s;
+  }
+  .seg-item.active { background: #fff; color: #000; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+  /* Buy/Sell active colors */
+  .seg-item.active-buy  { background: rgba(52,199,89,0.18); color: #28A745; }
+  .seg-item.active-sell { background: rgba(255,59,48,0.14); color: #DC3545; }
+  .seg-bg { background: rgba(0,0,0,0.06); border-radius: 12px; margin: 8px; }
+
+  /* Month — grid */
+  .month-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; padding: 10px 12px 12px; }
+  .month-cell {
+    padding: 9px 4px; text-align: center; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 500; color: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.04);
+  }
+  .month-cell.sel { background: #0A84FF; color: #fff; font-weight: 600; }
+  .month-cell.has-data { color: rgba(0,0,0,0.7); }
+
+  /* Stock — searchable list */
+  .stock-search {
+    display: flex; align-items: center; gap: 8px;
+    margin: 8px 10px; padding: 8px 12px;
+    background: rgba(0,0,0,0.05); border-radius: 10px;
+  }
+  .stock-search input { flex: 1; font-size: 15px; background: transparent; border: none; outline: none; }
+  .stock-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  .stock-name { font-size: 16px; }
+  .stock-sub  { font-size: 12px; color: rgba(0,0,0,0.38); margin-top: 1px; }
+  .checkmark {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .checkmark.sel { background: #0A84FF; border-color: #0A84FF; }
+  .checkmark.sel::after {
+    content: ''; display: block; width: 5px; height: 9px;
+    border: 2px solid #fff; border-top: none; border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+  }
+
+  /* section label toggle */
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(0,0,0,0.38); padding: 22px 16px 4px; }
+
+  /* dark */
+  body.dark { background: #111; }
+  body.dark .nav-header { background: rgba(17,17,17,0.94); border-bottom-color: rgba(255,255,255,0.09); }
+  body.dark .nav-top h1 { color: #fff; }
+  body.dark .fy-pill { background: rgba(255,255,255,0.08); color: #fff; }
+  body.dark .icon-btn { background: rgba(255,255,255,0.09); }
+  body.dark .icon-btn svg { color: #fff; }
+  body.dark .filter-badge { border-color: #111; }
+  body.dark .txn-list { background: #1C1C1E; }
+  body.dark .month-label, body.dark .month-totals { color: rgba(255,255,255,0.3); }
+  body.dark .txn-row { border-top-color: rgba(255,255,255,0.06); }
+  body.dark .txn-qty { color: #fff; }
+  body.dark .txn-price { color: rgba(255,255,255,0.35); }
+  body.dark .txn-date { color: rgba(255,255,255,0.22); }
+  body.dark .txn-amount { color: #fff; }
+  body.dark .sheet { background: #1C1C1E; }
+  body.dark .sheet-handle { background: rgba(255,255,255,0.2); }
+  body.dark .sheet-header { border-bottom-color: rgba(255,255,255,0.09); }
+  body.dark .sheet-title { color: #fff; }
+  body.dark .sheet-section-label { color: rgba(255,255,255,0.35); }
+  body.dark .sheet-card { background: #2C2C2E; }
+  body.dark .seg-bg { background: rgba(255,255,255,0.07); }
+  body.dark .seg-item { color: rgba(255,255,255,0.4); }
+  body.dark .seg-item.active { background: rgba(255,255,255,0.12); color: #fff; box-shadow: none; }
+  body.dark .month-cell { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.38); }
+  body.dark .month-cell.has-data { color: rgba(255,255,255,0.7); }
+  body.dark .month-cell.sel { background: #0A84FF; color: #fff; }
+  body.dark .stock-search { background: rgba(255,255,255,0.06); }
+  body.dark .stock-search input { color: #fff; }
+  body.dark .stock-row { border-top-color: rgba(255,255,255,0.06); }
+  body.dark .stock-name { color: #fff; }
+  body.dark .stock-sub { color: rgba(255,255,255,0.32); }
+  body.dark .checkmark { border-color: rgba(255,255,255,0.22); }
+  body.dark .section-label { color: rgba(255,255,255,0.3); }
+
+  .dark-toggle { display:flex; align-items:center; gap:8px; padding:12px 16px 0; font-size:13px; color:rgba(0,0,0,0.5); }
+  body.dark .dark-toggle { color:rgba(255,255,255,0.4); }
+  .dark-toggle input { width:36px; height:20px; appearance:none; background:#ccc; border-radius:10px; position:relative; cursor:pointer; transition:background 0.2s; }
+  .dark-toggle input:checked { background:#34C759; }
+  .dark-toggle input::after { content:''; position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; top:2px; left:2px; transition:left 0.2s; }
+  .dark-toggle input:checked::after { left:18px; }
+</style>
+</head>
+<body>
+
+<label class="dark-toggle">
+  <input type="checkbox" onchange="document.body.classList.toggle('dark',this.checked)">
+  Dark mode
+</label>
+
+<!-- ── State 1: Unfiltered, no sheet ── -->
+<div class="section-label" style="padding-top:16px">Default — no active filters</div>
+
+<div class="nav-header">
+  <div class="nav-top">
+    <h1>Transactions</h1>
+    <div class="nav-actions">
+      <div class="fy-pill">FY 25–26</div>
+      <!-- filter button — no badge -->
+      <div class="icon-btn">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" style="color:rgba(0,0,0,0.55)">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M11 12h2M10 16h4"/>
+        </svg>
+      </div>
+      <div class="icon-btn" style="background:rgba(0,0,0,0.08)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:rgba(0,0,0,0.55)"><circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="txn-list">
+  <div class="month-header" style="padding-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span class="month-label">January 2026</span>
+      <span class="month-totals">+₹16.4k</span>
+    </div>
+  </div>
+  <div class="txn-row">
+    <div class="dot dot-buy"></div>
+    <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600">HDFC</div><div style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:1px">HDFC Bank Ltd</div></div>
+    <div class="txn-mid"><div class="txn-qty">10 qty</div><div class="txn-price">₹1642</div><div class="txn-date">12 Jan</div></div>
+    <div class="txn-amount">₹16.4k</div>
+  </div>
+  <div class="month-header" style="padding-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span class="month-label">November 2025</span>
+      <span class="month-totals" style="color:#FF3B30">−₹24k</span>
+    </div>
+  </div>
+  <div class="txn-row">
+    <div class="dot dot-sell"></div>
+    <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600">ITC</div><div style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:1px">ITC Limited</div></div>
+    <div class="txn-mid"><div class="txn-qty">50 qty</div><div class="txn-price">₹480</div><div class="txn-date">3 Nov</div></div>
+    <div class="txn-amount sell">−₹24k</div>
+  </div>
+</div>
+
+
+<!-- ── State 2: Filter sheet open ── -->
+<div class="section-label">Filter sheet open</div>
+
+<div class="nav-header">
+  <div class="nav-top">
+    <h1>Transactions</h1>
+    <div class="nav-actions">
+      <div class="fy-pill">FY 25–26</div>
+      <div class="icon-btn">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" style="color:rgba(0,0,0,0.55)">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M11 12h2M10 16h4"/>
+        </svg>
+      </div>
+      <div class="icon-btn" style="background:rgba(0,0,0,0.08)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:rgba(0,0,0,0.55)"><circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- scrim -->
+<div class="sheet-scrim" style="position:relative;height:60px;margin-bottom:-20px;opacity:0.3;background:rgba(0,0,0,0.3)"></div>
+
+<!-- sheet -->
+<div class="sheet" style="position:relative;border-radius:20px 20px 0 0;">
+  <div class="sheet-handle-row"><div class="sheet-handle"></div></div>
+  <div class="sheet-header">
+    <span class="sheet-clear">Clear All</span>
+    <span class="sheet-title">Filter</span>
+    <span class="sheet-apply">Done</span>
+  </div>
+
+  <!-- Type -->
+  <div class="sheet-section">
+    <div class="sheet-section-label">Type</div>
+    <div class="sheet-card">
+      <div class="seg-bg">
+        <div class="seg-control">
+          <div class="seg-item active">All</div>
+          <div class="seg-item">Buy</div>
+          <div class="seg-item">Sell</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Month -->
+  <div class="sheet-section">
+    <div class="sheet-section-label">Month</div>
+    <div class="sheet-card">
+      <div class="month-grid">
+        <div class="month-cell">Apr</div>
+        <div class="month-cell">May</div>
+        <div class="month-cell">Jun</div>
+        <div class="month-cell has-data">Jul</div>
+        <div class="month-cell">Aug</div>
+        <div class="month-cell has-data">Sep</div>
+        <div class="month-cell has-data">Oct</div>
+        <div class="month-cell has-data">Nov</div>
+        <div class="month-cell">Dec</div>
+        <div class="month-cell has-data">Jan</div>
+        <div class="month-cell">Feb</div>
+        <div class="month-cell">Mar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock -->
+  <div class="sheet-section" style="margin-bottom:16px">
+    <div class="sheet-section-label">Stock</div>
+    <div class="sheet-card">
+      <div class="stock-search">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:rgba(0,0,0,0.35);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
+        <input placeholder="Search stocks…">
+      </div>
+      <div class="stock-row">
+        <div><div class="stock-name">CAMS</div><div class="stock-sub">Computer Age Management</div></div>
+        <div class="checkmark"></div>
+      </div>
+      <div class="stock-row">
+        <div><div class="stock-name">HDFC</div><div class="stock-sub">HDFC Bank Ltd</div></div>
+        <div class="checkmark"></div>
+      </div>
+      <div class="stock-row">
+        <div><div class="stock-name">ITC</div><div class="stock-sub">ITC Limited</div></div>
+        <div class="checkmark"></div>
+      </div>
+      <div class="stock-row">
+        <div><div class="stock-name">JUNIORBEES</div><div class="stock-sub">Nifty Next 50 Index ETF</div></div>
+        <div class="checkmark"></div>
+      </div>
+      <div class="stock-row">
+        <div><div class="stock-name">NIFTYBEES</div><div class="stock-sub">Nifty 50 Index ETF</div></div>
+        <div class="checkmark"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── State 3: Filters active, badge showing ── -->
+<div class="section-label">Active filters — badge on button, results filtered</div>
+
+<div class="nav-header">
+  <div class="nav-top">
+    <h1>Transactions</h1>
+    <div class="nav-actions">
+      <div class="fy-pill">FY 25–26</div>
+      <!-- filter button WITH badge -->
+      <div class="icon-btn">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" style="color:#0A84FF">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M7 8h10M11 12h2M10 16h4"/>
+        </svg>
+        <div class="filter-badge">3</div>
+      </div>
+      <div class="icon-btn" style="background:rgba(0,0,0,0.08)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:rgba(0,0,0,0.55)"><circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="txn-list" style="margin-bottom:0">
+  <div class="month-header" style="padding-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <span class="month-label">January 2026</span>
+      <span class="month-totals">+₹16.4k</span>
+    </div>
+  </div>
+  <div class="txn-row">
+    <div class="dot dot-buy"></div>
+    <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:600">HDFC</div><div style="font-size:12px;color:rgba(0,0,0,0.4);margin-top:1px">HDFC Bank Ltd</div></div>
+    <div class="txn-mid"><div class="txn-qty">10 qty</div><div class="txn-price">₹1642</div><div class="txn-date">12 Jan</div></div>
+    <div class="txn-amount">₹16.4k</div>
+  </div>
+</div>
+
+</body>
+</html>

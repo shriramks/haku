@@ -65,7 +65,7 @@ function BottomNavShell({ active }: { active: string }) {
   ]
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center gap-2.5 px-3"
-         style={{ paddingBottom: 'max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px))', paddingTop: 8 }}>
+         style={{ paddingBottom: 'var(--nav-bottom-pad)', paddingTop: 8 }}>
       <div className="flex items-center justify-around flex-1 p-2" style={pill}>
         {tabs.map(({ href, label, icon }) => {
           const isActive = active === href

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bear Band Gap — Mock Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    background: #F2F2F7;
+    padding: 24px 16px 60px;
+    color: #1C1C1E;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #6C6C70; margin-bottom: 28px; }
+
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .option-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #8E8E93;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .stock-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .symbol { font-size: 20px; font-weight: 700; }
+  .cmp { font-size: 15px; color: #6C6C70; }
+
+  /* ── Bar container ── */
+  .band-bar {
+    display: flex;
+    height: 36px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* Segment colours */
+  .seg-deep  { background: #5E9E78; color: #1C4A2E; }
+  .seg-buy   { background: #7DBF95; color: #1C4A2E; }
+  .seg-mid   { background: #E8B98A; color: #7A3E00; }
+
+  /* Price labels row */
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 4px;
+    position: relative;
+  }
+  .price-group { text-align: center; }
+  .price-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .price-lbl { font-size: 11px; color: #8E8E93; margin-top: 1px; }
+  .price-val.deep-col  { color: #3A8A5A; }
+  .price-val.buy-col   { color: #3A8A5A; }
+  .price-val.mid-col   { color: #D07020; }
+  .price-val.trim-col  { color: #FF3B30; }
+
+  .note {
+    font-size: 12px;
+    color: #6C6C70;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #F2F2F7;
+    line-height: 1.5;
+  }
+  .note strong { color: #1C1C1E; }
+
+  /* ── Option-specific gap styles ── */
+
+  /* Option A: Solid bright red-orange gap, labelled */
+  .seg-gap-a {
+    background: #FF3B30;
+    color: white;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Option B: Muted warm red gap, no label */
+  .seg-gap-b {
+    background: #FF6B60;
+    color: transparent;
+  }
+
+  /* Option C: Red with diagonal stripes */
+  .seg-gap-c {
+    background: repeating-linear-gradient(
+      -45deg,
+      #FF3B30 0px,
+      #FF3B30 3px,
+      #FF6B60 3px,
+      #FF6B60 8px
+    );
+    color: transparent;
+  }
+
+  /* Option D: Dark desaturated red, labelled "WATCH" */
+  .seg-gap-d {
+    background: #C0392B;
+    color: rgba(255,255,255,0.85);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Option E: Amber/orange — "warm" transition zone */
+  .seg-gap-e {
+    background: #FF9500;
+    color: rgba(255,255,255,0.9);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Normal mode reference card */
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .tag-bear { background: rgba(255,149,0,0.15); color: #CC7700; }
+  .tag-normal { background: rgba(52,199,89,0.15); color: #248A3D; }
+
+  /* Flex widths — based on IEX Bear proportions
+     Scale = trim price (₹243) used as 100%.
+     Showing relative to total bar:
+       deep: everything below buyLow is off-screen to left,
+       so we show from buyLow onward:
+         buy:  170-151 = 19
+         gap:  195-170 = 25
+         mid:  238-195 = 43
+         trim: shown as remainder ~20
+     Total visible = 19+25+43+20 = 107 units
+  */
+</style>
+</head>
+<body>
+
+<h1>Bear Band — Gap Zone Options</h1>
+<p class="subtitle">IEX Bear mode · CMP ₹123 · Buy ₹151–170 · Mid ₹195–238</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- REFERENCE: Normal mode (no gap) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Reference — Normal mode <span class="tag tag-normal">NORMAL</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <!-- Normal: buy 28–35× = 19+16=35 wide, no gap, mid 36–44=43 wide, trim tail -->
+  <!-- visible range: buy 151-195 = 44, mid 195-238=43, trim ~20 → total 107 -->
+  <div class="band-bar">
+    <div class="seg seg-deep" style="flex:30">DEEP</div>
+    <div class="seg seg-buy"  style="flex:44">BUY</div>
+    <div class="seg seg-mid"  style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–195</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note">Buy ends at ₹195 (35×), Mid starts at ₹195 (36×). <strong>Contiguous — no gap.</strong></p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OPTION A: Bright red gap, labelled "BEAR" -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Option A — Solid red gap · "BEAR" label <span class="tag tag-bear">BEAR</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <div class="band-bar">
+    <div class="seg seg-deep"  style="flex:30">DEEP</div>
+    <div class="seg seg-buy"   style="flex:19">BUY</div>
+    <div class="seg seg-gap-a" style="flex:25">BEAR</div>
+    <div class="seg seg-mid"   style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–170</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val" style="color:#FF3B30">₹170–195</div>
+      <div class="price-lbl">Bear zone</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note"><strong>Pros:</strong> immediately obvious something is compressed. <strong>Cons:</strong> "BEAR" label on the bar could confuse — the whole mode is Bear, not just that segment.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OPTION B: Red gap, no label (colour-only signal) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Option B — Red gap · no label <span class="tag tag-bear">BEAR</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <div class="band-bar">
+    <div class="seg seg-deep"  style="flex:30">DEEP</div>
+    <div class="seg seg-buy"   style="flex:19">BUY</div>
+    <div class="seg seg-gap-b" style="flex:25"></div>
+    <div class="seg seg-mid"   style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–170</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val" style="color:#FF6B60">₹170–195</div>
+      <div class="price-lbl">Compressed</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note"><strong>Pros:</strong> clean, uses colour alone to signal "don't buy here". <strong>Cons:</strong> someone unfamiliar might not know what the red means without a legend.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OPTION C: Diagonal stripes (hatched) — "off limits" feel -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Option C — Hatched gap · "off limits" <span class="tag tag-bear">BEAR</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <div class="band-bar">
+    <div class="seg seg-deep"  style="flex:30">DEEP</div>
+    <div class="seg seg-buy"   style="flex:19">BUY</div>
+    <div class="seg seg-gap-c" style="flex:25"></div>
+    <div class="seg seg-mid"   style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–170</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val" style="color:#FF3B30">₹170–195</div>
+      <div class="price-lbl">Avoid</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note"><strong>Pros:</strong> hatching is a universal "hazard / no-go zone" signal. <strong>Cons:</strong> may feel too alarming — this is just "don't buy here", not a danger zone.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OPTION D: Dark red, labelled "AVOID" -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Option D — Dark red · "AVOID" label <span class="tag tag-bear">BEAR</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <div class="band-bar">
+    <div class="seg seg-deep"  style="flex:30">DEEP</div>
+    <div class="seg seg-buy"   style="flex:19">BUY</div>
+    <div class="seg seg-gap-d" style="flex:25">AVOID</div>
+    <div class="seg seg-mid"   style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–170</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val" style="color:#C0392B">₹170–195</div>
+      <div class="price-lbl">Avoid</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note"><strong>Pros:</strong> label is explicit. <strong>Cons:</strong> dark red + "AVOID" is harsh for what is essentially "this would have been upper buy in normal mode".</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- OPTION E: Amber/orange gap — warm "pause" signal -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card">
+  <div class="option-label">Option E — Amber gap · "WAIT" — my pick <span class="tag tag-bear">BEAR</span></div>
+  <div class="stock-header">
+    <span class="symbol">IEX</span>
+    <span class="cmp">₹123</span>
+  </div>
+  <div class="band-bar">
+    <div class="seg seg-deep"  style="flex:30">DEEP</div>
+    <div class="seg seg-buy"   style="flex:19">BUY</div>
+    <div class="seg seg-gap-e" style="flex:25">WAIT</div>
+    <div class="seg seg-mid"   style="flex:43">MID</div>
+  </div>
+  <div class="price-row">
+    <div class="price-group">
+      <div class="price-val deep-col">&lt;₹151</div>
+      <div class="price-lbl">Deep</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val buy-col">₹151–170</div>
+      <div class="price-lbl">Buy</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val" style="color:#CC7700">₹170–195</div>
+      <div class="price-lbl">Wait</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val mid-col">₹195–238</div>
+      <div class="price-lbl">Mid / Hold</div>
+    </div>
+    <div class="price-group">
+      <div class="price-val trim-col">≥₹243</div>
+      <div class="price-lbl">Trim</div>
+    </div>
+  </div>
+  <p class="note"><strong>Pros:</strong> amber = "pause / caution" without alarm. Communicates that Bear has compressed your buy ceiling and this range is now off-limits for buying. Harmonises with the Bear toggle colour (also amber). <strong>Cons:</strong> "WAIT" may be ambiguous — could mean "wait for a dip" which is the intent, but not obvious.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Normal for contrast -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<p style="font-size:11px;color:#8E8E93;text-align:center;margin-top:8px;">
+  Gap only appears in Bear mode. Normal mode has no gap — zones are contiguous.
+</p>
+
+</body>
+</html>

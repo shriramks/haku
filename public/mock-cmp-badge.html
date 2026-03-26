@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CMP Badge — Buy Bands</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F2F2F7; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; padding: 0 0 120px; }
+
+  .nav-header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(242,242,247,0.92);
+    border-bottom: 1px solid rgba(0,0,0,0.10);
+    backdrop-filter: blur(20px);
+    padding: 52px 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-header h1 { font-size: 28px; font-weight: 700; }
+  .fy-pill {
+    padding: 6px 12px; border-radius: 10px;
+    background: rgba(0,0,0,0.06); font-size: 13px; font-weight: 500;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(0,0,0,0.38); padding: 22px 16px 6px;
+  }
+  .section-desc {
+    font-size: 12px; color: rgba(0,0,0,0.42); padding: 0 16px 10px; line-height: 1.5;
+  }
+
+  /* ── Band row ── */
+  .band-card { border-bottom: 1px solid rgba(0,0,0,0.08); background: #fff; }
+  .band-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px;
+    min-height: 52px;
+  }
+
+  /* left side: symbol + cmp — flex row, truncates at natural width */
+  .row-left {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 7px;
+    overflow: hidden;
+  }
+  .symbol {
+    font-size: 17px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex-shrink: 1; min-width: 0;
+  }
+
+  /* CMP — default (no zone): plain small text */
+  .cmp {
+    font-size: 12px; font-weight: 500;
+    color: rgba(0,0,0,0.38);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* CMP badge — buy zone */
+  .cmp-badge {
+    font-size: 12px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap; flex-shrink: 0;
+    padding: 2px 7px; border-radius: 6px;
+  }
+  .cmp-buy  { background: rgba(34,197,94,0.13); color: #15803D; }
+  .cmp-deep { background: rgba(4,120,87,0.13);  color: #065F46; }
+
+  /* right: action buttons */
+  .row-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+  .btn-bands {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 9px; border-radius: 8px; font-size: 12px; font-weight: 500;
+    background: rgba(10,132,255,0.10); color: #0A84FF;
+    border: 1px solid rgba(10,132,255,0.22); white-space: nowrap;
+  }
+  .btn-cmp {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 9px; border-radius: 8px; font-size: 12px; font-weight: 500;
+    background: rgba(0,0,0,0.05); color: rgba(0,0,0,0.50);
+    border: 1px solid rgba(0,0,0,0.10); white-space: nowrap;
+  }
+  .chevron { color: rgba(0,0,0,0.22); font-size: 14px; line-height: 1; }
+
+  /* dark */
+  body.dark { background: #111; }
+  body.dark .nav-header { background: rgba(17,17,17,0.92); border-bottom-color: rgba(255,255,255,0.09); }
+  body.dark .nav-header h1, body.dark .fy-pill { color: #fff; }
+  body.dark .fy-pill { background: rgba(255,255,255,0.08); }
+  body.dark .section-label { color: rgba(255,255,255,0.3); }
+  body.dark .section-desc { color: rgba(255,255,255,0.32); }
+  body.dark .band-card { background: #1C1C1E; border-bottom-color: rgba(255,255,255,0.07); }
+  body.dark .symbol { color: #fff; }
+  body.dark .cmp { color: rgba(255,255,255,0.3); }
+  body.dark .cmp-buy  { background: rgba(34,197,94,0.14); color: #4ADE80; }
+  body.dark .cmp-deep { background: rgba(4,120,87,0.16);  color: #6EE7B7; }
+  body.dark .btn-bands { background: rgba(10,132,255,0.13); color: #0A84FF; border-color: rgba(10,132,255,0.25); }
+  body.dark .btn-cmp { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); border-color: rgba(255,255,255,0.1); }
+  body.dark .chevron { color: rgba(255,255,255,0.18); }
+
+  /* toggle */
+  .dark-toggle { display:flex; align-items:center; gap:8px; padding:12px 16px 0; font-size:13px; color:rgba(0,0,0,0.5); }
+  body.dark .dark-toggle { color:rgba(255,255,255,0.4); }
+  .dark-toggle input { width:36px; height:20px; appearance:none; background:#ccc; border-radius:10px; position:relative; cursor:pointer; transition:background 0.2s; }
+  .dark-toggle input:checked { background:#34C759; }
+  .dark-toggle input::after { content:''; position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; top:2px; left:2px; transition:left 0.2s; }
+  .dark-toggle input:checked::after { left:18px; }
+</style>
+</head>
+<body>
+
+<div class="nav-header">
+  <h1>Buy Bands</h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="fy-pill">FY 25–26</div>
+    <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.1)"></div>
+  </div>
+</div>
+
+<label class="dark-toggle">
+  <input type="checkbox" onchange="document.body.classList.toggle('dark',this.checked)">
+  Dark mode
+</label>
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- Normal-length symbols                      -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section-label">Normal symbols</div>
+
+<!-- HDFC — BUY zone -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">HDFC</span>
+      <span class="cmp-badge cmp-buy">₹1,642</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- INFY — DEEP zone -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">INFY</span>
+      <span class="cmp-badge cmp-deep">₹1,290</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ITC — no signal (above trim) -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">ITC</span>
+      <span class="cmp">₹480</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- HDFCBANK — no CMP yet -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">HDFCBANK</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- Long symbols — stress test                 -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section-label">Long symbols — stress test</div>
+<div class="section-desc">JUNIORBEES / NIFTYBEES are 10-char tickers. Row must not break or truncate CMP.</div>
+
+<!-- JUNIORBEES — BUY zone -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">JUNIORBEES</span>
+      <span class="cmp-badge cmp-buy">₹72</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- NIFTYBEES — DEEP zone -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">NIFTYBEES</span>
+      <span class="cmp-badge cmp-deep">₹248</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- JUNIORBEES — no signal -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">JUNIORBEES</span>
+      <span class="cmp">₹72</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- NIFTYBEES — no CMP yet -->
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">NIFTYBEES</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- Mixed realistic list                       -->
+<!-- ══════════════════════════════════════════ -->
+<div class="section-label">Realistic list</div>
+<div class="section-desc">Mixed signals, mixed symbol lengths — how it looks end to end.</div>
+
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">JUNIORBEES</span>
+      <span class="cmp-badge cmp-buy">₹72</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">NIFTYBEES</span>
+      <span class="cmp">₹248</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">HDFC</span>
+      <span class="cmp-badge cmp-deep">₹1,642</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">HDFCBANK</span>
+      <span class="cmp">₹1,780</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">ITC</span>
+      <span class="cmp-badge cmp-buy">₹480</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+<div class="band-card">
+  <div class="band-row">
+    <div class="row-left">
+      <span class="symbol">TCS</span>
+    </div>
+    <div class="row-right">
+      <div class="btn-bands">✦ Bands</div>
+      <div class="btn-cmp">↻ CMP</div>
+      <span class="chevron">›</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- floating tab bar -->
+<div style="position:fixed;bottom:0;left:0;right:0;z-index:40;display:flex;align-items:center;gap:10px;padding:8px 12px;padding-bottom:max(8px,calc(env(safe-area-inset-bottom,0px) - 16px))">
+  <div id="tabs-pill" style="flex:1;display:flex;align-items:center;justify-content:space-around;padding:8px;border-radius:28px;background:rgba(255,255,255,0.96);box-shadow:0 8px 28px rgba(0,0,0,0.13),0 2px 6px rgba(0,0,0,0.07)">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:16px;color:rgba(0,0,0,0.3)">
+      <svg width="25" height="25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+      <span style="font-size:10px;font-weight:500">Allocation</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:16px;background:rgba(0,0,0,0.07);color:#000">
+      <svg width="25" height="25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span style="font-size:10px;font-weight:600">Bands</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:16px;color:rgba(0,0,0,0.3)">
+      <svg width="25" height="25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      <span style="font-size:10px;font-weight:500">Transactions</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border-radius:16px;color:rgba(0,0,0,0.3)">
+      <svg width="25" height="25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      <span style="font-size:10px;font-weight:500">Plan</span>
+    </div>
+  </div>
+  <div id="add-pill" style="display:flex;align-items:center;justify-content:center;padding:23px 18px;border-radius:28px;background:rgba(255,255,255,0.96);box-shadow:0 8px 28px rgba(0,0,0,0.13),0 2px 6px rgba(0,0,0,0.07)">
+    <svg width="25" height="25" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+  </div>
+</div>
+
+<script>
+  document.querySelector('.dark-toggle input').addEventListener('change', function() {
+    const dark = this.checked
+    const tabsPill = document.getElementById('tabs-pill')
+    const addPill  = document.getElementById('add-pill')
+    const pillBg   = dark ? 'rgba(36,36,38,0.97)' : 'rgba(255,255,255,0.96)'
+    const pillShadow = dark
+      ? '0 8px 28px rgba(0,0,0,0.5),0 2px 6px rgba(0,0,0,0.3)'
+      : '0 8px 28px rgba(0,0,0,0.13),0 2px 6px rgba(0,0,0,0.07)'
+    tabsPill.style.background = pillBg; tabsPill.style.boxShadow = pillShadow
+    addPill.style.background  = pillBg; addPill.style.boxShadow  = pillShadow
+    // active tab
+    tabsPill.children[1].style.background = dark ? 'rgba(255,255,255,0.11)' : 'rgba(0,0,0,0.07)'
+    tabsPill.children[1].style.color      = dark ? '#fff' : '#000'
+    // inactive tabs
+    ;[0,2,3].forEach(i => {
+      tabsPill.children[i].style.color = dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'
+    })
+    // add icon
+    addPill.querySelector('svg').style.color = dark ? '#fff' : '#000'
+  })
+</script>
+
+</body>
+</html>

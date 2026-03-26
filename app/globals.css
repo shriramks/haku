@@ -38,6 +38,20 @@
   }
 }
 
+/* ── Nav safe-area: small in browser, proper inset in PWA standalone ──────── */
+:root { --nav-bottom-pad: 8px; }
+@media (display-mode: standalone) {
+  :root { --nav-bottom-pad: max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px)); }
+}
+
+/* ── CMP badge colours — readable in both light and dark ─────────────────── */
+.cmp-color-buy  { color: #15803D; }
+.cmp-color-deep { color: #065F46; }
+@media (prefers-color-scheme: dark) {
+  .cmp-color-buy  { color: #4ADE80; }
+  .cmp-color-deep { color: #6EE7B7; }
+}
+
 /* ── Base ────────────────────────────────────────────────────────────────── */
 html {
   overscroll-behavior: none;

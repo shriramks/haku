@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, getBandSignal } from '@/lib/band-calculator'
+import { calculateBands, getBandSignal, computeTrancheprices, computeTrancheAmounts } from '@/lib/band-calculator'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR } from '@/lib/formatter'
 import { type StockCategory } from '@/lib/types'
@@ -10,6 +10,9 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } fr
 import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
 import { getStockName } from '@/lib/stock-names'
+import CmpBadge from '@/components/CmpBadge'
+import QuartersToggle from '@/components/QuartersToggle'
+import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
 
 interface Props {
   symbol: string
@@ -29,6 +32,7 @@ export default function StockDetailClient({
 }: Props) {
   const router = useRouter()
   const [band, setBand]                     = useState(initialBand)
+  const [allocState, setAllocState]         = useState(allocation)
   const [tranches, setTranches]             = useState<BuyTranche[]>([])
   const [refreshing, setRefreshing]         = useState(false)
   const [showFinancials, setShowFinancials] = useState(false)
@@ -70,10 +74,10 @@ export default function StockDetailClient({
   const allFYSpent = allFYBuys - allFYSells
 
   // ── Band computations ────────────────────────────────────────────────────────
-  const computed = (band && allocation) ? calculateBands({
-    category:          allocation.category as StockCategory,
-    twoWeakQuarters:   allocation.two_weak_quarters,
-    twoStrongQuarters: allocation.two_strong_quarters,
+  const computed = (band && allocState) ? calculateBands({
+    category:          allocState.category as StockCategory,
+    twoWeakQuarters:   allocState.two_weak_quarters,
+    twoStrongQuarters: allocState.two_strong_quarters,
     eps: band.eps,
   }) : null
 
@@ -108,6 +112,44 @@ export default function StockDetailClient({
       }
     } catch { /* silently fail */ }
     setRefreshing(false)
+  }
+
+  // ── Bear / Normal / Bull toggle ──────────────────────────────────────────────
+  async function toggleQuarters(field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
+    if (!allocState) return
+    const patch: Record<string, boolean> = { [field]: value }
+    if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
+    const updated = { ...allocState, ...patch }
+    setAllocState(updated)
+
+    if (band && band.eps) {
+      const result = calculateBands({
+        category: updated.category as StockCategory,
+        twoWeakQuarters:   updated.two_weak_quarters,
+        twoStrongQuarters: updated.two_strong_quarters,
+        eps: band.eps,
+      })
+      if (result) {
+        setBand(prev => prev ? {
+          ...prev,
+          buy_low: result.buyLow, buy_high: result.buyHigh,
+          mid_low: result.midLow, mid_high: result.midHigh,
+          trim_price: result.trimPrice,
+        } : prev)
+        const sb = getSupabaseBrowser()
+        await Promise.all([
+          sb.from('stock_allocations').update(patch).eq('id', allocState.id),
+          sb.from('buy_bands').update({
+            buy_low: result.buyLow, buy_high: result.buyHigh,
+            mid_low: result.midLow, mid_high: result.midHigh,
+            trim_price: result.trimPrice,
+            last_updated_at: new Date().toISOString(),
+          }).eq('symbol', symbol).eq('is_current', true),
+        ])
+        return
+      }
+    }
+    getSupabaseBrowser().from('stock_allocations').update(patch).eq('id', allocState.id)
   }
 
   // ── Tranche operations ───────────────────────────────────────────────────────
@@ -215,9 +257,14 @@ export default function StockDetailClient({
 
           <div className="flex items-center justify-between mt-4">
             <div>
-              <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                {cmp ? `₹${Math.round(cmp).toLocaleString('en-IN')}` : '—'}
-              </p>
+              {cmp != null ? (
+                <p className={`text-title-1 font-bold tabnum ${signal === 'buy' ? 'cmp-color-buy' : signal === 'deep' ? 'cmp-color-deep' : ''}`}
+                   style={signal === 'buy' || signal === 'deep' ? undefined : { color: 'var(--text-primary)' }}>
+                  ₹{Math.round(cmp)}
+                </p>
+              ) : (
+                <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>—</p>
+              )}
               <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>CMP</p>
             </div>
             <button
@@ -235,6 +282,17 @@ export default function StockDetailClient({
             </button>
           </div>
         </div>
+
+        {/* ── Bear / Normal / Bull ─────────────────────────────────────────────── */}
+        {allocState && !['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'].includes(allocState.category) && (
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+            <QuartersToggle
+              twoWeakQuarters={allocState.two_weak_quarters}
+              twoStrongQuarters={allocState.two_strong_quarters}
+              onChange={(field, value) => toggleQuarters(field, value)}
+            />
+          </div>
+        )}
 
         {/* ── FY Allocation ────────────────────────────────────────────────── */}
         <SectionHeader title={`${fyLabel} Allocation`} />
@@ -352,17 +410,6 @@ function SectionHeader({ title }: { title: string }) {
         {title}
       </span>
     </div>
-  )
-}
-
-// ── Refresh icon ──────────────────────────────────────────────────────────────
-
-function RefreshIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-    </svg>
   )
 }
 
@@ -601,20 +648,3 @@ function InputRow({ k, v }: { k: string; v: string }) {
   )
 }
 
-function SparkleIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-    </svg>
-  )
-}
-
-function PencilIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
-    </svg>
-  )
-}
