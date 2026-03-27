@@ -737,10 +737,12 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
   const [removing, setRemoving] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
 
-  const freeWithoutThis = 100 - totalPct + alloc.allocation_pct
-  const sliderMax = Math.min(100, alloc.allocation_pct + freeWithoutThis)
-  const inrAmt = (pct / 100) * totalBudget
-  const totalInr = totalBudget
+  const freeWithoutThis   = 100 - totalPct + alloc.allocation_pct
+  const sliderMax         = Math.min(100, alloc.allocation_pct + freeWithoutThis)
+  const planAllocatedPct  = totalPct - alloc.allocation_pct + pct
+  const planFreePct       = 100 - planAllocatedPct
+  const planAllocatedInr  = (planAllocatedPct / 100) * totalBudget
+  const planFreeInr       = (planFreePct / 100) * totalBudget
 
   async function handleSave() {
     if (pct <= 0) return
@@ -777,9 +779,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           </button>
         </div>
 
-        {/* % stepper + live ₹ */}
+        {/* % stepper → slider → plan context */}
         <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="flex items-center justify-center gap-4 mb-2">
+          {/* Hero % */}
+          <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => setPct(p => Math.max(1, parseFloat((p - 1).toFixed(1))))}
               className="flex items-center justify-center rounded-full text-2xl font-light"
@@ -803,11 +806,6 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               +
             </button>
           </div>
-          {/* Live ₹ amount */}
-          <p className="font-bold tabnum" style={{ fontSize: 22, color: 'var(--text-primary)' }}>
-            {formatINR(inrAmt)}{' '}
-            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>of {formatINR(totalInr)}</span>
-          </p>
           {/* Slider */}
           <div className="mt-4 px-1">
             <input
@@ -821,6 +819,19 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               <span>0%</span>
               <span>{sliderMax.toFixed(0)}% max</span>
             </div>
+          </div>
+          {/* Plan context — body + subheadline below slider */}
+          <div className="mt-3 flex flex-col gap-1">
+            <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
+              {planAllocatedPct.toFixed(1)}% of plan allocated
+              <span style={{ color: 'var(--text-faint)', margin: '0 4px' }}>·</span>
+              {planFreePct.toFixed(1)}% free
+            </p>
+            <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+              {formatINR(planAllocatedInr)} of {formatINR(totalBudget)}
+              <span style={{ color: 'var(--text-faint)', margin: '0 4px' }}>·</span>
+              {formatINR(planFreeInr)} free
+            </p>
           </div>
         </div>
 

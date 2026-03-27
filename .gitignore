@@ -7,3 +7,4 @@ node_modules/
 tsconfig.tsbuildinfo
 supabase/seed*.sql
 .claude/
+docs/mocks/
