@@ -20,11 +20,19 @@ Hospitals (ramp)    Growth     EV/EBITDA   18x      22x       23x      28x      
 Cap-Light Infra     Growth     PE          28x      35x       36x      44x       45x
 Retail              Growth     PE          54x      66x       67x      81x       93x
 REIT                REIT       PE (DPU)    12x      14x       15x      18x       20x
+Tobacco Corp        Defensive  PE          20x      25x       26x      30x       31x
 Nifty 50 Index      Passive    PE (idx)    18x      20x       20x      22x       24x
 Nifty Next 50 Index Passive    PE (idx)    18x      22x       22x      25x       28x
 Commodity           Passive    —           No bands — set manually
 
 Notes:
+  Formula-computed (bands calculated directly from multiples × financials):
+    FMCG, Cap-Light Infra, Hospitals, Tobacco Corp, Nifty 50 Index, Nifty Next 50 Index
+
+  AI-computed (AI fetches financials and applies the multiples above):
+    IT/Technology, Pharma, Banks, Auto OEM, Capital Goods, Defence, Retail,
+    Insurance — Life, Insurance — General, REIT, Hospitals (ramp)
+
   EV/EBITDA:  Price = (multiple × EBITDA − net debt) / shares
   P/EV:       Price = multiple × (embedded value / shares)
   REIT:       "EPS" = trailing 12-month DPU. 12x ≈ 8.3% yield, 20x ≈ 5% yield
@@ -39,9 +47,11 @@ Notes:
 
 QUALITATIVE ADJUSTMENTS
 -----------------------
-  Two weak quarters   →  all bands × 0.90 (tighten). Trim price unchanged.
-  Two strong quarters →  all bands × 1.10 (expand).  Trim price unchanged.
+  Two weak quarters   →  buy range compressed to lower half (buyHigh = midpoint). Mid/Trim unchanged.
+  Two strong quarters →  buy range compressed to upper half (buyLow = midpoint). Mid/Trim unchanged.
+                         If a bull premium overlay is defined for the category, it is used instead.
   Both set            →  tighten takes precedence.
+  Index/Commodity     →  flags always ignored; always normal.
 
 
 SIGNALS
