@@ -121,7 +121,7 @@ function TrancheRow({ tranche, cmp, onEdit }: {
       <div className="flex-1">
         <p className="tabnum" style={{ lineHeight: 1.2 }}>
           <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            ₹{tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </span>
           <span className="text-body" style={{ color: 'var(--text-faint)', margin: '0 5px' }}>×</span>
           <span className="text-body" style={{ color: 'var(--text-2)' }}>
