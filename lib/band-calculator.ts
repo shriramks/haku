@@ -21,7 +21,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
   'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 22, midLow: 22, midHigh: 25, trim: 28 },
+  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 24, trim: 25 },
 }
 
 // Explicit bull (premium) overlays — only where the playbook defines them
