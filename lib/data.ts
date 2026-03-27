@@ -65,6 +65,18 @@ export const getTransactions = cache(async (fyId?: string): Promise<Transaction[
   return data ?? []
 })
 
+export const getTransactionsBySymbol = cache(async (symbol: string): Promise<Transaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const { data } = await createSupabaseServiceClient()
+    .from('transactions')
+    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, advance_fy_id, notes')
+    .eq('user_id', userId)
+    .eq('symbol', symbol)
+    .order('trade_date', { ascending: false })
+  return data ?? []
+})
+
 export const getSymbolAllocations = cache(async (symbol: string): Promise<StockAllocation[]> => {
   const userId = await getUserId()
   if (!userId) return []
@@ -97,13 +109,14 @@ export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
   return _fetchBuyBands(userId)
 })
 
-export const getInvestability = cache(async (): Promise<Investability[]> => {
+export const getInvestability = cache(async (symbol?: string): Promise<Investability[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
+  const q = createSupabaseServiceClient()
     .from('investability')
     .select('id, symbol, assessed_at, sector_winds, sector_winds_note, circle_of_competence, circle_note, moat, moat_note, owner_earnings, owner_earnings_note, capital_efficiency, capital_efficiency_note, innovation_velocity, innovation_note, governance, governance_note, execution_track, execution_note, supply_chain_risk, supply_chain_note, regulatory_signal, regulatory_note, thesis_breaker, thesis_breaker_note, capital_discipline, capital_discipline_note, investable, notes')
     .eq('user_id', userId)
+  const { data } = symbol ? await q.eq('symbol', symbol) : await q
   return data ?? []
 })
 
