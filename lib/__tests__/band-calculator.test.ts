@@ -309,6 +309,23 @@ describe('computeTrancheprices', () => {
     const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 4)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(1200))
   })
+
+  // Index ETF deep zone: CMP < buyLow → spread tranches instead of collapsing
+  it('index ETF deep zone: spreads multiple tranches when CMP < buyLow', () => {
+    // JUNIORBEES: buyLow=18×eps, buyHigh=22×eps. CMP implies PE=17.8x → CMP < buyLow
+    // e.g. eps=38, buyLow=684, buyHigh=836, CMP=676 (below buyLow)
+    const buyLow = 684, buyHigh = 836, cmp = 676
+    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, null, true)
+    expect(prices.length).toBeGreaterThan(1)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
+  })
+
+  it('non-index deep zone still collapses to single tranche at CMP', () => {
+    // Normal stock in deep zone: buyLow=1000, CMP=850 → floor(1000) > ceiling(850) → single
+    const prices = computeTrancheprices(1000, 1500, 850, undefined, undefined, 4, null, false)
+    expect(prices.length).toBe(1)
+    expect(prices[0]).toBeLessThanOrEqual(850)
+  })
 })
 
 // ── trancheSuggestion ─────────────────────────────────────────────────────────

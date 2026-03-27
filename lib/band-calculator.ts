@@ -21,7 +21,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
   'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 21, midLow: 21, midHigh: 25, trim: 28 },
+  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 22, midLow: 22, midHigh: 25, trim: 28 },
 }
 
 // Explicit bull (premium) overlays — only where the playbook defines them
@@ -32,6 +32,8 @@ const PREMIUM: Partial<Record<StockCategory, Mult>> = {
 // Categories where bear/bull quarter flags are ignored (index ETFs, commodities)
 export const CATEGORIES_WITHOUT_QUARTERS = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
 const FLAGS_IGNORED = CATEGORIES_WITHOUT_QUARTERS
+
+export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
 
 
 // ── Tranche price constants ───────────────────────────────────────────────────
@@ -168,6 +170,7 @@ export function computeTrancheprices(
   midHigh = buyHigh,  // unused — kept for call-site compat
   count = 3,
   twentyFourWeekLow?: number | null,
+  isIndex = false,
 ): number[] {
   void midLow; void midHigh
 
@@ -178,8 +181,18 @@ export function computeTrancheprices(
   const floor   = use24wkLow ? Math.max(twentyFourWeekLow, buyLow) : buyLow
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
 
-  // Collapse to single tranche at CMP if floor >= ceiling
+  // Collapse to single tranche at CMP if floor >= ceiling.
+  // Exception: index ETFs in deep zone (CMP < buyLow) are a strong buy — spread
+  // tranches from (CMP - buy_zone_width) to CMP so capital is deployed across prices.
   if (floor >= ceiling) {
+    if (isIndex && cmp != null && cmp > 0) {
+      const zoneWidth = buyHigh - buyLow
+      const deepFloor = Math.max(1, cmp - zoneWidth)
+      const deepCeil  = cmp
+      if (deepFloor < deepCeil) {
+        return computeTrancheprices(deepFloor, deepCeil, cmp, deepCeil, deepCeil, count, null, false)
+      }
+    }
     const ref  = cmp ?? floor
     const snap = ref < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
     return [Math.floor(ref / snap) * snap]

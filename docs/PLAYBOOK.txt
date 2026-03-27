@@ -20,14 +20,17 @@ Hospitals (ramp)    Growth     EV/EBITDA   18x      22x       23x      28x      
 Cap-Light Infra     Growth     PE          28x      35x       36x      44x       45x
 Retail              Growth     PE          54x      66x       67x      81x       93x
 REIT                REIT       PE (DPU)    12x      14x       15x      18x       20x
-Index/ETF           Passive    PE (idx)    16x      19x       20x      23x       25x
+Nifty 50 (NIFTYBEES)    Passive    PE (idx)    18x      20x       20x      22x       24x
+Nifty Next 50 (JUNIORBEES) Passive PE (idx)    18x      22x       22x      25x       28x
 Commodity           Passive    —           No bands — set manually
 
 Notes:
   EV/EBITDA:  Price = (multiple × EBITDA − net debt) / shares
   P/EV:       Price = multiple × (embedded value / shares)
   REIT:       "EPS" = trailing 12-month DPU. 12x ≈ 8.3% yield, 20x ≈ 5% yield
-  Index/ETF:  "EPS" = ETF price ÷ index trailing PE (AI identifies the tracked index)
+  Index/ETF:  "EPS" = ETF price ÷ index trailing PE (AI identifies the tracked index).
+              Deep zone (PE < buyLow) = strong buy for index ETFs — tranches spread
+              from (CMP − buy_zone_width) to CMP instead of collapsing to single tranche.
   Hospitals:      Use EV/EBITDA if hospital ramp phase flag is set, else PE
   Capital Goods:  AI fetches standalone financials (excludes financial services
                   subsidiaries). For companies with significant overseas operations,
