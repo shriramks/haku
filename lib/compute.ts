@@ -1,5 +1,5 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from './types'
-import { getBandSignal } from './band-calculator'
+import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, StockCategory } from './types'
+import { calculateBands } from './band-calculator'
 
 // ── Carryover ─────────────────────────────────────────────────────────────────
 
@@ -100,7 +100,21 @@ export function computeStockRows(
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null
-    const signal = band ? getBandSignal(band) : 'unknown'
+    const fresh  = band ? calculateBands({
+      category:          alloc.category as StockCategory,
+      twoWeakQuarters:   alloc.two_weak_quarters,
+      twoStrongQuarters: alloc.two_strong_quarters,
+      eps: band.eps,
+    }) : null
+    const _buyLow   = fresh?.buyLow   ?? band?.buy_low   ?? null
+    const _buyHigh  = fresh?.buyHigh  ?? band?.buy_high  ?? null
+    const _midHigh  = fresh?.midHigh  ?? band?.mid_high  ?? null
+    const _trim     = fresh?.trimPrice ?? band?.trim_price ?? null
+    const signal = (cmp === null || _buyLow === null || _trim === null) ? 'unknown'
+      : cmp < _buyLow              ? 'deep'
+      : cmp <= (_buyHigh ?? _trim) ? 'buy'
+      : cmp <= (_midHigh ?? _trim) ? 'hold'
+      : 'trim'
 
     const unrealisedPnL    = cmp !== null ? (cmp - avgCost) * qty : null
     const unrealisedPnLPct = (cmp !== null && avgCost > 0)

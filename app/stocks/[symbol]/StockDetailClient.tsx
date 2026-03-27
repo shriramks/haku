@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, getBandSignal, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR } from '@/lib/formatter'
 import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
@@ -87,7 +87,11 @@ export default function StockDetailClient({
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
   const cmp       = band?.manual_cmp    ?? null
   const hasBands  = buyLow != null && trimPrice != null
-  const signal    = band ? getBandSignal(band) : 'unknown'
+  const signal = (cmp === null || buyLow === null || trimPrice === null) ? 'unknown'
+    : cmp < buyLow               ? 'deep'
+    : cmp <= (buyHigh ?? trimPrice) ? 'buy'
+    : cmp <= (midHigh ?? trimPrice) ? 'hold'
+    : 'trim'
 
   // ── CMP refresh ─────────────────────────────────────────────────────────────
   async function refreshCMP() {

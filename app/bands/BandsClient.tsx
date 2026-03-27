@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, getBandSignal, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
