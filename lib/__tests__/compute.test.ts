@@ -31,6 +31,16 @@ function mkTxn(
   }
 }
 
+function mkBand(symbol: string, overrides: Partial<BuyBand> = {}): BuyBand {
+  return {
+    id: `band-${symbol}`, symbol, exchange: 'NSE', anchor_type: 'PE',
+    eps: null, bvps: null, ebitda: null, net_debt: null, shares: null, embedded_value: null,
+    buy_low: null, buy_high: null, mid_low: null, mid_high: null, trim_price: null,
+    manual_cmp: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
+    ...overrides,
+  }
+}
+
 const noBands: BuyBand[] = []
 const totalBudget = 1_000_000
 
@@ -301,5 +311,45 @@ describe('computeCarryover — edge cases', () => {
     const result = computeCarryover(prevAllocs, prevTxns, totalBudget, FY25, nextAllocs)
     expect(result.breakdown.poolTotal).toBe(20_000)  // 30k - 10k
     expect(result.adjustments.get('ITC')).toBe(20_000)
+  })
+})
+
+// ── computeStockRows — signal uses fresh computed bands ───────────────────────
+
+describe('computeStockRows — bandSignal uses live calculateBands, not stored DB values', () => {
+  it('signal is buy when CMP is in fresh buy zone, even if stale stored buy_low says deep', () => {
+    // FMCG: fresh buyLow=350 (35×10), buyHigh=500 (50×10). CMP=400 → fresh: buy
+    // Stored buy_low=600 (stale, old EPS) → stored signal would be: deep
+    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
+    const band  = mkBand('HINDUNILVR', {
+      eps: 10, manual_cmp: 400,
+      buy_low: 600, buy_high: 700, mid_high: 800, trim_price: 810,  // stale
+    })
+    const [row] = computeStockRows([alloc], [], [band], totalBudget)
+    expect(row.bandSignal).toBe('buy')  // fresh: 350 ≤ 400 ≤ 500
+  })
+
+  it('signal is deep when CMP is below fresh buy zone, even if stale stored values say buy', () => {
+    // FMCG: fresh buyLow=350. CMP=300 → fresh: deep
+    // Stored buy_low=100 → stored signal would be: buy
+    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
+    const band  = mkBand('HINDUNILVR', {
+      eps: 10, manual_cmp: 300,
+      buy_low: 100, buy_high: 200, mid_high: 300, trim_price: 310,  // stale
+    })
+    const [row] = computeStockRows([alloc], [], [band], totalBudget)
+    expect(row.bandSignal).toBe('deep')  // fresh: 300 < 350
+  })
+
+  it('signal is unknown when no CMP', () => {
+    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
+    const band  = mkBand('HINDUNILVR', { eps: 10, manual_cmp: null })
+    const [row] = computeStockRows([alloc], [], [band], totalBudget)
+    expect(row.bandSignal).toBe('unknown')
+  })
+
+  it('signal is unknown when no band', () => {
+    const [row] = computeStockRows([mkAlloc('HINDUNILVR', 10)], [], [], totalBudget)
+    expect(row.bandSignal).toBe('unknown')
   })
 })
