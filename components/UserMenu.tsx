@@ -86,7 +86,7 @@ export default function UserMenu() {
         target="_blank"
         rel="noopener noreferrer"
         className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
-        style={{ background: 'var(--border)', color: 'var(--text-2)' }}
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}
         aria-label="Help & Docs">
         <BookIcon className="w-4 h-4" />
       </a>
@@ -94,7 +94,7 @@ export default function UserMenu() {
       <button
         onClick={() => setOpen(v => !v)}
         className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
-        style={{ background: 'var(--border)', color: 'var(--text-2)' }}>
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
         <PersonIcon className="w-4 h-4" />
       </button>
 
@@ -162,7 +162,7 @@ export default function UserMenu() {
                 <div className="flex gap-2">
                   <button onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
                     className="flex-1 py-1.5 rounded-xl text-subheadline"
-                    style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
                     Cancel
                   </button>
                   {hasKey && (

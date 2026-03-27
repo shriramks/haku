@@ -84,7 +84,7 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-body font-medium"
-        style={{ background: 'var(--border)', color: 'var(--text-primary)' }}>
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
         {selectedFY?.label ?? '—'}
         <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

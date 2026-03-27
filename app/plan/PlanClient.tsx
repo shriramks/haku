@@ -25,6 +25,7 @@ import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
+import { PencilIcon } from '@/components/icons'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -308,7 +309,7 @@ function PlanTab({
                     setCarryoverDismissed(true)
                   }}
                   className="px-3 py-1.5 rounded-xl text-subheadline"
-                  style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
+                  style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>
                   Cancel
                 </button>
                 <button
@@ -344,9 +345,9 @@ function PlanTab({
                 )}
               </div>
               <button onClick={() => setShowBudgetSheet(true)}
-                className="px-3.5 py-2.5 rounded-xl text-body"
-                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>
-                Edit
+                className="w-11 h-11 flex items-center justify-center rounded-xl flex-shrink-0"
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>
+                <PencilIcon className="w-4 h-4" />
               </button>
             </div>
 
@@ -672,7 +673,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
               </p>
               <button onClick={() => setConfirmDelete(false)}
                 className="px-3 py-2 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>No</button>
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>No</button>
               <button onClick={onDeleteFY}
                 className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative"
                 style={{ background: 'rgba(255,59,48,0.10)' }}>
@@ -681,8 +682,9 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
             </div>
           ) : (
             <button onClick={() => setConfirmDelete(true)}
-              className="text-body text-negative">
-              {fyHasTxns ? 'Clear Plan…' : 'Delete Plan…'}
+              className="w-full py-3 rounded-xl text-body font-medium text-negative"
+              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+              {fyHasTxns ? 'Clear Plan' : 'Delete Plan'}
             </button>
           )}
         </div>
@@ -776,6 +778,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               +
             </button>
           </div>
+          {/* Stock INR amount */}
+          <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
+            {formatINR((pct / 100) * totalBudget)} allocated
+          </p>
           {/* Slider */}
           <div className="mt-4 px-1">
             <input
@@ -790,7 +796,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               <span>{sliderMax.toFixed(0)}% max</span>
             </div>
           </div>
-          {/* Plan context — body + subheadline below slider */}
+          {/* Plan context */}
           <div className="mt-3 flex flex-col gap-1">
             <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
               {planAllocatedPct.toFixed(1)}% of plan allocated
@@ -824,7 +830,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
               <button onClick={() => setConfirmRemove(false)}
                 className="px-3 py-2 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--border)' }}>Keep</button>
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Keep</button>
               <button onClick={handleRemove} disabled={removing}
                 className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative disabled:opacity-40"
                 style={{ background: 'rgba(255,59,48,0.10)' }}>
@@ -832,8 +838,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               </button>
             </div>
           ) : (
-            <button onClick={() => setConfirmRemove(true)} className="text-body text-negative">
-              Remove from Plan…
+            <button onClick={() => setConfirmRemove(true)}
+              className="w-full py-3 rounded-xl text-body font-medium text-negative"
+              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+              Remove from Plan
             </button>
           )}
         </div>
