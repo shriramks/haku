@@ -20,8 +20,8 @@ Hospitals (ramp)    Growth     EV/EBITDA   18x      22x       23x      28x      
 Cap-Light Infra     Growth     PE          28x      35x       36x      44x       45x
 Retail              Growth     PE          54x      66x       67x      81x       93x
 REIT                REIT       PE (DPU)    12x      14x       15x      18x       20x
-Nifty 50 (NIFTYBEES)    Passive    PE (idx)    18x      20x       20x      22x       24x
-Nifty Next 50 (JUNIORBEES) Passive PE (idx)    18x      22x       22x      25x       28x
+Nifty 50 Index      Passive    PE (idx)    18x      20x       20x      22x       24x
+Nifty Next 50 Index Passive    PE (idx)    18x      22x       22x      25x       28x
 Commodity           Passive    —           No bands — set manually
 
 Notes:
