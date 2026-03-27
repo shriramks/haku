@@ -264,12 +264,27 @@ describe('computeTrancheprices', () => {
     expect(prices[0]).toBeLessThanOrEqual(800)
   })
 
-  // Hard cap: floor >= ceiling → single tranche at CMP
-  it('collapses to single tranche when floor >= ceiling', () => {
-    // CMP=1005, buyLow=1000, 24wkLow=1100 → floor=max(1078,950)=1078, ceiling=1005 → floor>ceiling
-    const prices = computeTrancheprices(1000, 1500, 1005, undefined, undefined, 3, 1100)
-    expect(prices.length).toBe(1)
-    expect(prices[0]).toBeLessThanOrEqual(1005)
+  // 24wkLow >= CMP: price is AT the 6-month low → ignore 24wkLow, use buyLow as floor
+  it('24wkLow >= CMP (at 6-month low): falls back to buyLow floor, spreads normally', () => {
+    // buyLow=1000, 24wkLow=1200, CMP=1150 — old behaviour collapsed; new: use buyLow floor
+    // floor=1000, ceiling=1150, range=150 → multiple tranches
+    const prices = computeTrancheprices(1000, 1500, 1150, undefined, undefined, 3, 1200)
+    expect(prices.length).toBeGreaterThan(1)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(1000)
+      expect(p).toBeLessThanOrEqual(1150)
+    })
+  })
+
+  it('24wkLow = CMP exactly (JUNIORBEES-style): spreads across buy zone, not single tranche', () => {
+    // buyLow=600, buyHigh=720, 24wkLow=680, CMP=680
+    // use24wkLow = 680 < 680 → false → floor = buyLow = 600, ceiling = CMP = 680
+    const prices = computeTrancheprices(600, 720, 680, undefined, undefined, 5, 680)
+    expect(prices.length).toBeGreaterThan(1)
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(600)
+      expect(p).toBeLessThanOrEqual(680)
+    })
   })
 
   // Price rounding

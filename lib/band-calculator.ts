@@ -171,8 +171,11 @@ export function computeTrancheprices(
 ): number[] {
   void midLow; void midHigh
 
-  // Floor is the higher of 24-week low and buyLow — never price below either
-  const floor   = twentyFourWeekLow ? Math.max(twentyFourWeekLow, buyLow) : buyLow
+  // Floor is the higher of 24-week low and buyLow — never price below either.
+  // Exception: if 24wkLow >= CMP the price is AT the 6-month low, which is a
+  // favourable entry. Use buyLow as floor so tranches spread across the buy zone.
+  const use24wkLow = twentyFourWeekLow != null && (!cmp || twentyFourWeekLow < cmp)
+  const floor   = use24wkLow ? Math.max(twentyFourWeekLow, buyLow) : buyLow
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
 
   // Collapse to single tranche at CMP if floor >= ceiling

@@ -162,5 +162,10 @@ export async function POST(
     ? '⚠️ Majority of capital parked >15% below CMP. Review whether deployment timing is appropriate.'
     : null
 
-  return NextResponse.json({ symbol: upperSymbol, tranches: inserted ?? [], warning })
+  return NextResponse.json({
+    symbol: upperSymbol,
+    tranches: inserted ?? [],
+    warning,
+    _debug: { buyLow, buyHigh, liveCmp, twentyFourWeekLow, deployable, trancheCount },
+  })
 }
