@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
@@ -7,6 +8,37 @@ import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
+import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
+
+// ── Date filter types + helpers ───────────────────────────────────────────────
+
+interface DateFilter {
+  label: string
+  from: string  // YYYY-MM-DD
+  to: string    // YYYY-MM-DD
+}
+
+function toYMD(d: Date) { return d.toISOString().slice(0, 10) }
+
+const QUICK_OPTIONS = [
+  { key: 'last7',  label: 'Last 7 days' },
+  { key: 'last30', label: 'Last 30 days' },
+  { key: 'last3m', label: 'Last 3 months' },
+  { key: 'thisfy', label: 'This FY' },
+]
+
+function getQuickRange(key: string, fy: FiscalYear | null): { from: string; to: string } {
+  const today = new Date()
+  const ago = (days: number) => { const d = new Date(today); d.setDate(today.getDate() - days); return d }
+  const agoMonths = (m: number) => { const d = new Date(today); d.setMonth(today.getMonth() - m); return d }
+  if (key === 'last7')  return { from: toYMD(ago(6)),        to: toYMD(today) }
+  if (key === 'last30') return { from: toYMD(ago(29)),       to: toYMD(today) }
+  if (key === 'last3m') return { from: toYMD(agoMonths(3)), to: toYMD(today) }
+  if (key === 'thisfy' && fy) return { from: fy.start_date, to: fy.end_date }
+  return { from: '', to: '' }
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function TransactionsClient({
   transactions: initial,
@@ -20,37 +52,192 @@ export default function TransactionsClient({
   filterSymbol?: string
 }) {
   const router = useRouter()
-  const [txns, setTxns] = useState(initial)
-  const [typeFilter, setTypeFilter] = useState<'all' | 'buy' | 'sell'>('all')
-  const [symbolFilter, setSymbolFilter] = useState<string>('all')
+  const [txns, setTxns]       = useState(initial)
+  const [mounted, setMounted] = useState(false)
 
+  // Filters
+  const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
+  const [symbolFilter, setSymbolFilter] = useState('all')
+  const [dateFilter,   setDateFilter]   = useState<DateFilter | null>(null)
+  const [notesFilter,  setNotesFilter]  = useState('')
+
+  // Sheet visibility
+  const [filterOpen,     setFilterOpen]     = useState(false)
+  const [stockSheetOpen, setStockSheetOpen] = useState(false)
+  const [dateSheetOpen,  setDateSheetOpen]  = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setTxns(initial) }, [initial])
 
-  function deleteTxn(id: string) {
-    setTxns(prev => prev.filter(t => t.id !== id))
+  function deleteTxn(id: string)      { setTxns(prev => prev.filter(t => t.id !== id)) }
+  function updateTxn(u: Transaction)  { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+
+  function resetFilters() {
+    setTypeFilter('all')
+    setSymbolFilter('all')
+    setDateFilter(null)
+    setNotesFilter('')
   }
 
-  function updateTxn(updated: Transaction) {
-    setTxns(prev => prev.map(t => t.id === updated.id ? updated : t))
-  }
+  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !!dateFilter || !!notesFilter
 
-  const symbols = Array.from(new Set(txns.map(t => t.symbol))).sort()
-  const displayed = txns
+  const symbols = useMemo(() =>
+    Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
+
+  const displayed = useMemo(() => txns
     .filter(t => !filterSymbol || t.symbol === filterSymbol)
-    .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
     .filter(t => typeFilter === 'all' || t.trade_type === typeFilter)
+    .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
+    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to))
+    .filter(t => !notesFilter || t.notes.toLowerCase().includes(notesFilter.toLowerCase())),
+    [txns, filterSymbol, typeFilter, symbolFilter, dateFilter, notesFilter]
+  )
+
   const grouped = groupByMonth(displayed)
+
+  // Active dismissible tags
+  const activeTags: { key: string; label: string; clear: () => void }[] = []
+  if (typeFilter !== 'all')
+    activeTags.push({ key: 'type',   label: typeFilter === 'buy' ? 'Buys' : 'Sells', clear: () => setTypeFilter('all') })
+  if (!filterSymbol && symbolFilter !== 'all')
+    activeTags.push({ key: 'symbol', label: symbolFilter,  clear: () => setSymbolFilter('all') })
+  if (dateFilter)
+    activeTags.push({ key: 'date',   label: dateFilter.label, clear: () => setDateFilter(null) })
+  if (notesFilter)
+    activeTags.push({ key: 'notes',  label: `"${notesFilter}"`, clear: () => setNotesFilter('') })
+
+  // ── Filter sheet ──
+  const filterSheet = filterOpen && mounted && createPortal(
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+           onClick={() => setFilterOpen(false)} />
+      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-[28px]"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={resetFilters}
+            className="text-headline"
+            style={{ color: hasFilters ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
+            disabled={!hasFilters}>
+            Reset
+          </button>
+          <p className="font-semibold text-headline">Filter</p>
+          <button onClick={() => setFilterOpen(false)}
+            className="font-semibold text-headline text-accent"
+            style={{ width: 60, textAlign: 'right' }}>
+            Done
+          </button>
+        </div>
+
+        {/* Type */}
+        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Type</p>
+          <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+            {(['all', 'buy', 'sell'] as const).map(t => (
+              <button key={t} onClick={() => setTypeFilter(t)}
+                className="flex-1 py-2.5 text-body font-medium transition-colors"
+                style={typeFilter === t
+                  ? { background: '#0A84FF', color: '#fff' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stock picker row */}
+        {!filterSymbol && (
+          <button
+            onClick={() => setStockSheetOpen(true)}
+            className="w-full flex items-center justify-between px-5 border-b"
+            style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+            <span className="text-body">Stock</span>
+            <span className="flex items-center gap-1.5 text-body"
+                  style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : '#0A84FF' }}>
+              {symbolFilter === 'all' ? 'Any' : symbolFilter}
+              <ChevronRightIcon className="w-4 h-4 opacity-40" />
+            </span>
+          </button>
+        )}
+
+        {/* Date picker row */}
+        <button
+          onClick={() => setDateSheetOpen(true)}
+          className="w-full flex items-center justify-between px-5 border-b"
+          style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+          <span className="text-body">Date</span>
+          <span className="flex items-center gap-1.5 text-body"
+                style={{ color: dateFilter ? '#0A84FF' : 'var(--text-muted)' }}>
+            {dateFilter?.label ?? 'Any time'}
+            <ChevronRightIcon className="w-4 h-4 opacity-40" />
+          </span>
+        </button>
+
+        {/* Notes */}
+        <div className="px-5 pt-4">
+          <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Notes</p>
+          <input
+            type="text"
+            placeholder="Search notes…"
+            value={notesFilter}
+            onChange={e => setNotesFilter(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          />
+        </div>
+      </div>
+    </>,
+    document.body
+  )
+
+  // ── Stock sub-sheet ──
+  const stockSheet = stockSheetOpen && mounted && createPortal(
+    <>
+      <div className="fixed inset-0 z-[210]" onClick={() => setStockSheetOpen(false)} />
+      <div className="fixed bottom-0 left-0 right-0 z-[210] rounded-t-[28px]"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <StockSubSheet
+          symbols={symbols}
+          value={symbolFilter}
+          onSelect={s => { setSymbolFilter(s); setStockSheetOpen(false) }}
+          onClose={() => setStockSheetOpen(false)}
+        />
+      </div>
+    </>,
+    document.body
+  )
+
+  // ── Date sub-sheet ──
+  const dateSheet = dateSheetOpen && mounted && createPortal(
+    <>
+      <div className="fixed inset-0 z-[210]" onClick={() => setDateSheetOpen(false)} />
+      <div className="fixed bottom-0 left-0 right-0 z-[210] rounded-t-[28px]"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <DateSubSheet
+          value={dateFilter}
+          selectedFY={selectedFY}
+          onApply={f => { setDateFilter(f); setDateSheetOpen(false) }}
+          onClose={() => setDateSheetOpen(false)}
+        />
+      </div>
+    </>,
+    document.body
+  )
 
   return (
     <div style={{ minHeight: '100dvh' }}>
+      {/* ── Sticky header ── */}
       <div
-        className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+        className="sticky top-0 z-10 backdrop-blur-xl border-b"
         style={{
           background: 'var(--bg-nav)',
           borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between px-4 pt-1">
           <div>
             <h1 className="text-display font-bold">{filterSymbol ?? 'Transactions'}</h1>
             {filterSymbol && (
@@ -67,49 +254,40 @@ export default function TransactionsClient({
           </div>
         </div>
 
-        {/* Filter chips */}
-        <div className="flex items-center gap-2 mt-2">
-          {(['all', 'buy', 'sell'] as const).map(t => (
-            <button key={t} onClick={() => setTypeFilter(t)}
-              className="px-4 rounded-full text-subheadline font-medium transition-colors flex-shrink-0 flex items-center"
-              style={{
-                minHeight: '44px',
-                ...(typeFilter === t
-                  ? { background: t === 'buy' ? 'rgba(52,199,89,0.2)' : t === 'sell' ? 'rgba(255,59,48,0.2)' : 'var(--text-primary)', color: t === 'buy' ? '#34C759' : t === 'sell' ? '#FF3B30' : 'var(--bg-primary)' }
-                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
-              }}>
-              {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
-            </button>
-          ))}
-          {!filterSymbol && symbols.length > 0 && (
-            <>
-              <div className="w-px self-stretch my-2" style={{ background: 'var(--border)' }} />
-              <div className="relative flex-shrink-0">
-                <div className="flex items-center gap-1.5 px-4 rounded-full text-subheadline font-medium pointer-events-none"
-                     style={{
-                       minHeight: '44px',
-                       ...(symbolFilter !== 'all'
-                         ? { background: 'rgba(10,132,255,0.15)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
-                         : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }),
-                     }}>
-                  <span className="text-subheadline">{symbolFilter === 'all' ? 'Stock' : symbolFilter}</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-                <select
-                  value={symbolFilter}
-                  onChange={e => setSymbolFilter(e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                  <option value="all">All stocks</option>
-                  {symbols.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </>
+        {/* Filter row */}
+        <div className="flex items-center gap-2 px-4 pt-2 pb-3 overflow-x-auto"
+             style={{ scrollbarWidth: 'none' }}>
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+            style={hasFilters
+              ? { background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
+              : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+            <FilterIcon className="w-3.5 h-3.5" />
+            Filter
+          </button>
+
+          {activeTags.length > 0 && (
+            <div className="w-px self-stretch my-1.5 flex-shrink-0" style={{ background: 'var(--border)' }} />
           )}
+
+          {activeTags.map(tag => (
+            <div key={tag.key}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+              {tag.label}
+              <button
+                onClick={tag.clear}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
+                style={{ background: 'rgba(10,132,255,0.2)', color: '#0A84FF' }}>
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* ── Txn list ── */}
       {displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
              style={{
@@ -120,8 +298,12 @@ export default function TransactionsClient({
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <p className="text-headline font-medium">No transactions yet</p>
-          <p className="text-body">Tap + to log your first trade</p>
+          <p className="text-headline font-medium">
+            {hasFilters ? 'No matching transactions' : 'No transactions yet'}
+          </p>
+          <p className="text-body">
+            {hasFilters ? 'Try adjusting your filters' : 'Tap + to log your first trade'}
+          </p>
         </div>
       ) : (
         <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
@@ -131,7 +313,7 @@ export default function TransactionsClient({
                 <p className="text-subheadline font-semibold uppercase tracking-widest"
                    style={{ color: 'var(--text-muted)' }}>{month}</p>
                 <div className="flex gap-3 text-subheadline tabnum">
-                  {buyTotal > 0 && <span className="text-positive">+{formatINR(buyTotal)}</span>}
+                  {buyTotal  > 0 && <span className="text-positive">+{formatINR(buyTotal)}</span>}
                   {sellTotal > 0 && <span className="text-negative">−{formatINR(sellTotal)}</span>}
                 </div>
               </div>
@@ -150,7 +332,204 @@ export default function TransactionsClient({
           ))}
         </div>
       )}
+
+      {filterSheet}
+      {stockSheet}
+      {dateSheet}
     </div>
+  )
+}
+
+// ── StockSubSheet ─────────────────────────────────────────────────────────────
+
+function StockSubSheet({ symbols, value, onSelect, onClose }: {
+  symbols: string[]
+  value: string
+  onSelect: (s: string) => void
+  onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const filtered = symbols.filter(s => s.toLowerCase().includes(search.toLowerCase()))
+
+  return (
+    <>
+      <div className="flex justify-center pt-3 pb-1">
+        <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+      </div>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
+           style={{ borderColor: 'var(--border)' }}>
+        <div style={{ width: 60 }} />
+        <p className="font-semibold text-headline">Stock</p>
+        <button onClick={onClose}
+          className="font-semibold text-headline text-accent"
+          style={{ width: 60, textAlign: 'right' }}>
+          Done
+        </button>
+      </div>
+      <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+          <SearchIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' } as React.CSSProperties} />
+          <input
+            type="text"
+            placeholder="Search…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+            className="flex-1 outline-none text-body bg-transparent"
+            style={{ color: 'var(--text-primary)' }}
+          />
+        </div>
+      </div>
+      <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+        <button
+          onClick={() => onSelect('all')}
+          className="w-full flex items-center justify-between px-5 border-b"
+          style={{
+            minHeight: 52, borderColor: 'var(--border-faint)',
+            background: value === 'all' ? 'rgba(10,132,255,0.04)' : undefined,
+          }}>
+          <span className="text-body"
+                style={{ color: value === 'all' ? '#0A84FF' : 'var(--text-primary)', fontWeight: value === 'all' ? 500 : 400 }}>
+            Any stock
+          </span>
+          {value === 'all' && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+        </button>
+        {filtered.map(s => (
+          <button key={s}
+            onClick={() => onSelect(s)}
+            className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+            style={{
+              minHeight: 52, borderColor: 'var(--border-faint)',
+              background: value === s ? 'rgba(10,132,255,0.04)' : undefined,
+            }}>
+            <span className="text-body"
+                  style={{ color: value === s ? '#0A84FF' : 'var(--text-primary)', fontWeight: value === s ? 500 : 400 }}>
+              {s}
+            </span>
+            {value === s && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+// ── DateSubSheet ──────────────────────────────────────────────────────────────
+
+function DateSubSheet({ value, selectedFY, onApply, onClose }: {
+  value: DateFilter | null
+  selectedFY: FiscalYear | null
+  onApply: (f: DateFilter | null) => void
+  onClose: () => void
+}) {
+  const initKey = value ? (QUICK_OPTIONS.find(o => o.label === value.label)?.key ?? null) : null
+  const [quickKey,    setQuickKey]    = useState<string | null>(initKey)
+  const [customFrom,  setCustomFrom]  = useState(value?.from ?? '')
+  const [customTo,    setCustomTo]    = useState(value?.to ?? '')
+
+  function selectQuick(key: string) {
+    const range = getQuickRange(key, selectedFY)
+    setQuickKey(key)
+    setCustomFrom(range.from)
+    setCustomTo(range.to)
+  }
+
+  function handleCustomFrom(v: string) { setCustomFrom(v); setQuickKey(null) }
+  function handleCustomTo(v: string)   { setCustomTo(v);   setQuickKey(null) }
+
+  function apply() {
+    if (quickKey) {
+      const label = QUICK_OPTIONS.find(o => o.key === quickKey)!.label
+      onApply({ label, from: customFrom, to: customTo })
+    } else if (customFrom && customTo) {
+      const fmt = (d: string) =>
+        new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+      onApply({ label: `${fmt(customFrom)} – ${fmt(customTo)}`, from: customFrom, to: customTo })
+    } else {
+      onApply(null)
+    }
+  }
+
+  const hasValue = !!(quickKey || (customFrom && customTo))
+
+  return (
+    <>
+      <div className="flex justify-center pt-3 pb-1">
+        <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+      </div>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
+           style={{ borderColor: 'var(--border)' }}>
+        <button
+          onClick={() => onApply(null)}
+          className="text-headline"
+          style={{ color: value ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
+          disabled={!value}>
+          Clear
+        </button>
+        <p className="font-semibold text-headline">Date</p>
+        <button onClick={apply}
+          className="font-semibold text-headline text-accent"
+          style={{ width: 60, textAlign: 'right' }}>
+          Done
+        </button>
+      </div>
+
+      {/* Quick selects */}
+      <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+          Quick select
+        </p>
+        {QUICK_OPTIONS.map(opt => (
+          <button key={opt.key}
+            onClick={() => selectQuick(opt.key)}
+            className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
+            style={{ borderColor: 'var(--border-faint)' }}>
+            <span className="text-body"
+                  style={{ color: quickKey === opt.key ? '#0A84FF' : 'var(--text-primary)', fontWeight: quickKey === opt.key ? 500 : 400 }}>
+              {opt.label}
+            </span>
+            {quickKey === opt.key && (
+              <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom range */}
+      <div className="px-5 pt-4 pb-2">
+        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+          Custom range
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={customFrom}
+            onChange={e => handleCustomFrom(e.target.value)}
+            className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
+            style={{
+              background: customFrom && !quickKey ? 'rgba(10,132,255,0.08)' : 'var(--bg-tertiary)',
+              color:      customFrom && !quickKey ? '#0A84FF' : 'var(--text-primary)',
+              border:     customFrom && !quickKey ? '1px solid rgba(10,132,255,0.25)' : '1px solid var(--border)',
+              colorScheme: 'light dark',
+            }}
+          />
+          <span className="text-body flex-shrink-0" style={{ color: 'var(--text-faint)' }}>→</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={e => handleCustomTo(e.target.value)}
+            className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
+            style={{
+              background: customTo && !quickKey ? 'rgba(10,132,255,0.08)' : 'var(--bg-tertiary)',
+              color:      customTo && !quickKey ? '#0A84FF' : 'var(--text-primary)',
+              border:     customTo && !quickKey ? '1px solid rgba(10,132,255,0.25)' : '1px solid var(--border)',
+              colorScheme: 'light dark',
+            }}
+          />
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -162,17 +541,16 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   onDelete: (id: string) => void
   onSaved: (updated: Transaction) => void
 }) {
-  const [editing, setEditing]       = useState(false)
-  const [editQty, setEditQty]       = useState('')
-  const [editPrice, setEditPrice]   = useState('')
-  const [editDate, setEditDate]     = useState('')
-  const [advanceOn, setAdvanceOn]   = useState(false)
+  const [editing, setEditing]         = useState(false)
+  const [editQty, setEditQty]         = useState('')
+  const [editPrice, setEditPrice]     = useState('')
+  const [editDate, setEditDate]       = useState('')
+  const [advanceOn, setAdvanceOn]     = useState(false)
   const [advanceFyId, setAdvanceFyId] = useState<string | null>(null)
-  const [saving, setSaving]         = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [confirming, setConfirming]   = useState(false)
 
-  const isBuy = txn.trade_type === 'buy'
-  // FYs available for advance buy — exclude the txn's own FY
+  const isBuy    = txn.trade_type === 'buy'
   const otherFYs = fiscalYears.filter(f => f.id !== txn.fy_id)
 
   function openEdit() {
@@ -185,10 +563,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     setEditing(true)
   }
 
-  function cancelEdit() {
-    setEditing(false)
-    setConfirming(false)
-  }
+  function cancelEdit() { setEditing(false); setConfirming(false) }
 
   async function save() {
     const qty   = parseFloat(editQty)
@@ -196,10 +571,10 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     if (!qty || !price || !editDate) return
     setSaving(true)
     const patch = {
-      quantity:       qty,
+      quantity:      qty,
       price,
-      trade_date:     editDate,
-      advance_fy_id:  advanceOn && advanceFyId ? advanceFyId : null,
+      trade_date:    editDate,
+      advance_fy_id: advanceOn && advanceFyId ? advanceFyId : null,
     }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
     onSaved({ ...txn, ...patch, amount: qty * price })
@@ -212,22 +587,19 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     onDelete(txn.id)
   }
 
-  const editAmount = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
+  const editAmount  = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
   const saveDisabled = saving || !editQty || !editPrice || !editDate || (advanceOn && !advanceFyId)
 
   // ── Edit mode ──
   if (editing) {
     return (
       <div className="px-4 py-3" style={{ background: 'rgba(10,132,255,0.04)' }}>
-        {/* Header — frozen */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
             <span className="font-semibold text-headline">{txn.symbol}</span>
             <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md ${isBuy ? 'text-positive' : 'text-negative'}`}
-                  style={{
-                    background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)',
-                  }}>
+                  style={{ background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)' }}>
               {isBuy ? 'BUY' : 'SELL'}
             </span>
           </div>
@@ -236,7 +608,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           </span>
         </div>
 
-        {/* Fields */}
         <div className="grid grid-cols-2 gap-2 mb-2">
           <div>
             <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</p>
@@ -261,7 +632,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           <div />
         </div>
 
-        {/* Advance buy — buys only, only when other FYs exist */}
         {isBuy && otherFYs.length > 0 && (
           <div className="border-t pt-3 mb-3" style={{ borderColor: 'var(--border-faint)' }}>
             <div className="flex items-center justify-between">
@@ -289,7 +659,8 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
                       background: advanceFyId === fy.id ? 'rgba(10,132,255,0.06)' : 'var(--bg-secondary)',
                     }}>
                     <div>
-                      <p className="text-body font-medium" style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
+                      <p className="text-body font-medium"
+                         style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
                       <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                         {shortMonthYear(fy.start_date)} – {shortMonthYear(fy.end_date)}
                       </p>
@@ -306,7 +677,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           </div>
         )}
 
-        {/* Actions */}
         {confirming ? (
           <div className="flex gap-2">
             <button onClick={() => setConfirming(false)}
@@ -349,7 +719,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     <div className="flex items-start px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
 
-      {/* Left: symbol + name */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-headline">{txn.symbol}</span>
@@ -365,7 +734,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         )}
       </div>
 
-      {/* Middle: qty / price / date */}
       <div className="text-right flex-shrink-0 pr-4">
         <p className="text-body tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
           {Math.round(txn.quantity)} qty
@@ -378,7 +746,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         </p>
       </div>
 
-      {/* Right: amount + edit */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className={`font-bold tabnum text-headline ${isBuy ? '' : 'text-negative'}`}
            style={isBuy ? { color: 'var(--text-primary)' } : undefined}>
@@ -393,6 +760,8 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     </div>
   )
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getFYLabel(fyId: string, fiscalYears: FiscalYear[]): string {
   return fiscalYears.find(f => f.id === fyId)?.label ?? '?'
@@ -412,13 +781,4 @@ function groupByMonth(txns: Transaction[]) {
     buyTotal:  items.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0),
     sellTotal: items.filter(t => t.trade_type === 'sell').reduce((s, t) => s + t.amount, 0),
   }))
-}
-
-function PencilIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M15.232 5.232l3.536 3.536M9 11l6.5-6.5a2 2 0 112.828 2.828L11.828 13.828a2 2 0 01-.828.497l-3 .75.75-3a2 2 0 01.497-.828z" />
-    </svg>
-  )
 }
