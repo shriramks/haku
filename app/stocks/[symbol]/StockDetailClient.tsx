@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR } from '@/lib/formatter'
 import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
