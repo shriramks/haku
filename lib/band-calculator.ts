@@ -7,7 +7,7 @@
 // Nifty 50 Index, Nifty Next 50 Index, Commodity: flags ignored, always normal.
 // Trim never moves — it is a valuation ceiling, not a momentum call.
 
-import type { StockCategory, BuyBand } from './types'
+import type { StockCategory } from './types'
 
 // ── Multiple tables ──────────────────────────────────────────────────────────
 
@@ -103,17 +103,6 @@ export function calculateBands(input: BandInput): BandResult | null {
     isTightened: isBear,
     isPremium:   isBull,
   }
-}
-
-// ── Band signal from CMP ─────────────────────────────────────────────────────
-
-export function getBandSignal(band: BuyBand): import('./types').BandSignal {
-  const { manual_cmp: cmp, buy_low, buy_high, mid_low, mid_high, trim_price } = band
-  if (cmp === null || buy_low === null || trim_price === null) return 'unknown'
-  if (cmp < buy_low)                                          return 'deep'
-  if (cmp <= (buy_high ?? mid_low ?? trim_price))            return 'buy'
-  if (cmp <= (mid_high ?? trim_price))                       return 'hold'
-  return 'trim'
 }
 
 /** Tranche suggestion: 1–2% of total capital, capped at remaining */

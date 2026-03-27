@@ -196,7 +196,7 @@ export default function StockDetailClient({
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: remaining }),
+        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: remaining, userLiquidInr: fiscalYear.deploy_capital_inr ?? undefined }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) {
