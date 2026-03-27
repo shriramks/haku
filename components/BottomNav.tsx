@@ -71,7 +71,7 @@ export default function BottomNav() {
                 className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-colors relative"
                 style={{
                   color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-                  background: active ? 'var(--border)' : 'transparent',
+                  background: active ? 'var(--bg-tertiary)' : 'transparent',
                 }}>
                 {showPulse && (
                   <span className="absolute whitespace-nowrap text-footnote font-semibold text-white px-2 py-0.5 rounded-md bg-accent"

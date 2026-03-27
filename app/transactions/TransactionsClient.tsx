@@ -308,12 +308,17 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
         {/* Actions */}
         {confirming ? (
-          <div className="flex items-center justify-between">
-            <p className="text-body" style={{ color: 'var(--text-2)' }}>Delete this transaction?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirming(false)} className="text-body text-accent">Keep</button>
-              <button onClick={doDelete} className="text-body font-semibold text-negative">Delete</button>
-            </div>
+          <div className="flex gap-2">
+            <button onClick={() => setConfirming(false)}
+              className="flex-1 py-2.5 rounded-xl text-body font-medium"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+              Keep
+            </button>
+            <button onClick={doDelete}
+              className="flex-1 py-2.5 rounded-xl text-body font-medium text-negative"
+              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+              Delete
+            </button>
           </div>
         ) : (
           <div className="flex items-center justify-between">

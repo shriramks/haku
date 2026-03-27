@@ -358,7 +358,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     onClick={e => { e.stopPropagation(); refreshCMP(row.symbol) }}
                     disabled={refreshing[row.symbol]}
                     className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-subheadline font-medium disabled:opacity-40"
-                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
                     <RefreshIcon className={`w-3.5 h-3.5 ${refreshing[row.symbol] ? 'spin' : ''}`} />
                     CMP
                   </button>

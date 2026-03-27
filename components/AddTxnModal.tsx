@@ -120,7 +120,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
                     key={s}
                     type="button"
                     onClick={() => setSymbol(s)}
-                    className="px-3 py-2 rounded-2xl text-body font-semibold transition-colors"
+                    className="px-3 py-2 rounded-xl text-body font-semibold transition-colors"
                     style={symbol === s
                       ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
                       : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }
@@ -137,7 +137,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
           {/* Buy / Sell toggle */}
           <div>
             <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
-            <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               {(['buy', 'sell'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
                   className="flex-1 py-3.5 text-body font-bold transition-colors"
@@ -154,7 +154,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
           <div className="overflow-hidden">
             <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
-              className="w-full px-3 py-2.5 rounded-2xl text-body outline-none max-w-full"
+              className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
               style={{
                 background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                 border: '1px solid var(--border)', colorScheme: 'light dark',
@@ -172,7 +172,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
                 <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
-                  className="w-full px-3 py-3.5 rounded-2xl text-headline tabnum outline-none"
+                  className="w-full px-3 py-3.5 rounded-xl text-headline tabnum outline-none"
                   style={{
                     background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
                     border: '1px solid var(--border)',
@@ -183,7 +183,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
 
           {/* Live total */}
           {amount > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                  style={{ background: 'var(--bg-tertiary)' }}>
               <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
               <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
@@ -194,7 +194,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
 
           {/* Redeploy toggle — sell only */}
           {type === 'sell' && amount > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                  style={{ background: 'rgba(255,59,48,0.06)', border: '1px solid rgba(255,59,48,0.15)', opacity: redeploy ? 1 : 0.6 }}>
               <div className="flex-1 mr-3">
                 <p className="text-body font-medium">Redeploy proceeds</p>
@@ -217,7 +217,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
           {error && <p className="text-negative text-body text-center">{error}</p>}
 
           <button type="submit" disabled={loading || !symbol || !qty || !price}
-            className="w-full py-4 rounded-2xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+            className="w-full py-4 rounded-xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
             style={{ background: done ? 'var(--border)' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>

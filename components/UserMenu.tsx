@@ -161,19 +161,19 @@ export default function UserMenu() {
                 {keyError && <p className="text-footnote text-negative">{keyError}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                    className="flex-1 py-1.5 rounded-xl text-subheadline"
+                    className="flex-1 min-h-[44px] rounded-xl text-subheadline"
                     style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
                     Cancel
                   </button>
                   {hasKey && (
                     <button onClick={clearKey} disabled={savingKey}
-                      className="flex-1 py-1.5 rounded-xl text-subheadline text-negative disabled:opacity-40"
+                      className="flex-1 min-h-[44px] rounded-xl text-subheadline text-negative disabled:opacity-40"
                       style={{ background: 'rgba(255,59,48,0.10)' }}>
                       Clear
                     </button>
                   )}
                   <button onClick={saveKey} disabled={savingKey || !keyInput.trim()}
-                    className="flex-1 py-1.5 rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
+                    className="flex-1 min-h-[44px] rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
                     style={{ background: 'rgba(10,132,255,0.15)' }}>
                     {savingKey ? '…' : 'Save'}
                   </button>
