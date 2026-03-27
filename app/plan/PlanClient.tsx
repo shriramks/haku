@@ -24,7 +24,7 @@ import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
-import { revalidateFiscalYears } from '@/app/actions'
+import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -80,11 +80,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
 
   useEffect(() => {
     if (!selectedFY) { setFyHasTxns(false); return }
-    getSupabaseBrowser()
-      .from('transactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('fy_id', selectedFY.id)
-      .then(({ count }) => setFyHasTxns((count ?? 0) > 0))
+    checkFYHasTxns(selectedFY.id).then(setFyHasTxns)
   }, [selectedFY?.id])
 
   useEffect(() => {
@@ -93,11 +89,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     } else if (allocations.length === 0) {
       setOnboardingStep('stocks')
     } else {
-      getSupabaseBrowser()
-        .from('buy_bands')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_current', true)
-        .then(({ count }) => setOnboardingStep((count ?? 0) > 0 ? 'done' : 'bands'))
+      hasBands().then(has => setOnboardingStep(has ? 'done' : 'bands'))
     }
   }, [fiscalYears.length, allocations.length])
 
@@ -105,10 +97,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     setSelectedFY(fy)
     setLoading(true)
     router.replace(`/plan?fy=${encodeURIComponent(fy.label)}`)
-    const { data } = await getSupabaseBrowser()
-      .from('stock_allocations').select('*')
-      .eq('fy_id', fy.id).order('allocation_pct', { ascending: false })
-    setAllocations(data ?? [])
+    const data = await getAllocationsForFY(fy.id)
+    setAllocations(data)
     setLoading(false)
   }
 
@@ -221,16 +211,8 @@ function PlanTab({
     if ((selectedFY.unallocated_carryover_inr ?? 0) > 0) return // already applied
     const dismissKey = `carryover_dismissed_${selectedFY.id}`
     if (typeof window !== 'undefined' && localStorage.getItem(dismissKey)) { setCarryoverDismissed(true); return }
-    // Fetch prev FY net spent
-    getSupabaseBrowser()
-      .from('transactions')
-      .select('trade_type, amount')
-      .eq('fy_id', prevFY.id)
-      .then(({ data }) => {
-        const spent = (data ?? []).reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
-        const leftover = (prevFY.total_budget_inr ?? 0) - spent
-        if (leftover > 0) setCarryoverAmt(leftover)
-      })
+    getPrevFYCarryover(prevFY.id, prevFY.total_budget_inr ?? 0)
+      .then(leftover => { if (leftover > 0) setCarryoverAmt(leftover) })
   }, [prevFY?.id, selectedFY?.id])
 
   async function applyCarryover() {
@@ -292,20 +274,8 @@ function PlanTab({
   async function copyFromPrevFY() {
     if (!selectedFY || !prevFY) return
     setCopying(true)
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { setCopying(false); return }
-    const { data: prevAllocs } = await sb.from('stock_allocations').select('*').eq('fy_id', prevFY.id)
-    if (!prevAllocs?.length) { setCopying(false); return }
-    const { data: newAllocs } = await sb.from('stock_allocations').insert(
-      prevAllocs.map(a => ({
-        fy_id: selectedFY.id, user_id: user.id,
-        symbol: a.symbol, exchange: a.exchange,
-        allocation_pct: a.allocation_pct, category: a.category,
-        two_weak_quarters: false, two_strong_quarters: false,
-      }))
-    ).select()
-    if (newAllocs) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    const newAllocs = await copyAllocations(prevFY.id, selectedFY.id)
+    if (newAllocs.length) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setCopying(false)
   }
 
