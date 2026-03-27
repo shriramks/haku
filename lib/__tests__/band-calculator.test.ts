@@ -266,6 +266,33 @@ describe('computeTrancheprices', () => {
     expect(prices.length).toBe(1)
     expect(prices[0]).toBeLessThanOrEqual(850)
   })
+
+  // BUG: index ETF deep zone recursive call must pass 52wkLow, not null
+  // Previously: `computeTrancheprices(..., null, false)` — floor was always buyLow,
+  // 52wkLow floor was never applied in the spread.
+  it('index ETF deep zone: 52wk low is respected as floor in the spread', () => {
+    // JUNIORBEES-style: buyLow=684, buyHigh=836, CMP=630, 52wkLow=650
+    // Deep zone → spread from (CMP - zoneWidth) to CMP = [630-152, 630] = [478, 630]
+    // But 52wkLow=650 > CMP=630 → use52wkLow=false → floor falls back to deepFloor (478)
+    // If 52wkLow=610 (< CMP): spread floor = max(610, deepFloor=478) = 610, not 478
+    const buyLow = 684, buyHigh = 836, cmp = 630
+    const fiftyTwoWeekLow = 610 // below CMP, so should raise the floor
+    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, fiftyTwoWeekLow, true)
+    expect(prices.length).toBeGreaterThan(1)
+    // All prices must be ≥ 52wkLow and ≤ CMP
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(fiftyTwoWeekLow)
+      expect(p).toBeLessThanOrEqual(cmp)
+    })
+  })
+
+  it('index ETF deep zone: 52wk low above CMP is ignored (use deepFloor as floor)', () => {
+    // 52wkLow=640 > CMP=630 → use52wkLow=false → floor = deepFloor, tranches still spread
+    const buyLow = 684, buyHigh = 836, cmp = 630
+    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, 640, true)
+    expect(prices.length).toBeGreaterThan(1)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
+  })
 })
 
 // ── trancheSuggestion ─────────────────────────────────────────────────────────

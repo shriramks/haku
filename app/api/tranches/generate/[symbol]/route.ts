@@ -78,12 +78,12 @@ export async function POST(
     remaining = Math.max(0, allocBudget - netSpent)
   }
 
-  // Fetch 6-month daily chart: gives live CMP (from meta) + 24-week low (from daily lows)
+  // Fetch 1-year daily chart: gives live CMP (from meta) + 52-week low (from daily lows)
   let liveCmp: number | null = band.manual_cmp ?? null
-  let twentyFourWeekLow: number | null = null
+  let fiftyTwoWeekLow: number | null = null
   try {
     const cmpRes = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS?range=6mo&interval=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(upperSymbol)}.NS?range=1y&interval=1d`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } }
     )
     if (cmpRes.ok) {
@@ -93,9 +93,9 @@ export async function POST(
       if (livePrice) liveCmp = livePrice
       const dailyLows: (number | null)[] = result?.indicators?.quote?.[0]?.low ?? []
       const validLows = dailyLows.filter((n): n is number => n != null && n > 0)
-      if (validLows.length > 0) twentyFourWeekLow = Math.min(...validLows)
+      if (validLows.length > 0) fiftyTwoWeekLow = Math.min(...validLows)
     }
-  } catch { /* fall back to stored CMP, no 24-week low */ }
+  } catch { /* fall back to stored CMP, no 52-week low */ }
 
   const deployable = userLiquidInr != null
     ? Math.min(remaining, userLiquidInr)
@@ -107,7 +107,7 @@ export async function POST(
     ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
     : 3
   const isIndex = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
-  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount, twentyFourWeekLow, isIndex)
+  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount, fiftyTwoWeekLow, isIndex)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
@@ -152,6 +152,6 @@ export async function POST(
     symbol: upperSymbol,
     tranches: inserted ?? [],
     warning,
-    _debug: { buyLow, buyHigh, liveCmp, twentyFourWeekLow, deployable, trancheCount },
+    _debug: { buyLow, buyHigh, liveCmp, fiftyTwoWeekLow, deployable, trancheCount },
   })
 }

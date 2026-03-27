@@ -363,9 +363,9 @@ function PlanTab({
                  style={{ color: 'var(--text-muted)' }}>
               <span>{allocations.length} stocks</span>
               <span className={totalPct > 100 ? 'text-negative' : pctOk ? 'text-positive' : ''}>
-                {formatPct(totalPct)} allocated
-                {!pctOk && totalPct <= 100 && ` · ${formatPct(100 - totalPct)} free`}
-                {totalPct > 100 && ` · over by ${formatPct(totalPct - 100)}`}
+                {Math.round(totalPct)}% allocated
+                {!pctOk && totalPct <= 100 && ` · ${Math.round(100 - totalPct)}% free`}
+                {totalPct > 100 && ` · over by ${Math.round(totalPct - 100)}%`}
                 {pctOk && ' ✓'}
               </span>
             </div>
@@ -799,14 +799,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           {/* Plan context */}
           <div className="mt-3 flex flex-col gap-1">
             <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
-              {planAllocatedPct.toFixed(1)}% of plan allocated
-              <span style={{ color: 'var(--text-faint)', margin: '0 4px' }}>·</span>
-              {planFreePct.toFixed(1)}% free
+              {Math.round(planAllocatedPct)}% allocated
             </p>
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
               {formatINR(planAllocatedInr)} of {formatINR(totalBudget)}
-              <span style={{ color: 'var(--text-faint)', margin: '0 4px' }}>·</span>
-              {formatINR(planFreeInr)} free
             </p>
           </div>
         </div>

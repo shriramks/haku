@@ -158,16 +158,16 @@ export function computeTrancheprices(
   midLow = buyHigh,   // unused — kept for call-site compat
   midHigh = buyHigh,  // unused — kept for call-site compat
   count = 3,
-  twentyFourWeekLow?: number | null,
+  fiftyTwoWeekLow?: number | null,
   isIndex = false,
 ): number[] {
   void midLow; void midHigh
 
-  // Floor is the higher of 24-week low and buyLow — never price below either.
-  // Exception: if 24wkLow >= CMP the price is AT the 6-month low, which is a
+  // Floor is the higher of 52-week low and buyLow — never price below either.
+  // Exception: if 52wkLow >= CMP the price is AT the 52-week low, which is a
   // favourable entry. Use buyLow as floor so tranches spread across the buy zone.
-  const use24wkLow = twentyFourWeekLow != null && (!cmp || twentyFourWeekLow < cmp)
-  const floor   = use24wkLow ? Math.max(twentyFourWeekLow, buyLow) : buyLow
+  const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)
+  const floor   = use52wkLow ? Math.max(fiftyTwoWeekLow, buyLow) : buyLow
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
 
   // Collapse to single tranche at CMP if floor >= ceiling.
@@ -179,7 +179,7 @@ export function computeTrancheprices(
       const deepFloor = Math.max(1, cmp - zoneWidth)
       const deepCeil  = cmp
       if (deepFloor < deepCeil) {
-        return computeTrancheprices(deepFloor, deepCeil, cmp, deepCeil, deepCeil, count, null, false)
+        return computeTrancheprices(deepFloor, deepCeil, cmp, deepCeil, deepCeil, count, fiftyTwoWeekLow, false)
       }
     }
     const ref  = cmp ?? floor
