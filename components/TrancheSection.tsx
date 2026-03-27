@@ -105,34 +105,39 @@ function TrancheRow({ tranche, cmp, onEdit }: {
     ? ((cmp - tranche.price) / cmp) * 100
     : null
 
+  const cmpFormatted = cmp != null
+    ? `₹${cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+    : null
+
   const distLabel = distPct == null
     ? null
     : distPct < 0
-      ? `↑ ${Math.abs(distPct).toFixed(1)}% above CMP`
-      : `↓ ${distPct.toFixed(1)}% from CMP`
+      ? `↑ ${Math.abs(distPct).toFixed(1)}% above ${cmpFormatted}`
+      : `↓ ${distPct.toFixed(1)}% from ${cmpFormatted}`
 
   return (
     <div className="flex items-center px-4 py-3 gap-3">
-      {/* Price — primary */}
+      {/* Price × qty — GTT pair */}
       <div className="flex-1">
-        <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-          {tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        <p className="tabnum" style={{ lineHeight: 1.2 }}>
+          <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-body" style={{ color: 'var(--text-faint)', margin: '0 5px' }}>×</span>
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>
+            {Math.round(tranche.qty)}
+          </span>
         </p>
         {distLabel && (
-          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
+          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {distLabel}
           </p>
         )}
       </div>
-      {/* Qty + amount */}
-      <div className="text-right">
-        <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-          {Math.round(tranche.qty)} shares
-        </p>
-        <p className="text-body font-semibold tabnum mt-0.5" style={{ color: 'var(--text-2)' }}>
-          {formatINR(amount)}
-        </p>
-      </div>
+      {/* Amount */}
+      <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+        {formatINR(amount)}
+      </p>
       {/* Edit — 44pt tap target */}
       <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
               style={{ color: 'var(--text-faint)' }}>
