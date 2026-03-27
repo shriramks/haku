@@ -75,13 +75,19 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     }),
     [rows]
   )
-  const activeRows    = sortedRows.filter(r => r.remaining > 0)
-  const completedRows = sortedRows.filter(r => r.remaining <= 0)
+  const activeRows    = useMemo(() => sortedRows.filter(r => r.remaining > 0), [sortedRows])
+  const completedRows = useMemo(() => sortedRows.filter(r => r.remaining <= 0), [sortedRows])
 
-  const totalBudget    = rows.reduce((s, r) => s + r.budget, 0)
-  const totalDeployed  = rows.reduce((s, r) => s + r.spent, 0)
-  const totalRemaining = totalBudget - totalDeployed
-  const pctDeployed    = totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0
+  const { totalBudget, totalDeployed, totalRemaining, pctDeployed } = useMemo(() => {
+    const totalBudget   = rows.reduce((s, r) => s + r.budget, 0)
+    const totalDeployed = rows.reduce((s, r) => s + r.spent, 0)
+    return {
+      totalBudget,
+      totalDeployed,
+      totalRemaining: totalBudget - totalDeployed,
+      pctDeployed: totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0,
+    }
+  }, [rows])
 
   return (
     <div className="pb-4" style={{ minHeight: '100dvh' }}>

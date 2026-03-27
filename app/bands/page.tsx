@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches, getCurrentFY, getAIKeyStatus } from '@/lib/data'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
@@ -10,16 +10,12 @@ export default async function BandsPage({
 }) {
   const fiscalYears = await getFiscalYears()
   const { fy: fyParam } = await searchParams
-  const today = new Date()
-
-  const fy = fyParam
-    ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears[0])
-    : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[fiscalYears.length - 1])
+  const fy = getCurrentFY(fiscalYears, fyParam) ?? fiscalYears[fiscalYears.length - 1]
 
   const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
   const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-  const [allocations, transactions, bands, tranches, prevAllocations, prevTransactions] = fy
+  const [allocations, transactions, bands, tranches, prevAllocations, prevTransactions, aiKeyStatus] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
@@ -27,8 +23,9 @@ export default async function BandsPage({
         getBuyTranches(fy.id),
         prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
+        getAIKeyStatus(),
       ])
-    : [[], [], [], [], [], []]
+    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }]
 
   const carryoverMap = prevFY
     ? computeCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id, allocations).adjustments
@@ -53,6 +50,8 @@ export default async function BandsPage({
           fyId={fy?.id ?? ''}
           fiscalYears={fiscalYears}
           selectedFY={fy ?? null}
+          initialHasKey={(aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }).hasKey}
+          initialAiProvider={(aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }).provider}
       />
       <BottomNav />
     </>

@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
+import { getBandSignal } from '@/lib/compute'
 import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
 import FYPicker from '@/components/FYPicker'
@@ -22,9 +23,11 @@ interface Props {
   fyId: string
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
+  initialHasKey: boolean
+  initialAiProvider: 'gemini' | 'claude'
 }
 
-export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fiscalYears, selectedFY }: Props) {
+export default function BandsClient({ rows, bands: initialBands, allocations, initialTranches, fyId, fiscalYears, selectedFY, initialHasKey, initialAiProvider }: Props) {
   const router = useRouter()
   const [bands, setBands]           = useState(initialBands)
   const [allocState, setAllocState] = useState(allocations)
@@ -35,20 +38,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [genError, setGenError]                 = useState<Record<string, string>>({})
   const [genWarning, setGenWarning]             = useState<Record<string, string>>({})
   const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
-  const [hasKey, setHasKey]               = useState<boolean | null>(null)
-  const [aiProvider, setAiProvider]       = useState<'gemini' | 'claude'>('gemini')
+  const [hasKey, setHasKey]               = useState(initialHasKey)
+  const [aiProvider, setAiProvider]       = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
   const [showQuartersInfo, setShowQuartersInfo] = useState(false)
   const [userId, setUserId]               = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/settings/gemini-key')
-      .then(r => r.json())
-      .then(d => {
-        setHasKey(d.hasKey ?? false)
-        setAiProvider(d.provider ?? 'gemini')
-      })
-      .catch(() => setHasKey(false))
     // getSession() reads from localStorage — no network call
     getSupabaseBrowser().auth.getSession()
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
@@ -207,12 +203,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   }
 
   async function addTranche(symbol: string, qty: number, price: number) {
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) return
+    if (!userId) return
     const existing = tranches.filter(t => t.symbol === symbol)
-    const { data } = await sb.from('buy_tranches').insert({
-      user_id: user.id, symbol, qty, price,
+    const { data } = await getSupabaseBrowser().from('buy_tranches').insert({
+      user_id: userId, symbol, qty, price,
       sort_order: existing.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
@@ -260,8 +254,23 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
-  const activeRows    = rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol))
-  const completedRows = rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  // Pre-compute band calculations once per bands/allocState change — avoids calling calculateBands() in the render map
+  const computedBandsMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calculateBands>>()
+    for (const band of bands) {
+      const alloc = allocState.find(a => a.symbol === band.symbol)
+      if (alloc) map.set(band.symbol, calculateBands({
+        category: alloc.category as StockCategory,
+        twoWeakQuarters: alloc.two_weak_quarters,
+        twoStrongQuarters: alloc.two_strong_quarters,
+        eps: band.eps,
+      }))
+    }
+    return map
+  }, [bands, allocState])
+
+  const activeRows    = useMemo(() => rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
+  const completedRows = useMemo(() => rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
 
   return (
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
@@ -309,14 +318,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             .filter(t => t.symbol === row.symbol)
             .sort((a, b) => b.price - a.price)
 
-          // Re-compute band result from stored financial inputs (for tightening display)
-          const computed = (band && alloc) ? calculateBands({
-            category: alloc.category as StockCategory,
-            twoWeakQuarters:   alloc.two_weak_quarters,
-            twoStrongQuarters: alloc.two_strong_quarters,
-            eps: band.eps,
-          }) : null
-
+          const computed = computedBandsMap.get(row.symbol)
           const buyLow   = computed?.buyLow   ?? band?.buy_low   ?? null
           const buyHigh  = computed?.buyHigh  ?? band?.buy_high  ?? null
           const midLow   = computed?.midLow   ?? band?.mid_low   ?? null
@@ -326,13 +328,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
           const hasBands = buyLow != null && trimPrice != null
           const isDone = row.remaining <= 0
-
-          const signal = (cmp && buyLow && buyHigh && trimPrice)
-            ? cmp < buyLow ? 'deep'
-            : cmp <= buyHigh ? 'buy'
-            : cmp <= (midHigh ?? trimPrice) ? 'hold'
-            : 'trim'
-            : 'unknown'
+          const signal = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
           return (
             <div key={row.symbol}>

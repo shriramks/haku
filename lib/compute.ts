@@ -1,5 +1,19 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, StockCategory } from './types'
+import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, StockCategory, BandSignal } from './types'
 import { calculateBands } from './band-calculator'
+
+export function getBandSignal(
+  cmp: number | null,
+  buyLow: number | null,
+  buyHigh: number | null,
+  midHigh: number | null,
+  trimPrice: number | null,
+): BandSignal {
+  if (cmp === null || buyLow === null || trimPrice === null) return 'unknown'
+  if (cmp < buyLow) return 'deep'
+  if (cmp <= (buyHigh ?? trimPrice)) return 'buy'
+  if (cmp <= (midHigh ?? trimPrice)) return 'hold'
+  return 'trim'
+}
 
 // ── Carryover ─────────────────────────────────────────────────────────────────
 
@@ -110,11 +124,7 @@ export function computeStockRows(
     const _buyHigh  = fresh?.buyHigh  ?? band?.buy_high  ?? null
     const _midHigh  = fresh?.midHigh  ?? band?.mid_high  ?? null
     const _trim     = fresh?.trimPrice ?? band?.trim_price ?? null
-    const signal = (cmp === null || _buyLow === null || _trim === null) ? 'unknown'
-      : cmp < _buyLow              ? 'deep'
-      : cmp <= (_buyHigh ?? _trim) ? 'buy'
-      : cmp <= (_midHigh ?? _trim) ? 'hold'
-      : 'trim'
+    const signal = getBandSignal(cmp, _buyLow, _buyHigh, _midHigh, _trim)
 
     const unrealisedPnL    = cmp !== null ? (cmp - avgCost) * qty : null
     const unrealisedPnLPct = (cmp !== null && avgCost > 0)

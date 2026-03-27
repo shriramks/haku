@@ -107,13 +107,6 @@ export interface BuyTranche {
   created_at?: string
 }
 
-export interface Playbook {
-  id: string
-  user_id?: string
-  content: string
-  updated_at: string
-}
-
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
 export type GateSignal = 'pass' | 'caution' | 'fail'
