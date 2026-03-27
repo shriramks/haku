@@ -22,32 +22,21 @@ interface Props {
   allFYBudget: number
   carryoverInr: number
   band: BuyBand | null
+  initialTranches: BuyTranche[]
   userId: string
 }
 
 export default function StockDetailClient({
   symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, carryoverInr,
-  band: initialBand, userId,
+  band: initialBand, initialTranches, userId,
 }: Props) {
   const router = useRouter()
   const [band, setBand]                     = useState(initialBand)
   const [allocState, setAllocState]         = useState(allocation)
-  const [tranches, setTranches]             = useState<BuyTranche[]>([])
+  const [tranches, setTranches]             = useState(initialTranches)
   const [refreshing, setRefreshing]         = useState(false)
   const [showFinancials, setShowFinancials] = useState(false)
   const [generatingTranches, setGeneratingTranches] = useState(false)
-
-  // Fetch tranches on mount
-  useEffect(() => {
-    if (!fiscalYear?.id) return
-    getSupabaseBrowser()
-      .from('buy_tranches')
-      .select('*')
-      .eq('symbol', symbol)
-      .eq('fy_id', fiscalYear.id)
-      .order('sort_order')
-      .then(({ data }) => { if (data) setTranches(data) })
-  }, [symbol, fiscalYear?.id])
 
   // ── FY spend calculations ────────────────────────────────────────────────────
   const fyTxns = fiscalYear

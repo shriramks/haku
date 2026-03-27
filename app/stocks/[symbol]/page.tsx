@@ -1,5 +1,6 @@
-import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getInvestability, getUserId } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getInvestability, getBuyTranches, getUserId } from '@/lib/data'
 import { computeCarryover } from '@/lib/compute'
+import type { BuyTranche } from '@/lib/types'
 import StockDetailClient from './StockDetailClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -22,7 +23,7 @@ export default async function StockDetailPage({
   const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
   const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-  const [allocations, transactions, allSymbolTxns, bands, investability, symbolAllocations, prevAllocations, prevTransactions] = fy
+  const [allocations, transactions, allSymbolTxns, bands, investability, symbolAllocations, prevAllocations, prevTransactions, tranches] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
@@ -32,8 +33,9 @@ export default async function StockDetailPage({
         getSymbolAllocations(symbol),
         prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
+        getBuyTranches(fy.id),
       ])
-    : [[], [], [], [], [], [], [], []]
+    : [[], [], [], [], [], [], [], [], []]
 
   // Compute carryover for this stock in the current FY
   const carryoverInr = (() => {
@@ -66,6 +68,7 @@ export default async function StockDetailPage({
         allFYBudget={allFYBudget}
         carryoverInr={carryoverInr}
         band={band}
+        initialTranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
         userId={await getUserId() ?? ''}
       />
       <BottomNav />
