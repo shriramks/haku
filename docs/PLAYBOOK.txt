@@ -51,12 +51,20 @@ SIGNALS
 
 TRANCHES
 --------
-  - 3 tranches per stock, quadratic skew toward lower prices
-  - CMP above buy zone  →  limits across Buy Low → Buy High
-  - CMP inside buy zone →  floor = Buy Low × 0.9, ceiling = CMP
-  - CMP below Buy Low   →  floor = CMP, ceiling = Buy Low
-  - Live price fetched at generation time; no tranche ever placed above CMP
-  - Budget split equally across tranches
+  Count:    2–8 tranches; driven by deployable ÷ suggested-per-tranche (2% of FY budget,
+            floored at 1%). Deeper tranches get larger allocations (back-weighted).
+
+  Pricing zones (live CMP fetched at generation time):
+    CMP above buy zone  →  floor = max(24wk-low, Buy Low),  ceiling = Buy High
+    CMP inside buy zone →  floor = max(24wk-low, Buy Low),  ceiling = CMP
+    CMP below Buy Low   →  single tranche at CMP (deep-value entry at market)
+    24wk-low ≥ CMP      →  floor = Buy Low (price is at 6-month low; 24wk-low ignored)
+
+  No tranche is ever placed above CMP.
+
+  Deploy Capital:  optional FY-level field. If set, deployable per stock =
+                   min(stock remaining budget, deploy capital). If unset,
+                   deployable = stock remaining budget.
 
 
 INVESTABILITY GATES (pass / caution / fail)
