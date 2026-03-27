@@ -2,8 +2,8 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
+import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
 import { formatAmt, formatPct } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
@@ -56,22 +56,13 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     const fyIdx = fiscalYears.findIndex(f => f.id === fy.id)
     const pFY   = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-    const sb = getSupabaseBrowser()
-    const [{ data: alloc }, { data: txns }, prevAllocRes, prevTxnRes] = await Promise.all([
-      sb.from('stock_allocations').select('*').eq('fy_id', fy.id).order('allocation_pct', { ascending: false }),
-      sb.from('transactions').select('*').or(`fy_id.eq.${fy.id},advance_fy_id.eq.${fy.id}`).order('trade_date', { ascending: false }),
-      pFY
-        ? sb.from('stock_allocations').select('*').eq('fy_id', pFY.id).order('allocation_pct', { ascending: false })
-        : Promise.resolve({ data: [] as StockAllocation[] }),
-      pFY
-        ? sb.from('transactions').select('*').or(`fy_id.eq.${pFY.id},advance_fy_id.eq.${pFY.id}`).order('trade_date', { ascending: false })
-        : Promise.resolve({ data: [] as Transaction[] }),
-    ])
-    setAllocations(alloc ?? [])
-    setTransactions(txns ?? [])
+    const { allocations: alloc, transactions: txns, prevAllocations: pAlloc, prevTransactions: pTxns } =
+      await getFYData(fy.id, pFY?.id ?? null)
+    setAllocations(alloc)
+    setTransactions(txns)
     setPrevFY(pFY ?? null)
-    setPrevAllocations(prevAllocRes.data ?? [])
-    setPrevTransactions(prevTxnRes.data ?? [])
+    setPrevAllocations(pAlloc)
+    setPrevTransactions(pTxns)
     setLoading(false)
   }
 

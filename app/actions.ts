@@ -1,8 +1,8 @@
 'use server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getAllocations } from '@/lib/data'
-import type { StockAllocation } from '@/lib/types'
+import { getUserId, getAllocations, getTransactions } from '@/lib/data'
+import type { StockAllocation, Transaction } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -52,6 +52,22 @@ export async function hasBands(): Promise<boolean> {
     .eq('user_id', userId)
     .eq('is_current', true)
   return (count ?? 0) > 0
+}
+
+/** Fetches allocations + transactions for a FY and its previous FY — used by DashboardClient switchFY */
+export async function getFYData(fyId: string, prevFYId: string | null): Promise<{
+  allocations: StockAllocation[]
+  transactions: Transaction[]
+  prevAllocations: StockAllocation[]
+  prevTransactions: Transaction[]
+}> {
+  const [allocations, transactions, prevAllocations, prevTransactions] = await Promise.all([
+    getAllocations(fyId),
+    getTransactions(fyId),
+    prevFYId ? getAllocations(prevFYId) : Promise.resolve([] as StockAllocation[]),
+    prevFYId ? getTransactions(prevFYId) : Promise.resolve([] as Transaction[]),
+  ])
+  return { allocations, transactions, prevAllocations, prevTransactions }
 }
 
 /** Copies allocations from one FY into another — used by copyFromPrevFY */
