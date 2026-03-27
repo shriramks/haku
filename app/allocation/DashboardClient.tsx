@@ -5,11 +5,10 @@ import { useRouter } from 'next/navigation'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt, formatPct } from '@/lib/formatter'
+import { formatAmt } from '@/lib/formatter'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
-import { getStockName } from '@/lib/stock-names'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -114,22 +113,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip */}
       {selectedFY && (
-        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <Metric label="Budget"    value={formatAmt(totalBudget)} />
-            <Metric label="Allocated" value={formatAmt(totalDeployed)} />
-            <Metric label="Left"      value={formatAmt(Math.abs(totalRemaining))}
-                    negative={totalRemaining < 0} />
-          </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-            <div
-              className={`h-full rounded-full transition-all ${
-                pctDeployed > 90 ? 'bg-negative' :
-                pctDeployed > 70 ? 'bg-warning' : 'bg-positive'
-              }`}
-              style={{ width: `${Math.min(100, pctDeployed)}%` }}
-            />
-          </div>
+        <div className="grid grid-cols-3 px-4 pt-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <Metric label="Plan"     value={formatAmt(totalBudget)}               align="left" />
+          <Metric label="Invested" value={formatAmt(totalDeployed)}             align="right" />
+          <Metric label="Left"     value={formatAmt(Math.abs(totalRemaining))}  align="right" negative={totalRemaining < 0} />
         </div>
       )}
 
@@ -145,15 +132,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       ) : (
         <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-          {/* Allocation bars */}
-          <div className="mt-2">
-            {activeRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
-            {completedRows.map(row => <BarRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
+          {/* Flat allocation rows */}
+          <div>
+            {activeRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
+            {completedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
           </div>
-          {/* Details table — collapsible */}
-          <CollapsibleSection title="Details">
-            <DetailsTable rows={sortedRows} fyLabel={selectedFY?.label ?? ''} />
-          </CollapsibleSection>
 
           {/* Carryover breakdown — only when there's a previous FY with data */}
           {carryoverResult && prevFY && (
@@ -172,70 +155,36 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function BarRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
-  const pct = row.budget > 0 ? Math.min(100, (row.spent / row.budget) * 100) : 0
-  const isDone = row.remaining <= 0
+function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
+  const isDone   = row.remaining <= 0
+  const leftPct  = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
 
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-          className="flex items-center gap-3 px-4 py-4 tap-row border-b"
-          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
-      <div style={{ width: '108px', flexShrink: 0, overflow: 'hidden' }}>
-        <span className="font-semibold text-headline" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
-        {getStockName(row.symbol) && (
-          <p className="text-footnote truncate" style={{ color: 'var(--text-2)' }}>{getStockName(row.symbol)}</p>
-        )}
+          className="grid grid-cols-3 items-center px-4 py-3 border-b tap-row"
+          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1, minHeight: '52px' }}>
+      {/* Col 1 — ticker */}
+      <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
+        {row.symbol}
+      </span>
+      {/* Col 2 — invested (context, not actionable) */}
+      <span className="text-body tabnum text-right" style={{ color: 'var(--text-2)' }}>
+        {formatAmt(row.spent)}
+      </span>
+      {/* Col 3 — left ₹ (actionable) + left % below */}
+      <div className="text-right">
+        <p className="text-body tabnum font-semibold"
+           style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+          {isDone ? formatAmt(0) : formatAmt(row.remaining)}
+        </p>
+        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          {isDone ? 'done' : `${leftPct}% left`}
+        </p>
       </div>
-      <div className="flex-1">
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-          <div className={`h-full rounded-full ${
-            isDone ? 'bg-gray-400' : pct > 70 ? 'bg-warning' : 'bg-positive'
-          }`} style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-      <p className="text-body tabnum text-right flex-shrink-0 font-semibold"
-         style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)', minWidth: '64px' }}>
-        {isDone ? 'Done' : `${formatAmt(row.remaining)} left`}
-      </p>
-      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-           style={{ color: 'var(--text-faint)' }}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
     </Link>
   )
 }
 
-function DetailsTable({ rows, fyLabel }: { rows: StockRow[]; fyLabel: string }) {
-  return (
-    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-      {/* Header row */}
-      <div className="grid px-4 py-2 border-b text-footnote uppercase tracking-widest font-semibold"
-           style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border)', color: 'var(--text-faint)' }}>
-        <span>Stock</span>
-        <span className="text-right">Spent</span>
-        <span className="text-right">Left</span>
-      </div>
-      {rows.map(row => {
-        const leftPct = row.budget > 0 ? (row.remaining / row.budget) * 100 : 0
-        const isOver  = row.remaining < 0
-        const leftColorClass = isOver ? 'text-negative' : leftPct < 20 ? 'text-warning' : 'text-positive'
-        return (
-          <Link key={row.symbol}
-            href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-            className="grid items-center px-4 border-b tap-row tabnum text-subheadline"
-            style={{ gridTemplateColumns: '1.2fr 1fr 1.4fr', borderColor: 'var(--border-faint)', minHeight: '52px' }}>
-            <span className="font-semibold text-body" style={{ color: 'var(--text-primary)' }}>{row.symbol}</span>
-            <span className="text-right" style={{ color: 'var(--text-2)' }}>{formatAmt(row.spent)}</span>
-            <span className={`text-right ${leftColorClass}`}>
-              {isOver ? '−' : ''}{formatAmt(Math.abs(row.remaining))}
-              <span className="text-footnote ml-1">({isOver ? `−${Math.abs(leftPct).toFixed(0)}` : leftPct.toFixed(0)}%)</span>
-            </span>
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
 
 function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -313,13 +262,14 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
   )
 }
 
-function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
+function Metric({ label, value, negative, align = 'left' }: { label: string; value: string; negative?: boolean; align?: 'left' | 'right' }) {
+  const cls = align === 'right' ? 'text-right' : 'text-left'
   return (
-    <div className="text-center">
+    <div className={cls}>
       <p className="font-bold tabnum text-title-1" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-subheadline mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }

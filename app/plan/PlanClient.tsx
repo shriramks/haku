@@ -798,6 +798,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           </div>
           {/* Plan context */}
           <div className="mt-3 flex flex-col gap-1">
+            <p className="text-footnote font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
             <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
               {Math.round(planAllocatedPct)}% allocated
             </p>
