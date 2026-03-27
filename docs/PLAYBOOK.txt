@@ -21,7 +21,7 @@ Cap-Light Infra     Growth     PE          28x      35x       36x      44x      
 Retail              Growth     PE          54x      66x       67x      81x       93x
 REIT                REIT       PE (DPU)    12x      14x       15x      18x       20x
 Tobacco Corp        Defensive  PE          20x      25x       26x      30x       31x
-Nifty 50 Index      Passive    PE (idx)    18x      20x       20x      22x       24x
+Nifty 50 Index      Passive    PE (idx)    19x      21x       21x      23x       23x
 Nifty Next 50 Index Passive    PE (idx)    18x      20x       20x      24x       25x
 Commodity           Passive    —           No bands — set manually
 

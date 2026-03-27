@@ -20,7 +20,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'FMCG':            { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
-  'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
+  'Nifty 50 Index':      { buyLow: 19, buyHigh: 21, midLow: 21, midHigh: 23, trim: 23 },
   'Nifty Next 50 Index': { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 24, trim: 25 },
 }
 

@@ -135,9 +135,9 @@ describe('calculateBands — Nifty 50 Index (flags ignored)', () => {
 
   it('returns correct band', () => {
     const r = calculateBands({ ...base, eps: 100 })!
-    expect(r.buyLow).toBeCloseTo(18 * 100)
-    expect(r.buyHigh).toBeCloseTo(20 * 100)
-    expect(r.trimPrice).toBeCloseTo(24 * 100)
+    expect(r.buyLow).toBeCloseTo(19 * 100)
+    expect(r.buyHigh).toBeCloseTo(21 * 100)
+    expect(r.trimPrice).toBeCloseTo(23 * 100)
   })
 
   it('bear flag ignored — same as normal', () => {
