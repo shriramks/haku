@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche, Playbook } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche } from './types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -151,13 +151,15 @@ export function getCurrentFY(fiscalYears: FiscalYear[], fyParam?: string): Fisca
   ) ?? fiscalYears[0]
 }
 
-export const getPlaybook = cache(async (): Promise<Playbook | null> => {
+export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean; provider: 'gemini' | 'claude' }> => {
   const userId = await getUserId()
-  if (!userId) return null
+  if (!userId) return { hasKey: false, provider: 'gemini' }
   const { data } = await createSupabaseServiceClient()
-    .from('playbook')
-    .select('id, content, updated_at')
+    .from('user_settings')
+    .select('gemini_api_key, claude_api_key, ai_provider')
     .eq('user_id', userId)
     .maybeSingle()
-  return data ?? null
+  const provider = (data?.ai_provider ?? 'gemini') as 'gemini' | 'claude'
+  const hasKey = provider === 'claude' ? !!(data?.claude_api_key) : !!(data?.gemini_api_key)
+  return { hasKey, provider }
 })

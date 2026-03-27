@@ -1,8 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { getBandSignal } from '@/lib/compute'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR } from '@/lib/formatter'
 import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
@@ -23,12 +24,14 @@ interface Props {
   carryoverInr: number
   band: BuyBand | null
   initialTranches: BuyTranche[]
+  hasKey: boolean
+  aiProvider: 'gemini' | 'claude'
   userId: string
 }
 
 export default function StockDetailClient({
   symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, carryoverInr,
-  band: initialBand, initialTranches, userId,
+  band: initialBand, initialTranches, hasKey, aiProvider, userId,
 }: Props) {
   const router = useRouter()
   const [band, setBand]                     = useState(initialBand)
@@ -76,11 +79,7 @@ export default function StockDetailClient({
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
   const cmp       = band?.manual_cmp    ?? null
   const hasBands  = buyLow != null && trimPrice != null
-  const signal = (cmp === null || buyLow === null || trimPrice === null) ? 'unknown'
-    : cmp < buyLow               ? 'deep'
-    : cmp <= (buyHigh ?? trimPrice) ? 'buy'
-    : cmp <= (midHigh ?? trimPrice) ? 'hold'
-    : 'trim'
+  const signal = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
   // ── CMP refresh ─────────────────────────────────────────────────────────────
   async function refreshCMP() {
@@ -355,6 +354,8 @@ export default function StockDetailClient({
           band={band}
           allocation={allocation}
           fyId={fiscalYear?.id ?? ''}
+          hasKey={hasKey}
+          aiProvider={aiProvider}
           onBandSaved={b => { setBand(b); setShowFinancials(false) }}
           onClose={() => setShowFinancials(false)}
         />
@@ -402,11 +403,13 @@ function SectionHeader({ title }: { title: string }) {
 
 // ── Financials bottom sheet ───────────────────────────────────────────────────
 
-function FinancialsSheet({ symbol, band, allocation, fyId, onBandSaved, onClose }: {
+function FinancialsSheet({ symbol, band, allocation, fyId, hasKey, aiProvider, onBandSaved, onClose }: {
   symbol: string
   band: BuyBand | null
   allocation: StockAllocation | null
   fyId: string
+  hasKey: boolean
+  aiProvider: 'gemini' | 'claude'
   onBandSaved: (b: BuyBand) => void
   onClose: () => void
 }) {
@@ -443,7 +446,8 @@ function FinancialsSheet({ symbol, band, allocation, fyId, onBandSaved, onClose 
             band={band}
             allocation={allocation}
             fyId={fyId}
-            hasKey={null}
+            hasKey={hasKey}
+            aiProvider={aiProvider}
             onBandSaved={onBandSaved}
             onTranchesUpdated={() => {}}
           />
@@ -455,23 +459,16 @@ function FinancialsSheet({ symbol, band, allocation, fyId, onBandSaved, onClose 
 
 // ── Financials card ───────────────────────────────────────────────────────────
 
-function FinancialsCard({ symbol, band, allocation, fyId, hasKey: hasKeyProp, onBandSaved, onTranchesUpdated }: {
+function FinancialsCard({ symbol, band, allocation, fyId, hasKey, aiProvider, onBandSaved, onTranchesUpdated }: {
   symbol: string
   band: BuyBand | null
   allocation: StockAllocation | null
   fyId: string
-  hasKey: boolean | null
+  hasKey: boolean
+  aiProvider: 'gemini' | 'claude'
   onBandSaved: (b: BuyBand) => void
   onTranchesUpdated: (t: BuyTranche[]) => void
 }) {
-  const [hasKey, setHasKey] = useState(hasKeyProp)
-  useEffect(() => {
-    if (hasKeyProp !== null) { setHasKey(hasKeyProp); return }
-    fetch('/api/settings/gemini-key')
-      .then(r => r.json())
-      .then(d => setHasKey(d.hasKey ?? false))
-      .catch(() => setHasKey(false))
-  }, [hasKeyProp])
 
   const anchor = 'PE'
 

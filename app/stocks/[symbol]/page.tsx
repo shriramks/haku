@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getInvestability, getBuyTranches, getUserId } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY, getUserId } from '@/lib/data'
 import { computeCarryover } from '@/lib/compute'
 import type { BuyTranche } from '@/lib/types'
 import StockDetailClient from './StockDetailClient'
@@ -15,27 +15,24 @@ export default async function StockDetailPage({
   const { fy: fyParam } = await searchParams
 
   const fiscalYears = await getFiscalYears()
-  const today = new Date()
-  const fy = fyParam
-    ? (fiscalYears.find(f => f.label === fyParam) ?? fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[0])
-    : (fiscalYears.find(f => new Date(f.start_date) <= today && today <= new Date(f.end_date)) ?? fiscalYears[0])
+  const fy = getCurrentFY(fiscalYears, fyParam)
 
   const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
   const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-  const [allocations, transactions, allSymbolTxns, bands, investability, symbolAllocations, prevAllocations, prevTransactions, tranches] = fy
+  const [allocations, transactions, allSymbolTxns, bands, symbolAllocations, prevAllocations, prevTransactions, tranches, aiKeyStatus] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
         getTransactionsBySymbol(symbol),
         getBuyBands(),
-        getInvestability(symbol),
         getSymbolAllocations(symbol),
         prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
         getBuyTranches(fy.id),
+        getAIKeyStatus(),
       ])
-    : [[], [], [], [], [], [], [], [], []]
+    : [[], [], [], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }]
 
   // Compute carryover for this stock in the current FY
   const carryoverInr = (() => {
@@ -45,10 +42,10 @@ export default async function StockDetailPage({
     return result.adjustments.get(symbol) ?? 0
   })()
 
-  const allocation     = allocations.find(a => a.symbol === symbol) ?? null
-  const band           = bands.find(b => b.symbol === symbol) ?? null
-  const investability_ = (investability as Awaited<ReturnType<typeof getInvestability>>)[0] ?? null
-  const stockTxns      = transactions.filter(t => t.symbol === symbol)
+  const allocation = allocations.find(a => a.symbol === symbol) ?? null
+  const band       = bands.find(b => b.symbol === symbol) ?? null
+  const stockTxns  = transactions.filter(t => t.symbol === symbol)
+  const { hasKey, provider: aiProvider } = aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }
 
   // All-FY budget: sum of base allocations only (carryover excluded to avoid double-counting)
   const allFYBudget = symbolAllocations.reduce((sum, alloc) => {
@@ -69,6 +66,8 @@ export default async function StockDetailPage({
         carryoverInr={carryoverInr}
         band={band}
         initialTranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
+        hasKey={hasKey}
+        aiProvider={aiProvider}
         userId={await getUserId() ?? ''}
       />
       <BottomNav />
