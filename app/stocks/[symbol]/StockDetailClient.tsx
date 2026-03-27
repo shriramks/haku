@@ -156,18 +156,13 @@ export default function StockDetailClient({
   }
 
   // ── Tranche operations ───────────────────────────────────────────────────────
-  async function toggleTranche(id: string, allocated: boolean) {
-    setTranches(prev => prev.map(t => t.id === id ? { ...t, allocated } : t))
-    await getSupabaseBrowser().from('buy_tranches').update({ allocated }).eq('id', id)
-  }
-
   async function addTranche(sym: string, qty: number, price: number) {
     const sb = getSupabaseBrowser()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return
     const existing = tranches.filter(t => t.symbol === sym)
     const { data } = await sb.from('buy_tranches').insert({
-      user_id: user.id, symbol: sym, qty, price, allocated: false,
+      user_id: user.id, symbol: sym, qty, price,
       sort_order: existing.length + 1, fy_id: fiscalYear?.id ?? '',
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
@@ -342,7 +337,7 @@ export default function StockDetailClient({
           remaining={remaining}
           budget={budget}
           hasBands={hasBands}
-          onToggle={toggleTranche}
+          cmp={cmp}
           onAdd={addTranche}
           onDelete={deleteTranche}
           onUpdate={updateTranche}

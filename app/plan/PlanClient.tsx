@@ -276,7 +276,7 @@ function PlanTab({
       fy_id: selectedFY.id, user_id: user.id,
       symbol: symbol.toUpperCase(), exchange: 'NSE',
       allocation_pct: pct, category,
-      two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
+      two_weak_quarters: false, two_strong_quarters: false,
     }).select().single()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
@@ -302,7 +302,7 @@ function PlanTab({
         fy_id: selectedFY.id, user_id: user.id,
         symbol: a.symbol, exchange: a.exchange,
         allocation_pct: a.allocation_pct, category: a.category,
-        two_weak_quarters: false, two_strong_quarters: false, is_hospital_ramp_phase: false,
+        two_weak_quarters: false, two_strong_quarters: false,
       }))
     ).select()
     if (newAllocs) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
@@ -1055,7 +1055,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
         fy_id: fy.id, user_id: user.id,
         symbol: a.symbol, exchange: a.exchange,
         allocation_pct: a.allocation_pct, category: a.category,
-        two_weak_quarters: false, is_hospital_ramp_phase: a.is_hospital_ramp_phase,
+        two_weak_quarters: false,
       }))
       await sb.from('stock_allocations').insert(inserts)
     }

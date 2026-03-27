@@ -166,7 +166,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             return {
               id: `opt-${symbol}-${i}`, symbol, price,
               qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
-              allocated: false, sort_order: i + 1, fy_id: fyId,
+              sort_order: i + 1, fy_id: fyId,
             } as BuyTranche
           }),
         ])
@@ -191,7 +191,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               return {
                 user_id: userId, symbol, price,
                 qty:       amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
-                allocated: false, sort_order: i + 1, fy_id: fyId,
+                sort_order: i + 1, fy_id: fyId,
               }
             })
           ).select()
@@ -206,18 +206,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     sb.from('stock_allocations').update(patch).eq('id', alloc.id)
   }
 
-  async function toggleTranche(id: string, allocated: boolean) {
-    setTranches(prev => prev.map(t => t.id === id ? { ...t, allocated } : t))
-    await getSupabaseBrowser().from('buy_tranches').update({ allocated }).eq('id', id)
-  }
-
   async function addTranche(symbol: string, qty: number, price: number) {
     const sb = getSupabaseBrowser()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return
     const existing = tranches.filter(t => t.symbol === symbol)
     const { data } = await sb.from('buy_tranches').insert({
-      user_id: user.id, symbol, qty, price, allocated: false,
+      user_id: user.id, symbol, qty, price,
       sort_order: existing.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data])
@@ -265,13 +260,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
-  const isCompleted = (row: StockRow) => {
-    if (row.remaining <= 0) return true
-    const st = tranches.filter(t => t.symbol === row.symbol)
-    return st.length > 0 && st.every(t => t.allocated)
-  }
-  const activeRows    = rows.filter(r => !isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
-  const completedRows = rows.filter(r => isCompleted(r)).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  const activeRows    = rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol))
+  const completedRows = rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
@@ -335,7 +325,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const cmp      = band?.manual_cmp ?? null
 
           const hasBands = buyLow != null && trimPrice != null
-          const isDone = row.remaining <= 0 || (stockTranches.length > 0 && stockTranches.every(t => t.allocated))
+          const isDone = row.remaining <= 0
 
           const signal = (cmp && buyLow && buyHigh && trimPrice)
             ? cmp < buyLow ? 'deep'
@@ -440,7 +430,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     remaining={row.remaining}
                     budget={row.budget}
                     hasBands={hasBands}
-                    onToggle={toggleTranche}
+                    cmp={cmp}
                     onAdd={addTranche}
                     onDelete={deleteTranche}
                     onUpdate={updateTranche}

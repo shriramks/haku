@@ -44,7 +44,7 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters')
     .eq('user_id', userId)
     .eq('fy_id', fyId)
     .order('allocation_pct', { ascending: false })
@@ -82,7 +82,7 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters, is_hospital_ramp_phase')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters')
     .eq('user_id', userId)
     .eq('symbol', symbol)
     .order('fy_id', { ascending: true })
@@ -124,7 +124,7 @@ const _fetchBuyTranches = unstable_cache(
   async (userId: string, fyId: string): Promise<BuyTranche[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_tranches')
-      .select('id, symbol, qty, price, allocated, sort_order, fy_id, created_at')
+      .select('id, symbol, qty, price, sort_order, fy_id, created_at')
       .eq('user_id', userId)
       .eq('fy_id', fyId)
       .order('symbol')

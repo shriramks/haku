@@ -11,7 +11,6 @@ function mkAlloc(symbol: string, pct: number, fyId = FY25): StockAllocation {
     symbol, exchange: 'NSE',
     allocation_pct: pct, category: 'large',
     two_weak_quarters: false, two_strong_quarters: false,
-    is_hospital_ramp_phase: false,
   }
 }
 

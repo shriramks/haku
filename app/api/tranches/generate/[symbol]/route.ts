@@ -97,21 +97,9 @@ export async function POST(
     }
   } catch { /* fall back to stored CMP, no 24-week low */ }
 
-  // Preserve allocated tranches — only regenerate unallocated ones
-  const { data: existingTranches } = await supabase
-    .from('buy_tranches')
-    .select('id, allocated, qty, price')
-    .eq('user_id', user.id)
-    .eq('symbol', upperSymbol)
-    .eq('fy_id', fyId)
-
-  const allocatedTranches = (existingTranches ?? []).filter(t => t.allocated)
-  const allocatedAmt = allocatedTranches.reduce((s, t) => s + t.qty * t.price, 0)
-  const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
-
   const deployable = userLiquidInr != null
-    ? Math.min(remainingAfterAllocated, userLiquidInr)
-    : remainingAfterAllocated
+    ? Math.min(remaining, userLiquidInr)
+    : remaining
 
   const totalCapital = fy?.total_budget_inr ?? 0
   const suggestedAmt = trancheSuggestion(deployable, totalCapital)
@@ -125,13 +113,11 @@ export async function POST(
   const sortedPrices = [...prices].sort((a, b) => b - a)
   const amounts = computeTrancheAmounts(deployable, sortedPrices.length)
 
-  // Delete only unallocated tranches; keep allocated ones intact
   await supabase.from('buy_tranches')
     .delete()
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
     .eq('fy_id', fyId)
-    .eq('allocated', false)
 
   const trancheRows = sortedPrices.map((price, i) => {
     const amt = amounts[i] ?? 0
@@ -140,7 +126,6 @@ export async function POST(
       symbol:     upperSymbol,
       price,
       qty:        amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
-      allocated:  false,
       sort_order: i + 1,
       fy_id:      fyId,
     }

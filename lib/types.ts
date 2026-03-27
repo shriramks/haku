@@ -22,7 +22,6 @@ export interface StockAllocation {
   category: string
   two_weak_quarters: boolean
   two_strong_quarters: boolean
-  is_hospital_ramp_phase: boolean
 }
 
 export interface Transaction {
@@ -103,7 +102,6 @@ export interface BuyTranche {
   symbol: string
   qty: number
   price: number
-  allocated: boolean
   sort_order: number
   fy_id?: string | null
   created_at?: string

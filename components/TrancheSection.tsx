@@ -4,15 +4,15 @@ import { formatINR } from '@/lib/formatter'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
-  symbol, tranches, remaining, budget, hasBands,
-  onToggle, onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
+  symbol, tranches, remaining, budget, hasBands, cmp,
+  onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
 }: {
   symbol: string
   tranches: BuyTranche[]
   remaining: number
   budget: number
   hasBands: boolean
-  onToggle: (id: string, allocated: boolean) => void
+  cmp?: number | null
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -27,7 +27,7 @@ export default function TrancheSection({
     <div style={{ padding: '6px 4px 4px 4px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-2 mb-1">
-        <p className="text-subheadline font-semibold" style={{ color: 'var(--text-faint)' }}>Tranches</p>
+        <p className="text-subheadline font-semibold" style={{ color: 'var(--text-faint)' }}>Buy levels</p>
       </div>
       {plannedTotal > 0 && (
         <p className="px-2 mb-2 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
@@ -82,10 +82,10 @@ export default function TrancheSection({
                 onDelete={() => { onDelete(t.id); setEditingId(null) }}
                 onCancel={() => setEditingId(null)}
               />
-            : <TrancheRow key={t.id} tranche={t} onToggle={onToggle} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+            : <TrancheRow key={t.id} tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
         )}
         {tranches.length === 0 && editingId !== 'new' && (
-          <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No tranches yet — tap Generate</p>
+          <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No levels yet — tap Generate</p>
         )}
       </div>
     </div>
@@ -93,6 +93,54 @@ export default function TrancheSection({
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function TrancheRow({ tranche, cmp, onEdit }: {
+  tranche: BuyTranche
+  cmp?: number | null
+  onEdit: () => void
+}) {
+  const amount = tranche.qty * tranche.price
+
+  const distPct = (cmp != null && cmp > 0)
+    ? ((cmp - tranche.price) / cmp) * 100
+    : null
+
+  const distLabel = distPct == null
+    ? null
+    : distPct < 0
+      ? `↑ ${Math.abs(distPct).toFixed(1)}% above CMP`
+      : `↓ ${distPct.toFixed(1)}% from CMP`
+
+  return (
+    <div className="flex items-center px-4 py-3 gap-3">
+      {/* Price — primary */}
+      <div className="flex-1">
+        <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+          {tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        </p>
+        {distLabel && (
+          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
+            {distLabel}
+          </p>
+        )}
+      </div>
+      {/* Qty + amount */}
+      <div className="text-right">
+        <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+          {Math.round(tranche.qty)} shares
+        </p>
+        <p className="text-body font-semibold tabnum mt-0.5" style={{ color: 'var(--text-2)' }}>
+          {formatINR(amount)}
+        </p>
+      </div>
+      {/* Edit — 44pt tap target */}
+      <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
+              style={{ color: 'var(--text-faint)' }}>
+        <PencilIcon className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
 
 function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave, onDelete, onCancel }: {
   initialQty?: string
@@ -125,7 +173,7 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
           className="tabnum"
           style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
         <span style={{ fontSize: 13, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
-        <input type="text" inputMode="decimal" placeholder="Price ₹" value={price}
+        <input type="text" inputMode="decimal" placeholder="Price" value={price}
           onChange={e => setPrice(e.target.value)}
           className="tabnum"
           style={{ flex: 2, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
@@ -159,39 +207,6 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
           </button>
         )}
       </div>
-    </div>
-  )
-}
-
-function TrancheRow({ tranche, onToggle, onEdit }: {
-  tranche: BuyTranche
-  onToggle: (id: string, allocated: boolean) => void
-  onEdit: () => void
-}) {
-  const amount = tranche.qty * tranche.price
-  return (
-    <div className="flex items-center px-4 py-3 gap-3">
-      {/* Checkbox — 44pt tap target */}
-      <button onClick={() => onToggle(tranche.id, !tranche.allocated)}
-        className="w-11 h-11 flex items-center justify-center flex-shrink-0 -ml-2">
-        <div className="w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-colors"
-          style={tranche.allocated ? { background: '#34C759', borderColor: '#34C759' } : { background: 'transparent', borderColor: 'var(--border)' }}>
-          {tranche.allocated && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-        </div>
-      </button>
-      <p className="flex-1 text-subheadline tabnum"
-         style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-2)', textDecoration: tranche.allocated ? 'line-through' : 'none' }}>
-        {Math.round(tranche.qty)} × ₹{tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-      </p>
-      <p className="text-subheadline font-semibold tabnum"
-         style={{ color: tranche.allocated ? 'var(--text-faint)' : 'var(--text-primary)' }}>
-        {formatINR(amount)}
-      </p>
-      {/* Edit — 44pt tap target */}
-      <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
-              style={{ color: 'var(--text-faint)' }}>
-        <PencilIcon className="w-4 h-4" />
-      </button>
     </div>
   )
 }

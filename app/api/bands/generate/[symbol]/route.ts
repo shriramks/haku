@@ -410,35 +410,20 @@ export async function POST(
     // Fetch live CMP so tranches are never placed above current market price
     const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
 
-    // Preserve allocated tranches — only regenerate unallocated ones
-    const { data: existingTranches } = await supabase
-      .from('buy_tranches')
-      .select('id, allocated, qty, price')
-      .eq('user_id', user.id)
-      .eq('symbol', upperSymbol)
-      .eq('fy_id', fyId)
-
-    const allocatedTranches = (existingTranches ?? []).filter(t => t.allocated)
-    const allocatedAmt = allocatedTranches.reduce((s: number, t: { qty: number; price: number }) => s + t.qty * t.price, 0)
-    const remainingAfterAllocated = Math.max(0, remaining - allocatedAmt)
-
     const prices = computeTrancheprices(result.buyLow, result.buyHigh, liveCmp, result.midLow, result.midHigh)
-    const amtPerTranche = prices.length > 0 ? remainingAfterAllocated / prices.length : 0
+    const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
-    // Delete only unallocated tranches; keep allocated ones intact
     await supabase.from('buy_tranches')
       .delete()
       .eq('user_id', user.id)
       .eq('symbol', upperSymbol)
       .eq('fy_id', fyId)
-      .eq('allocated', false)
 
     const trancheRows = prices.map((price, i) => ({
       user_id:    user.id,
       symbol:     upperSymbol,
       price,
       qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-      allocated:  false,
       sort_order: i + 1,
       fy_id:      fyId,
     }))
