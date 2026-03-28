@@ -45,13 +45,6 @@
    screen bottom, not document bottom. dvh = full screen in PWA (no dynamic bars).
    Nav pad subtracts 16px so pill visually centres in the home-indicator zone. */
 @media (display-mode: standalone) {
-  body { min-height: 100dvh; }
-  /* Root page divs must also be 100dvh so WebKit uses the full screen as the
-     containing block for position:fixed. Without this, WebKit uses the root
-     div's content height (short on allocation/bands), placing fixed elements
-     relative to content bottom rather than screen bottom.
-     Safe here: dvh = full screen in PWA (no dynamic browser bars). */
-  .page-root { min-height: 100dvh; }
   :root { --nav-bottom-pad: max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px)); }
 }
 

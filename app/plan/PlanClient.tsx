@@ -107,7 +107,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const totalBudget = selectedFY?.total_budget_inr ?? 0
 
   return (
-    <div className="page-root">
+    <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
