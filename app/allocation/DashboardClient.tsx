@@ -276,7 +276,7 @@ function Metric({ label, value, negative, align = 'left' }: { label: string; val
       <p className="font-bold tabnum text-title-1" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-subheadline mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-subheadline mt-1 text-center" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }
