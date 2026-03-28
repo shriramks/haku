@@ -117,7 +117,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         <div className="grid px-4 pt-4 pb-4 border-b"
              style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)' }}>
           <Metric label="Plan"     value={formatINR(totalBudget)} />
-          <Metric label="Invested" value={formatINR(totalDeployed)} />
+          <Metric label="Invested" value={formatAmt(totalDeployed)} />
           <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
         </div>
       )}
