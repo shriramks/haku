@@ -90,7 +90,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   }, [rows])
 
   return (
-    <div className="pb-4" style={{ minHeight: '100dvh' }}>
+    <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
@@ -133,7 +133,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <Link href="/plan" className="text-body text-accent">Add stocks in Plan →</Link>
         </div>
       ) : (
-        <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+        <div>
           {/* Flat allocation rows */}
           <div>
             {activeRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
