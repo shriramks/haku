@@ -273,7 +273,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const completedRows = useMemo(() => rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
 
   return (
-    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+    <div className="page-root" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"

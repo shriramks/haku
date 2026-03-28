@@ -192,7 +192,7 @@ export default function StockDetailClient({
   const fyLabel = fiscalYear?.label ?? 'This FY'
 
   return (
-    <div>
+    <div className="page-root">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div

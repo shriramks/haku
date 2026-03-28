@@ -228,7 +228,7 @@ export default function TransactionsClient({
   )
 
   return (
-    <div>
+    <div className="page-root">
       {/* ── Sticky header ── */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
