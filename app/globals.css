@@ -38,9 +38,14 @@
   }
 }
 
-/* ── Nav safe-area: small in browser, proper inset in PWA standalone ──────── */
-:root { --nav-bottom-pad: 8px; }
+/* ── Nav safe-area padding ────────────────────────────────────────────────── */
+/* Browser: fill behind home-indicator zone so URL bar overlays nav background */
+:root { --nav-bottom-pad: max(8px, env(safe-area-inset-bottom, 0px)); }
+/* Standalone: body must be 100dvh (not svh) so position:fixed anchors to true
+   screen bottom, not document bottom. dvh = full screen in PWA (no dynamic bars).
+   Nav pad subtracts 16px so pill visually centres in the home-indicator zone. */
 @media (display-mode: standalone) {
+  body { min-height: 100dvh; }
   :root { --nav-bottom-pad: max(8px, calc(env(safe-area-inset-bottom, 0px) - 16px)); }
 }
 
