@@ -90,7 +90,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   }, [rows])
 
   return (
-    <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+    <div>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
@@ -116,9 +116,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       {selectedFY && (
         <div className="grid px-4 pt-4 pb-4 border-b"
              style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)' }}>
-          <Metric label="Plan"     value={formatINR(totalBudget)}               align="left" />
-          <Metric label="Invested" value={formatINR(totalDeployed)}             align="right" />
-          <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))}  align="right" negative={totalRemaining < 0} />
+          <Metric label="Plan"     value={formatINR(totalBudget)} />
+          <Metric label="Invested" value={formatINR(totalDeployed)} />
+          <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
         </div>
       )}
 
@@ -149,6 +149,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <CarryoverSection result={carryoverResult} prevFYLabel={prevFY.label} />
             </CollapsibleSection>
           )}
+          <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
         </div>
       )}
     </div>
@@ -269,14 +270,13 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
   )
 }
 
-function Metric({ label, value, negative, align = 'left' }: { label: string; value: string; negative?: boolean; align?: 'left' | 'right' }) {
-  const cls = align === 'right' ? 'text-right' : 'text-left'
+function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
-    <div className={cls}>
+    <div className="text-center">
       <p className="font-bold tabnum text-title-1" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </p>
-      <p className="text-subheadline mt-1 text-center" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="text-subheadline mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </div>
   )
 }
