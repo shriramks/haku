@@ -283,7 +283,7 @@ function PlanTab({
   const pctOk = Math.abs(totalPct - 100) < 0.01
 
   return (
-    <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {selectedFY ? (
         <>

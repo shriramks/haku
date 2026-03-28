@@ -228,7 +228,7 @@ export default function TransactionsClient({
   )
 
   return (
-    <div style={{ minHeight: '100dvh' }}>
+    <div>
       {/* ── Sticky header ── */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"

@@ -171,7 +171,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {row.symbol}
       </span>
       {/* Col 2 — invested, same weight as left */}
-      <span className="text-body tabnum font-semibold text-right"
+      <span className="text-body tabnum font-semibold text-center"
             style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
         {formatAmt(row.spent)}
       </span>
