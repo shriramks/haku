@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt } from '@/lib/formatter'
+import { formatAmt, formatINR } from '@/lib/formatter'
+import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -113,10 +114,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip */}
       {selectedFY && (
-        <div className="grid grid-cols-3 px-4 pt-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <Metric label="Plan"     value={formatAmt(totalBudget)}               align="left" />
-          <Metric label="Invested" value={formatAmt(totalDeployed)}             align="right" />
-          <Metric label="Left"     value={formatAmt(Math.abs(totalRemaining))}  align="right" negative={totalRemaining < 0} />
+        <div className="grid px-4 pt-4 pb-4 border-b"
+             style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)' }}>
+          <Metric label="Plan"     value={formatINR(totalBudget)}               align="left" />
+          <Metric label="Invested" value={formatINR(totalDeployed)}             align="right" />
+          <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))}  align="right" negative={totalRemaining < 0} />
         </div>
       )}
 
@@ -156,30 +158,35 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
-  const isDone   = row.remaining <= 0
-  const leftPct  = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
+  const isDone  = row.remaining <= 0
+  const leftPct = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
 
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-          className="grid grid-cols-3 items-center px-4 py-3 border-b tap-row"
-          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1, minHeight: '52px' }}>
+          className="grid items-center px-4 py-3 border-b tap-row"
+          style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1, minHeight: '52px' }}>
       {/* Col 1 — ticker */}
       <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
         {row.symbol}
       </span>
-      {/* Col 2 — invested (context, not actionable) */}
-      <span className="text-body tabnum text-right" style={{ color: 'var(--text-2)' }}>
+      {/* Col 2 — invested, same weight as left */}
+      <span className="text-body tabnum font-semibold text-right"
+            style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
         {formatAmt(row.spent)}
       </span>
-      {/* Col 3 — left ₹ (actionable) + left % below */}
-      <div className="text-right">
-        <p className="text-body tabnum font-semibold"
-           style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
-          {isDone ? formatAmt(0) : formatAmt(row.remaining)}
-        </p>
-        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {isDone ? 'done' : `${leftPct}% left`}
-        </p>
+      {/* Col 3 — left amt · left % inline + caret */}
+      <div className="flex items-center justify-end gap-1.5">
+        {isDone ? (
+          <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>done</span>
+        ) : (
+          <span className="text-body tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {formatAmt(row.remaining)}
+            <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
+              {' · '}{leftPct}%
+            </span>
+          </span>
+        )}
+        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
       </div>
     </Link>
   )
