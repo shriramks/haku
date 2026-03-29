@@ -64,18 +64,12 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  min-height: 100dvh;
-}
-
-/* iOS WebKit has a compositing bug where position:fixed elements render at the
-   wrong position on the initial paint when the document is non-scrollable.
-   This pseudo-element makes the document 1px taller than the viewport, ensuring
-   iOS always uses the scrollable-document compositing path. With
-   overscroll-behavior:none on html, the 1px scroll is invisible. */
-body::after {
-  content: '';
-  display: block;
-  height: 1px;
+  /* calc(100dvh + 1px) ensures the document is always 1px taller than the
+     viewport. iOS WebKit has a compositing bug where position:fixed elements
+     render at the wrong position when the document is non-scrollable.
+     The extra 1px forces the scrollable-document compositing path.
+     Invisible with overscroll-behavior:none on html. */
+  min-height: calc(100dvh + 1px);
 }
 
 /* ── Utility classes ─────────────────────────────────────────────────────── */
