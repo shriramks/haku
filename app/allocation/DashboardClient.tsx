@@ -238,8 +238,16 @@ function CollapsibleSection({ title, children }: { title: string; children: Reac
 
 function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; prevFYLabel: string }) {
   const { direct, poolTotal, poolShares, orphans } = result.breakdown
+  const total = Array.from(result.adjustments.values()).reduce((s, v) => s + v, 0)
   return (
     <div className="px-4 pb-4 space-y-4">
+      {/* Total carryover into this FY */}
+      <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
+        <span className={`tabnum text-body font-semibold ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
+          {total >= 0 ? '+' : '−'}{formatINR(Math.abs(total))}
+        </span>
+      </div>
       {/* Orphaned stocks */}
       {orphans.length > 0 && (
         <div>
