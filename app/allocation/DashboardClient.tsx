@@ -90,7 +90,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   }, [rows])
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
@@ -149,6 +149,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <CarryoverSection result={carryoverResult} prevFYLabel={prevFY.label} />
             </CollapsibleSection>
           )}
+          <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
         </div>
       )}
     </div>

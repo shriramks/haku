@@ -107,7 +107,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
   const totalBudget = selectedFY?.total_budget_inr ?? 0
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
@@ -283,7 +283,7 @@ function PlanTab({
   const pctOk = Math.abs(totalPct - 100) < 0.01
 
   return (
-    <div>
+    <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {selectedFY ? (
         <>
