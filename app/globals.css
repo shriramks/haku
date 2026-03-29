@@ -67,6 +67,17 @@ body {
   min-height: 100dvh;
 }
 
+/* iOS WebKit has a compositing bug where position:fixed elements render at the
+   wrong position on the initial paint when the document is non-scrollable.
+   This pseudo-element makes the document 1px taller than the viewport, ensuring
+   iOS always uses the scrollable-document compositing path. With
+   overscroll-behavior:none on html, the 1px scroll is invisible. */
+body::after {
+  content: '';
+  display: block;
+  height: 1px;
+}
+
 /* ── Utility classes ─────────────────────────────────────────────────────── */
 .tabnum {
   font-variant-numeric: tabular-nums;
