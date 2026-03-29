@@ -90,7 +90,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   }, [rows])
 
   return (
-    <div>
+    <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
