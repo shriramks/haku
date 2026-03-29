@@ -146,9 +146,13 @@ function PlusIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
 
 function TxnsIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      {/* Top: right-pointing arrow */}
+      <line x1="3" y1="8" x2="19" y2="8" />
+      <polyline points="15,4 19,8 15,12" />
+      {/* Bottom: left-pointing arrow */}
+      <line x1="21" y1="16" x2="5" y2="16" />
+      <polyline points="9,12 5,16 9,20" />
     </svg>
   )
 }
