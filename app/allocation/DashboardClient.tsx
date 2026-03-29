@@ -170,8 +170,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           className="block px-4 border-b tap-row"
           style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
 
-      {/* Main content — py-3 gives 44px+ tap target per HIG */}
-      <div className="grid items-center py-3"
+      {/* Main content — py-4 suits subtitle-style rows (two tiers of info) per HIG */}
+      <div className="grid items-center py-4"
            style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', minHeight: '44px' }}>
         {/* Col 1 — ticker */}
         <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
