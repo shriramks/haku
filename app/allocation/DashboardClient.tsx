@@ -159,36 +159,58 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
-  const isDone  = row.remaining <= 0
-  const leftPct = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
+  const isDone   = row.remaining <= 0
+  const leftPct  = row.budget > 0 ? Math.round((row.remaining  / row.budget) * 100) : 0
+  const spentPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
+  // >85% = well allocated (positive), 50–85% = on track (warning), <50% = under-allocated (negative)
+  const barColorClass = spentPct >= 85 ? 'bg-positive' : spentPct >= 50 ? 'bg-warning' : 'bg-negative'
 
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-          className="grid items-center px-4 py-3 border-b tap-row"
-          style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1, minHeight: '52px' }}>
-      {/* Col 1 — ticker */}
-      <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-        {row.symbol}
-      </span>
-      {/* Col 2 — invested, same weight as left */}
-      <span className="text-body tabnum font-semibold text-center"
-            style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
-        {formatAmt(row.spent)}
-      </span>
-      {/* Col 3 — left amt · left % inline + caret */}
-      <div className="flex items-center justify-end gap-1.5">
-        {isDone ? (
-          <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>done</span>
-        ) : (
-          <span className="text-body tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {formatAmt(row.remaining)}
+          className="block px-4 border-b tap-row"
+          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
+
+      {/* Main content — py-3 gives 44px+ tap target per HIG */}
+      <div className="grid items-center py-3"
+           style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', minHeight: '44px' }}>
+        {/* Col 1 — ticker */}
+        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {row.symbol}
+        </span>
+        {/* Col 2 — invested · invested% */}
+        <span className="tabnum font-semibold text-center whitespace-nowrap"
+              style={{ fontSize: '15px', color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+          {formatAmt(row.spent)}
+          {!isDone && (
             <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
-              {' · '}{leftPct}%
+              {' · '}{spentPct}%
             </span>
-          </span>
-        )}
-        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+          )}
+        </span>
+        {/* Col 3 — left amt · left% + caret */}
+        <div className="flex items-center justify-end gap-1.5">
+          {isDone ? (
+            <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>done</span>
+          ) : (
+            <span className="text-body tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {formatAmt(row.remaining)}
+              <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
+                {' · '}{leftPct}%
+              </span>
+            </span>
+          )}
+          <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+        </div>
       </div>
+
+      {/* Hairline allocation bar — only on active rows */}
+      {!isDone && (
+        <div className="pb-3">
+          <div className="w-full rounded-full overflow-hidden" style={{ height: '2px', background: 'var(--border-faint)' }}>
+            <div className={`h-full rounded-full ${barColorClass}`} style={{ width: `${spentPct}%` }} />
+          </div>
+        </div>
+      )}
     </Link>
   )
 }

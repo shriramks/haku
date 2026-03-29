@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allocation Visual Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-primary:   #F2F2F7;
+    --bg-secondary: #FFFFFF;
+    --text-primary: #000000;
+    --text-muted:   rgba(0,0,0,0.40);
+    --text-faint:   rgba(0,0,0,0.25);
+    --border:       rgba(0,0,0,0.10);
+    --border-faint: rgba(0,0,0,0.06);
+    --c-green:  #34C759;
+    --c-orange: #FF9F0A;
+    --c-red:    #FF3B30;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary:   #000000;
+      --bg-secondary: #1C1C1E;
+      --text-primary: #FFFFFF;
+      --text-muted:   rgba(255,255,255,0.40);
+      --text-faint:   rgba(255,255,255,0.25);
+      --border:       rgba(255,255,255,0.10);
+      --border-faint: rgba(255,255,255,0.05);
+      --c-green:  #30D158;
+      --c-orange: #FF9F0A;
+      --c-red:    #FF453A;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    max-width: 430px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+  }
+
+  .header { padding: 52px 16px 12px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 28px; font-weight: 700; }
+
+  .summary {
+    display: grid; grid-template-columns: 1.4fr 1fr 1.5fr;
+    padding: 16px; border-bottom: 1px solid var(--border-faint); background: var(--bg-secondary);
+  }
+  .metric { text-align: center; }
+  .metric .val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .metric .lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .section-label {
+    padding: 10px 16px 8px; font-size: 11px; font-weight: 700;
+    background: var(--bg-primary); border-bottom: 1px solid var(--border-faint);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .section-label .title { color: var(--text-muted); }
+  .section-label small {
+    display: block; font-weight: 400; text-transform: none;
+    letter-spacing: 0; font-size: 12px; margin-top: 2px; color: var(--text-faint);
+  }
+
+  .legend {
+    display: flex; gap: 14px; padding: 7px 16px 9px;
+    background: var(--bg-primary); border-bottom: 1px solid var(--border-faint);
+    font-size: 12px; color: var(--text-muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .ldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── base row (uses CSS vars, overridable per theme block) ── */
+  .row {
+    position: relative; overflow: hidden;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--rb-faint, var(--border-faint));
+    background: var(--rb-secondary, var(--bg-secondary));
+    text-decoration: none; color: var(--rt-primary, var(--text-primary)); display: block;
+  }
+  .row.dim { opacity: 0.35; }
+  .row-content {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center; min-height: 52px;
+  }
+  .ticker { font-size: 17px; font-weight: 600; }
+  .invested { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
+  .inv-pct  { font-size: 13px; font-weight: 400; color: var(--rt-muted, var(--text-muted)); }
+  .right { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+  .left-amt { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .left-pct { font-size: 13px; font-weight: 400; color: var(--rt-muted, var(--text-muted)); }
+  .done-label { font-size: 15px; color: var(--rt-faint, var(--text-faint)); }
+  .chevron { color: var(--rt-faint, var(--text-faint)); flex-shrink: 0; }
+
+  /* bar */
+  .bar-wrap { padding-bottom: 10px; }
+  .bar-track { width: 100%; border-radius: 99px; overflow: hidden; }
+  .bar-fill  { border-radius: 99px; }
+
+  /* wash overlay */
+  .wash { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+  /* pips */
+  .pips { display: flex; gap: 3px; }
+  .pip { height: 7px; border-radius: 2px; flex: 1; }
+  .pip.empty { background: var(--rb-faint, var(--border-faint)); }
+
+  /* badge */
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 3px 9px; border-radius: 99px;
+    font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+
+  /* ── forced theme blocks for option 4 ── */
+  .theme-light {
+    --rb-secondary: #FFFFFF;
+    --rb-faint:     rgba(0,0,0,0.06);
+    --rt-primary:   #000000;
+    --rt-muted:     rgba(0,0,0,0.40);
+    --rt-faint:     rgba(0,0,0,0.25);
+    background: #F2F2F7;
+  }
+  .theme-dark {
+    --rb-secondary: #1C1C1E;
+    --rb-faint:     rgba(255,255,255,0.05);
+    --rt-primary:   #FFFFFF;
+    --rt-muted:     rgba(255,255,255,0.40);
+    --rt-faint:     rgba(255,255,255,0.25);
+    background: #000000;
+  }
+  .theme-label {
+    padding: 7px 16px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase; border-bottom-width: 1px; border-bottom-style: solid;
+  }
+  .theme-light .theme-label { color: rgba(0,0,0,0.40); border-color: rgba(0,0,0,0.06); background: #F2F2F7; }
+  .theme-dark  .theme-label { color: rgba(255,255,255,0.40); border-color: rgba(255,255,255,0.05); background: #000; }
+</style>
+</head>
+<body>
+
+<div class="header"><h1>Allocation</h1></div>
+<div class="summary">
+  <div class="metric"><div class="val">₹30L</div><div class="lbl">Plan</div></div>
+  <div class="metric"><div class="val">18.3L</div><div class="lbl">Invested</div></div>
+  <div class="metric"><div class="val">₹11.7L</div><div class="lbl">Left</div></div>
+</div>
+<div class="legend">
+  <span><span class="ldot" style="background:var(--c-red)"></span>&lt;50% allocated = red</span>
+  <span><span class="ldot" style="background:var(--c-orange)"></span>50–85%</span>
+  <span><span class="ldot" style="background:var(--c-green)"></span>&gt;85%</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     1 — Hairline bar (2px)
+══════════════════════════════════════════════ -->
+<div class="section-label">
+  <span class="title">1 — Hairline bar</span>
+  <small>2px line under each row</small>
+</div>
+
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">BAJFINANCE</span>
+    <span class="invested">1.5L<span class="inv-pct"> · 25%</span></span>
+    <div class="right">
+      <span class="left-amt">4.5L<span class="left-pct"> · 75%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap"><div class="bar-track" style="height:2px;background:var(--border-faint)"><div class="bar-fill" style="height:2px;width:25%;background:var(--c-red)"></div></div></div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">HDFCBANK</span>
+    <span class="invested">2.9L<span class="inv-pct"> · 48%</span></span>
+    <div class="right">
+      <span class="left-amt">3.1L<span class="left-pct"> · 52%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap"><div class="bar-track" style="height:2px;background:var(--border-faint)"><div class="bar-fill" style="height:2px;width:48%;background:var(--c-red)"></div></div></div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">INFY</span>
+    <span class="invested">3.9L<span class="inv-pct"> · 65%</span></span>
+    <div class="right">
+      <span class="left-amt">2.1L<span class="left-pct"> · 35%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap"><div class="bar-track" style="height:2px;background:var(--border-faint)"><div class="bar-fill" style="height:2px;width:65%;background:var(--c-orange)"></div></div></div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">TCS</span>
+    <span class="invested">5.3L<span class="inv-pct"> · 88%</span></span>
+    <div class="right">
+      <span class="left-amt">72K<span class="left-pct"> · 12%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap"><div class="bar-track" style="height:2px;background:var(--border-faint)"><div class="bar-fill" style="height:2px;width:88%;background:var(--c-green)"></div></div></div>
+</div>
+<div class="row dim">
+  <div class="row-content">
+    <span class="ticker">WIPRO</span>
+    <span class="invested" style="color:var(--text-faint)">5L</span>
+    <div class="right"><span class="done-label">done</span><svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     2 — Row wash · LIGHT
+══════════════════════════════════════════════ -->
+<div class="section-label">
+  <span class="title">2 — Row background wash</span>
+  <small>row itself floods with color — no extra element. shown in light + dark below</small>
+</div>
+
+<div class="theme-light">
+  <div class="theme-label">Light mode</div>
+
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,59,48,0.18) 25%,transparent 25%)"></div>
+    <div class="row-content">
+      <span class="ticker">BAJFINANCE</span>
+      <span class="invested">1.5L<span class="inv-pct"> · 25%</span></span>
+      <div class="right">
+        <span class="left-amt">4.5L<span class="left-pct"> · 75%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,59,48,0.18) 48%,transparent 48%)"></div>
+    <div class="row-content">
+      <span class="ticker">HDFCBANK</span>
+      <span class="invested">2.9L<span class="inv-pct"> · 48%</span></span>
+      <div class="right">
+        <span class="left-amt">3.1L<span class="left-pct"> · 52%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,159,10,0.20) 65%,transparent 65%)"></div>
+    <div class="row-content">
+      <span class="ticker">INFY</span>
+      <span class="invested">3.9L<span class="inv-pct"> · 65%</span></span>
+      <div class="right">
+        <span class="left-amt">2.1L<span class="left-pct"> · 35%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(52,199,89,0.20) 88%,transparent 88%)"></div>
+    <div class="row-content">
+      <span class="ticker">TCS</span>
+      <span class="invested">5.3L<span class="inv-pct"> · 88%</span></span>
+      <div class="right">
+        <span class="left-amt">72K<span class="left-pct"> · 12%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row dim">
+    <div class="row-content">
+      <span class="ticker">WIPRO</span>
+      <span class="invested">5L</span>
+      <div class="right"><span class="done-label">done</span><svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+<!-- ROW WASH · DARK -->
+<div class="theme-dark">
+  <div class="theme-label">Dark mode</div>
+
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,69,58,0.13) 25%,transparent 25%)"></div>
+    <div class="row-content">
+      <span class="ticker">BAJFINANCE</span>
+      <span class="invested">1.5L<span class="inv-pct"> · 25%</span></span>
+      <div class="right">
+        <span class="left-amt">4.5L<span class="left-pct"> · 75%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,69,58,0.13) 48%,transparent 48%)"></div>
+    <div class="row-content">
+      <span class="ticker">HDFCBANK</span>
+      <span class="invested">2.9L<span class="inv-pct"> · 48%</span></span>
+      <div class="right">
+        <span class="left-amt">3.1L<span class="left-pct"> · 52%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(255,159,10,0.15) 65%,transparent 65%)"></div>
+    <div class="row-content">
+      <span class="ticker">INFY</span>
+      <span class="invested">3.9L<span class="inv-pct"> · 65%</span></span>
+      <div class="right">
+        <span class="left-amt">2.1L<span class="left-pct"> · 35%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="wash" style="background:linear-gradient(to right,rgba(48,209,88,0.14) 88%,transparent 88%)"></div>
+    <div class="row-content">
+      <span class="ticker">TCS</span>
+      <span class="invested">5.3L<span class="inv-pct"> · 88%</span></span>
+      <div class="right">
+        <span class="left-amt">72K<span class="left-pct"> · 12%</span></span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="row dim">
+    <div class="row-content">
+      <span class="ticker">WIPRO</span>
+      <span class="invested">5L</span>
+      <div class="right"><span class="done-label">done</span><svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     3 — Donut ring (bigger, 32px)
+══════════════════════════════════════════════ -->
+<div class="section-label">
+  <span class="title">3 — Donut ring</span>
+  <small>32px SVG gauge · replaces the "· X%" text</small>
+</div>
+
+<!-- r=11, circumference = 2π×11 ≈ 69.12 -->
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">BAJFINANCE</span>
+    <span class="invested">1.5L<span class="inv-pct"> · 25%</span></span>
+    <div class="right">
+      <span class="left-amt">4.5L</span>
+      <!-- 25% → 17.28 -->
+      <svg width="32" height="32" viewBox="0 0 32 32" style="transform:rotate(-90deg);flex-shrink:0">
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--border-faint)" stroke-width="4"/>
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--c-red)" stroke-width="4"
+                stroke-dasharray="17.28 69.12" stroke-linecap="round"/>
+      </svg>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">HDFCBANK</span>
+    <span class="invested">2.9L<span class="inv-pct"> · 48%</span></span>
+    <div class="right">
+      <span class="left-amt">3.1L</span>
+      <!-- 48% → 33.18 -->
+      <svg width="32" height="32" viewBox="0 0 32 32" style="transform:rotate(-90deg);flex-shrink:0">
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--border-faint)" stroke-width="4"/>
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--c-red)" stroke-width="4"
+                stroke-dasharray="33.18 69.12" stroke-linecap="round"/>
+      </svg>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">INFY</span>
+    <span class="invested">3.9L<span class="inv-pct"> · 65%</span></span>
+    <div class="right">
+      <span class="left-amt">2.1L</span>
+      <!-- 65% → 44.93 -->
+      <svg width="32" height="32" viewBox="0 0 32 32" style="transform:rotate(-90deg);flex-shrink:0">
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--border-faint)" stroke-width="4"/>
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--c-orange)" stroke-width="4"
+                stroke-dasharray="44.93 69.12" stroke-linecap="round"/>
+      </svg>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">TCS</span>
+    <span class="invested">5.3L<span class="inv-pct"> · 88%</span></span>
+    <div class="right">
+      <span class="left-amt">72K</span>
+      <!-- 88% → 60.83 -->
+      <svg width="32" height="32" viewBox="0 0 32 32" style="transform:rotate(-90deg);flex-shrink:0">
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--border-faint)" stroke-width="4"/>
+        <circle cx="16" cy="16" r="11" fill="none" stroke="var(--c-green)" stroke-width="4"
+                stroke-dasharray="60.83 69.12" stroke-linecap="round"/>
+      </svg>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+</div>
+<div class="row dim">
+  <div class="row-content">
+    <span class="ticker">WIPRO</span>
+    <span class="invested" style="color:var(--text-faint)">5L</span>
+    <div class="right"><span class="done-label">done</span><svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     4 — Pip segments
+══════════════════════════════════════════════ -->
+<div class="section-label">
+  <span class="title">4 — Pip segments</span>
+  <small>10-block battery strip · filled = spent</small>
+</div>
+
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">BAJFINANCE</span>
+    <span class="invested">1.5L<span class="inv-pct"> · 25%</span></span>
+    <div class="right">
+      <span class="left-amt">4.5L<span class="left-pct"> · 75%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap">
+    <div class="pips">
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red);opacity:0.35"></div>
+      <div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+      <div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">HDFCBANK</span>
+    <span class="invested">2.9L<span class="inv-pct"> · 48%</span></span>
+    <div class="right">
+      <span class="left-amt">3.1L<span class="left-pct"> · 52%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap">
+    <div class="pips">
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red)"></div>
+      <div class="pip" style="background:var(--c-red);opacity:0.35"></div>
+      <div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+      <div class="pip empty"></div><div class="pip empty"></div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">INFY</span>
+    <span class="invested">3.9L<span class="inv-pct"> · 65%</span></span>
+    <div class="right">
+      <span class="left-amt">2.1L<span class="left-pct"> · 35%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap">
+    <div class="pips">
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange)"></div>
+      <div class="pip" style="background:var(--c-orange);opacity:0.35"></div>
+      <div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-content">
+    <span class="ticker">TCS</span>
+    <span class="invested">5.3L<span class="inv-pct"> · 88%</span></span>
+    <div class="right">
+      <span class="left-amt">72K<span class="left-pct"> · 12%</span></span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+  <div class="bar-wrap">
+    <div class="pips">
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green)"></div>
+      <div class="pip" style="background:var(--c-green);opacity:0.35"></div>
+      <div class="pip empty"></div>
+    </div>
+  </div>
+</div>
+<div class="row dim">
+  <div class="row-content">
+    <span class="ticker">WIPRO</span>
+    <span class="invested" style="color:var(--text-faint)">5L</span>
+    <div class="right"><span class="done-label">done</span><svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>
+  </div>
+</div>
+
+
+
+</body>
+</html>
