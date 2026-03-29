@@ -68,10 +68,13 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  /* 100svh = small (constant) viewport — never larger than visual viewport.
-     dvh resolves to the large viewport on initial iOS Safari page load even
-     when bars are visible, making the document scrollable with blank space. */
-  min-height: 100dvh;
+  /* App shell: body fills viewport and never scrolls.
+     Pages scroll inside their own flex child via overflow-y: auto.
+     This avoids iOS WebKit position:fixed bugs entirely. */
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Utility classes ─────────────────────────────────────────────────────── */

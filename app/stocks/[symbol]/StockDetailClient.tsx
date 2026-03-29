@@ -192,7 +192,7 @@ export default function StockDetailClient({
   const fyLabel = fiscalYear?.label ?? 'This FY'
 
   return (
-    <div style={{ minHeight: '100dvh' }}>
+    <div style={{ flex: 1, overflowY: 'auto' }}>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <div
@@ -223,7 +223,7 @@ export default function StockDetailClient({
         </div>
       </div>
 
-      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+      <div>
 
         {/* ── Band bar + CMP ────────────────────────────────────────────────── */}
         <div className="px-4 pt-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>

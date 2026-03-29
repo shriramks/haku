@@ -228,7 +228,7 @@ export default function TransactionsClient({
   )
 
   return (
-    <div style={{ minHeight: '100dvh' }}>
+    <div style={{ flex: 1, overflowY: 'auto' }}>
       {/* ── Sticky header ── */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
@@ -306,7 +306,7 @@ export default function TransactionsClient({
           </p>
         </div>
       ) : (
-        <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+        <div className="pt-4 space-y-5">
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
               <div className="flex items-baseline justify-between px-5 mb-2">

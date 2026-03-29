@@ -113,8 +113,8 @@ export default function ImportPage() {
 
   return (
     <>
-      <div className="min-h-screen pt-[env(safe-area-inset-top,0px)]"
-           style={{ background: 'var(--bg-primary)' }}>
+      <div className="pt-[env(safe-area-inset-top,0px)]"
+           style={{ background: 'var(--bg-primary)', flex: 1, overflowY: 'auto' }}>
 
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
