@@ -19,14 +19,16 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
 
   // Lock body scroll while modal is open so iOS doesn't scroll the page
   // behind the sheet when the keyboard appears. Restore on unmount.
+  // Note: we intentionally omit `top: -scrollY` because setting a negative top
+  // on a fixed body causes iOS WebKit to treat it as the containing block for
+  // fixed children, shifting the modal up by scrollY and creating a gap.
+  // The background content jumps to scroll-top on open, but the backdrop hides it.
   useEffect(() => {
     const scrollY = window.scrollY
     document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
     document.body.style.width = '100%'
     return () => {
       document.body.style.position = ''
-      document.body.style.top = ''
       document.body.style.width = ''
       window.scrollTo(0, scrollY)
     }
