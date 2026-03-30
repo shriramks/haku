@@ -17,6 +17,21 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
   const [error, setError]           = useState<string | null>(null)
   const [done, setDone]             = useState(false)
 
+  // Lock body scroll while modal is open so iOS doesn't scroll the page
+  // behind the sheet when the keyboard appears. Restore on unmount.
+  useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.width = '100%'
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   useEffect(() => {
     async function loadSymbols() {
       const sb = getSupabaseBrowser()
