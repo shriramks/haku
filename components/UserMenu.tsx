@@ -80,22 +80,12 @@ export default function UserMenu() {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <a
-        href="/docs.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}
-        aria-label="Help & Docs">
-        <BookIcon className="w-4 h-4" />
-      </a>
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
         className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity active:opacity-60"
         style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
-        <PersonIcon className="w-4 h-4" />
+        <CogIcon className="w-4 h-4" />
       </button>
 
       {open && (
@@ -205,6 +195,26 @@ export default function UserMenu() {
             </a>
           </div>
 
+          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+            <a
+              href="/docs.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
+              style={{
+                minHeight: 44,
+                padding: '0 12px',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-2)',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+              }}>
+              <BookIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
+              Docs
+            </a>
+          </div>
+
           <button
             onClick={signOut}
             disabled={signingOut}
@@ -215,15 +225,15 @@ export default function UserMenu() {
         </div>
       )}
     </div>
-    </div>
   )
 }
 
-function PersonIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+function CogIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   )
 }
