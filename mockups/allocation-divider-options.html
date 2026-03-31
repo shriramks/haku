@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allocation Divider Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:           #F2F2F7;
+    --card:         #FFFFFF;
+    --text:         #000000;
+    --muted:        rgba(0,0,0,0.40);
+    --faint:        rgba(0,0,0,0.25);
+    --border:       rgba(0,0,0,0.10);
+    --border-faint: rgba(0,0,0,0.06);
+    --red:    #FF3B30;
+    --orange: #FF9F0A;
+    --green:  #34C759;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:           #000000;
+      --card:         #1C1C1E;
+      --text:         #FFFFFF;
+      --muted:        rgba(255,255,255,0.40);
+      --faint:        rgba(255,255,255,0.25);
+      --border:       rgba(255,255,255,0.10);
+      --border-faint: rgba(255,255,255,0.05);
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 60px;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 28px 16px 10px;
+  }
+
+  /* ── shared row grid ── */
+  .row-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center;
+    padding: 14px 16px;
+    min-height: 44px;
+  }
+  .sym   { font-size: 15px; font-weight: 600; }
+  .inv   { font-size: 15px; font-weight: 600; text-align: center; }
+  .inv .sub, .rem .sub { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .rem   { display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+           font-size: 15px; font-weight: 600; }
+  .chev  { color: var(--faint); opacity: 0.5; flex-shrink: 0; }
+  .dim   { opacity: 0.35; }
+
+  /* ═══════════════════════════════════════════
+     CURRENT — shows the double-line problem
+  ══════════════════════════════════════════ */
+  .current-list { background: var(--card); }
+  .current-row  { border-bottom: 1px solid var(--border-faint); }
+  .current-bar-wrap { padding: 0 16px 10px; }
+  .bar-track { height: 2px; background: var(--border-faint); border-radius: 99px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 99px; }
+
+  /* ═══════════════════════════════════════════
+     A — bar IS the separator (flush, full-width)
+     Bar replaces border-b entirely.
+     0%-rows: faint full-width line (same visual weight as bar track)
+  ══════════════════════════════════════════ */
+  .a-list { background: var(--card); }
+  .a-row  { } /* no border */
+  .a-bar-wrap { height: 2px; background: var(--border-faint); }
+  .a-bar-fill { height: 100%; }
+
+  /* ═══════════════════════════════════════════
+     B — bar at top of row (leading indicator)
+     Separator stays at bottom. Bar moves to top.
+     No double line because bar & border are at opposite ends.
+  ══════════════════════════════════════════ */
+  .b-list { background: var(--card); }
+  .b-row  { border-bottom: 1px solid var(--border-faint); position: relative; }
+  .b-bar  { height: 3px; width: 100%; background: var(--border-faint); }
+  .b-bar-fill { height: 100%; border-radius: 0 2px 2px 0; }
+
+  /* ═══════════════════════════════════════════
+     C — cards: each row is its own card
+     No dividers needed — whitespace separates rows.
+  ══════════════════════════════════════════ */
+  .c-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+  .c-card {
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .c-bar-wrap { height: 3px; background: var(--border-faint); }
+  .c-bar-fill { height: 100%; }
+  .c-card .row-grid { padding: 14px 14px; }
+
+  /* ═══════════════════════════════════════════
+     D — no bar, use left-edge color stripe
+     Thin left border colored by allocation status.
+     Clean separation with a single bottom border.
+  ══════════════════════════════════════════ */
+  .d-list { background: var(--card); }
+  .d-row  {
+    border-bottom: 1px solid var(--border-faint);
+    border-left: 3px solid transparent;
+    padding-left: 13px; /* compensate for border */
+  }
+  .d-row.red    { border-left-color: var(--red); }
+  .d-row.orange { border-left-color: var(--orange); }
+  .d-row.green  { border-left-color: var(--green); }
+  .d-row.none   { border-left-color: var(--border-faint); }
+
+  /* chevron svg */
+  svg.chev { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ CURRENT (problem) ══════════ -->
+<p class="section-label">Current — double line</p>
+<div class="current-list">
+
+  <!-- 0% row — no bar, just border -->
+  <div class="current-row">
+    <div class="row-grid">
+      <span class="sym">CAMS</span>
+      <span class="inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span>
+      <div class="rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <!-- partial row — bar + border = double line -->
+  <div class="current-row">
+    <div class="row-grid">
+      <span class="sym">NH</span>
+      <span class="inv">48.6K <span class="sub">· 19%</span></span>
+      <div class="rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="current-bar-wrap">
+      <div class="bar-track"><div class="bar-fill" style="width:19%;background:var(--red)"></div></div>
+    </div>
+  </div>
+
+  <div class="current-row">
+    <div class="row-grid">
+      <span class="sym">ITC</span>
+      <span class="inv">92.9K <span class="sub">· 33%</span></span>
+      <div class="rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="current-bar-wrap">
+      <div class="bar-track"><div class="bar-fill" style="width:33%;background:var(--red)"></div></div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════ A — flush full-width bar replaces border ══════════ -->
+<p class="section-label">A — bar replaces the divider</p>
+<div class="a-list">
+
+  <div class="a-row">
+    <div class="row-grid">
+      <span class="sym">CAMS</span>
+      <span class="inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span>
+      <div class="rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="a-bar-wrap"></div><!-- faint line for 0% -->
+  </div>
+
+  <div class="a-row">
+    <div class="row-grid">
+      <span class="sym">NH</span>
+      <span class="inv">48.6K <span class="sub">· 19%</span></span>
+      <div class="rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="a-bar-wrap"><div class="a-bar-fill" style="width:19%;background:var(--red)"></div></div>
+  </div>
+
+  <div class="a-row">
+    <div class="row-grid">
+      <span class="sym">ITC</span>
+      <span class="inv">92.9K <span class="sub">· 33%</span></span>
+      <div class="rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="a-bar-wrap"><div class="a-bar-fill" style="width:33%;background:var(--red)"></div></div>
+  </div>
+
+  <div class="a-row">
+    <div class="row-grid">
+      <span class="sym">IEX</span>
+      <span class="inv">1.2L <span class="sub">· 34%</span></span>
+      <div class="rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="a-bar-wrap"><div class="a-bar-fill" style="width:34%;background:var(--red)"></div></div>
+  </div>
+
+</div>
+
+
+<!-- ══════════ B — bar at top ══════════ -->
+<p class="section-label">B — bar at top of row</p>
+<div class="b-list">
+
+  <div class="b-row">
+    <div class="b-bar"></div><!-- no fill for 0% -->
+    <div class="row-grid">
+      <span class="sym">CAMS</span>
+      <span class="inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span>
+      <div class="rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="b-row">
+    <div class="b-bar"><div class="b-bar-fill" style="width:19%;background:var(--red)"></div></div>
+    <div class="row-grid">
+      <span class="sym">NH</span>
+      <span class="inv">48.6K <span class="sub">· 19%</span></span>
+      <div class="rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="b-row">
+    <div class="b-bar"><div class="b-bar-fill" style="width:33%;background:var(--red)"></div></div>
+    <div class="row-grid">
+      <span class="sym">ITC</span>
+      <span class="inv">92.9K <span class="sub">· 33%</span></span>
+      <div class="rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="b-row">
+    <div class="b-bar"><div class="b-bar-fill" style="width:34%;background:var(--red)"></div></div>
+    <div class="row-grid">
+      <span class="sym">IEX</span>
+      <span class="inv">1.2L <span class="sub">· 34%</span></span>
+      <div class="rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════ C — cards ══════════ -->
+<p class="section-label">C — cards</p>
+<div class="c-list">
+
+  <div class="c-card">
+    <div class="row-grid">
+      <span class="sym">CAMS</span>
+      <span class="inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span>
+      <div class="rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="c-card">
+    <div class="row-grid">
+      <span class="sym">NH</span>
+      <span class="inv">48.6K <span class="sub">· 19%</span></span>
+      <div class="rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bar-wrap"><div class="c-bar-fill" style="width:19%;background:var(--red)"></div></div>
+  </div>
+
+  <div class="c-card">
+    <div class="row-grid">
+      <span class="sym">ITC</span>
+      <span class="inv">92.9K <span class="sub">· 33%</span></span>
+      <div class="rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bar-wrap"><div class="c-bar-fill" style="width:33%;background:var(--red)"></div></div>
+  </div>
+
+  <div class="c-card">
+    <div class="row-grid">
+      <span class="sym">IEX</span>
+      <span class="inv">1.2L <span class="sub">· 34%</span></span>
+      <div class="rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bar-wrap"><div class="c-bar-fill" style="width:34%;background:var(--red)"></div></div>
+  </div>
+
+</div>
+
+
+<!-- ══════════ D — left-edge stripe, no bar ══════════ -->
+<p class="section-label">D — left edge colour, no bar</p>
+<div class="d-list">
+
+  <div class="d-row none">
+    <div class="row-grid">
+      <span class="sym">CAMS</span>
+      <span class="inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span>
+      <div class="rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="d-row red">
+    <div class="row-grid">
+      <span class="sym">NH</span>
+      <span class="inv">48.6K <span class="sub">· 19%</span></span>
+      <div class="rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="d-row red">
+    <div class="row-grid">
+      <span class="sym">ITC</span>
+      <span class="inv">92.9K <span class="sub">· 33%</span></span>
+      <div class="rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+  <div class="d-row orange">
+    <div class="row-grid">
+      <span class="sym">IEX</span>
+      <span class="inv">1.2L <span class="sub">· 34%</span></span>
+      <div class="rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

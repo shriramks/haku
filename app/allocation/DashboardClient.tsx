@@ -167,8 +167,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-          className="block px-4 border-b tap-row"
-          style={{ borderColor: 'var(--border-faint)', opacity: dim ? 0.35 : 1 }}>
+          className="block px-4 tap-row"
+          style={{ opacity: dim ? 0.35 : 1 }}>
 
       {/* Main content — py-4 suits subtitle-style rows (two tiers of info) per HIG */}
       <div className="grid items-center py-4"
@@ -203,14 +203,10 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         </div>
       </div>
 
-      {/* Hairline allocation bar — only on active rows */}
-      {!isDone && (
-        <div className="pb-3">
-          <div className="w-full rounded-full overflow-hidden" style={{ height: '2px', background: 'var(--border-faint)' }}>
-            <div className={`h-full rounded-full ${barColorClass}`} style={{ width: `${spentPct}%` }} />
-          </div>
-        </div>
-      )}
+      {/* Bar doubles as row divider — always shown, colored fill on active rows only */}
+      <div style={{ height: '2px', background: 'var(--border-faint)' }}>
+        {!isDone && <div className={`h-full ${barColorClass}`} style={{ width: `${spentPct}%` }} />}
+      </div>
     </Link>
   )
 }
