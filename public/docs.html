@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haku — User Guide</title>
+<style>
+  :root {
+    --bg:        #F2F2F7;
+    --card:      #FFFFFF;
+    --text:      #000000;
+    --muted:     rgba(0,0,0,0.50);
+    --faint:     rgba(0,0,0,0.25);
+    --border:    rgba(0,0,0,0.08);
+    --accent:    #0A84FF;
+    --code-bg:   rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:      #000000;
+      --card:    #1C1C1E;
+      --text:    #FFFFFF;
+      --muted:   rgba(255,255,255,0.50);
+      --faint:   rgba(255,255,255,0.25);
+      --border:  rgba(255,255,255,0.08);
+      --code-bg: rgba(255,255,255,0.07);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+             env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+  .container { max-width: 680px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  /* Header */
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.3px; }
+  .back-btn {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 15px; font-weight: 500; color: var(--accent);
+    text-decoration: none; padding: 8px 0;
+  }
+  .back-btn svg { width: 18px; height: 18px; }
+
+  /* TOC */
+  .toc {
+    background: var(--card); border-radius: 16px; padding: 20px;
+    margin-bottom: 32px;
+  }
+  .toc-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+  }
+  .toc ol { padding-left: 20px; }
+  .toc li { padding: 3px 0; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 15px; }
+  .toc ul { padding-left: 20px; margin-top: 4px; }
+  .toc ul li { list-style: disc; }
+
+  /* Sections */
+  .section { margin-bottom: 40px; }
+  h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.2px;
+    margin-bottom: 16px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  h3 { font-size: 17px; font-weight: 600; margin: 24px 0 10px; }
+  p { font-size: 15px; line-height: 1.6; color: var(--text); margin-bottom: 12px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  tr:last-child td { border-bottom: none; }
+  table { background: var(--card); border-radius: 12px; overflow: hidden; }
+  td strong { font-weight: 600; }
+
+  /* Lists */
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { font-size: 15px; line-height: 1.6; padding: 2px 0; }
+  li strong { font-weight: 600; }
+
+  /* Code */
+  pre {
+    background: var(--code-bg); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto;
+    font-size: 13px; line-height: 1.6; margin-bottom: 12px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    color: var(--text);
+  }
+  code {
+    background: var(--code-bg); border-radius: 4px;
+    padding: 2px 5px; font-size: 13px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  pre code { background: none; padding: 0; }
+
+  /* Tip callout */
+  .tip {
+    background: rgba(10,132,255,0.07); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .tip p { font-size: 14px; color: var(--text); margin: 0; }
+
+  /* Step list */
+  .steps { counter-reset: step; padding-left: 0; list-style: none; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 8px 0 8px 36px;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 8px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <h1 class="page-title">User Guide</h1>
+    <a href="javascript:history.back()" class="back-btn">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Back
+    </a>
+  </div>
+
+  <div class="toc">
+    <p class="toc-title">Contents</p>
+    <ol>
+      <li><a href="#setup">First-time setup</a></li>
+      <li><a href="#plan">Create your first plan</a></li>
+      <li><a href="#allocation">Allocation screen</a></li>
+      <li><a href="#bands">Buy Bands</a>
+        <ul>
+          <li><a href="#ai-bands">AI band generation</a></li>
+          <li><a href="#band-bar">Reading the band bar</a></li>
+          <li><a href="#tranches">Tranches</a></li>
+        </ul>
+      </li>
+      <li><a href="#transactions">Logging transactions</a></li>
+      <li><a href="#plan-mgmt">Plan management</a></li>
+      <li><a href="#settings">Settings</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. First-time setup -->
+  <div class="section" id="setup">
+    <h2>1. First-time setup</h2>
+    <p>Sign up at the login screen with your email and password. Once in, you land on the <strong>Allocation</strong> screen — which will be empty until you create a plan.</p>
+    <p>The tabs at the bottom are your main navigation:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tab</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Allocation</strong></td><td>Home screen — deployment status per stock</td></tr>
+          <tr><td><strong>Buy Bands</strong></td><td>Valuation zones + planned buy orders</td></tr>
+          <tr><td><strong>+</strong></td><td>Log a new transaction</td></tr>
+          <tr><td><strong>Transactions</strong></td><td>Full buy/sell history</td></tr>
+          <tr><td><strong>Plan</strong></td><td>Manage your annual plan</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. Create your first plan -->
+  <div class="section" id="plan">
+    <h2>2. Create your first plan</h2>
+    <p>Go to <strong>Plan</strong> → tap <strong>+ Add Plan</strong>.</p>
+    <p>Fill in:</p>
+    <ul>
+      <li><strong>Fiscal Year label</strong> — use the year the FY <em>starts</em> in. FY26 = Apr 2026 – Mar 2027. FY25 = Apr 2025 – Mar 2026.</li>
+      <li><strong>Total Budget (₹)</strong> — your total capital for the year, e.g. <code>2400000</code> for ₹24L.</li>
+    </ul>
+    <p>Tap <strong>Create</strong>. Your plan appears. Now add stocks:</p>
+    <ol class="steps">
+      <li>Tap <strong>+ Add Stock</strong></li>
+      <li>Enter the NSE symbol (e.g. <code>INFY</code>, <code>BEL</code>, <code>CAMS</code>)</li>
+      <li>Set the <strong>allocation %</strong> — what share of your budget goes to this stock</li>
+      <li>Choose a <strong>category</strong> — this drives which valuation model is used for buy bands</li>
+      <li>Tap <strong>Add Stock</strong></li>
+    </ol>
+    <p>Repeat until your allocations sum to 100%. The header shows how much is left as you go.</p>
+    <div class="tip"><p><strong>Tip:</strong> You don't have to hit exactly 100% — but it's a good forcing function to be deliberate about every rupee.</p></div>
+  </div>
+
+  <!-- 3. Allocation screen -->
+  <div class="section" id="allocation">
+    <h2>3. Allocation screen</h2>
+    <p>Once your plan is set up, the <strong>Allocation</strong> tab shows deployment status for the current fiscal year.</p>
+    <p>Each stock row shows:</p>
+    <ul>
+      <li><strong>Invested</strong> — total spent (sum of buy transactions minus sells)</li>
+      <li><strong>Remaining</strong> — budget left to deploy</li>
+    </ul>
+    <p>Stocks are sorted with the most under-deployed at the top, so you can see at a glance where budget is still available. A colour bar under each row shows deployment progress: green (≥ 85% deployed), orange (50–85%), red (&lt; 50%).</p>
+  </div>
+
+  <!-- 4. Buy Bands -->
+  <div class="section" id="bands">
+    <h2>4. Buy Bands</h2>
+    <p>The <strong>Buy Bands</strong> tab shows valuation zones for each stock — price ranges where the stock is cheap, fairly valued, or expensive based on your playbook rules.</p>
+
+    <h3 id="ai-bands">AI band generation</h3>
+    <p>Tap <strong>Generate All Bands</strong> at the top (or <strong>Regenerate</strong> inside any expanded stock card).</p>
+    <p>If you have not added a Gemini API key yet, a sheet slides up asking you to add one before continuing. Once saved, generation proceeds immediately — you only need to do this once.</p>
+    <p>The generation process:</p>
+    <ol>
+      <li>Fetches EPS, operating profit, borrowings, cash, and shares from Screener.in (consolidated view)</li>
+      <li>Applies your stock's category-specific PE or EV/EBITDA multiple ranges</li>
+      <li>Computes Buy / Mid / Trim price zones and saves them</li>
+      <li>Auto-generates up to 5 buy tranches for the current FY</li>
+    </ol>
+    <p>For Index/ETF stocks it fetches the current Nifty PE and ETF price instead, and derives an implied EPS to run through the same band logic.</p>
+    <p><strong>Two qualifier toggles</strong> adjust the bands after generation:</p>
+    <ul>
+      <li><strong>2 Weak Quarters</strong> — recent results have been soft; tightens all band prices by 10% (more conservative)</li>
+      <li><strong>2 Strong Quarters</strong> — recent results are strong; applies premium multiples for eligible categories (Capital-light)</li>
+    </ul>
+    <p>These are stock-specific and saved per allocation.</p>
+
+    <h3 id="band-bar">Reading the band bar</h3>
+    <pre>|  BUY (green)  |  MID (orange)  |  TRIM (red)  |
+               ↑
+              CMP (white line)</pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Zone</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Buy</strong></td><td>Stock is cheap; good time to deploy budget</td></tr>
+          <tr><td><strong>Mid / Hold</strong></td><td>Fairly valued; hold existing position, avoid adding</td></tr>
+          <tr><td><strong>Trim</strong></td><td>Stock is expensive relative to fundamentals; consider reducing</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The white vertical line shows the current market price (CMP). Tap <strong>Refresh CMP</strong> to update it from Yahoo Finance.</p>
+
+    <h3 id="tranches">Tranches</h3>
+    <p>Tranches let you plan <em>how</em> you want to buy within the Buy zone — breaking a position into multiple orders at different price points.</p>
+    <p><strong>AI-generated tranches</strong> are created automatically when you generate bands. Up to 5 tranches are placed within the Buy zone:</p>
+    <ul>
+      <li>Prices are distributed toward the lower end of the zone (more tranches near the floor, fewer near the ceiling)</li>
+      <li>When CMP is within the Buy zone, the top tranche starts a few steps below CMP</li>
+      <li>When CMP is above the Buy zone, tranches are spread across the full Buy zone as target limit orders</li>
+      <li>Qty per tranche is auto-calculated from your remaining budget for the stock in the current FY</li>
+    </ul>
+    <p>Generating bands again replaces all existing tranches for that stock and FY.</p>
+    <p>You can also add tranches manually. In an expanded stock card, scroll to <strong>Tranches</strong> and tap <strong>+ Add</strong>. Tap the circle next to a tranche to mark it as <strong>allocated</strong> (bought).</p>
+    <p>Tranches are scoped to your fiscal year — they don't carry over to the next year.</p>
+  </div>
+
+  <!-- 5. Logging transactions -->
+  <div class="section" id="transactions">
+    <h2>5. Logging transactions</h2>
+    <p>Tap the <strong>+</strong> button in the bottom nav to log a trade.</p>
+    <ol class="steps">
+      <li>Tap the stock chip (loaded from your current plan)</li>
+      <li>Select <strong>Buy</strong> or <strong>Sell</strong></li>
+      <li>Set the date, quantity, and price</li>
+      <li>Tap the Buy/Sell button to save</li>
+    </ol>
+    <p>The amount is computed automatically. The transaction is linked to the fiscal year whose date range contains the trade date. Once logged, the Allocation screen updates the Invested and Remaining numbers for that stock.</p>
+  </div>
+
+  <!-- 6. Plan management -->
+  <div class="section" id="plan-mgmt">
+    <h2>6. Plan management</h2>
+
+    <h3>Editing allocations</h3>
+    <p>From the <strong>Plan</strong> tab:</p>
+    <ul>
+      <li><strong>Edit budget</strong> — tap Edit next to the budget figure</li>
+      <li><strong>Change allocation %</strong> — tap a stock row, edit the % field, tap away to save</li>
+      <li><strong>Change category</strong> — expand a stock row (chevron) → Category dropdown</li>
+      <li><strong>Remove a stock</strong> — expand → Remove from Plan (transactions are kept)</li>
+      <li><strong>Add a stock</strong> — tap + Add Stock at the top of the list</li>
+    </ul>
+
+    <h3>Starting a new fiscal year</h3>
+    <p>At the end of a fiscal year, tap <strong>+ Add Plan</strong> in the Plan tab.</p>
+    <ul>
+      <li>Enter the new FY label (e.g. <code>FY27</code> for Apr 2027 – Mar 2028)</li>
+      <li>Set a new budget</li>
+      <li>Optionally copy stocks from your current plan — allocation %s and categories carry over</li>
+      <li>Carryover is computed automatically: unspent budget per stock flows into the new plan as a bonus on top of the new budget</li>
+    </ul>
+    <p>The previous plan stays accessible via the FY selector in the header.</p>
+  </div>
+
+  <!-- 7. Settings -->
+  <div class="section" id="settings">
+    <h2>7. Settings</h2>
+    <p>Tap the <strong>profile icon</strong> (top right on any screen) to open the account menu.</p>
+
+    <h3>Gemini API key</h3>
+    <p>Required for AI band generation. The first time you tap Generate Bands without a key, a sheet slides up asking you to add one.</p>
+    <p><strong>How to get a free key:</strong></p>
+    <ol>
+      <li>Go to <a href="https://aistudio.google.com" target="_blank" rel="noopener">aistudio.google.com</a></li>
+      <li>Sign in with a Google account</li>
+      <li>Create an API key (free tier is sufficient)</li>
+      <li>Copy the key — it starts with <code>AIza…</code></li>
+    </ol>
+    <p>Paste it into the prompt and tap <strong>Save</strong>. Generation will proceed immediately.</p>
+    <div class="tip"><p><strong>Security:</strong> your key is saved to your private account in the database. It is only accessible via your login, never visible to other users, and is only ever used server-side when calling Gemini.</p></div>
+    <p>To update or remove the key later, tap the profile icon → <strong>AI Settings</strong>.</p>
+  </div>
+
+</div>
+</body>
+</html>
