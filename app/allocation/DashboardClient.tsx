@@ -215,12 +215,12 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border-t" style={{ borderColor: 'var(--border-faint)' }}>
+    <div className="border-t mt-4" style={{ borderColor: 'var(--border-faint)' }}>
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center justify-between w-full px-4"
         style={{ minHeight: '52px' }}>
-        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <span className="text-body font-medium" style={{ color: 'var(--text-muted)' }}>{title}</span>
         <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
              style={{ color: 'var(--text-faint)' }}>
