@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allocation CTA Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:           #F2F2F7;
+    --card:         #FFFFFF;
+    --text:         #000000;
+    --text-2:       rgba(0,0,0,0.60);
+    --muted:        rgba(0,0,0,0.40);
+    --faint:        rgba(0,0,0,0.25);
+    --border-faint: rgba(0,0,0,0.06);
+    --accent:       #0A84FF;
+    --red:    #FF3B30;
+    --orange: #FF9F0A;
+    --green:  #34C759;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:           #000000;
+      --card:         #1C1C1E;
+      --text:         #FFFFFF;
+      --text-2:       rgba(255,255,255,0.60);
+      --muted:        rgba(255,255,255,0.40);
+      --faint:        rgba(255,255,255,0.25);
+      --border-faint: rgba(255,255,255,0.05);
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text);
+    max-width: 430px; margin: 0 auto;
+    padding-bottom: 60px;
+  }
+  .label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 28px 16px 10px;
+  }
+  .sublabel { font-size: 12px; color: var(--faint); padding: 0 16px 10px; margin-top: -6px; }
+  .list { background: var(--card); }
+  .bar { height: 2px; background: var(--border-faint); }
+  .bar-fill { height: 100%; }
+  .chev { width: 14px; height: 14px; color: var(--faint); flex-shrink: 0; }
+
+  /* shared row grid */
+  .row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center;
+    padding: 20px 16px;
+  }
+  .row.dim { opacity: 0.35; }
+
+  /* col 1 — always same */
+  .sym { font-size: 17px; font-weight: 600; }
+
+  /* col 3 — remaining wrapper */
+  .rem { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .rem-done { font-size: 15px; color: var(--faint); }
+
+  /* ── CURRENT ── */
+  .cur-inv { font-size: 15px; font-weight: 600; text-align: center; }
+  .cur-inv .pct { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .cur-rem-val { font-size: 15px; font-weight: 600; }
+  .cur-rem-val .pct { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  /* ── A: size contrast, no colour ──
+     Remaining → 17px semibold (same as symbol)
+     Invested  → 13px regular text-2
+  ── */
+  .a-inv { font-size: 13px; font-weight: 400; color: var(--text-2); text-align: center; }
+  .a-inv .pct { font-size: 12px; color: var(--muted); }
+  .a-rem-val { font-size: 17px; font-weight: 600; }
+  .a-rem-val .pct { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  /* ── B: size + weight contrast, no colour ──
+     Remaining → 17px bold (700)
+     Invested  → 13px regular text-2
+     Remaining % slightly larger too
+  ── */
+  .b-inv { font-size: 13px; font-weight: 400; color: var(--text-2); text-align: center; }
+  .b-inv .pct { font-size: 12px; color: var(--muted); }
+  .b-rem-val { font-size: 17px; font-weight: 700; }
+  .b-rem-val .pct { font-size: 14px; font-weight: 500; color: var(--muted); }
+
+  /* ── C: size contrast + subtle accent on amount only ──
+     Remaining amount → 17px semibold accent (amount only, not %)
+     Invested  → 13px regular text-2
+     Least colour — just the number, not the label
+  ── */
+  .c-inv { font-size: 13px; font-weight: 400; color: var(--text-2); text-align: center; }
+  .c-inv .pct { font-size: 12px; color: var(--muted); }
+  .c-rem-val { font-size: 17px; font-weight: 600; color: var(--accent); }
+  .c-rem-val .pct { font-size: 13px; font-weight: 400; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ CURRENT ══════════ -->
+<p class="label">Current</p>
+<p class="sublabel">Invested 15px semibold · Remaining 15px semibold — equal weight, no hierarchy</p>
+<div class="list">
+  <div class="row">
+    <span class="sym">CAMS</span>
+    <span class="cur-inv" style="color:var(--faint)">0 <span class="pct">· 0%</span></span>
+    <div class="rem"><span class="cur-rem-val">54.6K <span class="pct">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+  <div class="row">
+    <span class="sym">NIFTYBEES</span>
+    <span class="cur-inv">1.7L <span class="pct">· 13%</span></span>
+    <div class="rem"><span class="cur-rem-val">11.7L <span class="pct">· 87%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:13%;background:var(--red)"></div></div>
+  <div class="row">
+    <span class="sym">IEX</span>
+    <span class="cur-inv">1.2L <span class="pct">· 78%</span></span>
+    <div class="rem"><span class="cur-rem-val">33.2K <span class="pct">· 22%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:78%;background:var(--orange)"></div></div>
+  <div class="row">
+    <span class="sym">NH</span>
+    <span class="cur-inv">48.6K <span class="pct">· 89%</span></span>
+    <div class="rem"><span class="cur-rem-val">5.8K <span class="pct">· 11%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:89%;background:var(--green)"></div></div>
+  <div class="row dim">
+    <span class="sym">ITC</span>
+    <span class="cur-inv">92.9K</span>
+    <div class="rem"><span class="rem-done">done</span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+</div>
+
+
+<!-- ══════════ A ══════════ -->
+<p class="label">A — size contrast, no colour</p>
+<p class="sublabel">Invested 13px regular text-2 · Remaining 17px semibold primary</p>
+<div class="list">
+  <div class="row">
+    <span class="sym">CAMS</span>
+    <span class="a-inv" style="color:var(--faint)">0 <span class="pct">· 0%</span></span>
+    <div class="rem"><span class="a-rem-val">54.6K <span class="pct">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+  <div class="row">
+    <span class="sym">NIFTYBEES</span>
+    <span class="a-inv">1.7L <span class="pct">· 13%</span></span>
+    <div class="rem"><span class="a-rem-val">11.7L <span class="pct">· 87%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:13%;background:var(--red)"></div></div>
+  <div class="row">
+    <span class="sym">IEX</span>
+    <span class="a-inv">1.2L <span class="pct">· 78%</span></span>
+    <div class="rem"><span class="a-rem-val">33.2K <span class="pct">· 22%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:78%;background:var(--orange)"></div></div>
+  <div class="row">
+    <span class="sym">NH</span>
+    <span class="a-inv">48.6K <span class="pct">· 89%</span></span>
+    <div class="rem"><span class="a-rem-val">5.8K <span class="pct">· 11%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:89%;background:var(--green)"></div></div>
+  <div class="row dim">
+    <span class="sym">ITC</span>
+    <span class="a-inv">92.9K</span>
+    <div class="rem"><span class="rem-done">done</span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+</div>
+
+
+<!-- ══════════ B ══════════ -->
+<p class="label">B — size + weight contrast, no colour</p>
+<p class="sublabel">Invested 13px regular text-2 · Remaining 17px bold + % at 14px medium</p>
+<div class="list">
+  <div class="row">
+    <span class="sym">CAMS</span>
+    <span class="b-inv" style="color:var(--faint)">0 <span class="pct">· 0%</span></span>
+    <div class="rem"><span class="b-rem-val">54.6K <span class="pct">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+  <div class="row">
+    <span class="sym">NIFTYBEES</span>
+    <span class="b-inv">1.7L <span class="pct">· 13%</span></span>
+    <div class="rem"><span class="b-rem-val">11.7L <span class="pct">· 87%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:13%;background:var(--red)"></div></div>
+  <div class="row">
+    <span class="sym">IEX</span>
+    <span class="b-inv">1.2L <span class="pct">· 78%</span></span>
+    <div class="rem"><span class="b-rem-val">33.2K <span class="pct">· 22%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:78%;background:var(--orange)"></div></div>
+  <div class="row">
+    <span class="sym">NH</span>
+    <span class="b-inv">48.6K <span class="pct">· 89%</span></span>
+    <div class="rem"><span class="b-rem-val">5.8K <span class="pct">· 11%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:89%;background:var(--green)"></div></div>
+  <div class="row dim">
+    <span class="sym">ITC</span>
+    <span class="b-inv">92.9K</span>
+    <div class="rem"><span class="rem-done">done</span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+</div>
+
+
+<!-- ══════════ C ══════════ -->
+<p class="label">C — size contrast + accent on amount only</p>
+<p class="sublabel">Invested 13px text-2 · Remaining amount accent blue, % stays muted</p>
+<div class="list">
+  <div class="row">
+    <span class="sym">CAMS</span>
+    <span class="c-inv" style="color:var(--faint)">0 <span class="pct">· 0%</span></span>
+    <div class="rem"><span class="c-rem-val">54.6K <span class="pct">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+  <div class="row">
+    <span class="sym">NIFTYBEES</span>
+    <span class="c-inv">1.7L <span class="pct">· 13%</span></span>
+    <div class="rem"><span class="c-rem-val">11.7L <span class="pct">· 87%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:13%;background:var(--red)"></div></div>
+  <div class="row">
+    <span class="sym">IEX</span>
+    <span class="c-inv">1.2L <span class="pct">· 78%</span></span>
+    <div class="rem"><span class="c-rem-val">33.2K <span class="pct">· 22%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:78%;background:var(--orange)"></div></div>
+  <div class="row">
+    <span class="sym">NH</span>
+    <span class="c-inv">48.6K <span class="pct">· 89%</span></span>
+    <div class="rem"><span class="c-rem-val">5.8K <span class="pct">· 11%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:89%;background:var(--green)"></div></div>
+  <div class="row dim">
+    <span class="sym">ITC</span>
+    <span class="c-inv">92.9K</span>
+    <div class="rem"><span class="rem-done">done</span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+  </div>
+  <div class="bar"></div>
+</div>
+
+</body>
+</html>

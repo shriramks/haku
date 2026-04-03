@@ -178,11 +178,11 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           {row.symbol}
         </span>
         {/* Col 2 — invested · invested% */}
-        <span className="tabnum font-semibold text-center whitespace-nowrap"
-              style={{ fontSize: '15px', color: isDone ? 'var(--text-faint)' : 'var(--text-primary)' }}>
+        <span className="tabnum font-normal text-center whitespace-nowrap text-subheadline"
+              style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-2)' }}>
           {formatAmt(row.spent)}
           {!isDone && (
-            <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
               {' · '}{spentPct}%
             </span>
           )}
@@ -192,7 +192,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           {isDone ? (
             <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>done</span>
           ) : (
-            <span className="text-body tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <span className="text-headline tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
               {formatAmt(row.remaining)}
               <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
                 {' · '}{leftPct}%
