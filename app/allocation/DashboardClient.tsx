@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt, formatINR } from '@/lib/formatter'
+import { formatAmt, formatINR, formatINRFull } from '@/lib/formatter'
 import { ChevronRightIcon } from '@/components/icons'
+import { getStockName } from '@/lib/stock-names'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -114,15 +115,33 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip */}
       {selectedFY && (
-        <div className="border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="grid px-4 pt-4 pb-3 gap-x-4"
-               style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr' }}>
-            <Metric label="Plan"     value={formatINR(totalBudget)} />
-            <Metric label="Invested" value={formatINR(totalDeployed)} />
-            <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
+        <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-footnote font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Plan</p>
+          <p className="font-bold tabnum mb-4" style={{ fontSize: '34px', letterSpacing: '-1px' }}>
+            {formatINRFull(totalBudget)}
+          </p>
+          <div className="flex justify-between mb-2">
+            <div>
+              <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.07em' }}>Left</p>
+              <p className="font-bold tabnum text-positive" style={{ fontSize: '20px', letterSpacing: '-0.5px' }}>
+                {formatINRFull(Math.max(0, totalRemaining))}
+                <span className="font-normal ml-1.5" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {(100 - pctDeployed).toFixed(1)}%
+                </span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.07em' }}>Invested</p>
+              <p className="font-bold tabnum" style={{ fontSize: '20px', letterSpacing: '-0.5px' }}>
+                {formatINRFull(totalDeployed)}
+                <span className="font-normal ml-1.5" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  {pctDeployed.toFixed(1)}%
+                </span>
+              </p>
+            </div>
           </div>
-          <div style={{ height: '3px', background: 'var(--border-faint)' }}>
-            <div style={{ width: `${Math.min(100, pctDeployed)}%`, height: '100%', background: 'var(--bar-fill)' }} />
+          <div className="rounded-full overflow-hidden" style={{ height: '10px', background: 'var(--border-faint)' }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--bar-fill)' }} />
           </div>
         </div>
       )}
@@ -139,6 +158,13 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       ) : (
         <div>
+          {/* Column headers */}
+          <div className="grid px-4 pt-4 pb-1"
+               style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
+            <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Stock</span>
+            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</span>
+            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</span>
+          </div>
           {/* Flat allocation rows */}
           <div>
             {activeRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
@@ -165,49 +191,46 @@ import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
   const isDone   = row.remaining <= 0
-  const leftPct  = row.budget > 0 ? Math.round((row.remaining  / row.budget) * 100) : 0
+  const leftPct  = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
   const spentPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
+  const name     = getStockName(row.symbol)
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="block px-4 tap-row"
           style={{ opacity: dim ? 0.35 : 1 }}>
 
-      {/* Main content — py-4 suits subtitle-style rows (two tiers of info) per HIG */}
-      <div className="grid items-center py-5"
-           style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', minHeight: '44px' }}>
-        {/* Col 1 — ticker */}
-        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-          {row.symbol}
-        </span>
-        {/* Col 2 — invested · invested% */}
-        <span className="tabnum font-normal text-center whitespace-nowrap text-subheadline"
-              style={{ color: isDone ? 'var(--text-faint)' : 'var(--text-2)' }}>
-          {formatAmt(row.spent)}
-          {!isDone && (
-            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-              {' · '}{spentPct}%
-            </span>
-          )}
-        </span>
-        {/* Col 3 — left amt · left% + caret */}
-        <div className="flex items-center justify-end gap-1.5">
+      <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
+        {/* Col 1 — ticker + company name */}
+        <div>
+          <p className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
+          {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
+        </div>
+
+        {/* Col 2 — Left (prominent, green) */}
+        <div className="text-center">
           {isDone ? (
-            <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>done</span>
+            <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>done</p>
           ) : (
-            <span className="text-headline tabnum font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {formatAmt(row.remaining)}
-              <span className="font-normal text-subheadline" style={{ color: 'var(--text-muted)' }}>
-                {' · '}{leftPct}%
-              </span>
-            </span>
+            <>
+              <p className="text-subheadline font-bold tabnum text-positive">{formatINR(row.remaining)}</p>
+              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
+            </>
           )}
-          <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+        </div>
+
+        {/* Col 3 — Invested (secondary) + chevron */}
+        <div className="flex items-start justify-end gap-1">
+          <div className="text-right">
+            <p className="text-subheadline tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.spent)}</p>
+            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{spentPct}%</p>}
+          </div>
+          <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
       </div>
 
-      {/* Bar doubles as row divider — always shown, fill on active rows only */}
-      <div style={{ height: '3px', background: 'var(--border-faint)' }}>
-        {!isDone && <div className="h-full" style={{ width: `${spentPct}%`, background: 'var(--bar-fill)' }} />}
+      {/* Bar — rounded, full-width, serves as row divider */}
+      <div className="rounded-full overflow-hidden mb-0" style={{ height: '6px', background: 'var(--border-faint)' }}>
+        <div className="h-full rounded-full" style={{ width: `${spentPct}%`, background: 'var(--bar-fill)' }} />
       </div>
     </Link>
   )
@@ -298,13 +321,3 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
   )
 }
 
-function Metric({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
-  return (
-    <div className="text-center">
-      <p className="font-bold tabnum text-title-1" style={{ color: negative ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-        {value}
-      </p>
-      <p className="text-subheadline mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-    </div>
-  )
-}

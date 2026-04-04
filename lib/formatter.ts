@@ -33,6 +33,13 @@ export function formatAmt(amount: number): string {
   return formatINR(amount).replace('₹', '')
 }
 
+/** Full Indian-locale number with ₹ prefix — e.g. ₹33,40,000 (for hero display) */
+export function formatINRFull(amount: number): string {
+  const abs  = Math.abs(amount)
+  const sign = amount < 0 ? '-' : ''
+  return `${sign}₹${abs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+}
+
 /** Parse "YYYY-MM-DD" → "12 Mar" (current year) or "12 Mar '25" (other year) */
 export function formatDate(isoDate: string): string {
   const d = new Date(isoDate + 'T00:00:00')
