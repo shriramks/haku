@@ -114,11 +114,16 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip */}
       {selectedFY && (
-        <div className="grid px-4 pt-4 pb-4 gap-x-4 border-b"
-             style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)' }}>
-          <Metric label="Plan"     value={formatINR(totalBudget)} />
-          <Metric label="Invested" value={formatINR(totalDeployed)} />
-          <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
+        <div className="border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="grid px-4 pt-4 pb-3 gap-x-4"
+               style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr' }}>
+            <Metric label="Plan"     value={formatINR(totalBudget)} />
+            <Metric label="Invested" value={formatINR(totalDeployed)} />
+            <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
+          </div>
+          <div style={{ height: '3px', background: 'var(--border-faint)' }}>
+            <div style={{ width: `${Math.min(100, pctDeployed)}%`, height: '100%', background: 'var(--bar-fill)' }} />
+          </div>
         </div>
       )}
 
