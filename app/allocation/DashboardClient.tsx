@@ -200,10 +200,10 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           style={{ opacity: dim ? 0.35 : 1 }}>
 
       <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
-        {/* Col 1 — ticker + company name */}
-        <div>
+        {/* Col 1 — ticker + company name (truncated to one line) */}
+        <div className="min-w-0 pr-1">
           <p className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
-          {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
+          {name && <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{name}</p>}
         </div>
 
         {/* Col 2 — Left (prominent, green) */}
@@ -212,7 +212,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>done</p>
           ) : (
             <>
-              <p className="text-subheadline font-bold tabnum text-positive">{formatINR(row.remaining)}</p>
+              <p className="text-headline font-bold tabnum text-positive">{formatINR(row.remaining)}</p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
             </>
           )}
@@ -221,7 +221,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {/* Col 3 — Invested (secondary) + chevron */}
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
-            <p className="text-subheadline tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.spent)}</p>
+            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.spent)}</p>
             {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{spentPct}%</p>}
           </div>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
