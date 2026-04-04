@@ -16,6 +16,7 @@
   --border-faint: rgba(0,0,0,0.06);
   --tap-active:   rgba(0,0,0,0.04);
   --divider:      rgba(0,0,0,0.08);
+  --bar-fill:     #2150A8;
   --safe-top:     env(safe-area-inset-top,    0px);
   --safe-bottom:  env(safe-area-inset-bottom, 0px);
   --nav-h:        64px;
@@ -35,6 +36,7 @@
     --border-faint: rgba(255,255,255,0.05);
     --tap-active:   rgba(255,255,255,0.06);
     --divider:      rgba(255,255,255,0.08);
+    --bar-fill:     #4A7FD4;
   }
 }
 

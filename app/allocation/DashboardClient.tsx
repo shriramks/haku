@@ -114,10 +114,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip */}
       {selectedFY && (
-        <div className="grid px-4 pt-4 pb-4 border-b"
+        <div className="grid px-4 pt-4 pb-4 gap-x-4 border-b"
              style={{ gridTemplateColumns: '1.4fr 1fr 1.5fr', borderColor: 'var(--border-faint)' }}>
           <Metric label="Plan"     value={formatINR(totalBudget)} />
-          <Metric label="Invested" value={formatAmt(totalDeployed)} />
+          <Metric label="Invested" value={formatINR(totalDeployed)} />
           <Metric label="Left"     value={formatINR(Math.abs(totalRemaining))} negative={totalRemaining < 0} />
         </div>
       )}
@@ -162,9 +162,6 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   const isDone   = row.remaining <= 0
   const leftPct  = row.budget > 0 ? Math.round((row.remaining  / row.budget) * 100) : 0
   const spentPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
-  // >85% = well allocated (positive), 50–85% = on track (warning), <50% = under-allocated (negative)
-  const barColorClass = spentPct >= 85 ? 'bg-positive' : spentPct >= 50 ? 'bg-warning' : 'bg-negative'
-
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="block px-4 tap-row"
@@ -203,9 +200,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         </div>
       </div>
 
-      {/* Bar doubles as row divider — always shown, colored fill on active rows only */}
-      <div style={{ height: '2px', background: 'var(--border-faint)' }}>
-        {!isDone && <div className={`h-full ${barColorClass}`} style={{ width: `${spentPct}%` }} />}
+      {/* Bar doubles as row divider — always shown, fill on active rows only */}
+      <div style={{ height: '3px', background: 'var(--border-faint)' }}>
+        {!isDone && <div className="h-full" style={{ width: `${spentPct}%`, background: 'var(--bar-fill)' }} />}
       </div>
     </Link>
   )
