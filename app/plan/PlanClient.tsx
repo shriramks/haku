@@ -19,7 +19,7 @@ const SHORT_CAT: Record<string, string> = {
 }
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatPct } from '@/lib/formatter'
+import { formatINR, formatINRFull, formatPct } from '@/lib/formatter'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -328,46 +328,48 @@ function PlanTab({
             const effectiveBudget = totalBudget + unallocCarryover
             const deployCapital = selectedFY.deploy_capital_inr
             return (
-          <div className="px-4 pt-4 pb-3 border-b"
-               style={{ borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-title-1 font-bold tabnum mt-0.5">{formatINR(effectiveBudget)}</p>
+          <div className="border-b" style={{ borderColor: 'var(--border)' }}>
+            <button onClick={() => setShowBudgetSheet(true)}
+              className="w-full flex items-center justify-between px-4 py-3.5 border-b tap-row"
+              style={{ borderColor: 'var(--border-faint)' }}>
+              <span className="text-body">Total Budget</span>
+              <div className="flex items-center gap-2">
+                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
+                  {formatINRFull(effectiveBudget)}
+                </span>
                 {unallocCarryover > 0 && (
-                  <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {formatINR(totalBudget)} base + {formatINR(unallocCarryover)} carryover
-                  </p>
+                  <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                    +{formatINR(unallocCarryover)} carryover
+                  </span>
                 )}
-                {deployCapital != null && (
-                  <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {formatINR(deployCapital)} deploy capital
-                  </p>
-                )}
+                <PencilIcon className="w-3.5 h-3.5" style={{ color: 'var(--text-faint)' }} />
               </div>
-              <button onClick={() => setShowBudgetSheet(true)}
-                className="w-11 h-11 flex items-center justify-center rounded-xl flex-shrink-0"
-                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>
-                <PencilIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-
+            </button>
+            {deployCapital != null && (
+              <div className="flex items-center justify-between px-4 py-3.5 border-b"
+                   style={{ borderColor: 'var(--border-faint)' }}>
+                <span className="text-body">Deploy Capital</span>
+                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
+              </div>
+            )}
             {/* Allocation bar */}
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
-              <div
-                className={`h-full rounded-full transition-all ${totalPct > 100 ? 'bg-negative' : pctOk ? 'bg-positive' : 'bg-accent'}`}
-                style={{ width: `${Math.min(100, totalPct)}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-1.5 text-subheadline tabnum"
-                 style={{ color: 'var(--text-muted)' }}>
-              <span>{allocations.length} stocks</span>
-              <span className={totalPct > 100 ? 'text-negative' : pctOk ? 'text-positive' : ''}>
-                {Math.round(totalPct)}% allocated
-                {!pctOk && totalPct <= 100 && ` · ${Math.round(100 - totalPct)}% free`}
-                {totalPct > 100 && ` · over by ${Math.round(totalPct - 100)}%`}
-                {pctOk && ' ✓'}
-              </span>
+            <div className="px-4 pt-3 pb-3">
+              <div className="rounded-full overflow-hidden" style={{ height: '6px', background: 'var(--border)' }}>
+                <div
+                  className={`h-full rounded-full transition-all ${totalPct > 100 ? 'bg-negative' : pctOk ? 'bg-positive' : 'bg-accent'}`}
+                  style={{ width: `${Math.min(100, totalPct)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1.5 text-subheadline tabnum"
+                   style={{ color: 'var(--text-muted)' }}>
+                <span>{allocations.length} stocks</span>
+                <span className={totalPct > 100 ? 'text-negative' : pctOk ? 'text-positive' : ''}>
+                  {Math.round(totalPct)}% allocated
+                  {!pctOk && totalPct <= 100 && ` · ${Math.round(100 - totalPct)}% free`}
+                  {totalPct > 100 && ` · over by ${Math.round(totalPct - 100)}%`}
+                  {pctOk && ' ✓'}
+                </span>
+              </div>
             </div>
           </div>
             )
@@ -437,63 +439,11 @@ function PlanTab({
             </div>
           ) : (
             <div>
-              {/* Toolbar */}
-              <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-b"
-                   style={{ borderColor: 'var(--border-faint)' }}>
-                <div className="flex items-center gap-2">
-                  {allocations.length > 0 && !confirmClear && (
-                    <>
-                      <button onClick={() => setConfirmClear(true)}
-                        className="text-body px-3 py-2.5 rounded-xl"
-                        style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
-                        Clear All
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
-                          const lines = sorted.map(a => {
-                            const budget = (a.allocation_pct / 100) * totalBudget
-                            return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ₹${(budget / 100000).toFixed(1)}L`
-                          })
-                          const total = allocations.reduce((s, a) => s + a.allocation_pct, 0)
-                          const text = [
-                            `${selectedFY?.label ?? 'Portfolio'}`,
-                            '─'.repeat(28),
-                            ...lines,
-                            '─'.repeat(28),
-                            `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ₹${(totalBudget / 100000).toFixed(1)}L`,
-                          ].join('\n')
-                          if (navigator.share) {
-                            await navigator.share({ title: `${selectedFY?.label ?? 'Portfolio'} Allocation`, text })
-                          } else {
-                            await navigator.clipboard.writeText(text)
-                          }
-                        }}
-                        className="text-body px-3 py-2.5 rounded-xl"
-                        style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)' }}>
-                        Export
-                      </button>
-                    </>
-                  )}
-                  {confirmClear && (
-                    <>
-                      <button onClick={() => setConfirmClear(false)}
-                        className="text-body px-3 py-2.5 rounded-xl"
-                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
-                      <button onClick={clearAllStocks}
-                        className="text-body font-semibold px-3 py-2.5 rounded-xl text-negative"
-                        style={{ background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
-                    </>
-                  )}
-                  {!confirmClear && (
-                    <button onClick={() => setShowAddStock(v => !v)}
-                      className="text-body font-medium px-3 py-2 rounded-xl text-accent"
-                      style={{ background: 'rgba(10,132,255,0.12)' }}>
-                      {showAddStock ? 'Cancel' : '+ Add Stock'}
-                    </button>
-                  )}
-                </div>
-              </div>
+              {/* Section header */}
+              <p className="text-footnote font-bold uppercase px-4 pt-5 pb-2"
+                 style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+                Target Allocations
+              </p>
 
               {showAddStock && (
                 <AddStockForm totalPct={totalPct} onAdd={addStock} />
@@ -511,6 +461,66 @@ function PlanTab({
                   />
                 ))}
               </div>
+
+              {/* Add Stock inline row */}
+              {!confirmClear && (
+                <button onClick={() => setShowAddStock(v => !v)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 border-t tap-row"
+                  style={{ borderColor: 'var(--border-faint)' }}>
+                  <div className="w-6 h-6 rounded-full bg-positive flex items-center justify-center flex-shrink-0">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M12 4v16m8-8H4"/>
+                    </svg>
+                  </div>
+                  <span className="text-body text-accent">{showAddStock ? 'Cancel' : 'Add Stock'}</span>
+                </button>
+              )}
+
+              {/* Footer rows — Export + Clear All */}
+              {allocations.length > 0 && (
+                <div className="mt-8 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                  <button
+                    onClick={async () => {
+                      const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
+                      const lines = sorted.map(a => {
+                        const budget = (a.allocation_pct / 100) * totalBudget
+                        return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ₹${(budget / 100000).toFixed(1)}L`
+                      })
+                      const total = allocations.reduce((s, a) => s + a.allocation_pct, 0)
+                      const text = [
+                        `${selectedFY?.label ?? 'Portfolio'}`,
+                        '─'.repeat(28),
+                        ...lines,
+                        '─'.repeat(28),
+                        `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ₹${(totalBudget / 100000).toFixed(1)}L`,
+                      ].join('\n')
+                      if (navigator.share) {
+                        await navigator.share({ title: `${selectedFY?.label ?? 'Portfolio'} Allocation`, text })
+                      } else {
+                        await navigator.clipboard.writeText(text)
+                      }
+                    }}
+                    className="w-full text-left px-4 py-4 border-b text-body text-accent tap-row"
+                    style={{ borderColor: 'var(--border-faint)' }}>
+                    Export Plan
+                  </button>
+                  {!confirmClear ? (
+                    <button onClick={() => setConfirmClear(true)}
+                      className="w-full text-left px-4 py-4 text-body text-negative tap-row">
+                      Clear All
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-4 py-3">
+                      <button onClick={() => setConfirmClear(false)}
+                        className="text-body px-3 py-2 rounded-xl"
+                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
+                      <button onClick={clearAllStocks}
+                        className="text-body font-semibold px-3 py-2 rounded-xl text-negative"
+                        style={{ background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {allocations.length === 0 && !showAddStock && (
                 <div className="px-4 pt-4 space-y-2">
@@ -571,19 +581,18 @@ function StockAllocRow({ alloc, totalBudget, onEdit }: {
   onEdit: () => void
 }) {
   const budget = (alloc.allocation_pct / 100) * totalBudget
+  const name = getStockName(alloc.symbol)
   return (
-    <button onClick={onEdit} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+    <button onClick={onEdit} className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row">
       <div className="flex-1 min-w-0">
         <p className="font-bold text-headline">{alloc.symbol}</p>
-        {getStockName(alloc.symbol) && (
-          <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(alloc.symbol)}</p>
-        )}
+        {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
       </div>
-      <div className="text-right mr-2">
-        <p className="text-headline font-semibold tabnum">{alloc.allocation_pct}%</p>
-        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatINR(budget)}</p>
+      <div className="text-right">
+        <p className="text-headline font-semibold tabnum text-accent">{alloc.allocation_pct}%</p>
+        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{formatINRFull(budget)}</p>
       </div>
-      <ChevronIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+      <ChevronIcon className="w-4 h-4 flex-shrink-0 ml-1" style={{ color: 'var(--text-faint)' }} />
     </button>
   )
 }
