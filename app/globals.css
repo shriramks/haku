@@ -20,6 +20,11 @@
   --accent:       #007AFF;
   --c-positive:   #34C759;
   --c-negative:   #FF3B30;
+  --c-warning:    #FF9500;
+  --signal-buy:   #34C759;
+  --signal-hold:  #FF9500;
+  --signal-trim:  #FF3B30;
+  --signal-deep:  #30D158;
   --safe-top:     env(safe-area-inset-top,    0px);
   --safe-bottom:  env(safe-area-inset-bottom, 0px);
   --nav-h:        64px;

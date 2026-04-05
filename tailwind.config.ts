@@ -11,19 +11,18 @@ const config: Config = {
     extend: {
       // ── Colours ────────────────────────────────────────────────────────────
       colors: {
-        // Semantic UI colours — use these, never raw hex in JSX
-        positive: '#34C759',  // gains, buy, allocated
-        negative: '#FF3B30',  // losses, trim
-        accent:   '#0A84FF',  // interactive, CTAs
-        warning:  '#FF9500',  // mid/hold
+        // Semantic UI colours — reference CSS vars so globals.css is the single
+        // source of truth. text-accent and var(--accent) will always agree.
+        positive: 'var(--c-positive)',
+        negative: 'var(--c-negative)',
+        accent:   'var(--accent)',
+        warning:  'var(--c-warning)',
 
-        // Signal colours — band zones. buy/hold/trim map to positive/warning/negative.
-        // deep is intentionally distinct from buy (stronger signal, different visual).
         signal: {
-          buy:  '#34C759',
-          hold: '#FF9500',
-          trim: '#FF3B30',
-          deep: '#30D158',
+          buy:  'var(--signal-buy)',
+          hold: 'var(--signal-hold)',
+          trim: 'var(--signal-trim)',
+          deep: 'var(--signal-deep)',
         },
       },
 
