@@ -752,9 +752,9 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           {isBuy ? '+' : '−'}{formatINR(txn.amount)}
         </p>
         <button onClick={openEdit}
-          className="w-[44px] h-[44px] flex items-center justify-center rounded-xl flex-shrink-0"
-          style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-faint)' }}>
-          <PencilIcon className="w-[14px] h-[14px]" />
+          className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"
+          style={{ color: 'var(--text-faint)' }}>
+          <PencilIcon className="w-[18px] h-[18px]" />
         </button>
       </div>
     </div>
