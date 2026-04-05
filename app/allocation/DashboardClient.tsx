@@ -122,7 +122,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             <div className="flex items-start gap-4">
               {/* Left column — text */}
               <div className="flex-1 min-w-0">
-                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Plan</p>
+                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
                 <p className="font-bold tabnum mb-3" style={{ fontSize: '34px', letterSpacing: '-1px' }}>
                   {formatINRFull(totalBudget)}
                 </p>
@@ -151,7 +151,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               </div>
 
               {/* Right column — donut */}
-              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0 }}>
+              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0, alignSelf: 'flex-start', display: 'block' }}>
                 {/* track */}
                 <circle cx="54" cy="54" r="44" fill="none"
                   stroke="var(--border-faint)" strokeWidth="11" />

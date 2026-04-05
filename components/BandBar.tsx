@@ -40,8 +40,8 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
           <span className="text-footnote font-semibold text-signal-hold truncate px-1">HOLD</span>
         </div>
         {cmpPct !== null && (
-          <div className="absolute top-0 bottom-0 w-0.5 rounded-full"
-               style={{ left: `${cmpPct}%`, background: 'var(--text-primary)' }} />
+          <div className="absolute top-0 bottom-0 rounded-full"
+               style={{ left: `${cmpPct}%`, width: 3, transform: 'translateX(-50%)', background: 'var(--text-primary)', opacity: 0.85 }} />
         )}
       </div>
 
