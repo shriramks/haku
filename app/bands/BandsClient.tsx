@@ -511,16 +511,16 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
                   )}
                   {genWarning[row.symbol] && (
-                    <p className="px-4 pb-2 text-subheadline" style={{ color: '#FF9500' }}>{genWarning[row.symbol]}</p>
+                    <p className="px-4 pb-2 text-subheadline text-warning">{genWarning[row.symbol]}</p>
                   )}
 
                   {/* Action row: quarter pill (left) + Regen Bands + Refresh CMP (right) */}
-                  <div className="px-4 py-2 border-t flex items-center justify-between gap-3"
-                    style={{ borderColor: 'var(--border-faint)' }}>
+                  <div className="px-4 border-t flex items-center justify-between gap-3"
+                    style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
                     {hasQuarters ? (
                       <button onClick={() => setQSheetSymbol(row.symbol)}
-                        className="flex items-center gap-1.5 text-body font-medium flex-shrink-0"
-                        style={{ padding: '6px 11px', borderRadius: 8, background: 'rgba(120,120,128,0.12)', color: 'var(--text-primary)', border: 'none', cursor: 'pointer' }}>
+                        className="flex items-center gap-1.5 text-body font-medium flex-shrink-0 rounded-lg"
+                        style={{ padding: '6px 11px', background: 'rgba(120,120,128,0.12)', color: 'var(--text-primary)', border: 'none', cursor: 'pointer' }}>
                         {qMode === 'bear' ? 'Bear' : qMode === 'bull' ? 'Bull' : 'Normal'}
                         <ChevronDownIcon className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
                       </button>

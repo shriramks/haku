@@ -133,7 +133,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                     <p className="font-bold tabnum leading-none" style={{ fontSize: '26px', letterSpacing: '-0.5px' }}>
                       {formatINRFull(Math.max(0, totalRemaining))}
                     </p>
-                    <p className="tabnum mt-1" style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+                    <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctLeft.toFixed(1)}%
                     </p>
                   </div>
@@ -143,7 +143,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                     <p className="font-bold tabnum leading-none" style={{ fontSize: '26px', letterSpacing: '-0.5px', color: 'var(--text-2)' }}>
                       {formatINRFull(totalDeployed)}
                     </p>
-                    <p className="tabnum mt-1" style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+                    <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctDeployed.toFixed(1)}%
                     </p>
                   </div>
@@ -169,7 +169,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   fill="var(--text-primary)">{Math.round(pctDeployed)}%</text>
                 <text x="54" y="66" textAnchor="middle"
                   fontFamily="-apple-system,BlinkMacSystemFont,sans-serif"
-                  fontSize="10" fontWeight="500"
+                  fontSize="11" fontWeight="500"
                   fill="var(--text-muted)">Invested</text>
               </svg>
             </div>
