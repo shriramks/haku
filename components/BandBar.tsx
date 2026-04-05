@@ -1,3 +1,5 @@
+import { formatPrice, formatPriceNum } from '@/lib/formatter'
+
 export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
   buyLow: number; buyHigh: number
   midLow: number; midHigh: number
@@ -48,25 +50,25 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
       {/* Values row */}
       <div className="flex justify-between mt-2 text-footnote tabnum">
         <div className="text-center">
-          <p className="font-semibold text-signal-buy">&lt;₹{Math.round(buyLow)}</p>
+          <p className="font-semibold text-signal-buy">&lt;{formatPrice(buyLow)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Deep</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-signal-buy">₹{Math.round(buyLow)}–{Math.round(buyHigh)}</p>
+          <p className="font-semibold text-signal-buy">₹{formatPriceNum(buyLow)}–{formatPriceNum(buyHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Buy</p>
         </div>
         {showWait && (
           <div className="text-center">
-            <p className="font-semibold" style={{ color: '#5EAA80' }}>₹{Math.round(buyHigh)}–{Math.round(midLow)}</p>
+            <p className="font-semibold" style={{ color: '#5EAA80' }}>₹{formatPriceNum(buyHigh)}–{formatPriceNum(midLow)}</p>
             <p style={{ color: 'var(--text-faint)' }}>Wait</p>
           </div>
         )}
         <div className="text-center">
-          <p className="font-semibold text-signal-hold">₹{Math.round(midLow)}–{Math.round(midHigh)}</p>
+          <p className="font-semibold text-signal-hold">₹{formatPriceNum(midLow)}–{formatPriceNum(midHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Hold</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-signal-trim">≥₹{Math.round(trimPrice)}</p>
+          <p className="font-semibold text-signal-trim">≥{formatPrice(trimPrice)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Trim</p>
         </div>
       </div>

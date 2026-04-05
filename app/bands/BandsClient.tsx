@@ -10,7 +10,8 @@ import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
-import { ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon, SparkleIcon, RefreshIcon, CheckIcon } from '@/components/icons'
+import { formatPrice } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 import type { BandSignal } from '@/lib/types'
 
@@ -100,6 +101,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [aiProvider, setAiProvider]       = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
   const [showQuartersInfo, setShowQuartersInfo] = useState(false)
+  const [qSheetSymbol, setQSheetSymbol] = useState<string | null>(null)
   const [userId, setUserId]               = useState<string | null>(null)
 
   useEffect(() => {
@@ -374,6 +376,24 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       {showQuartersInfo && (
         <QuartersInfoSheet onClose={() => setShowQuartersInfo(false)} />
       )}
+      {qSheetSymbol && (() => {
+        const qAlloc = allocState.find(a => a.symbol === qSheetSymbol)
+        const curMode = qAlloc?.two_weak_quarters ? 'bear' : qAlloc?.two_strong_quarters ? 'bull' : 'normal'
+        return (
+          <QModeSheet
+            currentMode={curMode}
+            onSelect={m => {
+              if (m === 'bear') toggleQuarters(qSheetSymbol, 'two_weak_quarters', true)
+              else if (m === 'bull') toggleQuarters(qSheetSymbol, 'two_strong_quarters', true)
+              else if (qAlloc?.two_weak_quarters) toggleQuarters(qSheetSymbol, 'two_weak_quarters', false)
+              else toggleQuarters(qSheetSymbol, 'two_strong_quarters', false)
+              setQSheetSymbol(null)
+            }}
+            onInfo={() => { setQSheetSymbol(null); setShowQuartersInfo(true) }}
+            onClose={() => setQSheetSymbol(null)}
+          />
+        )
+      })()}
 
       {/* Stock rows */}
       <div>
@@ -440,7 +460,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 {cmp != null ? (
                   <div className="text-right flex-shrink-0">
                     <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                      ₹{Math.round(cmp)}
+                      {formatPrice(cmp)}
                     </p>
                   </div>
                 ) : (
@@ -470,19 +490,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         midLow={midLow!} midHigh={midHigh!}
                         trimPrice={trimPrice!} cmp={cmp}
                       />
-                      {/* 52W range */}
+                      {/* 52W range — Low anchored left, High anchored right */}
                       {(week52[row.symbol]?.low != null || week52[row.symbol]?.high != null) && (
-                        <div className="flex gap-4 mt-3">
-                          {week52[row.symbol]?.low != null && (
-                            <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                              52W Low ₹{Math.round(week52[row.symbol].low!)}
-                            </p>
-                          )}
-                          {week52[row.symbol]?.high != null && (
-                            <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                              52W High ₹{Math.round(week52[row.symbol].high!)}
-                            </p>
-                          )}
+                        <div className="flex justify-between mt-3">
+                          <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                            {week52[row.symbol]?.low != null ? `52W Low ${formatPrice(week52[row.symbol].low!)}` : ''}
+                          </p>
+                          <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                            {week52[row.symbol]?.high != null ? `52W High ${formatPrice(week52[row.symbol].high!)}` : ''}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -498,57 +514,31 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-subheadline" style={{ color: '#FF9500' }}>{genWarning[row.symbol]}</p>
                   )}
 
-                  {/* Action grid: Bear/Normal/Bull | Regen Bands | Refresh CMP */}
-                  <div className="px-4 pt-3 pb-2 border-t"
-                    style={{ borderColor: 'var(--border-faint)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', rowGap: 2 }}>
-                    {hasQuarters ? (<>
-                      {/* Col 1 row 1 */}
-                      <button onClick={() => onQClick('bear')} className="text-subheadline text-left py-0.5"
-                        style={{ color: qMode === 'bear' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'bear' ? 600 : 400 }}>
-                        Bear
+                  {/* Action row: quarter pill (left) + Regen Bands + Refresh CMP (right) */}
+                  <div className="px-4 py-2 border-t flex items-center justify-between gap-3"
+                    style={{ borderColor: 'var(--border-faint)' }}>
+                    {hasQuarters ? (
+                      <button onClick={() => setQSheetSymbol(row.symbol)}
+                        className="flex items-center gap-1.5 text-body font-medium flex-shrink-0"
+                        style={{ padding: '6px 11px', borderRadius: 8, background: 'rgba(120,120,128,0.12)', color: 'var(--text-primary)', border: 'none', cursor: 'pointer' }}>
+                        {qMode === 'bear' ? 'Bear' : qMode === 'bull' ? 'Bull' : 'Normal'}
+                        <ChevronDownIcon className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
                       </button>
-                      {/* Col 2, spans 3 rows */}
+                    ) : <div />}
+                    <div className="flex items-center gap-4">
                       <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
-                        className="text-subheadline disabled:opacity-40"
-                        style={{ gridRow: '1 / 4', textAlign: 'center', alignSelf: 'center', color: 'var(--accent)' }}>
-                        {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
-                      </button>
-                      {/* Col 3, spans 3 rows */}
-                      <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
-                        className="text-subheadline disabled:opacity-40"
-                        style={{ gridRow: '1 / 4', textAlign: 'right', alignSelf: 'center', color: 'var(--accent)' }}>
-                        {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
-                      </button>
-                      {/* Col 1 row 2 */}
-                      <button onClick={() => onQClick('normal')} className="text-subheadline text-left py-0.5"
-                        style={{ color: qMode === 'normal' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'normal' ? 600 : 400 }}>
-                        Normal
-                      </button>
-                      {/* Col 1 row 3 */}
-                      <div className="flex items-center gap-1 py-0.5">
-                        <button onClick={() => onQClick('bull')} className="text-subheadline"
-                          style={{ color: qMode === 'bull' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'bull' ? 600 : 400 }}>
-                          Bull
-                        </button>
-                        <button onClick={() => setShowQuartersInfo(true)}
-                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', fontSize: 8, border: '1px solid var(--border)' }}>
-                          i
-                        </button>
-                      </div>
-                    </>) : (<>
-                      <div />
-                      <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
-                        className="text-subheadline disabled:opacity-40 text-center"
+                        className="flex items-center gap-1.5 text-body disabled:opacity-40"
                         style={{ color: 'var(--accent)' }}>
+                        <SparkleIcon className="w-3.5 h-3.5" />
                         {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
                       </button>
                       <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
-                        className="text-subheadline disabled:opacity-40 text-right"
+                        className="flex items-center gap-1.5 text-body disabled:opacity-40"
                         style={{ color: 'var(--accent)' }}>
+                        <RefreshIcon className="w-3.5 h-3.5" />
                         {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
                       </button>
-                    </>)}
+                    </div>
                   </div>
 
                   {/* Tranches */}
@@ -574,6 +564,54 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         })}
       </div>
     </div>
+  )
+}
+
+// ── Quarter Mode Sheet (Bear / Normal / Bull picker) ─────────────────────────
+
+function QModeSheet({ currentMode, onSelect, onInfo, onClose }: {
+  currentMode: 'bear' | 'normal' | 'bull'
+  onSelect: (mode: 'bear' | 'normal' | 'bull') => void
+  onInfo: () => void
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 8px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <p className="text-center text-footnote font-semibold uppercase tracking-wider pb-2"
+           style={{ color: 'var(--text-faint)', letterSpacing: '0.04em' }}>
+          Recent Quarters
+        </p>
+        {(['Bear', 'Normal', 'Bull'] as const).map(label => {
+          const mode = label.toLowerCase() as 'bear' | 'normal' | 'bull'
+          const active = currentMode === mode
+          return (
+            <button key={mode}
+              onClick={() => onSelect(mode)}
+              className="flex items-center justify-between w-full px-5 border-t"
+              style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+              <span className="text-headline">{label}</span>
+              {active && (
+                <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--accent)' }}>
+                  <CheckIcon className="w-3 h-3 text-white" />
+                </span>
+              )}
+            </button>
+          )
+        })}
+        <button onClick={onInfo}
+          className="flex items-center justify-center w-full border-t"
+          style={{ minHeight: 44, borderColor: 'var(--border-faint)', color: 'var(--accent)' }}>
+          <span className="text-body">About Recent Quarters…</span>
+        </button>
+      </div>
+    </>
   )
 }
 

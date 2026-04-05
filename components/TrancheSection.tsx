@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { formatINR } from '@/lib/formatter'
+import { formatINR, formatPrice } from '@/lib/formatter'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
@@ -100,9 +100,7 @@ function TrancheRow({ tranche, cmp, onEdit }: {
     ? ((cmp - tranche.price) / cmp) * 100
     : null
 
-  const cmpFormatted = cmp != null
-    ? `₹${cmp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-    : null
+  const cmpFormatted = cmp != null ? formatPrice(cmp) : null
 
   const distLabel = distPct == null
     ? null
@@ -116,7 +114,7 @@ function TrancheRow({ tranche, cmp, onEdit }: {
       <div className="flex-1">
         <p className="tabnum" style={{ lineHeight: 1.2 }}>
           <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-            ₹{tranche.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            {formatPrice(tranche.price)}
           </span>
           <span className="text-body" style={{ color: 'var(--text-faint)', margin: '0 5px' }}>×</span>
           <span className="text-body" style={{ color: 'var(--text-2)' }}>

@@ -33,6 +33,18 @@ export function formatAmt(amount: number): string {
   return formatINR(amount).replace('₹', '')
 }
 
+/** Price display: no commas below ₹10,000; Indian locale (en-IN) above — e.g. ₹1284, ₹14,800, ₹1,48,000 */
+export function formatPrice(price: number): string {
+  const n = Math.round(price)
+  return n < 10000 ? `₹${n}` : `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+}
+
+/** Same as formatPrice but without the ₹ — for use inside range strings like ₹1100–1220 */
+export function formatPriceNum(price: number): string {
+  const n = Math.round(price)
+  return n < 10000 ? `${n}` : `${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+}
+
 /** Full Indian-locale number with ₹ prefix — e.g. ₹33,40,000 (for hero display) */
 export function formatINRFull(amount: number): string {
   const abs  = Math.abs(amount)
