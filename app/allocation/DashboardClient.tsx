@@ -119,7 +119,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         const pctLeft = 100 - pctDeployed
         return (
           <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <div className="flex items-center gap-4">
+            <div className="flex items-start gap-4">
               {/* Left column — text */}
               <div className="flex-1 min-w-0">
                 <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Plan</p>
