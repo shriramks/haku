@@ -24,37 +24,38 @@ export default function TrancheSection({
   const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
 
   return (
-    <div style={{ padding: '6px 4px 4px 4px' }}>
-      {/* Header with inline actions */}
-      <div className="flex items-center justify-between px-2 mb-1">
+    <div style={{ padding: '6px 0 4px 0' }}>
+      {/* Label + available amount */}
+      <div className="px-4 mb-1">
         <p className="text-subheadline font-semibold" style={{ color: 'var(--text-faint)' }}>Buy levels</p>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onGenerate}
-            disabled={!hasBands || generating}
-            className="text-subheadline font-medium disabled:opacity-40"
-            style={{ color: 'var(--accent)' }}>
-            {generating ? 'Generating…' : 'Generate'}
-          </button>
-          <button
-            onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-            className="text-subheadline font-medium"
-            style={{ color: 'var(--accent)' }}>
-            Add
-          </button>
-          <button
-            onClick={() => onClear()}
-            disabled={tranches.length === 0}
-            className="text-subheadline font-medium disabled:opacity-40 text-negative">
-            Clear
-          </button>
-        </div>
+        {plannedTotal > 0 && (
+          <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+            {formatINR(remaining - plannedTotal)} available after planned tranches
+          </p>
+        )}
       </div>
-      {plannedTotal > 0 && (
-        <p className="px-2 mb-1 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
-          {formatINR(remaining - plannedTotal)} available after planned tranches
-        </p>
-      )}
+      {/* Actions — hyperlink style, spread full width */}
+      <div className="flex items-center justify-between px-4 pb-1">
+        <button
+          onClick={onGenerate}
+          disabled={!hasBands || generating}
+          className="text-subheadline disabled:opacity-40"
+          style={{ color: 'var(--accent)' }}>
+          {generating ? 'Generating…' : 'Generate'}
+        </button>
+        <button
+          onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
+          className="text-subheadline"
+          style={{ color: 'var(--accent)' }}>
+          Add Tranche
+        </button>
+        <button
+          onClick={() => onClear()}
+          disabled={tranches.length === 0}
+          className="text-subheadline disabled:opacity-40 text-negative">
+          Clear
+        </button>
+      </div>
 
       {/* Tranche list */}
       <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>

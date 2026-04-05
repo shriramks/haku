@@ -498,48 +498,57 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-subheadline" style={{ color: '#FF9500' }}>{genWarning[row.symbol]}</p>
                   )}
 
-                  {/* Action row: Bear/Normal/Bull | Refresh CMP · Regenerate Bands */}
-                  <div className="px-4 py-3 flex items-center justify-between border-t" style={{ borderColor: 'var(--border-faint)' }}>
-                    {/* Left: quarter mode selector */}
-                    {hasQuarters ? (
-                      <div className="flex items-center gap-0.5">
-                        {(['bear', 'normal', 'bull'] as const).map((m, i) => (
-                          <span key={m} className="flex items-center">
-                            {i > 0 && <span className="text-footnote mx-1" style={{ color: 'var(--text-faint)' }}>·</span>}
-                            <button
-                              onClick={() => onQClick(m)}
-                              className="text-subheadline font-medium px-0.5"
-                              style={{ color: qMode === m ? 'var(--accent)' : 'var(--text-faint)' }}>
-                              {m.charAt(0).toUpperCase() + m.slice(1)}
-                            </button>
-                          </span>
-                        ))}
-                        <button
-                          onClick={() => setShowQuartersInfo(true)}
-                          className="w-4 h-4 ml-1.5 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', fontSize: 9, fontWeight: 600, border: '1px solid var(--border)' }}>
+                  {/* Action grid: Bear/Normal/Bull | Regen Bands | Refresh CMP */}
+                  <div className="px-4 pt-3 pb-2 border-t"
+                    style={{ borderColor: 'var(--border-faint)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', rowGap: 2 }}>
+                    {hasQuarters ? (<>
+                      {/* Col 1 row 1 */}
+                      <button onClick={() => onQClick('bear')} className="text-subheadline text-left py-0.5"
+                        style={{ color: qMode === 'bear' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'bear' ? 600 : 400 }}>
+                        Bear
+                      </button>
+                      {/* Col 2, spans 3 rows */}
+                      <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
+                        className="text-subheadline disabled:opacity-40"
+                        style={{ gridRow: '1 / 4', textAlign: 'center', alignSelf: 'center', color: 'var(--accent)' }}>
+                        {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
+                      </button>
+                      {/* Col 3, spans 3 rows */}
+                      <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
+                        className="text-subheadline disabled:opacity-40"
+                        style={{ gridRow: '1 / 4', textAlign: 'right', alignSelf: 'center', color: 'var(--accent)' }}>
+                        {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
+                      </button>
+                      {/* Col 1 row 2 */}
+                      <button onClick={() => onQClick('normal')} className="text-subheadline text-left py-0.5"
+                        style={{ color: qMode === 'normal' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'normal' ? 600 : 400 }}>
+                        Normal
+                      </button>
+                      {/* Col 1 row 3 */}
+                      <div className="flex items-center gap-1 py-0.5">
+                        <button onClick={() => onQClick('bull')} className="text-subheadline"
+                          style={{ color: qMode === 'bull' ? 'var(--accent)' : 'var(--text-faint)', fontWeight: qMode === 'bull' ? 600 : 400 }}>
+                          Bull
+                        </button>
+                        <button onClick={() => setShowQuartersInfo(true)}
+                          className="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', fontSize: 8, border: '1px solid var(--border)' }}>
                           i
                         </button>
                       </div>
-                    ) : <div />}
-
-                    {/* Right: action links */}
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => refreshCMP(row.symbol)}
-                        disabled={isRefresh}
-                        className="text-subheadline font-medium disabled:opacity-40"
+                    </>) : (<>
+                      <div />
+                      <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
+                        className="text-subheadline disabled:opacity-40 text-center"
+                        style={{ color: 'var(--accent)' }}>
+                        {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
+                      </button>
+                      <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
+                        className="text-subheadline disabled:opacity-40 text-right"
                         style={{ color: 'var(--accent)' }}>
                         {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
                       </button>
-                      <button
-                        onClick={() => generateBands(row.symbol)}
-                        disabled={generating[row.symbol]}
-                        className="text-subheadline font-medium disabled:opacity-40"
-                        style={{ color: 'var(--accent)' }}>
-                        {generating[row.symbol] ? 'Generating…' : 'Regenerate Bands'}
-                      </button>
-                    </div>
+                    </>)}
                   </div>
 
                   {/* Tranches */}
