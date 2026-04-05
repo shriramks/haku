@@ -72,6 +72,18 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
+  // Fetch 52W low/high for all symbols on mount so collapsed rows show it immediately
+  useEffect(() => {
+    if (rows.length === 0) return
+    const symbols = rows.map(r => r.symbol).join(',')
+    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.week52) setWeek52(data.week52)
+      })
+      .catch(() => {})
+  }, [rows])
+
   function toggle(symbol: string) {
     setExpanded(prev => {
       const next = new Set(prev)

@@ -35,8 +35,13 @@ export async function fetchCmp(symbol: string): Promise<number | null> {
   return (await fetchCmpQuote(symbol))?.price ?? null
 }
 
-/** Fetches prices for multiple NSE symbols in one request. Returns a map of symbol → price. */
-export async function fetchCmpBatch(symbols: string[]): Promise<Record<string, number>> {
+export interface CmpQuoteBatch {
+  prices: Record<string, number>
+  week52: Record<string, { low: number | null; high: number | null }>
+}
+
+/** Fetches CMP + 52W low/high for multiple NSE symbols in one request. */
+export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
   const nsSuffixed = symbols.map(s => `${s}.NS`).join(',')
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${nsSuffixed}`
   try {
@@ -44,17 +49,23 @@ export async function fetchCmpBatch(symbols: string[]): Promise<Record<string, n
       headers: { 'User-Agent': YAHOO_UA },
       next: { revalidate: 60 },
     })
-    if (!res.ok) return {}
+    if (!res.ok) return { prices: {}, week52: {} }
     const json = await res.json()
-    const results: { symbol: string; regularMarketPrice: number }[] =
-      json?.quoteResponse?.result ?? []
+    const results: {
+      symbol: string
+      regularMarketPrice: number
+      fiftyTwoWeekLow?: number
+      fiftyTwoWeekHigh?: number
+    }[] = json?.quoteResponse?.result ?? []
     const prices: Record<string, number> = {}
+    const week52: Record<string, { low: number | null; high: number | null }> = {}
     for (const r of results) {
       const sym = r.symbol.replace(/\.NS$/, '')
       if (r.regularMarketPrice) prices[sym] = r.regularMarketPrice
+      week52[sym] = { low: r.fiftyTwoWeekLow ?? null, high: r.fiftyTwoWeekHigh ?? null }
     }
-    return prices
+    return { prices, week52 }
   } catch {
-    return {}
+    return { prices: {}, week52: {} }
   }
 }

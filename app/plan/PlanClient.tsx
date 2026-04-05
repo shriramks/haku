@@ -317,9 +317,9 @@ function PlanTab({
             <div className="flex-1">
               <div className="flex items-center justify-between py-3.5"
                    style={undefined}>
-                <span className="text-body" style={{ color: 'var(--text-2)' }}>Total Budget</span>
+                <span className="text-headline" style={{ color: 'var(--text-2)' }}>Total Budget</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-headline font-semibold tabnum">
+                  <span className="text-title-2 font-bold tabnum">
                     {formatINRFull(effectiveBudget)}
                   </span>
                   {unallocCarryover > 0 && (
@@ -331,8 +331,8 @@ function PlanTab({
               </div>
               {deployCapital != null && (
                 <div className="flex items-center justify-between py-3.5">
-                  <span className="text-body" style={{ color: 'var(--text-2)' }}>Deploy Capital</span>
-                  <span className="text-headline font-semibold tabnum">{formatINRFull(deployCapital)}</span>
+                  <span className="text-headline" style={{ color: 'var(--text-2)' }}>Deploy Capital</span>
+                  <span className="text-title-2 font-bold tabnum">{formatINRFull(deployCapital)}</span>
                 </div>
               )}
             </div>
