@@ -151,7 +151,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               </div>
 
               {/* Right column — donut */}
-              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0, alignSelf: 'flex-start', display: 'block', marginTop: -24 }}>
+              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0, alignSelf: 'flex-start', display: 'block', marginTop: -15 }}>
                 {/* track */}
                 <circle cx="54" cy="54" r="44" fill="none"
                   stroke="var(--border-faint)" strokeWidth="11" />
