@@ -7,7 +7,6 @@ import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
 import { formatAmt, formatINR, formatINRFull } from '@/lib/formatter'
 import { ChevronRightIcon } from '@/components/icons'
-import { getStockName } from '@/lib/stock-names'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -193,7 +192,6 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   const isDone   = row.remaining <= 0
   const leftPct  = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
   const spentPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
-  const name     = getStockName(row.symbol)
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="block px-4 tap-row"
@@ -203,7 +201,6 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
           <p className="text-headline font-medium" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
-          {name && <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{name}</p>}
         </div>
 
         {/* Col 2 — Left (prominent, green) */}

@@ -7,7 +7,6 @@ import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
-import { getStockName } from '@/lib/stock-names'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
 
 // ── Date filter types + helpers ───────────────────────────────────────────────
@@ -729,12 +728,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     <div className="flex items-center px-4 py-4 gap-3 tap-row">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="font-bold text-headline flex-shrink-0">{txn.symbol}</span>
-          {getStockName(txn.symbol) && (
-            <span className="text-footnote truncate" style={{ color: 'var(--text-muted)' }}>
-              {getStockName(txn.symbol)}
-            </span>
-          )}
+          <span className="font-medium text-headline flex-shrink-0">{txn.symbol}</span>
           {txn.advance_fy_id && (
             <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent flex-shrink-0"
                   style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>

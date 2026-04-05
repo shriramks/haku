@@ -310,32 +310,35 @@ function PlanTab({
             const effectiveBudget = totalBudget + unallocCarryover
             const deployCapital = selectedFY.deploy_capital_inr
             return (
-          <div className="border-b" style={{ borderColor: 'var(--border)' }}>
-            <button onClick={() => setShowBudgetSheet(true)}
-              className="w-full flex items-center justify-between px-4 py-3.5 border-b tap-row"
-              style={{ borderColor: 'var(--border-faint)' }}>
-              <span className="text-body">Total Budget</span>
-              <div className="flex items-center gap-2">
-                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
-                  {formatINRFull(effectiveBudget)}
-                </span>
-                {unallocCarryover > 0 && (
-                  <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                    +{formatINR(unallocCarryover)} carryover
+          <button onClick={() => setShowBudgetSheet(true)}
+            className="w-full flex items-center gap-3 px-4 border-b tap-row"
+            style={{ borderColor: 'var(--border)' }}>
+            {/* Rows */}
+            <div className="flex-1">
+              <div className="flex items-center justify-between py-3.5"
+                   style={ deployCapital != null ? { borderBottom: '1px solid var(--border-faint)' } : undefined }>
+                <span className="text-body">Total Budget</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
+                    {formatINRFull(effectiveBudget)}
                   </span>
-                )}
-                <PencilIcon className="w-5 h-5" style={{ color: 'var(--text-faint)' }} />
+                  {unallocCarryover > 0 && (
+                    <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                      +{formatINR(unallocCarryover)} carryover
+                    </span>
+                  )}
+                </div>
               </div>
-            </button>
-            {deployCapital != null && (
-              <button onClick={() => setShowBudgetSheet(true)}
-                className="w-full flex items-center justify-between px-4 py-3.5 tap-row"
-                style={{ borderColor: 'var(--border-faint)' }}>
-                <span className="text-body">Deploy Capital</span>
-                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
-              </button>
-            )}
-          </div>
+              {deployCapital != null && (
+                <div className="flex items-center justify-between py-3.5">
+                  <span className="text-body">Deploy Capital</span>
+                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
+                </div>
+              )}
+            </div>
+            {/* Single pencil, centred across all rows */}
+            <PencilIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+          </button>
             )
           })()}
 
