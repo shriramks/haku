@@ -43,7 +43,7 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
         </div>
         {cmpPct !== null && (
           <div className="absolute top-0 bottom-0 rounded-full"
-               style={{ left: `${cmpPct}%`, width: 3, transform: 'translateX(-50%)', background: 'var(--text-primary)', opacity: 0.85 }} />
+               style={{ left: `${cmpPct}%`, width: 4, transform: 'translateX(-50%)', background: 'var(--text-primary)', opacity: 0.9 }} />
         )}
       </div>
 

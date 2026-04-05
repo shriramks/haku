@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { formatINR, formatPrice } from '@/lib/formatter'
+import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
@@ -39,20 +40,23 @@ export default function TrancheSection({
         <button
           onClick={onGenerate}
           disabled={!hasBands || generating}
-          className="text-subheadline disabled:opacity-40"
+          className="flex items-center gap-1.5 text-body disabled:opacity-40"
           style={{ color: 'var(--accent)' }}>
+          <SparkleIcon className="w-3.5 h-3.5" />
           {generating ? 'Generating…' : 'Generate'}
         </button>
         <button
           onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="text-subheadline"
+          className="flex items-center gap-1.5 text-body"
           style={{ color: 'var(--accent)' }}>
+          <PlusIcon className="w-3.5 h-3.5" />
           Add Tranche
         </button>
         <button
           onClick={() => onClear()}
           disabled={tranches.length === 0}
-          className="text-subheadline disabled:opacity-40 text-negative">
+          className="flex items-center gap-1.5 text-body disabled:opacity-40 text-negative">
+          <TrashIcon className="w-3.5 h-3.5" />
           Clear
         </button>
       </div>
@@ -220,13 +224,6 @@ function RefreshIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function PlusIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  )
-}
 
 function XIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (

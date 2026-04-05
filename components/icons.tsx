@@ -59,6 +59,23 @@ export function SearchIcon({ className, ...props }: React.SVGProps<SVGSVGElement
   )
 }
 
+export function TrashIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M3 7h18" />
+    </svg>
+  )
+}
+
+export function PlusIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  )
+}
+
 export function CheckIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} {...props}>
