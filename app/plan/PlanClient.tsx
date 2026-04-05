@@ -324,7 +324,7 @@ function PlanTab({
                     +{formatINR(unallocCarryover)} carryover
                   </span>
                 )}
-                <PencilIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+                <PencilIcon className="w-5 h-5" style={{ color: 'var(--text-faint)' }} />
               </div>
             </button>
             {deployCapital != null && (
@@ -332,10 +332,7 @@ function PlanTab({
                 className="w-full flex items-center justify-between px-4 py-3.5 tap-row"
                 style={{ borderColor: 'var(--border-faint)' }}>
                 <span className="text-body">Deploy Capital</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
-                  <PencilIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
-                </div>
+                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
               </button>
             )}
           </div>
