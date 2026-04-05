@@ -316,7 +316,7 @@ function PlanTab({
             {/* Rows */}
             <div className="flex-1">
               <div className="flex items-center justify-between py-3.5"
-                   style={ deployCapital != null ? { borderBottom: '1px solid var(--border-faint)' } : undefined }>
+                   style={undefined}>
                 <span className="text-body">Total Budget</span>
                 <div className="flex items-center gap-2">
                   <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
