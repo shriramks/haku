@@ -113,37 +113,69 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       </div>
 
       {/* Summary strip */}
-      {selectedFY && (
-        <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <p className="text-footnote font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Plan</p>
-          <p className="font-bold tabnum mb-4" style={{ fontSize: '34px', letterSpacing: '-1px' }}>
-            {formatINRFull(totalBudget)}
-          </p>
-          <div className="flex justify-between mb-2">
-            <div>
-              <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.07em' }}>Left</p>
-              <p className="font-bold tabnum" style={{ fontSize: '20px', letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>
-                {formatINRFull(Math.max(0, totalRemaining))}
-                <span className="font-normal ml-1.5" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  {(100 - pctDeployed).toFixed(1)}%
-                </span>
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.07em' }}>Invested</p>
-              <p className="font-bold tabnum" style={{ fontSize: '20px', letterSpacing: '-0.5px' }}>
-                {formatINRFull(totalDeployed)}
-                <span className="font-normal ml-1.5" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  {pctDeployed.toFixed(1)}%
-                </span>
-              </p>
+      {selectedFY && (() => {
+        const circumference = 276.5 // 2π × 44
+        const filled = Math.min(100, pctDeployed) / 100 * circumference
+        const pctLeft = 100 - pctDeployed
+        return (
+          <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+            <div className="flex items-center gap-4">
+              {/* Left column — text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Plan</p>
+                <p className="font-bold tabnum mb-3" style={{ fontSize: '34px', letterSpacing: '-1px' }}>
+                  {formatINRFull(totalBudget)}
+                </p>
+                <div className="flex gap-5">
+                  {/* Left stat */}
+                  <div>
+                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
+                    <p className="font-bold tabnum leading-none" style={{ fontSize: '26px', letterSpacing: '-0.5px' }}>
+                      {formatINRFull(Math.max(0, totalRemaining))}
+                    </p>
+                    <p className="tabnum mt-1" style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+                      {pctLeft.toFixed(1)}%
+                    </p>
+                  </div>
+                  {/* Invested stat */}
+                  <div>
+                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested</p>
+                    <p className="font-bold tabnum leading-none" style={{ fontSize: '26px', letterSpacing: '-0.5px', color: 'var(--text-2)' }}>
+                      {formatINRFull(totalDeployed)}
+                    </p>
+                    <p className="tabnum mt-1" style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+                      {pctDeployed.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right column — donut */}
+              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0 }}>
+                {/* track */}
+                <circle cx="54" cy="54" r="44" fill="none"
+                  stroke="var(--border-faint)" strokeWidth="11" />
+                {/* fill */}
+                <circle cx="54" cy="54" r="44" fill="none"
+                  stroke="var(--bar-fill)" strokeWidth="11"
+                  strokeDasharray={`${filled} ${circumference}`}
+                  strokeDashoffset={circumference * 0.25}
+                  strokeLinecap="round"
+                  transform="rotate(-90 54 54)" />
+                {/* center text */}
+                <text x="54" y="50" textAnchor="middle"
+                  fontFamily="-apple-system,BlinkMacSystemFont,sans-serif"
+                  fontSize="18" fontWeight="700"
+                  fill="var(--text-primary)">{Math.round(pctDeployed)}%</text>
+                <text x="54" y="66" textAnchor="middle"
+                  fontFamily="-apple-system,BlinkMacSystemFont,sans-serif"
+                  fontSize="10" fontWeight="500"
+                  fill="var(--text-muted)">Invested</text>
+              </svg>
             </div>
           </div>
-          <div className="rounded-full overflow-hidden" style={{ height: '10px', background: 'var(--border-faint)' }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--bar-fill)' }} />
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {loading ? (
         <div className="flex justify-center py-16">
