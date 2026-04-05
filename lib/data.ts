@@ -94,7 +94,7 @@ const _fetchBuyBands = unstable_cache(
   async (userId: string): Promise<BuyBand[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_bands')
-      .select('id, symbol, anchor_type, eps, bvps, ebitda, net_debt, shares, embedded_value, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, last_updated_at, generated_at, is_current, notes')
+      .select('id, symbol, anchor_type, eps, bvps, ebitda, net_debt, shares, embedded_value, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, week_52_low, week_52_high, last_updated_at, generated_at, is_current, notes')
       .eq('user_id', userId)
       .eq('is_current', true)
       .order('generated_at', { ascending: false })
