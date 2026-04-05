@@ -389,8 +389,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
                     </p>
                     {week52[row.symbol]?.low != null && (
-                      <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        52W ₹{Math.round(week52[row.symbol].low!).toLocaleString('en-IN')}
+                      <p className="text-footnote tabnum mt-2" style={{ color: 'var(--text-muted)' }}>
+                        52W Low ₹{Math.round(week52[row.symbol].low!).toLocaleString('en-IN')}
                       </p>
                     )}
                   </div>
