@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allocation Row Size Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:           #F2F2F7;
+    --card:         #FFFFFF;
+    --text:         #000000;
+    --text-2:       rgba(0,0,0,0.60);
+    --muted:        rgba(0,0,0,0.40);
+    --faint:        rgba(0,0,0,0.25);
+    --border-faint: rgba(0,0,0,0.06);
+    --red:    #FF3B30;
+    --orange: #FF9F0A;
+    --green:  #34C759;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:           #000000;
+      --card:         #1C1C1E;
+      --text:         #FFFFFF;
+      --text-2:       rgba(255,255,255,0.60);
+      --muted:        rgba(255,255,255,0.40);
+      --faint:        rgba(255,255,255,0.25);
+      --border-faint: rgba(255,255,255,0.05);
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text);
+    padding-bottom: 60px;
+  }
+  .label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 28px 16px 10px;
+  }
+  .sublabel {
+    font-size: 12px; color: var(--faint); padding: 0 16px 10px;
+    margin-top: -6px;
+  }
+  .list { background: var(--card); }
+
+  /* shared bar-as-divider */
+  .bar { height: 2px; background: var(--border-faint); }
+  .bar-fill { height: 100%; }
+
+  /* chevron */
+  .chev { width: 14px; height: 14px; color: var(--faint); flex-shrink: 0; }
+
+  /* ════════════════════════════════════════
+     CURRENT — py-4, all 15px semibold, 3-col grid
+  ════════════════════════════════════════ */
+  .cur-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center;
+    padding: 16px 16px; /* py-4 */
+    min-height: 44px;
+  }
+  .cur-sym  { font-size: 17px; font-weight: 600; }
+  .cur-inv  { font-size: 15px; font-weight: 600; text-align: center; }
+  .cur-rem  { font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .sub      { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  /* ════════════════════════════════════════
+     A — py-4, remaining → 17px, hierarchy fix only
+     Invested stays 15px medium (secondary)
+  ════════════════════════════════════════ */
+  .a-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center;
+    padding: 16px 16px; /* same py-4 */
+  }
+  .a-sym  { font-size: 17px; font-weight: 600; }
+  .a-inv  { font-size: 14px; font-weight: 400; text-align: center; color: var(--text-2); }
+  .a-inv .sub { font-size: 12px; color: var(--muted); }
+  .a-rem  { font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .a-rem .sub { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  /* ════════════════════════════════════════
+     B — py-5, same hierarchy as A
+     More breathing room for 3-tier row
+  ════════════════════════════════════════ */
+  .b-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.5fr;
+    align-items: center;
+    padding: 20px 16px; /* py-5 */
+  }
+  .b-sym  { font-size: 17px; font-weight: 600; }
+  .b-inv  { font-size: 14px; font-weight: 400; text-align: center; color: var(--text-2); }
+  .b-inv .sub { font-size: 12px; color: var(--muted); }
+  .b-rem  { font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .b-rem .sub { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  /* ════════════════════════════════════════
+     C — two-line layout, py-4
+     Line 1: symbol (left) + remaining (right)
+     Line 2: invested (muted, left)
+     Bar underneath
+  ════════════════════════════════════════ */
+  .c-row { padding: 14px 16px 12px; }
+  .c-top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 3px;
+  }
+  .c-sym  { font-size: 17px; font-weight: 600; }
+  .c-rem  { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .c-rem .sub { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .c-bot  { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .c-bot .val { font-size: 13px; font-weight: 500; color: var(--text-2); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ CURRENT ══════════ -->
+<p class="label">Current — py-4, all same weight</p>
+<p class="sublabel">Symbol 17px · Invested 15px · Remaining 15px · all semibold</p>
+<div class="list">
+  {% for row in [
+    {sym:'CAMS',     inv:'0',     invpct:'0',  rem:'2.5L',  rempct:'100', pct:0,   done:true},
+    {sym:'NH',       inv:'48.6K', invpct:'19', rem:'2.1L',  rempct:'81',  pct:19,  color:'red'},
+    {sym:'ITC',      inv:'92.9K', invpct:'33', rem:'1.9L',  rempct:'67',  pct:33,  color:'red'},
+    {sym:'IEX',      inv:'1.2L',  invpct:'34', rem:'2.3L',  rempct:'66',  pct:34,  color:'red'}
+  ] %}{% endfor %}
+
+  <!-- CAMS 0% -->
+  <div class="cur-row"><span class="cur-sym">CAMS</span><span class="cur-inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span><div class="cur-rem"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"></div>
+
+  <div class="cur-row"><span class="cur-sym">NH</span><span class="cur-inv">48.6K <span class="sub">· 19%</span></span><div class="cur-rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:19%;background:var(--red)"></div></div>
+
+  <div class="cur-row"><span class="cur-sym">ITC</span><span class="cur-inv">92.9K <span class="sub">· 33%</span></span><div class="cur-rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:33%;background:var(--red)"></div></div>
+
+  <div class="cur-row"><span class="cur-sym">IEX</span><span class="cur-inv">1.2L <span class="sub">· 34%</span></span><div class="cur-rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:34%;background:var(--red)"></div></div>
+</div>
+
+
+<!-- ══════════ A ══════════ -->
+<p class="label">A — py-4 + hierarchy fix</p>
+<p class="sublabel">Symbol 17px semibold · Invested 14px regular muted · Remaining 17px semibold</p>
+<div class="list">
+  <div class="a-row"><span class="a-sym">CAMS</span><span class="a-inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span><div class="a-rem" style="color:var(--faint)"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"></div>
+
+  <div class="a-row"><span class="a-sym">NH</span><span class="a-inv">48.6K <span class="sub">· 19%</span></span><div class="a-rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:19%;background:var(--red)"></div></div>
+
+  <div class="a-row"><span class="a-sym">ITC</span><span class="a-inv">92.9K <span class="sub">· 33%</span></span><div class="a-rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:33%;background:var(--red)"></div></div>
+
+  <div class="a-row"><span class="a-sym">IEX</span><span class="a-inv">1.2L <span class="sub">· 34%</span></span><div class="a-rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:34%;background:var(--red)"></div></div>
+</div>
+
+
+<!-- ══════════ B ══════════ -->
+<p class="label">B — py-5 + hierarchy fix</p>
+<p class="sublabel">Same as A but more vertical breathing room</p>
+<div class="list">
+  <div class="b-row"><span class="b-sym">CAMS</span><span class="b-inv" style="color:var(--faint)">0 <span class="sub">· 0%</span></span><div class="b-rem" style="color:var(--faint)"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"></div>
+
+  <div class="b-row"><span class="b-sym">NH</span><span class="b-inv">48.6K <span class="sub">· 19%</span></span><div class="b-rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:19%;background:var(--red)"></div></div>
+
+  <div class="b-row"><span class="b-sym">ITC</span><span class="b-inv">92.9K <span class="sub">· 33%</span></span><div class="b-rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:33%;background:var(--red)"></div></div>
+
+  <div class="b-row"><span class="b-sym">IEX</span><span class="b-inv">1.2L <span class="sub">· 34%</span></span><div class="b-rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div></div>
+  <div class="bar"><div class="bar-fill" style="width:34%;background:var(--red)"></div></div>
+</div>
+
+
+<!-- ══════════ C ══════════ -->
+<p class="label">C — two-line layout</p>
+<p class="sublabel">Line 1: symbol + remaining · Line 2: invested (muted) · Bar</p>
+<div class="list">
+
+  <div class="c-row">
+    <div class="c-top">
+      <span class="c-sym">CAMS</span>
+      <div class="c-rem" style="color:var(--faint)"><span>2.5L <span class="sub">· 100%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bot"><span class="val" style="color:var(--faint)">₹0 invested</span></div>
+  </div>
+  <div class="bar"></div>
+
+  <div class="c-row">
+    <div class="c-top">
+      <span class="c-sym">NH</span>
+      <div class="c-rem"><span>2.1L <span class="sub">· 81%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bot"><span class="val">48.6K</span> invested · 19%</div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:19%;background:var(--red)"></div></div>
+
+  <div class="c-row">
+    <div class="c-top">
+      <span class="c-sym">ITC</span>
+      <div class="c-rem"><span>1.9L <span class="sub">· 67%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bot"><span class="val">92.9K</span> invested · 33%</div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:33%;background:var(--red)"></div></div>
+
+  <div class="c-row">
+    <div class="c-top">
+      <span class="c-sym">IEX</span>
+      <div class="c-rem"><span>2.3L <span class="sub">· 66%</span></span><svg class="chev" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>
+    </div>
+    <div class="c-bot"><span class="val">1.2L</span> invested · 34%</div>
+  </div>
+  <div class="bar"><div class="bar-fill" style="width:34%;background:var(--red)"></div></div>
+
+</div>
+
+</body>
+</html>
