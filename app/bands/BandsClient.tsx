@@ -56,10 +56,10 @@ function MiniBar({ buyLow, buyHigh, midHigh, trimPrice, cmp }: {
       </div>
       {cmpX !== null && (
         <div style={{
-          position: 'absolute', top: -3, left: `${cmpX}%`,
+          position: 'absolute', top: -4, left: `${cmpX}%`,
           transform: 'translateX(-50%)',
-          width: 2, height: 11, borderRadius: 1,
-          background: 'var(--text-primary)', opacity: 0.55,
+          width: 3, height: 13, borderRadius: 2,
+          background: 'var(--text-primary)', opacity: 0.85,
         }} />
       )}
     </div>
