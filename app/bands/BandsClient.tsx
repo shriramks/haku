@@ -59,7 +59,14 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [genError, setGenError]                 = useState<Record<string, string>>({})
   const [genWarning, setGenWarning]             = useState<Record<string, string>>({})
   const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
-  const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>({})
+  const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>(() => {
+    const init: Record<string, { low: number | null; high: number | null }> = {}
+    for (const b of initialBands) {
+      if (b.week_52_low != null || b.week_52_high != null)
+        init[b.symbol] = { low: b.week_52_low, high: b.week_52_high }
+    }
+    return init
+  })
   const [hasKey, setHasKey]               = useState(initialHasKey)
   const [aiProvider, setAiProvider]       = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
@@ -105,8 +112,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       const band = bands.find(b => b.symbol === symbol)
 
       if (band) {
-        await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
-        setBands(prev => prev.map(b => b.symbol === symbol ? { ...b, manual_cmp: price } : b))
+        await sb.from('buy_bands').update({
+          manual_cmp: price,
+          week_52_low: week52Low ?? null,
+          week_52_high: week52High ?? null,
+          last_updated_at: new Date().toISOString(),
+        }).eq('id', band.id)
+        setBands(prev => prev.map(b => b.symbol === symbol ? { ...b, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : b))
       } else {
         // No band record yet — create a minimal one
         const { data: { user } } = await sb.auth.getUser()

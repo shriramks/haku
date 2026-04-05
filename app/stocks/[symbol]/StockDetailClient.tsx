@@ -288,8 +288,8 @@ export default function StockDetailClient({
           valueColor={remaining < 0 ? 'text-negative' : 'text-positive'}
           prefix={remaining < 0 ? '−' : undefined}
         />
-        <DetailRow label="Allocated" value={formatINR(spent)} />
-        <DetailRow label="Total Allocation" value={formatINR(budget)} muted />
+        <DetailRow label="Invested" value={formatINR(spent)} />
+        <DetailRow label="Allocation" value={formatINR(budget)} muted />
         {carryoverInr !== 0 && (
           <DetailRow
             label="Carryover"
@@ -301,12 +301,12 @@ export default function StockDetailClient({
         {/* ── All-Time ─────────────────────────────────────────────────────── */}
         <SectionHeader title="All-Time" />
         <DetailRow
-          label="Remaining"
+          label="Total Remaining"
           value={formatINR(Math.abs(allFYBudget - allFYSpent))}
           valueColor={allFYBudget - allFYSpent < 0 ? 'text-negative' : 'text-positive'}
           prefix={allFYBudget - allFYSpent < 0 ? '−' : undefined}
         />
-        <DetailRow label="Allocated" value={formatINR(allFYSpent)} />
+        <DetailRow label="Total Invested" value={formatINR(allFYSpent)} />
         <DetailRow label="Total Allocation" value={formatINR(allFYBudget)} muted />
 
         {/* ── Position ─────────────────────────────────────────────────────── */}

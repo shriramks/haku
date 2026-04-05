@@ -57,6 +57,8 @@ export interface BuyBand {
   mid_high: number | null
   trim_price: number | null
   manual_cmp: number | null
+  week_52_low: number | null
+  week_52_high: number | null
   last_updated_at: string
   generated_at: string
   is_current: boolean
