@@ -123,7 +123,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <div className="flex justify-between mb-2">
             <div>
               <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.07em' }}>Left</p>
-              <p className="font-bold tabnum" style={{ fontSize: '20px', letterSpacing: '-0.5px', color: 'var(--c-positive)' }}>
+              <p className="font-bold tabnum" style={{ fontSize: '20px', letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>
                 {formatINRFull(Math.max(0, totalRemaining))}
                 <span className="font-normal ml-1.5" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                   {(100 - pctDeployed).toFixed(1)}%
