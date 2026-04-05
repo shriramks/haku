@@ -309,14 +309,24 @@ export default function TransactionsClient({
         <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
-              <div className="flex items-baseline justify-between px-5 mb-2">
-                <p className="text-subheadline font-semibold uppercase tracking-widest"
-                   style={{ color: 'var(--text-muted)' }}>{month}</p>
-                <div className="flex gap-3 text-subheadline tabnum">
-                  {buyTotal  > 0 && <span className="text-positive">+{formatINR(buyTotal)}</span>}
-                  {sellTotal > 0 && <span className="text-negative">−{formatINR(sellTotal)}</span>}
+              <div className="flex items-start justify-between gap-3 px-4 pt-6 pb-3">
+                <p className="text-title-1 font-bold">{month}</p>
+                <div className="flex gap-3 pt-1 flex-shrink-0">
+                  {buyTotal  > 0 && (
+                    <span className="text-footnote font-bold uppercase tabnum"
+                          style={{ color: 'var(--c-positive)', letterSpacing: '0.04em' }}>
+                      Buy: {formatINR(buyTotal)}
+                    </span>
+                  )}
+                  {sellTotal > 0 && (
+                    <span className="text-footnote font-bold uppercase tabnum"
+                          style={{ color: 'var(--c-negative)', letterSpacing: '0.04em' }}>
+                      Sell: {formatINR(sellTotal)}
+                    </span>
+                  )}
                 </div>
               </div>
+              <div className="border-t" style={{ borderColor: 'var(--border-faint)' }} />
               <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
                 {items.map(txn => (
                   <TxnRow
@@ -716,40 +726,36 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
   // ── Normal display ──
   return (
-    <div className="flex items-start px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
-      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
-
+    <div className="flex items-center px-4 py-4 gap-3 tap-row">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-headline">{txn.symbol}</span>
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="font-bold text-headline flex-shrink-0">{txn.symbol}</span>
+          {getStockName(txn.symbol) && (
+            <span className="text-footnote truncate" style={{ color: 'var(--text-muted)' }}>
+              {getStockName(txn.symbol)}
+            </span>
+          )}
           {txn.advance_fy_id && (
-            <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent"
+            <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent flex-shrink-0"
                   style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
               {`→ ${getFYLabel(txn.advance_fy_id, fiscalYears)}`}
             </span>
           )}
         </div>
-        {getStockName(txn.symbol) && (
-          <p className="text-footnote mt-0.5" style={{ color: 'var(--text-2)' }}>{getStockName(txn.symbol)}</p>
+        <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          {formatDate(txn.trade_date)}
+          {' · '}{txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
+          {' @ ₹'}{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        </p>
+        {txn.notes && (
+          <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>{txn.notes}</p>
         )}
       </div>
 
-      <div className="text-right flex-shrink-0 pr-4">
-        <p className="text-body tabnum font-medium" style={{ color: 'var(--text-primary)' }}>
-          {Math.round(txn.quantity)} qty
-        </p>
-        <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-          ₹{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-        </p>
-        <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>
-          {formatDate(txn.trade_date)}
-        </p>
-      </div>
-
       <div className="flex items-center gap-2 flex-shrink-0">
-        <p className={`font-bold tabnum text-headline ${isBuy ? '' : 'text-negative'}`}
-           style={isBuy ? { color: 'var(--text-primary)' } : undefined}>
-          {isBuy ? '' : '−'}{formatINR(txn.amount)}
+        <p className="font-bold tabnum text-headline"
+           style={{ color: isBuy ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+          {isBuy ? '+' : '−'}{formatINR(txn.amount)}
         </p>
         <button onClick={openEdit}
           className="w-[44px] h-[44px] flex items-center justify-center rounded-xl flex-shrink-0"
