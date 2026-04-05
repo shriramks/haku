@@ -823,8 +823,7 @@ function AddStockForm({ totalPct, onAdd }: {
   }
 
   return (
-    <div className="rounded-2xl border p-4 space-y-3"
-         style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}>
+    <div className="space-y-3">
       {/* Remaining % indicator */}
       <div className="flex items-center justify-between">
         <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Allocated so far: {totalPct.toFixed(1)}%</p>
