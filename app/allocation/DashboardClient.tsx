@@ -202,7 +202,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
       <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
-          <p className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
+          <p className="text-headline font-medium" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
           {name && <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{name}</p>}
         </div>
 
