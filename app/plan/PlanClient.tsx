@@ -317,9 +317,9 @@ function PlanTab({
             <div className="flex-1">
               <div className="flex items-center justify-between py-3.5"
                    style={undefined}>
-                <span className="text-body">Total Budget</span>
+                <span className="text-body" style={{ color: 'var(--text-2)' }}>Total Budget</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
+                  <span className="text-headline font-semibold tabnum">
                     {formatINRFull(effectiveBudget)}
                   </span>
                   {unallocCarryover > 0 && (
@@ -331,8 +331,8 @@ function PlanTab({
               </div>
               {deployCapital != null && (
                 <div className="flex items-center justify-between py-3.5">
-                  <span className="text-body">Deploy Capital</span>
-                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
+                  <span className="text-body" style={{ color: 'var(--text-2)' }}>Deploy Capital</span>
+                  <span className="text-headline font-semibold tabnum">{formatINRFull(deployCapital)}</span>
                 </div>
               )}
             </div>
@@ -460,6 +460,7 @@ function PlanTab({
       {showAddStock && selectedFY && (
         <AddStockSheet
           totalPct={totalPct}
+          totalBudget={totalBudget}
           onClose={() => setShowAddStock(false)}
           onAdd={async (symbol, category, pct) => { await addStock(symbol, category, pct); setShowAddStock(false) }}
         />
@@ -775,11 +776,31 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
 
 // ── Add stock sheet ───────────────────────────────────────────────────────────
 
-function AddStockSheet({ totalPct, onClose, onAdd }: {
+function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   totalPct: number
+  totalBudget: number
   onClose: () => void
   onAdd: (symbol: string, category: StockCategory, pct: number) => Promise<void>
 }) {
+  const [symbol, setSymbol]     = useState('')
+  const [pct, setPct]           = useState(10)
+  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
+  const [saving, setSaving]     = useState(false)
+
+  const freeWithoutThis  = 100 - totalPct
+  const sliderMax        = Math.min(100, freeWithoutThis)
+  const planAllocatedPct = totalPct + pct
+  const planFreePct      = 100 - planAllocatedPct
+  const planAllocatedInr = (planAllocatedPct / 100) * totalBudget
+  const planFreeInr      = (planFreePct / 100) * totalBudget
+
+  async function handleAdd() {
+    if (!symbol || pct <= 0) return
+    setSaving(true)
+    await onAdd(symbol, category, pct)
+    setSaving(false)
+  }
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
@@ -788,90 +809,104 @@ function AddStockSheet({ totalPct, onClose, onAdd }: {
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
+        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <button onClick={onClose} className="text-accent text-headline">Cancel</button>
-          <p className="font-semibold text-headline">Add Stock</p>
-          <div className="w-16" />
+          <div>
+            {symbol
+              ? <p className="font-semibold text-headline text-center">{symbol}</p>
+              : <p className="font-semibold text-headline text-center">Add Stock</p>
+            }
+          </div>
+          <button onClick={handleAdd} disabled={saving || !symbol || pct <= 0}
+            className="text-accent text-headline font-semibold disabled:opacity-40">
+            {saving ? 'Adding…' : 'Add'}
+          </button>
         </div>
-        <div className="px-5 pt-4">
-          <AddStockForm totalPct={totalPct} onAdd={onAdd} />
+
+        {/* Symbol input */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body" style={{ color: 'var(--text-2)' }}>Symbol</p>
+          <input
+            placeholder="INFY"
+            value={symbol}
+            onChange={e => {
+              const s = e.target.value.toUpperCase()
+              setSymbol(s)
+              if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
+            }}
+            className="text-body font-semibold text-right outline-none uppercase placeholder:font-normal placeholder:normal-case bg-transparent"
+            style={{ color: 'var(--text-primary)', width: 120 }}
+            autoFocus
+          />
+        </div>
+
+        {/* % stepper + slider + plan context */}
+        <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => setPct(p => Math.max(1, parseFloat((p - 1).toFixed(1))))}
+              className="flex items-center justify-center rounded-full text-2xl font-light"
+              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+              −
+            </button>
+            <div className="flex items-baseline gap-1">
+              <input
+                type="number" inputMode="decimal"
+                value={pct}
+                onChange={e => setPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                className="font-bold tabnum text-right outline-none bg-transparent"
+                style={{ fontSize: 40, width: 72, color: 'var(--text-primary)' }}
+              />
+              <span className="font-bold" style={{ fontSize: 28, color: 'var(--text-primary)' }}>%</span>
+            </div>
+            <button
+              onClick={() => setPct(p => Math.min(sliderMax, parseFloat((p + 1).toFixed(1))))}
+              className="flex items-center justify-center rounded-full text-2xl font-light"
+              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+              +
+            </button>
+          </div>
+          <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
+            {formatINR((pct / 100) * totalBudget)} allocated
+          </p>
+          <div className="mt-4 px-1">
+            <input
+              type="range" min={0} max={sliderMax} step={0.5}
+              value={pct}
+              onChange={e => setPct(parseFloat(e.target.value))}
+              className="w-full accent-accent"
+              style={{ height: 4 }}
+            />
+            <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
+              <span>0%</span>
+              <span>{sliderMax.toFixed(0)}% max</span>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <p className="text-footnote font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
+            <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
+              {Math.round(planAllocatedPct)}% allocated
+            </p>
+            <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+              {formatINR(planAllocatedInr)} of {formatINR(totalBudget)}
+            </p>
+          </div>
+        </div>
+
+        {/* Category picker */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value as StockCategory)}
+            className="text-body outline-none text-right"
+            style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
+            {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
       </div>
     </>
-  )
-}
-
-// ── Add stock form ────────────────────────────────────────────────────────────
-
-function AddStockForm({ totalPct, onAdd }: {
-  totalPct: number
-  onAdd: (symbol: string, category: StockCategory, pct: number) => Promise<void>
-}) {
-  const [symbol, setSymbol]     = useState('')
-  const [pct, setPct]           = useState('')
-  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
-  const [saving, setSaving]     = useState(false)
-
-  const remaining = 100 - totalPct - (parseFloat(pct) || 0)
-
-  async function submit() {
-    if (!symbol || !pct) return
-    setSaving(true)
-    await onAdd(symbol, category, parseFloat(pct))
-    setSymbol(''); setPct('')
-    setSaving(false)
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Remaining % indicator */}
-      <div className="flex items-center justify-between">
-        <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Allocated so far: {totalPct.toFixed(1)}%</p>
-        <p className={`text-subheadline font-semibold tabnum ${remaining < 0 ? 'text-negative' : remaining === 0 ? 'text-positive' : ''}`}
-           style={remaining > 0 ? { color: 'var(--text-2)' } : undefined}>
-          {remaining < 0 ? `${Math.abs(remaining).toFixed(1)}% over` : `${remaining.toFixed(1)}% left`}
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <input
-          placeholder="Symbol (INFY)"
-          value={symbol}
-          onChange={e => {
-            const s = e.target.value.toUpperCase()
-            setSymbol(s)
-            if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
-          }}
-          className="px-3 py-3 rounded-xl text-body outline-none uppercase placeholder:normal-case"
-          style={{
-            background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-          }} />
-        <div className="relative">
-          <input type="number" inputMode="decimal" placeholder="10"
-            value={pct} onChange={e => setPct(e.target.value)}
-            className="w-full px-3 pr-8 py-3 rounded-xl text-body tabnum outline-none"
-            style={{
-              background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
-            }} />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-body pointer-events-none"
-                style={{ color: 'var(--text-muted)' }}>%</span>
-        </div>
-      </div>
-      <select value={category} onChange={e => setCategory(e.target.value as StockCategory)}
-        className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
-        style={{
-          background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-          border: '1px solid var(--border)',
-        }}>
-        {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-      </select>
-      <button onClick={submit} disabled={saving || !symbol || !pct}
-        className="w-full py-3 rounded-xl font-bold text-body disabled:opacity-30"
-        style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
-        {saving ? 'Adding…' : 'Add Stock'}
-      </button>
-    </div>
   )
 }
 
