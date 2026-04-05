@@ -59,6 +59,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
   const [genError, setGenError]                 = useState<Record<string, string>>({})
   const [genWarning, setGenWarning]             = useState<Record<string, string>>({})
   const [generatingTranches, setGeneratingTranches] = useState<Record<string, boolean>>({})
+  const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>({})
   const [hasKey, setHasKey]               = useState(initialHasKey)
   const [aiProvider, setAiProvider]       = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt] = useState(false)
@@ -84,7 +85,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     try {
       const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
       if (!res.ok) throw new Error('fetch failed')
-      const { price } = await res.json()
+      const { price, week52Low, week52High } = await res.json()
+      if (week52Low != null || week52High != null)
+        setWeek52(prev => ({ ...prev, [symbol]: { low: week52Low ?? null, high: week52High ?? null } }))
 
       const sb = getSupabaseBrowser()
       const band = bands.find(b => b.symbol === symbol)
@@ -359,16 +362,23 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <span className="flex-1 font-semibold text-headline min-w-0 truncate">{row.symbol}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-headline truncate">{row.symbol}</p>
+                  {signal !== 'unknown' && cmp != null && (
+                    <p className="text-footnote font-bold uppercase tracking-wide mt-0.5"
+                       style={signalPillStyle(signal)}>
+                      {signalLabel(signal)}
+                    </p>
+                  )}
+                </div>
                 {cmp != null ? (
                   <div className="text-right flex-shrink-0">
                     <p className="text-headline font-bold tabnum" style={{ color: signalColor(signal) }}>
                       ₹{Math.round(cmp).toLocaleString('en-IN')}
                     </p>
-                    {signal !== 'unknown' && (
-                      <p className="text-footnote font-bold uppercase tracking-wide mt-0.5"
-                         style={signalPillStyle(signal)}>
-                        {signalLabel(signal)}
+                    {week52[row.symbol]?.low != null && (
+                      <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        52W ₹{Math.round(week52[row.symbol].low!).toLocaleString('en-IN')}
                       </p>
                     )}
                   </div>
@@ -446,7 +456,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                       className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 text-accent"
                       style={{ background: 'rgba(10,132,255,0.10)' }}>
                       <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                      Regenerate
+                      Regenerate Bands
                     </button>
                   </div>
 
