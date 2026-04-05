@@ -18,6 +18,7 @@
   --divider:      rgba(0,0,0,0.08);
   --bar-fill:     #2150A8;
   --c-positive:   #34C759;
+  --c-negative:   #FF3B30;
   --safe-top:     env(safe-area-inset-top,    0px);
   --safe-bottom:  env(safe-area-inset-bottom, 0px);
   --nav-h:        64px;
