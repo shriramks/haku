@@ -212,7 +212,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>done</p>
           ) : (
             <>
-              <p className="text-headline font-bold tabnum" style={{ color: 'var(--c-positive)' }}>{formatINR(row.remaining)}</p>
+              <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>{formatINR(row.remaining)}</p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
             </>
           )}
