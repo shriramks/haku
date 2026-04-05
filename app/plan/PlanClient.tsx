@@ -1,22 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 
-const SECTOR_TYPE: Record<string, 'Defensive' | 'Cyclical' | 'Growth' | 'REIT' | 'Passive'> = {
-  'Cap-Light Infra':    'Growth',
-  'Hospitals':          'Growth',
-  'FMCG':               'Defensive',
-  'Tobacco Corp':       'Defensive',
-  'Nifty 50 Index':     'Passive',
-  'Nifty Next 50 Index':   'Passive',
-  'Commodity':          'Passive',
-}
 
-const SHORT_CAT: Record<string, string> = {
-  'Cap-Light Infra':     'Cap-light',
-  'Tobacco Corp':        'Tobacco',
-  'Nifty 50 Index':      'N50',
-  'Nifty Next 50 Index': 'NN50',
-}
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFull, formatPct } from '@/lib/formatter'
@@ -194,7 +179,6 @@ function PlanTab({
   const [showAddStock, setShowAddStock] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [copying, setCopying] = useState(false)
-  const [showCatDetail, setShowCatDetail] = useState(false)
   const [carryoverAmt, setCarryoverAmt] = useState<number | null>(null)
   const [carryoverDismissed, setCarryoverDismissed] = useState(false)
   const [applyingCarryover, setApplyingCarryover] = useState(false)
@@ -280,8 +264,6 @@ function PlanTab({
     setCopying(false)
   }
 
-  const pctOk = Math.abs(totalPct - 100) < 0.01
-
   return (
     <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
@@ -342,93 +324,24 @@ function PlanTab({
                     +{formatINR(unallocCarryover)} carryover
                   </span>
                 )}
-                <PencilIcon className="w-3.5 h-3.5" style={{ color: 'var(--text-faint)' }} />
+                <PencilIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
               </div>
             </button>
             {deployCapital != null && (
-              <div className="flex items-center justify-between px-4 py-3.5 border-b"
-                   style={{ borderColor: 'var(--border-faint)' }}>
+              <button onClick={() => setShowBudgetSheet(true)}
+                className="w-full flex items-center justify-between px-4 py-3.5 tap-row"
+                style={{ borderColor: 'var(--border-faint)' }}>
                 <span className="text-body">Deploy Capital</span>
-                <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{formatINRFull(deployCapital)}</span>
+                  <PencilIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+                </div>
+              </button>
             )}
-            {/* Allocation bar */}
-            <div className="px-4 pt-3 pb-3">
-              <div className="rounded-full overflow-hidden" style={{ height: '6px', background: 'var(--border)' }}>
-                <div
-                  className={`h-full rounded-full transition-all ${totalPct > 100 ? 'bg-negative' : pctOk ? 'bg-positive' : 'bg-accent'}`}
-                  style={{ width: `${Math.min(100, totalPct)}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between mt-1.5 text-subheadline tabnum"
-                   style={{ color: 'var(--text-muted)' }}>
-                <span>{allocations.length} stocks</span>
-                <span className={totalPct > 100 ? 'text-negative' : pctOk ? 'text-positive' : ''}>
-                  {Math.round(totalPct)}% allocated
-                  {!pctOk && totalPct <= 100 && ` · ${Math.round(100 - totalPct)}% free`}
-                  {totalPct > 100 && ` · over by ${Math.round(totalPct - 100)}%`}
-                  {pctOk && ' ✓'}
-                </span>
-              </div>
-            </div>
           </div>
             )
           })()}
 
-
-          {/* Summary: sector types (collapsed) + category breakdown (expanded) */}
-          {allocations.length > 0 && (() => {
-            const byCat = allocations.reduce<Record<string, number>>((acc, a) => {
-              acc[a.category] = (acc[a.category] ?? 0) + a.allocation_pct
-              return acc
-            }, {})
-            const byType = allocations.reduce<Record<string, number>>((acc, a) => {
-              const t = SECTOR_TYPE[a.category] ?? 'Growth'
-              acc[t] = (acc[t] ?? 0) + a.allocation_pct
-              return acc
-            }, {})
-            const typeColors: Record<string, string> = {
-              Defensive: '#34C759', Cyclical: '#FF9F0A', Growth: '#0A84FF', REIT: '#AF52DE', Passive: '#8E8E93',
-            }
-            return (
-              <button
-                onClick={() => setShowCatDetail(v => !v)}
-                className="w-full text-left px-4 py-3 border-b"
-                style={{ borderColor: 'var(--border-faint)' }}>
-                {/* Sector types — always visible */}
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-3 flex-nowrap overflow-x-auto">
-                    {(['Defensive', 'Cyclical', 'Growth', 'REIT', 'Passive'] as const)
-                      .filter(t => byType[t])
-                      .map(t => (
-                        <span key={t} className="text-subheadline tabnum font-semibold whitespace-nowrap"
-                              style={{ color: typeColors[t] }}>
-                          {t} {(byType[t] ?? 0).toFixed(0)}%
-                        </span>
-                      ))}
-                  </div>
-                  <ChevronIcon className={`w-4 h-4 flex-shrink-0 ml-2 transition-transform ${showCatDetail ? 'rotate-180' : ''}`} />
-                </div>
-                {/* Category breakdown — 2-column grid, expanded only */}
-                {showCatDetail && (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 pt-3 border-t"
-                       style={{ borderColor: 'var(--border-faint)' }}>
-                    {Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([cat, pct]) => (
-                      <div key={cat} className="flex items-baseline justify-between">
-                        <span className="text-subheadline truncate" style={{ color: 'var(--text-2)' }}>
-                          {SHORT_CAT[cat] ?? cat}
-                        </span>
-                        <span className="text-subheadline font-semibold tabnum ml-2 flex-shrink-0"
-                              style={{ color: 'var(--text-primary)' }}>
-                          {pct.toFixed(0)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </button>
-            )
-          })()}
 
           {/* Stock list */}
           {loading ? (
@@ -445,10 +358,6 @@ function PlanTab({
                 Target Allocations
               </p>
 
-              {showAddStock && (
-                <AddStockForm totalPct={totalPct} onAdd={addStock} />
-              )}
-
               <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
                 {[...allocations]
                   .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
@@ -462,9 +371,9 @@ function PlanTab({
                 ))}
               </div>
 
-              {/* Add Stock inline row */}
+              {/* Add Stock row */}
               {!confirmClear && (
-                <button onClick={() => setShowAddStock(v => !v)}
+                <button onClick={() => setShowAddStock(true)}
                   className="w-full flex items-center gap-3 px-4 py-3.5 border-t tap-row"
                   style={{ borderColor: 'var(--border-faint)' }}>
                   <div className="w-6 h-6 rounded-full bg-positive flex items-center justify-center flex-shrink-0">
@@ -472,7 +381,7 @@ function PlanTab({
                       <path d="M12 4v16m8-8H4"/>
                     </svg>
                   </div>
-                  <span className="text-body text-accent">{showAddStock ? 'Cancel' : 'Add Stock'}</span>
+                  <span className="text-body text-accent">Add Stock</span>
                 </button>
               )}
 
@@ -534,7 +443,7 @@ function PlanTab({
                   <button onClick={() => setShowAddStock(true)}
                     className="w-full py-3 rounded-2xl text-body font-medium text-accent"
                     style={{ border: '1px solid rgba(10,132,255,0.3)', background: 'transparent' }}>
-                    + Add Stock manually
+                    Add Stock
                   </button>
                 </div>
               )}
@@ -546,6 +455,14 @@ function PlanTab({
           <p className="text-headline font-medium mb-2">No plan yet</p>
           <p className="text-body mb-4">Create a plan to start allocating your investments for the year.</p>
         </div>
+      )}
+
+      {showAddStock && selectedFY && (
+        <AddStockSheet
+          totalPct={totalPct}
+          onClose={() => setShowAddStock(false)}
+          onAdd={async (symbol, category, pct) => { await addStock(symbol, category, pct); setShowAddStock(false) }}
+        />
       )}
 
       {showBudgetSheet && selectedFY && (
@@ -850,6 +767,34 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               Remove from Plan
             </button>
           )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Add stock sheet ───────────────────────────────────────────────────────────
+
+function AddStockSheet({ totalPct, onClose, onAdd }: {
+  totalPct: number
+  onClose: () => void
+  onAdd: (symbol: string, category: StockCategory, pct: number) => Promise<void>
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <p className="font-semibold text-headline">Add Stock</p>
+          <div className="w-16" />
+        </div>
+        <div className="px-5 pt-4">
+          <AddStockForm totalPct={totalPct} onAdd={onAdd} />
         </div>
       </div>
     </>
