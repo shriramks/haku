@@ -123,14 +123,14 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {/* Left column — text */}
               <div className="flex-1 min-w-0">
                 <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
-                <p className="font-bold tabnum mb-3" style={{ fontSize: '34px', letterSpacing: '-1px' }}>
+                <p className="text-display font-bold tabnum mb-3">
                   {formatINRFull(totalBudget)}
                 </p>
                 <div className="flex gap-5">
                   {/* Left stat */}
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
-                    <p className="font-bold tabnum leading-none" style={{ fontSize: '26px', letterSpacing: '-0.5px' }}>
+                    <p className="text-title-0 font-bold tabnum leading-none">
                       {formatINRFull(Math.max(0, totalRemaining))}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>

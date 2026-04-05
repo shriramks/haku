@@ -18,8 +18,9 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 
 | Role | Size | Weight | Colour default | Use |
 |------|------|--------|----------------|-----|
-| `display` | 32px | 700 | text-primary | Hero numbers: total portfolio value, large P&L |
-| `title-1` | 22px | 700 | text-primary | Screen titles ("Buy Bands") |
+| `display` | 32px | 700 | text-primary | Page header titles ("Allocation", "Buy Bands") |
+| `title-0` | 28px | 700 | text-primary | Hero data numbers: FY total budget in summary strip |
+| `title-1` | 22px | 700 | text-primary | Section / card titles |
 | `title-2` | 20px | 600 | text-primary | Card / section titles |
 | `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount |
 | `body` | 15px | 400 | text-primary | Standard readable content, band prices |
