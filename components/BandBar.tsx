@@ -37,7 +37,7 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
         )}
         <div className="h-full flex items-center justify-center"
              style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
-          <span className="text-footnote font-semibold text-signal-hold truncate px-1">MID</span>
+          <span className="text-footnote font-semibold text-signal-hold truncate px-1">HOLD</span>
         </div>
         {cmpPct !== null && (
           <div className="absolute top-0 bottom-0 w-0.5 rounded-full"
@@ -63,7 +63,7 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
         )}
         <div className="text-center">
           <p className="font-semibold text-signal-hold">₹{Math.round(midLow)}–{Math.round(midHigh)}</p>
-          <p style={{ color: 'var(--text-faint)' }}>Mid / Hold</p>
+          <p style={{ color: 'var(--text-faint)' }}>Hold</p>
         </div>
         <div className="text-center">
           <p className="font-semibold text-signal-trim">≥₹{Math.round(trimPrice)}</p>

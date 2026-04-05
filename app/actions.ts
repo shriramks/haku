@@ -8,6 +8,10 @@ export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
 }
 
+export async function revalidateBuyBands() {
+  revalidateTag('buy_bands', {})
+}
+
 /** Fetch allocations for a FY — used by PlanClient on FY switch */
 export async function getAllocationsForFY(fyId: string): Promise<StockAllocation[]> {
   return getAllocations(fyId)

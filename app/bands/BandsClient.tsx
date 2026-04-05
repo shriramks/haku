@@ -10,22 +10,16 @@ import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
-import QuartersToggle from '@/components/QuartersToggle'
-import { RefreshIcon, SparkleIcon, ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon } from '@/components/icons'
+import { revalidateBuyBands } from '@/app/actions'
 import type { BandSignal } from '@/lib/types'
 
 function signalLabel(signal: BandSignal) {
-  if (signal === 'deep') return 'Deep Value'
-  if (signal === 'buy')  return 'Buy Zone'
-  if (signal === 'hold') return 'Mid'
+  if (signal === 'deep') return 'Deep'
+  if (signal === 'buy')  return 'Buy'
+  if (signal === 'hold') return 'Hold'
   if (signal === 'trim') return 'Trim'
   return ''
-}
-function signalColor(signal: BandSignal) {
-  if (signal === 'deep' || signal === 'buy') return 'var(--c-positive)'
-  if (signal === 'hold') return '#FF9500'
-  if (signal === 'trim') return 'var(--c-negative)'
-  return 'var(--text-muted)'
 }
 function signalPillStyle(signal: BandSignal): React.CSSProperties {
   const base: React.CSSProperties = { padding: '2px 7px', borderRadius: 20, display: 'inline-block' }
@@ -34,6 +28,41 @@ function signalPillStyle(signal: BandSignal): React.CSSProperties {
   if (signal === 'hold') return { ...base, color: '#FF9500', background: 'rgba(255,149,0,0.10)' }
   if (signal === 'trim') return { ...base, color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }
   return base
+}
+
+// Mini 4-zone band bar for collapsed rows
+function MiniBar({ buyLow, buyHigh, midHigh, trimPrice, cmp }: {
+  buyLow: number; buyHigh: number; midHigh: number; trimPrice: number; cmp: number | null
+}) {
+  const min = buyLow * 0.85
+  const max = trimPrice * 1.1
+  const range = max - min
+  const p = (v: number) => Math.min(100, Math.max(0, ((v - min) / range) * 100))
+
+  const dW = p(buyLow)
+  const bW = p(buyHigh) - dW
+  const hW = p(trimPrice) - dW - bW
+  const tW = 100 - dW - bW - hW
+  const cmpX = cmp != null ? p(cmp) : null
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
+        <div style={{ width: `${dW}%`, background: '#30D158', opacity: 0.65 }} />
+        <div style={{ width: `${bW}%`, background: '#34C759' }} />
+        <div style={{ width: `${hW}%`, background: '#FF9500' }} />
+        <div style={{ width: `${tW}%`, background: '#FF3B30', opacity: 0.65 }} />
+      </div>
+      {cmpX !== null && (
+        <div style={{
+          position: 'absolute', top: -3, left: `${cmpX}%`,
+          transform: 'translateX(-50%)',
+          width: 2, height: 11, borderRadius: 1,
+          background: 'var(--text-primary)', opacity: 0.55,
+        }} />
+      )}
+    </div>
+  )
 }
 
 interface Props {
@@ -79,7 +108,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  // Fetch 52W low/high for all symbols on mount so collapsed rows show it immediately
+  // Fetch fresh 52W low/high for all symbols on mount
   useEffect(() => {
     if (rows.length === 0) return
     const symbols = rows.map(r => r.symbol).join(',')
@@ -119,6 +148,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           last_updated_at: new Date().toISOString(),
         }).eq('id', band.id)
         setBands(prev => prev.map(b => b.symbol === symbol ? { ...b, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : b))
+        // Invalidate server cache so next page load reflects updated values
+        revalidateBuyBands()
       } else {
         // No band record yet — create a minimal one
         const { data: { user } } = await sb.auth.getUser()
@@ -152,7 +183,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       } else {
         if (json.band) {
           setBands(prev => [...prev.filter(b => b.symbol !== symbol), json.band])
-          // Always clear stale tranches when bands regenerate; add new ones if returned
           setTranches(prev => [
             ...prev.filter(t => t.symbol !== symbol),
             ...(json.tranches ?? []),
@@ -169,12 +199,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
     const alloc = allocState.find(a => a.symbol === symbol)
     if (!alloc) return
 
-    // Mutually exclusive: turning one on turns the other off
     const patch: Record<string, boolean> = { [field]: value }
     if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
     const updated = { ...alloc, ...patch }
 
-    // ① Optimistic UI — update immediately, don't wait for DB
     setAllocState(prev => prev.map(a => a.symbol === symbol ? updated : a))
 
     const sb = getSupabaseBrowser()
@@ -192,11 +220,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         const deployable = rows.find(r => r.symbol === symbol)?.remaining ?? 0
         const prices     = computeTrancheprices(result.buyLow, result.buyHigh, cmp, result.midLow, result.midHigh)
 
-        // Conviction-weighted: sort highest→lowest, deeper tranches get more capital
         const sortedPrices = [...prices].sort((a, b) => b - a)
         const amounts = computeTrancheAmounts(deployable, sortedPrices.length)
 
-        // ② Optimistic band + tranche update — instant UI
         setBands(prev => prev.map(b => b.symbol === symbol ? {
           ...b,
           buy_low: result.buyLow, buy_high: result.buyHigh,
@@ -215,8 +241,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           }),
         ])
 
-        // ③ Write to DB in background — 3 ops (was 5): alloc + band-in-place + tranches
-        // RLS filters to current user, no auth.getUser() needed for updates
         await Promise.all([
           sb.from('stock_allocations').update(patch).eq('id', alloc.id),
           sb.from('buy_bands').update({
@@ -239,14 +263,12 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               }
             })
           ).select()
-          // Replace temp IDs with real DB IDs
           if (newTranches) setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...newTranches])
         }
         return
       }
     }
 
-    // No band data — just write alloc
     sb.from('stock_allocations').update(patch).eq('id', alloc.id)
   }
 
@@ -297,12 +319,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
         else setGenWarning(prev => { const n = { ...prev }; delete n[symbol]; return n })
       }
     } catch {
-      // silently fail — tranches are non-critical
+      // silently fail
     }
     setGeneratingTranches(prev => ({ ...prev, [symbol]: false }))
   }
 
-  // Pre-compute band calculations once per bands/allocState change — avoids calling calculateBands() in the render map
   const computedBandsMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateBands>>()
     for (const band of bands) {
@@ -378,6 +399,18 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           const isDone = row.remaining <= 0
           const signal = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
+          // Quarter mode for this row
+          const qMode = alloc?.two_weak_quarters ? 'bear' : alloc?.two_strong_quarters ? 'bull' : 'normal'
+          const hasQuarters = alloc && !CATEGORIES_WITHOUT_QUARTERS.has(alloc.category as StockCategory)
+
+          function onQClick(m: 'bear' | 'normal' | 'bull') {
+            if (m === qMode) return
+            if (m === 'bear') toggleQuarters(row.symbol, 'two_weak_quarters', true)
+            else if (m === 'bull') toggleQuarters(row.symbol, 'two_strong_quarters', true)
+            else if (alloc?.two_weak_quarters) toggleQuarters(row.symbol, 'two_weak_quarters', false)
+            else toggleQuarters(row.symbol, 'two_strong_quarters', false)
+          }
+
           return (
             <div key={row.symbol}>
             <div className="border-b"
@@ -386,25 +419,29 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
+
+                {/* Ticker */}
+                <div style={{ flexShrink: 0, minWidth: 80 }}>
+                  <p className="font-semibold text-headline">{row.symbol}</p>
+                </div>
+
+                {/* Mini bar — only when bands exist */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-headline truncate">{row.symbol}</p>
-                  {signal !== 'unknown' && cmp != null && (
-                    <p className="text-footnote font-bold uppercase tracking-wide mt-0.5"
-                       style={signalPillStyle(signal)}>
-                      {signalLabel(signal)}
-                    </p>
+                  {hasBands && (
+                    <MiniBar
+                      buyLow={buyLow!} buyHigh={buyHigh!}
+                      midHigh={midHigh!} trimPrice={trimPrice!}
+                      cmp={cmp}
+                    />
                   )}
                 </div>
+
+                {/* CMP — no color coding */}
                 {cmp != null ? (
                   <div className="text-right flex-shrink-0">
-                    <p className="text-headline font-bold tabnum" style={{ color: signalColor(signal) }}>
+                    <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
                       ₹{Math.round(cmp)}
                     </p>
-                    {week52[row.symbol]?.low != null && (
-                      <p className="text-footnote tabnum mt-2" style={{ color: 'var(--text-muted)' }}>
-                        52W Low ₹{Math.round(week52[row.symbol].low!)}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>No CMP</span>
@@ -433,10 +470,25 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         midLow={midLow!} midHigh={midHigh!}
                         trimPrice={trimPrice!} cmp={cmp}
                       />
+                      {/* 52W range */}
+                      {(week52[row.symbol]?.low != null || week52[row.symbol]?.high != null) && (
+                        <div className="flex gap-4 mt-3">
+                          {week52[row.symbol]?.low != null && (
+                            <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                              52W Low ₹{Math.round(week52[row.symbol].low!)}
+                            </p>
+                          )}
+                          {week52[row.symbol]?.high != null && (
+                            <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                              52W High ₹{Math.round(week52[row.symbol].high!)}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="px-4 pt-4 pb-2">
-                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet — tap Regenerate to generate</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet — tap Regenerate Bands to generate</p>
                     </div>
                   )}
                   {genError[row.symbol] && (
@@ -446,42 +498,48 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     <p className="px-4 pb-2 text-subheadline" style={{ color: '#FF9500' }}>{genWarning[row.symbol]}</p>
                   )}
 
-                  {/* Controls: Bear/Normal/Bull + ⓘ — hidden for index/commodity */}
-                  {alloc && !CATEGORIES_WITHOUT_QUARTERS.has(alloc.category as StockCategory) && (
-                  <div className="px-4 pt-2 pb-3">
-                    <div className="flex items-center gap-2">
-                      <QuartersToggle
-                        twoWeakQuarters={alloc.two_weak_quarters}
-                        twoStrongQuarters={alloc.two_strong_quarters}
-                        onChange={(field, value) => toggleQuarters(row.symbol, field, value)}
-                      />
-                      <button onClick={() => setShowQuartersInfo(true)}
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-footnote font-semibold flex-shrink-0"
-                        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', border: '1px solid var(--border)' }}>
-                        i
+                  {/* Action row: Bear/Normal/Bull | Refresh CMP · Regenerate Bands */}
+                  <div className="px-4 py-3 flex items-center justify-between border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                    {/* Left: quarter mode selector */}
+                    {hasQuarters ? (
+                      <div className="flex items-center gap-0.5">
+                        {(['bear', 'normal', 'bull'] as const).map((m, i) => (
+                          <span key={m} className="flex items-center">
+                            {i > 0 && <span className="text-footnote mx-1" style={{ color: 'var(--text-faint)' }}>·</span>}
+                            <button
+                              onClick={() => onQClick(m)}
+                              className="text-subheadline font-medium px-0.5"
+                              style={{ color: qMode === m ? 'var(--accent)' : 'var(--text-faint)' }}>
+                              {m.charAt(0).toUpperCase() + m.slice(1)}
+                            </button>
+                          </span>
+                        ))}
+                        <button
+                          onClick={() => setShowQuartersInfo(true)}
+                          className="w-4 h-4 ml-1.5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)', fontSize: 9, fontWeight: 600, border: '1px solid var(--border)' }}>
+                          i
+                        </button>
+                      </div>
+                    ) : <div />}
+
+                    {/* Right: action links */}
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => refreshCMP(row.symbol)}
+                        disabled={isRefresh}
+                        className="text-subheadline font-medium disabled:opacity-40"
+                        style={{ color: 'var(--accent)' }}>
+                        {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
+                      </button>
+                      <button
+                        onClick={() => generateBands(row.symbol)}
+                        disabled={generating[row.symbol]}
+                        className="text-subheadline font-medium disabled:opacity-40"
+                        style={{ color: 'var(--accent)' }}>
+                        {generating[row.symbol] ? 'Generating…' : 'Regenerate Bands'}
                       </button>
                     </div>
-                  </div>
-                  )}
-
-                  {/* Refresh CMP + Regenerate Bands — iOS tinted */}
-                  <div className="px-4 pb-4 flex gap-2">
-                    <button
-                      onClick={() => refreshCMP(row.symbol)}
-                      disabled={isRefresh}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 text-accent"
-                      style={{ background: 'rgba(10,132,255,0.10)' }}>
-                      <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
-                      Refresh CMP
-                    </button>
-                    <button
-                      onClick={() => generateBands(row.symbol)}
-                      disabled={generating[row.symbol]}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 text-accent"
-                      style={{ background: 'rgba(10,132,255,0.10)' }}>
-                      <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                      Regenerate Bands
-                    </button>
                   </div>
 
                   {/* Tranches */}
@@ -662,5 +720,3 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
     </>
   )
 }
-
-

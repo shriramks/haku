@@ -25,42 +25,36 @@ export default function TrancheSection({
 
   return (
     <div style={{ padding: '6px 4px 4px 4px' }}>
-      {/* Header */}
+      {/* Header with inline actions */}
       <div className="flex items-center justify-between px-2 mb-1">
         <p className="text-subheadline font-semibold" style={{ color: 'var(--text-faint)' }}>Buy levels</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onGenerate}
+            disabled={!hasBands || generating}
+            className="text-subheadline font-medium disabled:opacity-40"
+            style={{ color: 'var(--accent)' }}>
+            {generating ? 'Generating…' : 'Generate'}
+          </button>
+          <button
+            onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
+            className="text-subheadline font-medium"
+            style={{ color: 'var(--accent)' }}>
+            Add
+          </button>
+          <button
+            onClick={() => onClear()}
+            disabled={tranches.length === 0}
+            className="text-subheadline font-medium disabled:opacity-40 text-negative">
+            Clear
+          </button>
+        </div>
       </div>
       {plannedTotal > 0 && (
-        <p className="px-2 mb-2 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+        <p className="px-2 mb-1 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
           {formatINR(remaining - plannedTotal)} available after planned tranches
         </p>
       )}
-
-      {/* 3-button bar */}
-      <div className="flex gap-1.5 px-2 mb-2">
-        <button
-          onClick={onGenerate}
-          disabled={!hasBands || generating}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium disabled:opacity-40"
-          style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-          <RefreshIcon className={`w-3.5 h-3.5 ${generating ? 'spin' : ''}`} />
-          {generating ? '…' : 'Generate'}
-        </button>
-        <button
-          onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium"
-          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-          <PlusIcon className="w-3.5 h-3.5" />
-          Add
-        </button>
-        <button
-          onClick={() => onClear()}
-          disabled={tranches.length === 0}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-body font-medium disabled:opacity-40"
-          style={{ background: 'rgba(255,59,48,0.10)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.20)' }}>
-          <XIcon className="w-3.5 h-3.5" />
-          Clear All
-        </button>
-      </div>
 
       {/* Tranche list */}
       <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
