@@ -10,10 +10,31 @@ import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
-import { getStockName } from '@/lib/stock-names'
-import CmpBadge from '@/components/CmpBadge'
 import QuartersToggle from '@/components/QuartersToggle'
 import { RefreshIcon, SparkleIcon, ChevronDownIcon } from '@/components/icons'
+import type { BandSignal } from '@/lib/types'
+
+function signalLabel(signal: BandSignal) {
+  if (signal === 'deep') return 'Deep Value'
+  if (signal === 'buy')  return 'Buy Zone'
+  if (signal === 'hold') return 'Mid'
+  if (signal === 'trim') return 'Trim'
+  return ''
+}
+function signalColor(signal: BandSignal) {
+  if (signal === 'deep' || signal === 'buy') return 'var(--c-positive)'
+  if (signal === 'hold') return '#FF9500'
+  if (signal === 'trim') return 'var(--c-negative)'
+  return 'var(--text-muted)'
+}
+function signalPillStyle(signal: BandSignal): React.CSSProperties {
+  const base: React.CSSProperties = { padding: '2px 7px', borderRadius: 20, display: 'inline-block' }
+  if (signal === 'deep') return { ...base, color: '#30D158', background: 'rgba(48,209,88,0.10)' }
+  if (signal === 'buy')  return { ...base, color: '#34C759', background: 'rgba(52,199,89,0.10)' }
+  if (signal === 'hold') return { ...base, color: '#FF9500', background: 'rgba(255,149,0,0.10)' }
+  if (signal === 'trim') return { ...base, color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }
+  return base
+}
 
 interface Props {
   rows: StockRow[]
@@ -334,38 +355,28 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
             <div key={row.symbol}>
             <div className="border-b"
                  style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
-              {/* Collapsed header — always visible */}
+              {/* Collapsed header */}
               <div
                 onClick={() => toggle(row.symbol)}
                 className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="font-bold text-headline" style={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.symbol}</span>
-                  {cmp != null && <CmpBadge cmp={cmp} signal={signal} />}
-
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* Bands button */}
-                  <button
-                    onClick={e => { e.stopPropagation(); generateBands(row.symbol) }}
-                    disabled={generating[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-subheadline font-medium disabled:opacity-40 text-accent"
-                    style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
-                    <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
-                    Bands
-                  </button>
-                  {/* CMP button */}
-                  <button
-                    onClick={e => { e.stopPropagation(); refreshCMP(row.symbol) }}
-                    disabled={refreshing[row.symbol]}
-                    className="flex items-center gap-1.5 px-2.5 py-2.5 rounded-lg text-subheadline font-medium disabled:opacity-40"
-                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-                    <RefreshIcon className={`w-3.5 h-3.5 ${refreshing[row.symbol] ? 'spin' : ''}`} />
-                    CMP
-                  </button>
-                  <span style={{ color: 'var(--text-faint)' }}>
-                    <ChevronDownIcon className={`w-4 h-4 transition-transform ${isExp ? 'rotate-180' : ''}`} />
-                  </span>
-                </div>
+                <span className="flex-1 font-semibold text-headline min-w-0 truncate">{row.symbol}</span>
+                {cmp != null ? (
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-headline font-bold tabnum" style={{ color: signalColor(signal) }}>
+                      ₹{Math.round(cmp).toLocaleString('en-IN')}
+                    </p>
+                    {signal !== 'unknown' && (
+                      <p className="text-footnote font-bold uppercase tracking-wide mt-0.5"
+                         style={signalPillStyle(signal)}>
+                        {signalLabel(signal)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>No CMP</span>
+                )}
+                <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 transition-transform ${isExp ? 'rotate-180' : ''}`}
+                  style={{ color: 'var(--text-faint)' }} />
               </div>
 
               {/* Expanded content */}
@@ -391,7 +402,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     </div>
                   ) : (
                     <div className="px-4 pt-4 pb-2">
-                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet — tap Regenerate to generate</p>
                     </div>
                   )}
                   {genError[row.symbol] && (
@@ -403,7 +414,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
 
                   {/* Controls: Bear/Normal/Bull + ⓘ — hidden for index/commodity */}
                   {alloc && !CATEGORIES_WITHOUT_QUARTERS.has(alloc.category as StockCategory) && (
-                  <div className="px-4 pt-4 pb-3">
+                  <div className="px-4 pt-2 pb-3">
                     <div className="flex items-center gap-2">
                       <QuartersToggle
                         twoWeakQuarters={alloc.two_weak_quarters}
@@ -418,6 +429,26 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                     </div>
                   </div>
                   )}
+
+                  {/* Refresh CMP + Regenerate Bands — iOS tinted */}
+                  <div className="px-4 pb-4 flex gap-2">
+                    <button
+                      onClick={() => refreshCMP(row.symbol)}
+                      disabled={isRefresh}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 text-accent"
+                      style={{ background: 'rgba(10,132,255,0.10)' }}>
+                      <RefreshIcon className={`w-3.5 h-3.5 ${isRefresh ? 'spin' : ''}`} />
+                      Refresh CMP
+                    </button>
+                    <button
+                      onClick={() => generateBands(row.symbol)}
+                      disabled={generating[row.symbol]}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 text-accent"
+                      style={{ background: 'rgba(10,132,255,0.10)' }}>
+                      <SparkleIcon className={`w-3.5 h-3.5 ${generating[row.symbol] ? 'spin' : ''}`} />
+                      Regenerate
+                    </button>
+                  </div>
 
                   {/* Tranches */}
                   <TrancheSection
