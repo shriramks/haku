@@ -106,7 +106,7 @@ export function computeStockRows(
 
     const qty     = Math.max(0, totalBought - totalSold)
     const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
-    const spent   = totalBuyValue - totalSellValue
+    const spent   = Math.max(0, totalBuyValue - totalSellValue)
 
     const carryover = carryoverMap?.get(alloc.symbol) ?? 0
     const budget    = (alloc.allocation_pct / 100) * totalBudget + carryover
