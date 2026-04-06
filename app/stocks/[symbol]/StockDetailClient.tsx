@@ -64,6 +64,25 @@ export default function StockDetailClient({
   const allFYSells = allTransactions.filter(t => t.trade_type === 'sell').reduce((s, t) => s + t.amount, 0)
   const allFYSpent = allFYBuys - allFYSells
 
+  // Realised P&L — average cost method across all FYs
+  const allTimeBuyQty  = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.quantity, 0)
+  const allTimeAvgCost = allTimeBuyQty > 0 ? allFYBuys / allTimeBuyQty : 0
+  const allTimeSellTxns = allTransactions.filter(t => t.trade_type === 'sell')
+  const allTimeSellQty = allTimeSellTxns.reduce((s, t) => s + t.quantity, 0)
+  const allTimeRealPnL = allTimeBuyQty > 0 && allTimeSellQty > 0
+    ? allFYSells - allTimeAvgCost * allTimeSellQty : null
+
+  const fySells        = fyTxns.filter(t => t.trade_type === 'sell')
+  const fySellQty      = fySells.reduce((s, t) => s + t.quantity, 0)
+  const fySellProceeds = fySells.reduce((s, t) => s + t.amount, 0)
+  const fyRealPnL      = allTimeBuyQty > 0 && fySellQty > 0
+    ? fySellProceeds - allTimeAvgCost * fySellQty : null
+
+  // Clamp invested display — negative spent means net proceeds exceeded cost basis
+  const spentDisplay    = Math.max(0, spent)
+  const allFYSpentDisplay = Math.max(0, allFYSpent)
+  const remainingDisplay = budget - spentDisplay
+
   // ── Band computations ────────────────────────────────────────────────────────
   const computed = (band && allocState) ? calculateBands({
     category:          allocState.category as StockCategory,
@@ -280,15 +299,15 @@ export default function StockDetailClient({
           </div>
         )}
 
-        {/* ── FY Allocation ────────────────────────────────────────────────── */}
-        <SectionHeader title={`${fyLabel} Allocation`} />
+        {/* ── FY section ───────────────────────────────────────────────────── */}
+        <SectionHeader title={fyLabel} />
         <DetailRow
           label="Remaining"
-          value={formatINR(Math.abs(remaining))}
-          valueColor={remaining < 0 ? 'text-negative' : 'text-positive'}
-          prefix={remaining < 0 ? '−' : undefined}
+          value={formatINR(Math.abs(remainingDisplay))}
+          valueColor={remainingDisplay < 0 ? 'text-negative' : 'text-positive'}
+          prefix={remainingDisplay < 0 ? '−' : undefined}
         />
-        <DetailRow label="Invested" value={formatINR(spent)} />
+        <DetailRow label="Invested" value={formatINR(spentDisplay)} />
         <DetailRow label="Allocation" value={formatINR(budget)} muted />
         {carryoverInr !== 0 && (
           <DetailRow
@@ -297,17 +316,33 @@ export default function StockDetailClient({
             valueColor={carryoverInr > 0 ? 'text-positive' : 'text-negative'}
           />
         )}
+        {fyRealPnL !== null && (
+          <DetailRow
+            label="Realised P&L"
+            value={formatINR(Math.abs(fyRealPnL))}
+            valueColor={fyRealPnL >= 0 ? 'text-positive' : 'text-negative'}
+            prefix={fyRealPnL < 0 ? '−' : undefined}
+          />
+        )}
 
-        {/* ── All-Time ─────────────────────────────────────────────────────── */}
-        <SectionHeader title="All-Time" />
+        {/* ── All Time ─────────────────────────────────────────────────────── */}
+        <SectionHeader title="All Time" />
         <DetailRow
           label="Total Remaining"
-          value={formatINR(Math.abs(allFYBudget - allFYSpent))}
-          valueColor={allFYBudget - allFYSpent < 0 ? 'text-negative' : 'text-positive'}
-          prefix={allFYBudget - allFYSpent < 0 ? '−' : undefined}
+          value={formatINR(Math.abs(allFYBudget - allFYSpentDisplay))}
+          valueColor={allFYBudget - allFYSpentDisplay < 0 ? 'text-negative' : 'text-positive'}
+          prefix={allFYBudget - allFYSpentDisplay < 0 ? '−' : undefined}
         />
-        <DetailRow label="Total Invested" value={formatINR(allFYSpent)} />
+        <DetailRow label="Total Invested" value={formatINR(allFYSpentDisplay)} />
         <DetailRow label="Total Allocation" value={formatINR(allFYBudget)} muted />
+        {allTimeRealPnL !== null && (
+          <DetailRow
+            label="Realised P&L"
+            value={formatINR(Math.abs(allTimeRealPnL))}
+            valueColor={allTimeRealPnL >= 0 ? 'text-positive' : 'text-negative'}
+            prefix={allTimeRealPnL < 0 ? '−' : undefined}
+          />
+        )}
 
         {/* ── Position ─────────────────────────────────────────────────────── */}
         {qty > 0 && (
@@ -322,7 +357,7 @@ export default function StockDetailClient({
         <TrancheSection
           symbol={symbol}
           tranches={tranches}
-          remaining={remaining}
+          remaining={remainingDisplay}
           budget={budget}
           hasBands={hasBands}
           cmp={cmp}
@@ -393,8 +428,8 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border-faint)' }}>
       <span
-        className="text-footnote font-semibold uppercase tracking-widest"
-        style={{ color: 'var(--text-faint)' }}>
+        className="text-footnote font-semibold uppercase"
+        style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
         {title}
       </span>
     </div>
