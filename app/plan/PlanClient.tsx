@@ -322,11 +322,6 @@ function PlanTab({
                   <span className="text-title-2 font-bold tabnum">
                     {formatINRFull(effectiveBudget)}
                   </span>
-                  {unallocCarryover > 0 && (
-                    <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                      +{formatINR(unallocCarryover)} carryover
-                    </span>
-                  )}
                 </div>
               </div>
               {deployCapital != null && (
