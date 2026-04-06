@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { getBandSignal } from '@/lib/compute'
 import { BandSignalBadge } from '@/components/SignalBadge'
-import { formatINR } from '@/lib/formatter'
+import { formatINR, formatPrice } from '@/lib/formatter'
 import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
 import TrancheSection from '@/components/TrancheSection'
 import BandBar from '@/components/BandBar'
@@ -71,6 +71,7 @@ export default function StockDetailClient({
   const allTimeSellQty = allTimeSellTxns.reduce((s, t) => s + t.quantity, 0)
   const allTimeRealPnL = allTimeBuyQty > 0 && allTimeSellQty > 0
     ? allFYSells - allTimeAvgCost * allTimeSellQty : null
+  const allTimeQty = Math.max(0, allTimeBuyQty - allTimeSellQty)
 
   const fySells        = fyTxns.filter(t => t.trade_type === 'sell')
   const fySellQty      = fySells.reduce((s, t) => s + t.quantity, 0)
@@ -300,7 +301,7 @@ export default function StockDetailClient({
         )}
 
         {/* ── FY section ───────────────────────────────────────────────────── */}
-        <SectionHeader title={fyLabel} />
+        <SectionHeader title={fyLabel} first />
         <DetailRow
           label="Remaining"
           value={formatINR(Math.abs(remainingDisplay))}
@@ -324,6 +325,8 @@ export default function StockDetailClient({
             prefix={fyRealPnL < 0 ? '−' : undefined}
           />
         )}
+        <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
+        <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 && allTimeQty > 0 ? formatPrice(allTimeAvgCost) : '—'} muted={allTimeQty === 0} />
 
         {/* ── All Time ─────────────────────────────────────────────────────── */}
         <SectionHeader title="All Time" />
@@ -343,15 +346,8 @@ export default function StockDetailClient({
             prefix={allTimeRealPnL < 0 ? '−' : undefined}
           />
         )}
-
-        {/* ── Position ─────────────────────────────────────────────────────── */}
-        {qty > 0 && (
-          <>
-            <SectionHeader title="Position" />
-            <DetailRow label="Shares" value={Math.round(qty).toLocaleString('en-IN')} />
-            <DetailRow label="Avg Cost" value={avgCost > 0 ? `₹${Math.round(avgCost).toLocaleString('en-IN')}` : '—'} />
-          </>
-        )}
+        <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
+        <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 && allTimeQty > 0 ? formatPrice(allTimeAvgCost) : '—'} muted={allTimeQty === 0} />
 
         {/* ── Tranches ─────────────────────────────────────────────────────── */}
         <TrancheSection
@@ -424,9 +420,11 @@ function DetailRow({ label, value, valueColor, muted, prefix }: {
 
 // ── Section header ────────────────────────────────────────────────────────────
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, first }: { title: string; first?: boolean }) {
   return (
-    <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+    <div
+      className={`px-4 pb-2 border-b ${first ? 'pt-2' : 'pt-4 border-t mt-1'}`}
+      style={{ borderColor: 'var(--border-faint)' }}>
       <span
         className="text-footnote font-semibold uppercase"
         style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
