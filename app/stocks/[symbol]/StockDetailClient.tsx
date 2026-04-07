@@ -53,8 +53,8 @@ export default function StockDetailClient({
   const fySellQty   = fySellTxns.reduce((s, t) => s + t.quantity, 0)
   const spent = Math.max(0, fyBuyValue - fySellValue)
 
-  // FY "Invested" display: sequential cost of shares still held this FY
-  const { cost: currentCost } = seqCost(fyTxns)
+  // FY "Invested" display + FY shares/avg cost
+  const { cost: currentCost, qty: fyQty, avgCost: fyAvgCost } = seqCost(fyTxns)
 
   const budget    = allocation && fiscalYear
     ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + carryoverInr
@@ -257,8 +257,7 @@ export default function StockDetailClient({
           <div className="flex items-center justify-between mt-4">
             <div>
               {cmp != null ? (
-                <p className={`text-title-1 font-bold tabnum ${signal === 'buy' ? 'cmp-color-buy' : signal === 'deep' ? 'cmp-color-deep' : ''}`}
-                   style={signal === 'buy' || signal === 'deep' ? undefined : { color: 'var(--text-primary)' }}>
+                <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
                   ₹{Math.round(cmp)}
                 </p>
               ) : (
@@ -298,7 +297,6 @@ export default function StockDetailClient({
         <DetailRow
           label="Remaining"
           value={formatINR(Math.abs(remainingDisplay))}
-          valueColor={remainingDisplay < 0 ? 'text-negative' : 'text-positive'}
           prefix={remainingDisplay < 0 ? '−' : undefined}
         />
         <DetailRow label="Invested" value={formatINR(currentCost)} />
@@ -307,26 +305,23 @@ export default function StockDetailClient({
           <DetailRow
             label="Carryover"
             value={`${carryoverInr > 0 ? '+' : '−'}${formatINR(Math.abs(carryoverInr))}`}
-            valueColor={carryoverInr > 0 ? 'text-positive' : 'text-negative'}
           />
         )}
         {fyRealPnL !== null && (
           <DetailRow
             label="Realised P&L"
             value={formatINR(Math.abs(fyRealPnL))}
-            valueColor={fyRealPnL >= 0 ? 'text-positive' : 'text-negative'}
             prefix={fyRealPnL < 0 ? '−' : undefined}
           />
         )}
-        <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
-        <DetailRow label="Avg Cost" value={allTimeAvg > 0 && allTimeQty > 0 ? formatPrice(allTimeAvg) : '—'} muted={allTimeQty === 0} />
+        <DetailRow label="Shares" value={fyQty > 0 ? Math.round(fyQty).toLocaleString('en-IN') : '0'} muted={fyQty === 0} />
+        <DetailRow label="Avg Cost" value={fyAvgCost > 0 && fyQty > 0 ? formatPrice(fyAvgCost) : '—'} muted={fyQty === 0} />
 
         {/* ── All Time ─────────────────────────────────────────────────────── */}
         <SectionHeader title="All Time" />
         <DetailRow
           label="Total Remaining"
           value={formatINR(Math.abs(allFYBudget - allTimeCost))}
-          valueColor={allFYBudget - allTimeCost < 0 ? 'text-negative' : 'text-positive'}
           prefix={allFYBudget - allTimeCost < 0 ? '−' : undefined}
         />
         <DetailRow label="Total Invested" value={formatINR(allTimeCost)} />
@@ -335,7 +330,6 @@ export default function StockDetailClient({
           <DetailRow
             label="Realised P&L"
             value={formatINR(Math.abs(allTimeRealPnL))}
-            valueColor={allTimeRealPnL >= 0 ? 'text-positive' : 'text-negative'}
             prefix={allTimeRealPnL < 0 ? '−' : undefined}
           />
         )}

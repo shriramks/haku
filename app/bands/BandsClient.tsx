@@ -33,11 +33,6 @@ function signalPillStyle(signal: BandSignal | null): React.CSSProperties {
   if (signal === 'trim') return { ...base, color: '#FF453A', background: 'rgba(255,69,58,0.11)' }
   return { ...base, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.07)' }
 }
-function signalColor(signal: BandSignal | null): string {
-  if (signal === 'deep') return '#30D158'
-  if (signal === 'buy')  return '#34C759'
-  return 'var(--text-primary)'
-}
 
 // Mini 4-zone band bar for collapsed rows
 function MiniBar({ buyLow, buyHigh, midHigh, trimPrice, cmp }: {
@@ -126,8 +121,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       .then(r => r.ok ? r.json() : null)
       .then(async (data) => {
         if (!data?.week52) return
-        setWeek52(data.week52)
-        // Persist so 52W survives page reload — batch fetch only updates local state otherwise
+        // Merge — never replace — so a second fetch can't wipe data a first fetch already set
+        setWeek52(prev => ({ ...prev, ...data.week52 }))
+        // Persist so 52W survives page reload (batch fetch only updates React state otherwise)
         const sb = getSupabaseBrowser()
         await Promise.all(
           Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
@@ -139,7 +135,10 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 .eq('is_current', true)
             )
         )
-        revalidateBuyBands()
+        // Do NOT call revalidateBuyBands() here — server actions trigger an implicit
+        // router.refresh() in Next.js, which re-renders server components, changes the
+        // `rows` prop reference, re-runs this effect, and the second Yahoo fetch may
+        // return null 52W values, wiping the state we just set.
       })
       .catch(() => {})
   }, [rows])
@@ -482,7 +481,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 {/* CMP + remaining */}
                 <div className="text-right flex-shrink-0">
                   {cmp != null ? (
-                    <p className="text-headline font-bold tabnum" style={{ color: signalColor(hasBands ? signal : null) }}>
+                    <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
                       {formatPrice(cmp)}
                     </p>
                   ) : (

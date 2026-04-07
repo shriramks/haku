@@ -28,7 +28,7 @@ export default function TrancheSection({
     <div style={{ padding: '6px 0 4px 0' }}>
       {/* Label + available amount */}
       <div className="px-4 mb-3">
-        <p className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>Buy levels</p>
+        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Buy levels</p>
         {plannedTotal > 0 && (
           <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
             {formatINR(remaining - plannedTotal)} available after planned tranches
