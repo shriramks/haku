@@ -85,28 +85,35 @@ The server-side `GEMINI_API_KEY` env var acts as a shared fallback (useful for s
 app/
   api/
     cmp/[symbol]/route.ts              — Yahoo Finance CMP proxy (60s cache)
-    bands/generate/[symbol]/route.ts   — Gemini AI band generation (POST)
-    settings/gemini-key/route.ts       — GET hasKey, POST save/clear key
-  dashboard/                           — Allocation screen
+    bands/generate/[symbol]/route.ts   — AI band generation (Gemini or Claude, POST)
+    tranches/generate/[symbol]/route.ts — AI tranche generation (POST)
+    settings/gemini-key/route.ts       — GET hasKey, POST save/clear AI key
+  allocation/                          — Allocation screen
   bands/                               — Buy Bands screen (FY-scoped tranches)
-  txns/                                — Transactions screen
+  transactions/                        — Transactions screen
   plan/                                — FY Plan management
-  stocks/[symbol]/                     — Stock detail
+  stocks/[symbol]/                     — Stock detail (drill-down from Allocation/Bands)
+  add/                                 — Add transaction (FAB target)
 
 lib/
   band-calculator.ts                   — Band math (PE / EV-EBITDA / PB / P_EV)
-  compute.ts                           — Dashboard row computations
-  data.ts                              — Server-side Supabase fetchers
+  compute.ts                           — seqCost (sequential avg-cost), computeStockRows,
+                                         computeCarryover, getBandSignal
+  data.ts                              — Server-side Supabase fetchers (React cache +
+                                         unstable_cache); re-exports getCurrentFY
+  fy-utils.ts                          — getCurrentFY (pure, testable — no server deps)
   types.ts                             — All TS types
-  formatter.ts                         — formatINR, formatPct, formatDate
+  formatter.ts                         — formatINR, formatPrice, formatPct, formatDate
   supabase-server.ts                   — Server Component Supabase client
   supabase-browser.ts                  — Browser Supabase singleton
 
 components/
   BottomNav.tsx                        — 5-tab fixed bottom nav
-  UserMenu.tsx                         — Account dropdown (email, Gemini key, sign out)
-  AllocationsSheet.tsx                 — Bottom sheet for allocation editing
-  AddTxnModal.tsx                      — Transaction entry modal
+  BandBar.tsx                          — Visual price band bar with CMP pin
+  SignalBadge.tsx                      — Deep/Buy/Hold/Trim badge
+  TrancheSection.tsx                   — Tranche list + add/generate UI
+  CmpBadge.tsx                         — CMP display with signal colour
+  QuartersToggle.tsx                   — Bear/Normal/Bull toggle
 
 supabase/
   schema.sql                           — Initial schema

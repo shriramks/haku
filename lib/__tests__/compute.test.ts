@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStockRows, computeCarryover } from '../compute'
+import { computeStockRows, computeCarryover, seqCost } from '../compute'
 import type { StockAllocation, Transaction, BuyBand } from '../types'
 
 const FY25 = 'fy25-id'
@@ -404,5 +404,64 @@ describe('computeStockRows — bandSignal uses live calculateBands, not stored D
   it('signal is unknown when no band', () => {
     const [row] = computeStockRows([mkAlloc('HINDUNILVR', 10)], [], [], totalBudget)
     expect(row.bandSignal).toBe('unknown')
+  })
+})
+
+// ── seqCost ───────────────────────────────────────────────────────────────────
+
+describe('seqCost', () => {
+  it('no transactions → qty=0, cost=0, avgCost=0', () => {
+    const r = seqCost([])
+    expect(r).toEqual({ qty: 0, cost: 0, avgCost: 0 })
+  })
+
+  it('buys only → qty and cost accumulate', () => {
+    const txns = [mkTxn('X', 'buy', 100, 500), mkTxn('X', 'buy', 50, 600)]
+    const r = seqCost(txns)
+    expect(r.qty).toBe(150)
+    expect(r.cost).toBe(100 * 500 + 50 * 600)
+    expect(r.avgCost).toBeCloseTo((100 * 500 + 50 * 600) / 150)
+  })
+
+  it('partial sell retires proportional cost', () => {
+    // Buy 100 at ₹500 → cost ₹50k, avg ₹500. Sell 40 → retires 40×500=₹20k.
+    const txns = [mkTxn('X', 'buy', 100, 500), mkTxn('X', 'sell', 40, 600)]
+    const r = seqCost(txns)
+    expect(r.qty).toBe(60)
+    expect(r.cost).toBeCloseTo(60 * 500)   // remaining 60 shares at ₹500
+    expect(r.avgCost).toBeCloseTo(500)
+  })
+
+  it('full exit → qty=0, cost=0', () => {
+    const txns = [mkTxn('X', 'buy', 100, 400), mkTxn('X', 'sell', 100, 450)]
+    const r = seqCost(txns)
+    expect(r.qty).toBe(0)
+    expect(r.cost).toBe(0)
+    expect(r.avgCost).toBe(0)
+  })
+
+  it('exit then re-entry → cost reflects only re-entry, not blended avg', () => {
+    // Buy 100 at ₹400, sell all, re-buy 50 at ₹360
+    // Aggregate avg would be (40k + 18k) / 150 ≈ ₹386 — WRONG
+    // Sequential: after exit cost=0; re-entry cost = 50×360 = ₹18k
+    const txns = [
+      mkTxn('X', 'buy',  100, 400),
+      mkTxn('X', 'sell', 100, 450),
+      mkTxn('X', 'buy',   50, 360),
+    ]
+    const r = seqCost(txns)
+    expect(r.qty).toBe(50)
+    expect(r.cost).toBe(50 * 360)
+    expect(r.avgCost).toBe(360)
+  })
+
+  it('processes in date order, not array order', () => {
+    // Same transactions as above but submitted in reverse array order
+    const buy1  = { ...mkTxn('X', 'buy',  100, 400), trade_date: '2025-04-01' }
+    const sell1 = { ...mkTxn('X', 'sell', 100, 450), trade_date: '2025-06-01' }
+    const buy2  = { ...mkTxn('X', 'buy',   50, 360), trade_date: '2025-08-01' }
+    const r = seqCost([buy2, sell1, buy1])   // scrambled order
+    expect(r.qty).toBe(50)
+    expect(r.cost).toBe(50 * 360)
   })
 })

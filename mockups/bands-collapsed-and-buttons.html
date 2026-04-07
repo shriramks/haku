@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Bands — Collapsed row & button options</title>
+<style>
+  :root {
+    --bg-primary:   #F2F2F7;
+    --bg-secondary: #FFFFFF;
+    --bg-tertiary:  #E5E5EA;
+    --bg-nav:       rgba(242,242,247,0.92);
+    --text-primary: #000000;
+    --text-2:       rgba(0,0,0,0.60);
+    --text-muted:   rgba(0,0,0,0.40);
+    --text-faint:   rgba(0,0,0,0.25);
+    --border:       rgba(0,0,0,0.10);
+    --border-faint: rgba(0,0,0,0.06);
+    --accent:       #0A84FF;
+    --signal-deep:  #30D158;
+    --signal-buy:   #34C759;
+    --signal-hold:  #FF9500;
+    --signal-trim:  #FF3B30;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary:   #000000;
+      --bg-secondary: #1C1C1E;
+      --bg-tertiary:  #2C2C2E;
+      --bg-nav:       rgba(0,0,0,0.92);
+      --text-primary: #FFFFFF;
+      --text-2:       rgba(255,255,255,0.60);
+      --text-muted:   rgba(255,255,255,0.40);
+      --text-faint:   rgba(255,255,255,0.25);
+      --border:       rgba(255,255,255,0.10);
+      --border-faint: rgba(255,255,255,0.05);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    max-width: 393px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+  }
+
+  .nav {
+    background: var(--bg-nav);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 16px 14px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .nav-title { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+
+  .sep {
+    padding: 20px 16px 8px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .sep em { color: rgba(10,132,255,0.8); font-style: normal; font-weight: 500;
+            letter-spacing: 0; text-transform: none; font-size: 11px; }
+
+  /* ── Collapsed row ─────────────────────────────────────────────── */
+  .row {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-faint);
+    padding: 12px 16px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .row-left { flex: 0 0 auto; min-width: 80px; }
+  .row-mid  { flex: 1; min-width: 0; }
+  .row-right { flex: 0 0 auto; text-align: right; }
+
+  .ticker { font-size: 17px; font-weight: 600; line-height: 1; }
+  .sig-pill {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  /* Mini band bar */
+  .mini-bar {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    gap: 1px;
+    margin-bottom: 5px;
+  }
+  .mini-bar-seg { height: 100%; border-radius: 1px; }
+
+  /* CMP marker overlay wrapper */
+  .mini-bar-wrap { position: relative; }
+  .cmp-tick {
+    position: absolute;
+    top: -3px;
+    width: 2px;
+    height: 12px;
+    border-radius: 1px;
+    background: var(--text-primary);
+    opacity: 0.5;
+  }
+
+  .bar-labels {
+    display: flex;
+    justify-content: space-between;
+  }
+  .bar-label {
+    font-size: 10px;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+
+  .w52-row {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cmp-val {
+    font-size: 17px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .cmp-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+  }
+
+  /* ── Expanded panel ────────────────────────────────────────────── */
+  .panel {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-faint);
+    padding: 0 16px 14px;
+  }
+
+  /* Full band bar (from existing app) */
+  .full-bar-wrap {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    gap: 1px;
+    margin: 14px 0 6px;
+  }
+  .full-bar-seg { height: 100%; }
+  .full-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .full-bar-label {
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .notes {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.5;
+    padding: 10px 0 12px;
+    border-top: 1px solid var(--border-faint);
+  }
+
+  /* ── Button options ────────────────────────────────────────────── */
+
+  /* Current: tinted tiles */
+  .btn-tiled {
+    display: flex; gap: 8px;
+    padding: 12px 0 2px;
+  }
+  .btn-tile {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 11px;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    color: var(--accent);
+    background: rgba(10,132,255,0.10);
+    border: none; cursor: pointer;
+  }
+
+  /* Option A: plain text links */
+  .btn-text-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 20px;
+    padding: 12px 0 2px;
+    border-top: 1px solid var(--border-faint);
+  }
+  .btn-text {
+    font-size: 15px; font-weight: 500;
+    color: var(--accent);
+    background: none; border: none; cursor: pointer;
+    padding: 0;
+  }
+
+  /* Option B: single compact pill */
+  .btn-pill-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 0 2px;
+    border-top: 1px solid var(--border-faint);
+  }
+  .btn-pill {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    color: var(--accent);
+    background: rgba(10,132,255,0.10);
+    border: none; cursor: pointer;
+  }
+
+  svg.icon { display: inline-block; vertical-align: middle; }
+
+  .gap { height: 20px; background: var(--bg-primary); }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-title">Bands</div>
+</div>
+
+<!-- ══ COLLAPSED ROW — CURRENT ════════════════════════════════════ -->
+<div class="sep">Collapsed row — Current <em>— signal pill + CMP only, bar is gone</em></div>
+
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">RELIANCE</div>
+    <div class="sig-pill" style="color:var(--signal-buy);background:rgba(52,199,89,0.10)">Buy</div>
+  </div>
+  <div class="row-mid"><!-- empty --></div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-buy)">₹1284</div>
+    <div class="cmp-sub">52W Low ₹1148</div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">HDFCBANK</div>
+    <div class="sig-pill" style="color:var(--signal-hold);background:rgba(255,149,0,0.10)">Hold</div>
+  </div>
+  <div class="row-mid"><!-- empty --></div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-hold)">₹1740</div>
+    <div class="cmp-sub">52W Low ₹1508</div>
+  </div>
+</div>
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">INFY</div>
+    <div class="sig-pill" style="color:var(--signal-trim);background:rgba(255,59,48,0.10)">Trim</div>
+  </div>
+  <div class="row-mid"><!-- empty --></div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-trim)">₹1920</div>
+    <div class="cmp-sub">52W Low ₹1380</div>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- ══ COLLAPSED ROW — WITH MINI BAR ════════════════════════════ -->
+<div class="sep">Collapsed row — Proposed <em>— mini bar replaces empty space</em></div>
+
+<!-- RELIANCE: Buy zone, CMP at ~35% across full range -->
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">RELIANCE</div>
+  </div>
+  <div class="row-mid">
+    <div class="mini-bar-wrap">
+      <div class="mini-bar">
+        <div class="mini-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+        <div class="mini-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7"></div>
+      </div>
+      <!-- CMP tick at ~35% = inside Buy zone -->
+      <div class="cmp-tick" style="left:35%"></div>
+    </div>
+    <div class="bar-labels">
+      <span class="bar-label">Deep</span>
+      <span class="bar-label">Buy</span>
+      <span class="bar-label">Hold</span>
+      <span class="bar-label">Trim</span>
+    </div>
+    <div class="w52-row">52W Low ₹1148</div>
+  </div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-buy)">₹1284</div>
+  </div>
+</div>
+
+<!-- HDFCBANK: Hold zone, CMP at ~60% -->
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">HDFCBANK</div>
+  </div>
+  <div class="row-mid">
+    <div class="mini-bar-wrap">
+      <div class="mini-bar">
+        <div class="mini-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+        <div class="mini-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7"></div>
+      </div>
+      <div class="cmp-tick" style="left:60%"></div>
+    </div>
+    <div class="bar-labels">
+      <span class="bar-label">Deep</span>
+      <span class="bar-label">Buy</span>
+      <span class="bar-label">Hold</span>
+      <span class="bar-label">Trim</span>
+    </div>
+    <div class="w52-row">52W Low ₹1508</div>
+  </div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-hold)">₹1740</div>
+  </div>
+</div>
+
+<!-- INFY: Trim zone, CMP at ~82% -->
+<div class="row">
+  <div class="row-left">
+    <div class="ticker">INFY</div>
+  </div>
+  <div class="row-mid">
+    <div class="mini-bar-wrap">
+      <div class="mini-bar">
+        <div class="mini-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+        <div class="mini-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+        <div class="mini-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7"></div>
+      </div>
+      <div class="cmp-tick" style="left:82%"></div>
+    </div>
+    <div class="bar-labels">
+      <span class="bar-label">Deep</span>
+      <span class="bar-label">Buy</span>
+      <span class="bar-label">Hold</span>
+      <span class="bar-label">Trim</span>
+    </div>
+    <div class="w52-row">52W Low ₹1380</div>
+  </div>
+  <div class="row-right">
+    <div class="cmp-val" style="color:var(--signal-trim)">₹1920</div>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- ══ EXPANDED PANEL — BUTTON OPTIONS ═══════════════════════════ -->
+<div class="sep">Expanded panel — Current <em>— two tiled buttons</em></div>
+
+<div class="row" style="cursor:pointer">
+  <div class="row-left"><div class="ticker">RELIANCE</div></div>
+  <div class="row-mid"></div>
+  <div class="row-right"><div class="cmp-val" style="color:var(--signal-buy)">₹1284</div></div>
+</div>
+<div class="panel">
+  <div class="full-bar-wrap">
+    <div class="full-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7;border-radius:4px 0 0 4px"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+    <div class="full-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7;border-radius:0 4px 4px 0"></div>
+  </div>
+  <div class="full-bar-labels">
+    <span class="full-bar-label" style="color:var(--signal-deep)">Deep</span>
+    <span class="full-bar-label" style="color:var(--signal-buy)">Buy</span>
+    <span class="full-bar-label" style="color:var(--signal-hold)">Hold</span>
+    <span class="full-bar-label" style="color:var(--signal-trim)">Trim</span>
+  </div>
+  <div class="notes">Strong earnings momentum. Jio + Retail flywheels intact. Watch crude exposure.</div>
+  <div class="btn-tiled">
+    <button class="btn-tile">
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Refresh CMP
+    </button>
+    <button class="btn-tile">
+      <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-5 3.6 1.9 5.8L12 15l-4.9 3.2 1.9-5.8-5-3.6h6.1z"/></svg>
+      Regenerate Bands
+    </button>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- Option A: plain text links -->
+<div class="sep">Expanded panel — Option A <em>— plain text actions, no chrome</em></div>
+
+<div class="row" style="cursor:pointer">
+  <div class="row-left"><div class="ticker">RELIANCE</div></div>
+  <div class="row-mid"></div>
+  <div class="row-right"><div class="cmp-val" style="color:var(--signal-buy)">₹1284</div></div>
+</div>
+<div class="panel">
+  <div class="full-bar-wrap">
+    <div class="full-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7;border-radius:4px 0 0 4px"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+    <div class="full-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7;border-radius:0 4px 4px 0"></div>
+  </div>
+  <div class="full-bar-labels">
+    <span class="full-bar-label" style="color:var(--signal-deep)">Deep</span>
+    <span class="full-bar-label" style="color:var(--signal-buy)">Buy</span>
+    <span class="full-bar-label" style="color:var(--signal-hold)">Hold</span>
+    <span class="full-bar-label" style="color:var(--signal-trim)">Trim</span>
+  </div>
+  <div class="notes">Strong earnings momentum. Jio + Retail flywheels intact. Watch crude exposure.</div>
+  <div class="btn-text-row">
+    <button class="btn-text">Refresh CMP</button>
+    <button class="btn-text">Regenerate Bands</button>
+  </div>
+</div>
+
+<div class="gap"></div>
+
+<!-- Option B: small right-aligned pills -->
+<div class="sep">Expanded panel — Option B <em>— small right-aligned pill buttons</em></div>
+
+<div class="row" style="cursor:pointer">
+  <div class="row-left"><div class="ticker">RELIANCE</div></div>
+  <div class="row-mid"></div>
+  <div class="row-right"><div class="cmp-val" style="color:var(--signal-buy)">₹1284</div></div>
+</div>
+<div class="panel">
+  <div class="full-bar-wrap">
+    <div class="full-bar-seg" style="width:15%;background:var(--signal-deep);opacity:0.7;border-radius:4px 0 0 4px"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-buy)"></div>
+    <div class="full-bar-seg" style="width:30%;background:var(--signal-hold)"></div>
+    <div class="full-bar-seg" style="width:25%;background:var(--signal-trim);opacity:0.7;border-radius:0 4px 4px 0"></div>
+  </div>
+  <div class="full-bar-labels">
+    <span class="full-bar-label" style="color:var(--signal-deep)">Deep</span>
+    <span class="full-bar-label" style="color:var(--signal-buy)">Buy</span>
+    <span class="full-bar-label" style="color:var(--signal-hold)">Hold</span>
+    <span class="full-bar-label" style="color:var(--signal-trim)">Trim</span>
+  </div>
+  <div class="notes">Strong earnings momentum. Jio + Retail flywheels intact. Watch crude exposure.</div>
+  <div class="btn-pill-row">
+    <button class="btn-pill">
+      <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Refresh CMP
+    </button>
+    <button class="btn-pill">
+      <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-5 3.6 1.9 5.8L12 15l-4.9 3.2 1.9-5.8-5-3.6h6.1z"/></svg>
+      Regenerate Bands
+    </button>
+  </div>
+</div>
+
+</body>
+</html>

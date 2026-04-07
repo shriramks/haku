@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=375, initial-scale=1">
+<title>Section Headers + All Time View</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    display: flex;
+    gap: 24px;
+    padding: 24px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* ── tokens ── */
+  :root {
+    --bg-primary: #000;
+    --bg-secondary: #1c1c1e;
+    --bg-tertiary: #2c2c2e;
+    --text-primary: #fff;
+    --text-2: rgba(255,255,255,0.6);
+    --text-muted: rgba(255,255,255,0.4);
+    --text-faint: rgba(255,255,255,0.25);
+    --border: rgba(255,255,255,0.12);
+    --border-faint: rgba(255,255,255,0.07);
+    --accent: #0A84FF;
+    --positive: #34C759;
+    --negative: #FF3B30;
+    --warning: #FF9500;
+  }
+
+  .phone {
+    width: 375px;
+    background: var(--bg-primary);
+    border-radius: 40px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+  }
+  .phone-header {
+    padding: 20px 16px 8px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .phone-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .phone-subtitle {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+  }
+
+  /* section label */
+  .section-current {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .section-current span {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+  }
+
+  /* NEW: section with top border + breathing room */
+  .section-new {
+    padding: 16px 16px 8px;
+    border-top: 1px solid var(--border-faint);
+    border-bottom: 1px solid var(--border-faint);
+    margin-top: 4px;
+  }
+  .section-new:first-of-type {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 8px;
+  }
+  .section-new span {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+  }
+
+  .detail-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    min-height: 44px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .detail-row .label {
+    font-size: 15px;
+    color: var(--text-2);
+  }
+  .detail-row .value {
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+  .detail-row .value.positive { color: var(--positive); }
+  .detail-row .value.negative { color: var(--negative); }
+  .detail-row .value.muted { color: var(--text-muted); }
+
+  .caption {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 8px 0 0;
+  }
+
+  /* ── FY pill selector ── */
+  .fy-bar {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-faint);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .fy-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    background: rgba(120,120,128,0.12);
+    color: var(--text-2);
+    border: none;
+    cursor: pointer;
+  }
+  .fy-pill.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* allocation row */
+  .alloc-row {
+    padding: 12px 16px 0;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .alloc-row-top {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.2fr;
+    align-items: start;
+    margin-bottom: 10px;
+  }
+  .alloc-symbol {
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .alloc-name {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 2px;
+  }
+  .alloc-left {
+    text-align: center;
+  }
+  .alloc-invested {
+    text-align: right;
+  }
+  .alloc-num {
+    font-size: 15px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+  .alloc-pct {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .alloc-pnl {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .bar-track {
+    height: 5px;
+    background: var(--border-faint);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+  }
+
+  /* summary strip */
+  .summary {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .summary-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .summary-hero {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 8px;
+  }
+  .summary-stats {
+    display: flex;
+    gap: 20px;
+  }
+  .stat-block {}
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+
+  .col-header {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.2fr;
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .col-header span {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+  }
+  .col-header span:nth-child(2) { text-align: center; }
+  .col-header span:nth-child(3) { text-align: right; }
+
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     PANEL 1 — Section header: CURRENT vs NEW
+═══════════════════════════════════════════════════════ -->
+<div class="col">
+  <h2>Section headers — current</h2>
+  <div class="phone">
+    <div class="phone-header">
+      <div class="phone-title">ITC</div>
+    </div>
+
+    <!-- current: no separator above, just tiny faint text -->
+    <div class="section-current"><span>FY26</span></div>
+    <div class="detail-row"><span class="label">Remaining</span><span class="value positive">₹3,16,500</span></div>
+    <div class="detail-row"><span class="label">Invested</span><span class="value">₹0</span></div>
+    <div class="detail-row"><span class="label">Allocation</span><span class="value muted">₹3,16,500</span></div>
+    <div class="detail-row"><span class="label">Realised P&L</span><span class="value negative">−₹61,200</span></div>
+
+    <div class="section-current"><span>All Time</span></div>
+    <div class="detail-row"><span class="label">Total Remaining</span><span class="value positive">₹5,16,500</span></div>
+    <div class="detail-row"><span class="label">Total Invested</span><span class="value">₹0</span></div>
+    <div class="detail-row"><span class="label">Total Allocation</span><span class="value muted">₹5,16,500</span></div>
+    <div class="detail-row"><span class="label">Realised P&L</span><span class="value negative">−₹61,200</span></div>
+
+    <div class="section-current"><span>Position</span></div>
+    <div class="detail-row"><span class="label">Shares</span><span class="value">0</span></div>
+    <div class="detail-row"><span class="label">Avg Cost</span><span class="value muted">—</span></div>
+  </div>
+
+  <h2>Section headers — with top border + spacing</h2>
+  <div class="phone">
+    <div class="phone-header">
+      <div class="phone-title">ITC</div>
+    </div>
+
+    <!-- new: first section no top border, subsequent sections have top border + more top padding -->
+    <div class="section-new" style="border-top:none; margin-top:0; padding-top:8px;"><span>FY26</span></div>
+    <div class="detail-row"><span class="label">Remaining</span><span class="value positive">₹3,16,500</span></div>
+    <div class="detail-row"><span class="label">Invested</span><span class="value">₹0</span></div>
+    <div class="detail-row"><span class="label">Allocation</span><span class="value muted">₹3,16,500</span></div>
+    <div class="detail-row"><span class="label">Realised P&L</span><span class="value negative">−₹61,200</span></div>
+
+    <div class="section-new"><span>All Time</span></div>
+    <div class="detail-row"><span class="label">Total Remaining</span><span class="value positive">₹5,16,500</span></div>
+    <div class="detail-row"><span class="label">Total Invested</span><span class="value">₹0</span></div>
+    <div class="detail-row"><span class="label">Total Allocation</span><span class="value muted">₹5,16,500</span></div>
+    <div class="detail-row"><span class="label">Realised P&L</span><span class="value negative">−₹61,200</span></div>
+
+    <div class="section-new"><span>Position</span></div>
+    <div class="detail-row"><span class="label">Shares</span><span class="value">0</span></div>
+    <div class="detail-row"><span class="label">Avg Cost</span><span class="value muted">—</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PANEL 2 — All Time allocation view (Option A: add "All" pill)
+═══════════════════════════════════════════════════════ -->
+<div class="col">
+  <h2>Option A — "All" pill in FY selector</h2>
+  <div class="phone">
+    <div class="phone-header">
+      <div class="phone-title">Allocation</div>
+    </div>
+
+    <!-- FY pills with "All" appended -->
+    <div class="fy-bar">
+      <button class="fy-pill">FY24</button>
+      <button class="fy-pill">FY25</button>
+      <button class="fy-pill">FY26</button>
+      <button class="fy-pill active">All</button>
+    </div>
+
+    <!-- Summary strip — all time numbers -->
+    <div class="summary">
+      <div class="summary-label">All Time</div>
+      <div class="summary-hero">₹2,40,00,000</div>
+      <div class="summary-stats">
+        <div class="stat-block">
+          <div class="stat-label">Deployed</div>
+          <div class="stat-value">₹38.2L</div>
+          <div class="stat-sub">15.9%</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Remaining</div>
+          <div class="stat-value">₹2.01Cr</div>
+          <div class="stat-sub">84.1%</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Realised P&L</div>
+          <div class="stat-value" style="color:var(--negative)">−₹61K</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column headers -->
+    <div class="col-header">
+      <span>Stock</span>
+      <span>Deployed</span>
+      <span>Remaining</span>
+    </div>
+
+    <!-- Rows — "All" view shows total deployed + total budget remaining -->
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">JUNIORBEES</div><div class="alloc-name">All FYs · 45%</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹2.3L</div><div class="alloc-pct">6%</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹34L</div><div class="alloc-pct">94%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:6%"></div></div>
+    </div>
+
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">ITC</div><div class="alloc-name">All FYs · 5%</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹0</div><div class="alloc-pct">0%</div><div class="alloc-pnl" style="color:var(--negative)">−₹61K P&L</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹5.2L</div><div class="alloc-pct">100%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">NIFTYBEES</div><div class="alloc-name">All FYs · 35%</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹2.9L</div><div class="alloc-pct">9%</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹27L</div><div class="alloc-pct">91%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:9%"></div></div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <h2>Option B — FY dropdown keeps FYs, adds "All Time" at top</h2>
+  <div class="phone">
+    <div class="phone-header" style="display:flex; align-items:center; justify-content:space-between;">
+      <div class="phone-title">Allocation</div>
+      <!-- dropdown pill showing All Time selected -->
+      <button style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;background:rgba(120,120,128,0.18);color:#fff;font-size:15px;font-weight:600;border:none;">
+        All Time <span style="font-size:11px;opacity:0.6;">▾</span>
+      </button>
+    </div>
+
+    <!-- Same summary + rows as above -->
+    <div class="summary">
+      <div class="summary-label">All Time · FY24 – FY26</div>
+      <div class="summary-hero">₹2,40,00,000</div>
+      <div class="summary-stats">
+        <div class="stat-block">
+          <div class="stat-label">Deployed</div>
+          <div class="stat-value">₹38.2L</div>
+          <div class="stat-sub">15.9%</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Remaining</div>
+          <div class="stat-value">₹2.01Cr</div>
+          <div class="stat-sub">84.1%</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Realised</div>
+          <div class="stat-value" style="color:var(--negative)">−₹61K</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-header">
+      <span>Stock</span>
+      <span>Deployed</span>
+      <span>Remaining</span>
+    </div>
+
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">JUNIORBEES</div><div class="alloc-name">FY24–FY26</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹2.3L</div><div class="alloc-pct">6%</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹34L</div><div class="alloc-pct">94%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:6%"></div></div>
+    </div>
+
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">ITC</div><div class="alloc-name">FY24–FY26</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹0</div><div class="alloc-pct">0%</div><div class="alloc-pnl" style="color:var(--negative)">−₹61K P&L</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹5.2L</div><div class="alloc-pct">100%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="alloc-row">
+      <div class="alloc-row-top">
+        <div><div class="alloc-symbol">NIFTYBEES</div><div class="alloc-name">FY24–FY26</div></div>
+        <div class="alloc-left"><div class="alloc-num">₹2.9L</div><div class="alloc-pct">9%</div></div>
+        <div class="alloc-invested" style="padding-right:20px"><div class="alloc-num">₹27L</div><div class="alloc-pct">94%</div></div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:9%"></div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

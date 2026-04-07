@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { getBandSignal } from '@/lib/compute'
+import { getBandSignal, seqCost } from '@/lib/compute'
 import { BandSignalBadge } from '@/components/SignalBadge'
 import { formatINR, formatPrice } from '@/lib/formatter'
 import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
@@ -45,44 +45,37 @@ export default function StockDetailClient({
   const fyTxns = fiscalYear
     ? transactions.filter(t => t.advance_fy_id == null || t.advance_fy_id === fiscalYear.id)
     : transactions
-  const buys          = fyTxns.filter(t => t.trade_type === 'buy')
-  const sells         = fyTxns.filter(t => t.trade_type === 'sell')
-  const totalBought   = buys.reduce((s, t) => s + t.quantity, 0)
-  const totalBuyValue = buys.reduce((s, t) => s + t.amount, 0)
-  const totalSold     = sells.reduce((s, t) => s + t.quantity, 0)
-  const qty           = Math.max(0, totalBought - totalSold)
-  const avgCost       = totalBought > 0 ? totalBuyValue / totalBought : 0
-  const spent         = totalBuyValue - sells.reduce((s, t) => s + t.amount, 0)
+
+  // FY budget/remaining: aggregate net spend (clamped ≥ 0) — for planning only
+  const fySellTxns  = fyTxns.filter(t => t.trade_type === 'sell')
+  const fyBuyValue  = fyTxns.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0)
+  const fySellValue = fySellTxns.reduce((s, t) => s + t.amount, 0)
+  const fySellQty   = fySellTxns.reduce((s, t) => s + t.quantity, 0)
+  const spent = Math.max(0, fyBuyValue - fySellValue)
+
+  // FY "Invested" display: sequential cost of shares still held this FY
+  const { cost: currentCost } = seqCost(fyTxns)
 
   const budget    = allocation && fiscalYear
     ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + carryoverInr
     : 0
   const remaining = budget - spent
 
-  // All-FY aggregates
-  const allFYBuys  = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0)
-  const allFYSells = allTransactions.filter(t => t.trade_type === 'sell').reduce((s, t) => s + t.amount, 0)
-  const allFYSpent = allFYBuys - allFYSells
+  // All-time position (sequential) — used for Shares, Avg Cost, unrealised P&L
+  const { qty: allTimeQty, cost: allTimeCost, avgCost: allTimeAvg } = seqCost(allTransactions)
 
-  // Realised P&L — average cost method across all FYs
-  const allTimeBuyQty  = allTransactions.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.quantity, 0)
-  const allTimeAvgCost = allTimeBuyQty > 0 ? allFYBuys / allTimeBuyQty : 0
-  const allTimeSellTxns = allTransactions.filter(t => t.trade_type === 'sell')
-  const allTimeSellQty = allTimeSellTxns.reduce((s, t) => s + t.quantity, 0)
-  const allTimeRealPnL = allTimeBuyQty > 0 && allTimeSellQty > 0
-    ? allFYSells - allTimeAvgCost * allTimeSellQty : null
-  const allTimeQty = Math.max(0, allTimeBuyQty - allTimeSellQty)
+  // All-time sell totals for realised P&L
+  const allTimeSellTxns  = allTransactions.filter(t => t.trade_type === 'sell')
+  const allTimeSellQty   = allTimeSellTxns.reduce((s, t) => s + t.quantity, 0)
+  const allTimeSellValue = allTimeSellTxns.reduce((s, t) => s + t.amount, 0)
 
-  const fySells        = fyTxns.filter(t => t.trade_type === 'sell')
-  const fySellQty      = fySells.reduce((s, t) => s + t.quantity, 0)
-  const fySellProceeds = fySells.reduce((s, t) => s + t.amount, 0)
-  const fyRealPnL      = allTimeBuyQty > 0 && fySellQty > 0
-    ? fySellProceeds - allTimeAvgCost * fySellQty : null
+  // Realised P&L (approximate: sequential avg cost used as cost basis)
+  const allTimeRealPnL = allTimeAvg > 0 && allTimeSellQty > 0
+    ? allTimeSellValue - allTimeAvg * allTimeSellQty : null
+  const fyRealPnL = allTimeAvg > 0 && fySellQty > 0
+    ? fySellValue - allTimeAvg * fySellQty : null
 
-  // Clamp invested display — negative spent means net proceeds exceeded cost basis
-  const spentDisplay    = Math.max(0, spent)
-  const allFYSpentDisplay = Math.max(0, allFYSpent)
-  const remainingDisplay = budget - spentDisplay
+  const remainingDisplay = remaining
 
   // ── Band computations ────────────────────────────────────────────────────────
   const computed = (band && allocState) ? calculateBands({
@@ -199,7 +192,7 @@ export default function StockDetailClient({
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: remaining, userLiquidInr: fiscalYear.deploy_capital_inr ?? undefined }),
+        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: Math.max(0, remaining), userLiquidInr: fiscalYear.deploy_capital_inr ?? undefined }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) {
@@ -308,7 +301,7 @@ export default function StockDetailClient({
           valueColor={remainingDisplay < 0 ? 'text-negative' : 'text-positive'}
           prefix={remainingDisplay < 0 ? '−' : undefined}
         />
-        <DetailRow label="Invested" value={formatINR(spentDisplay)} />
+        <DetailRow label="Invested" value={formatINR(currentCost)} />
         <DetailRow label="Allocation" value={formatINR(budget)} muted />
         {carryoverInr !== 0 && (
           <DetailRow
@@ -326,17 +319,17 @@ export default function StockDetailClient({
           />
         )}
         <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
-        <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 && allTimeQty > 0 ? formatPrice(allTimeAvgCost) : '—'} muted={allTimeQty === 0} />
+        <DetailRow label="Avg Cost" value={allTimeAvg > 0 && allTimeQty > 0 ? formatPrice(allTimeAvg) : '—'} muted={allTimeQty === 0} />
 
         {/* ── All Time ─────────────────────────────────────────────────────── */}
         <SectionHeader title="All Time" />
         <DetailRow
           label="Total Remaining"
-          value={formatINR(Math.abs(allFYBudget - allFYSpentDisplay))}
-          valueColor={allFYBudget - allFYSpentDisplay < 0 ? 'text-negative' : 'text-positive'}
-          prefix={allFYBudget - allFYSpentDisplay < 0 ? '−' : undefined}
+          value={formatINR(Math.abs(allFYBudget - allTimeCost))}
+          valueColor={allFYBudget - allTimeCost < 0 ? 'text-negative' : 'text-positive'}
+          prefix={allFYBudget - allTimeCost < 0 ? '−' : undefined}
         />
-        <DetailRow label="Total Invested" value={formatINR(allFYSpentDisplay)} />
+        <DetailRow label="Total Invested" value={formatINR(allTimeCost)} />
         <DetailRow label="Total Allocation" value={formatINR(allFYBudget)} muted />
         {allTimeRealPnL !== null && (
           <DetailRow
@@ -347,7 +340,7 @@ export default function StockDetailClient({
           />
         )}
         <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
-        <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 && allTimeQty > 0 ? formatPrice(allTimeAvgCost) : '—'} muted={allTimeQty === 0} />
+        <DetailRow label="Avg Cost" value={allTimeAvg > 0 && allTimeQty > 0 ? formatPrice(allTimeAvg) : '—'} muted={allTimeQty === 0} />
 
         {/* ── Tranches ─────────────────────────────────────────────────────── */}
         <TrancheSection

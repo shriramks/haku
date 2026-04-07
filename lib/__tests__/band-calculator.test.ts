@@ -189,19 +189,20 @@ describe('computeTrancheprices', () => {
     })
   })
 
-  // Deep zone: CMP < buyLow — floor = max(24wkLow, buyLow) > CMP → collapses to 1 tranche at CMP
-  it('CMP below buy zone (deep, no 24wk low): floor = buyLow > CMP → single tranche at CMP', () => {
-    // buyLow=1000, CMP=800 → floor=1000, ceiling=800 → floor>ceiling → single tranche
+  // Deep zone: CMP < buyLow — spreads 2-3 tranches at 5% steps below CMP (equal-weighted by caller)
+  it('CMP below buy zone (deep, no 24wk low): spreads 2-3 tranches at/below CMP', () => {
+    // buyLow=1000, CMP=800 → deep zone → 3 tranches: ~800, ~760, ~720
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
-    expect(prices.length).toBe(1)
-    expect(prices[0]).toBeLessThanOrEqual(800)
+    expect(prices.length).toBeGreaterThanOrEqual(2)
+    expect(prices.length).toBeLessThanOrEqual(3)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
 
-  it('CMP below buy zone (deep, 24wk low): floor = max(24wkLow, buyLow) > CMP → single tranche at CMP', () => {
-    // buyLow=1000, 24wkLow=790, CMP=800 → floor=max(790,1000)=1000 > ceiling=800 → single tranche
+  it('CMP below buy zone (deep, 24wk low): spreads 2-3 tranches at/below CMP', () => {
+    // 24wkLow doesn't affect deep zone price generation (steps off CMP, not floor)
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3, 790)
-    expect(prices.length).toBe(1)
-    expect(prices[0]).toBeLessThanOrEqual(800)
+    expect(prices.length).toBeGreaterThanOrEqual(2)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
 
   // 24wkLow >= CMP: price is AT the 6-month low → ignore 24wkLow, use buyLow as floor
@@ -260,11 +261,12 @@ describe('computeTrancheprices', () => {
     prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
   })
 
-  it('non-index deep zone still collapses to single tranche at CMP', () => {
-    // Normal stock in deep zone: buyLow=1000, CMP=850 → floor(1000) > ceiling(850) → single
+  it('non-index deep zone spreads 2-3 tranches at/below CMP', () => {
+    // Normal stock in deep zone: buyLow=1000, CMP=850 → 3 tranches (capped): ~850, ~810, ~770
     const prices = computeTrancheprices(1000, 1500, 850, undefined, undefined, 4, null, false)
-    expect(prices.length).toBe(1)
-    expect(prices[0]).toBeLessThanOrEqual(850)
+    expect(prices.length).toBeGreaterThanOrEqual(2)
+    expect(prices.length).toBeLessThanOrEqual(3)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(850))
   })
 
   // BUG: index ETF deep zone recursive call must pass 52wkLow, not null
@@ -292,6 +294,23 @@ describe('computeTrancheprices', () => {
     const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, 640, true)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
+  })
+
+  // Bear mode: band prices shrink ~10%, 52wkLow can end up above the shrunken buyHigh.
+  // In that case, 52wkLow is above the entire buy zone and must NOT be used as floor —
+  // fall back to buyLow so tranches still spread across the buy zone.
+  it('bear mode: 52wkLow above shrunken buyHigh falls back to buyLow floor', () => {
+    // Normal: buyLow=700, buyHigh=850. Bear (~10% tighter): buyLow=630, buyHigh=765.
+    // 52wkLow=800, CMP=900 (above zone). Normal: ceiling=850, floor=max(800,700)=800 → OK.
+    // Bear:    ceiling=765, floor=max(800,630)=800 → floor>ceiling → BUG was: single tranche.
+    // Fix: fall back to buyLow=630, ceiling=765 → multiple tranches.
+    const prices = computeTrancheprices(630, 765, 900, undefined, undefined, 3, 800)
+    expect(prices.length).toBeGreaterThan(1)
+    // Prices span the bear buy zone. Upper bound allows 1 snap (₹10) of rounding headroom.
+    prices.forEach(p => {
+      expect(p).toBeGreaterThanOrEqual(630)
+      expect(p).toBeLessThanOrEqual(775)   // 765 rounds to 770 at ₹10 snap
+    })
   })
 })
 
@@ -379,5 +398,40 @@ describe('computeTrancheAmounts — conviction-weighted sizing', () => {
     // quad [1,4,9,16,25]: max/total = 25/55 ≈ 0.454 > 0.40 → linear [1,2,3,4,5] → 5× ratio
     const amounts = computeTrancheAmounts(100_000, 5)
     expect(amounts[4] / amounts[0]).toBeCloseTo(5)
+  })
+
+  it('equal=true: all tranches get identical amounts', () => {
+    const remaining = 90_000
+    const amounts = computeTrancheAmounts(remaining, 3, true)
+    expect(amounts).toHaveLength(3)
+    amounts.forEach(a => expect(a).toBeCloseTo(30_000))
+  })
+
+  it('equal=true: sums to remaining', () => {
+    const remaining = 47_300
+    const total = computeTrancheAmounts(remaining, 4, true).reduce((s, a) => s + a, 0)
+    expect(total).toBeCloseTo(remaining)
+  })
+})
+
+describe('computeTrancheprices — deep zone spreads 2-3 tranches at 5% steps', () => {
+  it('count=3 → 3 prices, each 5% apart, all ≤ CMP', () => {
+    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
+    expect(prices).toHaveLength(3)
+    // Sorted desc by caller, but function returns high→low (CMP first, stepping down)
+    // Just check all ≤ CMP and they're distinct
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
+    expect(new Set(prices).size).toBe(prices.length)
+  })
+
+  it('count=2 → 2 prices', () => {
+    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 2)
+    expect(prices).toHaveLength(2)
+    prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
+  })
+
+  it('count capped at 3 even if caller requests more', () => {
+    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 8)
+    expect(prices.length).toBeLessThanOrEqual(3)
   })
 })

@@ -15,6 +15,32 @@ export function getBandSignal(
   return 'trim'
 }
 
+// ── Sequential cost basis ─────────────────────────────────────────────────────
+
+/**
+ * Process transactions in date order using the sequential average-cost method.
+ * Sells retire `soldQty × currentAvg` from the cost basis — a full exit resets
+ * the basis to zero so a subsequent re-entry starts fresh.
+ *
+ * Returns the current qty held, total cost of those shares, and avg cost per share.
+ */
+export function seqCost(txns: Transaction[]): { qty: number; cost: number; avgCost: number } {
+  const sorted = [...txns].sort((a, b) =>
+    a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
+  let qty = 0, cost = 0
+  for (const t of sorted) {
+    if (t.trade_type === 'buy') {
+      qty  += t.quantity
+      cost += t.amount
+    } else {
+      const avg = qty > 0 ? cost / qty : 0
+      cost = Math.max(0, cost - t.quantity * avg)
+      qty  = Math.max(0, qty  - t.quantity)
+    }
+  }
+  return { qty, cost, avgCost: qty > 0 ? cost / qty : 0 }
+}
+
 // ── Carryover ─────────────────────────────────────────────────────────────────
 
 export interface CarryoverBreakdown {
@@ -115,46 +141,14 @@ export function computeStockRows(
 
     // FY position at cost — sequential average-cost on FY-filtered txns.
     // Same scope as budget/remaining: only this FY's transactions.
-    // Sells retire soldQty × currentAvg from the cost basis so a
-    // harvest + re-entry within the FY shows only the new position.
-    const sortedTxns = [...txns].sort((a, b) =>
-      a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
-
-    let fyQty  = 0
-    let fyCost = 0
-    for (const t of sortedTxns) {
-      if (t.trade_type === 'buy') {
-        fyQty  += t.quantity
-        fyCost += t.amount
-      } else {
-        const avg = fyQty > 0 ? fyCost / fyQty : 0
-        fyCost = Math.max(0, fyCost - t.quantity * avg)
-        fyQty  = Math.max(0, fyQty  - t.quantity)
-      }
-    }
-    const currentCost = fyCost
+    const { cost: currentCost } = seqCost(txns)
 
     // All-time holdings — qty, avgCost, unrealisedPnL only.
     // Uses allTransactions so prior-FY holdings aren't lost when
     // a stock has no transactions in the current FY.
     const allTxns = (allTransactions ?? transactions)
       .filter(t => t.symbol === alloc.symbol)
-      .slice()
-      .sort((a, b) => a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
-
-    let allTimeQty  = 0
-    let allTimeCost = 0
-    for (const t of allTxns) {
-      if (t.trade_type === 'buy') {
-        allTimeQty  += t.quantity
-        allTimeCost += t.amount
-      } else {
-        const avg    = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
-        allTimeCost  = Math.max(0, allTimeCost - t.quantity * avg)
-        allTimeQty   = Math.max(0, allTimeQty  - t.quantity)
-      }
-    }
-    const allTimeAvg = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
+    const { qty: allTimeQty, avgCost: allTimeAvg } = seqCost(allTxns)
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null

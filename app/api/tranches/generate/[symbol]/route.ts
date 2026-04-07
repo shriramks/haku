@@ -106,12 +106,17 @@ export async function POST(
   const trancheCount = suggestedAmt > 0
     ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
     : 3
-  const isIndex = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
+  const isIndex     = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
+  const isAboveZone = liveCmp !== null && liveCmp > buyHigh
+  const isDeepZone  = liveCmp !== null && liveCmp < buyLow
   const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount, fiftyTwoWeekLow, isIndex)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
-  const amounts = computeTrancheAmounts(deployable, sortedPrices.length)
+  // Equal split when CMP is outside the buy zone — probability of any given tranche
+  // filling is too uncertain to over-weight the deepest one.
+  // Conviction-weighting (bottom-heavy) applies only inside the zone (Case B).
+  const amounts = computeTrancheAmounts(deployable, sortedPrices.length, isAboveZone || isDeepZone)
 
   await supabase.from('buy_tranches')
     .delete()

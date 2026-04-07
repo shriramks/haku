@@ -113,18 +113,21 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
 }
 
 /**
- * Conviction-weighted tranche amounts: deeper tranches (higher index = lower price)
- * get proportionally more capital. Uses quadratic weights (i+1)² by default.
+ * Tranche amounts split.
  *
- * Weight cap: if the largest quadratic weight exceeds 40% of the total, falls back
- * to linear weights (i+1) to avoid a single tranche dominating (e.g. 80/20 on 2 tranches).
- * Linear weights on 2 tranches → 33%/67% — still bottom-biased but balanced.
+ * equal=true (Case A above zone, Case C deep zone): equal split — probability of
+ * any given tranche filling is uncertain, so don't over-bet on the deepest one.
+ *
+ * equal=false (Case B inside zone): conviction-weighted — deeper tranches get more
+ * capital. Uses quadratic weights (i+1)² when the largest weight ≤ 40% of total,
+ * otherwise falls back to linear (i+1) to avoid extreme skew on small counts.
  *
  * Input order is highest-price-first (index 0 = nearest to market).
  * Returns amounts in the same order. Amounts sum exactly to `remaining`.
  */
-export function computeTrancheAmounts(remaining: number, count: number): number[] {
+export function computeTrancheAmounts(remaining: number, count: number, equal = false): number[] {
   if (count <= 0 || remaining <= 0) return []
+  if (equal) return Array.from({ length: count }, () => remaining / count)
   const quadWeights  = Array.from({ length: count }, (_, i) => (i + 1) ** 2)
   const quadTotal    = quadWeights.reduce((s, w) => s + w, 0)
   const useQuadratic = Math.max(...quadWeights) / quadTotal <= WEIGHT_CAP
@@ -164,15 +167,21 @@ export function computeTrancheprices(
   void midLow; void midHigh
 
   // Floor is the higher of 52-week low and buyLow — never price below either.
-  // Exception: if 52wkLow >= CMP the price is AT the 52-week low, which is a
-  // favourable entry. Use buyLow as floor so tranches spread across the buy zone.
-  const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)
-  const floor   = use52wkLow ? Math.max(fiftyTwoWeekLow, buyLow) : buyLow
+  // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
+  //   entry), so use buyLow as floor so tranches spread across the buy zone.
+  // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. bear mode
+  //   shrinks buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
+  //   the entire buy zone and is not a useful pricing floor in that case.
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
+  const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)
+  const raw52Floor = use52wkLow ? Math.max(fiftyTwoWeekLow, buyLow) : buyLow
+  const floor = raw52Floor <= ceiling ? raw52Floor : buyLow
 
-  // Collapse to single tranche at CMP if floor >= ceiling.
-  // Exception: index ETFs in deep zone (CMP < buyLow) are a strong buy — spread
-  // tranches from (CMP - buy_zone_width) to CMP so capital is deployed across prices.
+  // Deep zone (floor >= ceiling): CMP is below buyLow — already strong-buy territory.
+  // Index ETFs: spread tranches from (CMP - zone_width) to CMP.
+  // All other stocks: spread 2–3 tranches at 5% steps below CMP. Equal-weighted by
+  // the caller. No further spreading into unknown downside; 5% steps are realistic
+  // limit orders in a fast-moving deep-value situation.
   if (floor >= ceiling) {
     if (isIndex && cmp != null && cmp > 0) {
       const zoneWidth = buyHigh - buyLow
@@ -182,9 +191,15 @@ export function computeTrancheprices(
         return computeTrancheprices(deepFloor, deepCeil, cmp, deepCeil, deepCeil, count, fiftyTwoWeekLow, false)
       }
     }
-    const ref  = cmp ?? floor
-    const snap = ref < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
-    return [Math.floor(ref / snap) * snap]
+    const ref        = cmp ?? floor
+    const deepCount  = Math.min(Math.max(2, count), 3)
+    const deepPrices: number[] = []
+    for (let i = 0; i < deepCount; i++) {
+      const raw  = ref * (1 - 0.05 * i)
+      const snap = raw < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
+      deepPrices.push(Math.round(raw / snap) * snap)
+    }
+    return [...new Set(deepPrices)]
   }
 
   const range = ceiling - floor

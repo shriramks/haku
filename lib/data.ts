@@ -14,6 +14,8 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, 
 //   getBuyTranches : 2 min    — on-demand revalidated via revalidateTag('buy_tranches') on generate
 //   everything else: no cross-request cache — mutated client-side without server invalidation paths
 
+export { getCurrentFY } from './fy-utils'
+
 export const getUserId = cache(async (): Promise<string | null> => {
   const supabase = await createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
@@ -142,15 +144,6 @@ export const getBuyTranches = cache(async (fyId: string): Promise<BuyTranche[]> 
   return _fetchBuyTranches(userId, fyId)
 })
 
-/** Selects the active FY from a list. If fyParam is given, finds by label; otherwise picks the FY whose date range contains today, falling back to the most recent. */
-export function getCurrentFY(fiscalYears: FiscalYear[], fyParam?: string): FiscalYear | null {
-  if (!fiscalYears.length) return null
-  if (fyParam) return fiscalYears.find(f => f.label === fyParam) ?? fiscalYears[0]
-  const today = new Date()
-  return fiscalYears.find(fy =>
-    new Date(fy.start_date) <= today && today <= new Date(fy.end_date)
-  ) ?? fiscalYears[0]
-}
 
 export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean; provider: 'gemini' | 'claude' }> => {
   const userId = await getUserId()
