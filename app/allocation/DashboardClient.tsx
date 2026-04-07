@@ -133,7 +133,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   {/* Left stat */}
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
-                    <p className="text-title-1 font-bold tabnum leading-none">
+                    <p className="text-title-2 font-bold tabnum leading-none">
                       {formatINRFull(Math.max(0, totalRemaining))}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -143,7 +143,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   {/* Invested stat */}
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested</p>
-                    <p className="text-title-1 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
+                    <p className="text-title-2 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
                       {formatINRFull(totalDeployed)}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
