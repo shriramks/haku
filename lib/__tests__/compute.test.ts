@@ -313,6 +313,57 @@ describe('computeCarryover — edge cases', () => {
   })
 })
 
+// ── computeStockRows — currentCost (all-time invested) ───────────────────────
+
+describe('computeStockRows — currentCost', () => {
+  it('currentCost = allTimeQty × allTimeAvgCost with no sells', () => {
+    const allocs = [mkAlloc('INFY', 10)]
+    const txns   = [mkTxn('INFY', 'buy', 100, 1500)]
+    const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
+    expect(row.qty).toBe(100)
+    expect(row.avgCost).toBe(1500)
+    expect(row.currentCost).toBe(150_000)
+  })
+
+  it('full harvest: allTimeQty=0 so currentCost=0', () => {
+    // Tax harvest: buy 100 then sell all 100
+    const allocs = [mkAlloc('ITC', 10)]
+    const txns   = [mkTxn('ITC', 'buy', 100, 400), mkTxn('ITC', 'sell', 100, 380)]
+    const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
+    expect(row.qty).toBe(0)
+    expect(row.currentCost).toBe(0)
+  })
+
+  it('re-buy after full harvest: currentCost reflects new holding', () => {
+    // Buy 100 @ 400, sell all 100 @ 380 (harvest), then buy 50 @ 360
+    const allocs = [mkAlloc('ITC', 10)]
+    const txns   = [
+      mkTxn('ITC', 'buy',  100, 400),
+      mkTxn('ITC', 'sell', 100, 380),
+      mkTxn('ITC', 'buy',   50, 360),
+    ]
+    const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
+    // allTimeQty = max(0, 150 - 100) = 50
+    // allTimeAvg = (100*400 + 50*360) / 150 = 58000/150 ≈ 386.67
+    expect(row.qty).toBe(50)
+    expect(row.currentCost).toBeCloseTo(50 * (58_000 / 150))
+  })
+
+  it('uses allTransactions param for currentCost when FY txns differ', () => {
+    // FY view: 1 buy in FY26 (for planning/spent); all-time has earlier FY25 buy too
+    const allocs   = [mkAlloc('INFY', 10, FY26)]
+    const fyTxns   = [mkTxn('INFY', 'buy', 50, 1800, FY26)]
+    const allTxns  = [mkTxn('INFY', 'buy', 100, 1500, FY25), mkTxn('INFY', 'buy', 50, 1800, FY26)]
+    const [row]    = computeStockRows(allocs, fyTxns, noBands, totalBudget, FY26, undefined, allTxns)
+    // allTimeQty = 150; allTimeAvg = (100*1500 + 50*1800) / 150 = 240000/150 = 1600
+    expect(row.qty).toBe(150)
+    expect(row.avgCost).toBe(1600)
+    expect(row.currentCost).toBe(150 * 1600)
+    // spent is still FY-only
+    expect(row.spent).toBe(50 * 1800)
+  })
+})
+
 // ── computeStockRows — signal uses fresh computed bands ───────────────────────
 
 describe('computeStockRows — bandSignal uses live calculateBands, not stored DB values', () => {

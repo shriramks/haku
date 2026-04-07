@@ -25,7 +25,7 @@ Read `docs/architecture.md`. Key rule: any DB write must be followed by `revalid
 ## Before building any new UI pattern
 
 1. Create a mockup in `mockups/` and get approval before writing component code
-2. Check `docs/INFORMATION_ARCHITECTURE.md` for where new information fits in the hierarchy
+2. Check `docs/APP_CONCEPTS.md` for where new information fits in the hierarchy (also explains the investment math — `currentCost` vs `spent`, carryover debt model)
 3. Check `components/icons.tsx` before adding new SVGs inline
 
 ## Build discipline

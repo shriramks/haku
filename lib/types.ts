@@ -154,11 +154,14 @@ export interface StockRow {
   symbol: string
   allocationPct: number
   budget: number
+  /** FY net spend (clamped ≥ 0) — drives remaining/carryover/planning only */
   spent: number
   remaining: number
   pctRemaining: number
   qty: number
   avgCost: number
+  /** All-time holdings at cost = allTimeQty × allTimeAvgCost — drives "Invested" display */
+  currentCost: number
   cmp: number | null
   unrealisedPnL: number | null
   unrealisedPnLPct: number | null

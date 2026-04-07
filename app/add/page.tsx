@@ -64,6 +64,8 @@ export default function AddPage() {
     setLoading(false)
     if (error) { setError(error.message); return }
 
+    // Bust Next.js router cache so allocation page reflects new transaction
+    router.refresh()
     // Flash success then reset — keep symbol for quick back-to-back adds
     setDone(true)
     setTimeout(() => { setDone(false); setQty(''); setPrice('') }, 1200)

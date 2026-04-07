@@ -89,9 +89,10 @@ export function computeStockRows(
   totalBudget: number,
   fyId?: string,
   carryoverMap?: Map<string, number>,
+  allTransactions?: Transaction[],
 ): StockRow[] {
   return allocations.map(alloc => {
-    // Exclude transactions earmarked for a different FY via advance_fy_id
+    // FY-filtered transactions — used for spent/remaining/carryover (planning)
     const txns  = transactions.filter(t =>
       t.symbol === alloc.symbol &&
       (fyId == null || t.advance_fy_id == null || t.advance_fy_id === fyId)
@@ -112,6 +113,17 @@ export function computeStockRows(
     const budget    = (alloc.allocation_pct / 100) * totalBudget + carryover
     const remaining = budget - spent
 
+    // All-time holdings at cost — used for "Invested" display only
+    const allTxns       = (allTransactions ?? transactions).filter(t => t.symbol === alloc.symbol)
+    const allBuys       = allTxns.filter(t => t.trade_type === 'buy')
+    const allSells      = allTxns.filter(t => t.trade_type === 'sell')
+    const allBuyQty     = allBuys.reduce((s, t) => s + t.quantity, 0)
+    const allBuyValue   = allBuys.reduce((s, t) => s + t.amount, 0)
+    const allSellQty    = allSells.reduce((s, t) => s + t.quantity, 0)
+    const allTimeQty    = Math.max(0, allBuyQty - allSellQty)
+    const allTimeAvg    = allBuyQty > 0 ? allBuyValue / allBuyQty : 0
+    const currentCost   = allTimeQty * allTimeAvg
+
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null
     const fresh  = band ? calculateBands({
@@ -126,9 +138,9 @@ export function computeStockRows(
     const _trim     = fresh?.trimPrice ?? band?.trim_price ?? null
     const signal = getBandSignal(cmp, _buyLow, _buyHigh, _midHigh, _trim)
 
-    const unrealisedPnL    = cmp !== null ? (cmp - avgCost) * qty : null
-    const unrealisedPnLPct = (cmp !== null && avgCost > 0)
-      ? (cmp - avgCost) / avgCost * 100 : null
+    const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
+    const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)
+      ? (cmp - allTimeAvg) / allTimeAvg * 100 : null
 
     return {
       symbol:          alloc.symbol,
@@ -137,8 +149,9 @@ export function computeStockRows(
       spent,
       remaining,
       pctRemaining:    budget > 0 ? (remaining / budget) * 100 : 100,
-      qty,
-      avgCost,
+      qty:             allTimeQty,
+      avgCost:         allTimeAvg,
+      currentCost,
       cmp,
       unrealisedPnL,
       unrealisedPnLPct,

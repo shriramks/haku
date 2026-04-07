@@ -16,17 +16,19 @@ interface Props {
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
   initialTransactions: Transaction[]
+  initialAllTransactions: Transaction[]
   initialPrevFY: FiscalYear | null
   initialPrevAllocations: StockAllocation[]
   initialPrevTransactions: Transaction[]
   bands: BuyBand[]
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPrevFY, initialPrevAllocations, initialPrevTransactions, bands }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialAllTransactions, initialPrevFY, initialPrevAllocations, initialPrevTransactions, bands }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY]         = useState(initialFY)
   const [allocations, setAllocations]       = useState(initialAllocations)
   const [transactions, setTransactions]     = useState(initialTransactions)
+  const [allTransactions]                   = useState(initialAllTransactions)
   const [prevFY, setPrevFY]                 = useState(initialPrevFY)
   const [prevAllocations, setPrevAllocations] = useState(initialPrevAllocations)
   const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)
@@ -44,8 +46,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
       selectedFY?.id ?? undefined,
       carryoverResult?.adjustments,
+      allTransactions,
     ),
-    [allocations, transactions, bands, selectedFY, carryoverResult]
+    [allocations, transactions, bands, selectedFY, carryoverResult, allTransactions]
   )
 
   async function switchFY(fy: FiscalYear) {
@@ -80,11 +83,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
   const { totalBudget, totalDeployed, totalRemaining, pctDeployed } = useMemo(() => {
     const totalBudget   = rows.reduce((s, r) => s + r.budget, 0)
-    const totalDeployed = rows.reduce((s, r) => s + r.spent, 0)
+    const totalDeployed = rows.reduce((s, r) => s + r.currentCost, 0)
     return {
       totalBudget,
       totalDeployed,
-      totalRemaining: totalBudget - totalDeployed,
+      totalRemaining: totalBudget - rows.reduce((s, r) => s + r.spent, 0),
       pctDeployed: totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0,
     }
   }, [rows])
@@ -221,9 +224,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
-  const isDone   = row.remaining <= 0
-  const leftPct  = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
-  const spentPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
+  const isDone      = row.remaining <= 0
+  const leftPct     = row.budget > 0 ? Math.round((row.remaining / row.budget) * 100) : 0
+  const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="block px-4 tap-row"
@@ -250,8 +253,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {/* Col 3 — Invested (secondary) + chevron */}
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
-            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.spent)}</p>
-            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{spentPct}%</p>}
+            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.currentCost)}</p>
+            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{investedPct}%</p>}
           </div>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
@@ -259,7 +262,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 
       {/* Bar — rounded, full-width, serves as row divider */}
       <div className="rounded-full overflow-hidden mb-0" style={{ height: '6px', background: 'var(--border-faint)' }}>
-        <div className="h-full rounded-full" style={{ width: `${spentPct}%`, background: 'var(--bar-fill)' }} />
+        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: 'var(--bar-fill)' }} />
       </div>
     </Link>
   )

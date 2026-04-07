@@ -1,4 +1,4 @@
-# Haku — Information Architecture
+# Haku — App Concepts
 
 ## Purpose
 
@@ -25,6 +25,75 @@ Consistent terms across the entire app. Never mix these with synonyms.
 | **Tranche** | A planned buy order at a specific price and qty | Order, lot |
 | **Bands** | The PE/PB/EV-derived price zones for a stock | Levels, targets |
 | **Financials** | EPS, BVPS, EBITDA inputs that generate bands | Fundamentals, data |
+
+---
+
+## Investment Math
+
+### Two distinct "invested" concepts
+
+The app tracks two different numbers that are both legitimately called "invested",
+for different purposes. They must never be conflated.
+
+#### `spent` — FY planning budget
+
+`spent = max(0, FY_buy_amount - FY_sell_amount)`
+
+- Used for: remaining budget calculation, carryover into next FY
+- Scope: current FY only (filtered by `fy_id` / `advance_fy_id`)
+- Clamped to 0 because negative spent would make remaining > budget, which
+  gives a false "you have more budget than your plan" signal
+- Tax harvest example: buy ₹1L then sell ₹2.5L in same FY → `spent = 0`,
+  `remaining = full budget`. The ₹1.5L net proceeds freed up future budget,
+  so 0 is correct for planning purposes.
+
+#### `currentCost` — all-time deployed capital (display only)
+
+`currentCost = allTimeQty × allTimeAvgCost`
+
+where:
+- `allTimeQty = max(0, allTimeBuys - allTimeSells)` — shares currently held
+- `allTimeAvgCost = totalBuyAmount / totalBuyQty` — average cost across all buys ever
+
+- Used for: "Invested" column on Allocation screen, "Invested" on Stock Detail
+- Scope: all transactions across all FYs for this stock
+- Natural gate: qty is physically immutable — can't own negative shares.
+  After full exit, qty=0 so currentCost=0 (honest: nothing in market).
+  After new buy post-harvest, qty>0 so currentCost>0 immediately (also honest).
+- No clamping needed — the quantity floor at 0 handles everything.
+
+#### Why the split matters
+
+| Scenario | `spent` | `currentCost` | Correct? |
+|----------|---------|---------------|----------|
+| Buy ₹1L, hold | ₹1L | ₹1L | ✓ same |
+| Buy ₹1L, sell all ₹2.5L (harvest) | ₹0 | ₹0 | ✓ nothing held |
+| Buy ₹1L, sell ₹2.5L, buy ₹50K | ₹0 (FY net still negative) | ₹50K | ✓ honest about new holding |
+| Buy across 2 FYs | FY2 only | all-time qty × avg | ✓ full picture |
+
+---
+
+### FY budget and carryover (YNAB-style category debt)
+
+Each stock gets a budget = `(allocation_pct / 100) × total_FY_budget + carryover`.
+
+Carryover carries the *remaining* (not spent) from the previous FY into the next.
+Remaining can be negative — this is called "carryover debt."
+
+**Example:**
+- FY24: ITC budget = ₹10L. You buy ₹20L (overspent by ₹10L).
+  - FY24 remaining = ₹10L - ₹20L = **−₹10L**
+- FY25: ITC allocation = 15% of ₹1Cr = ₹15L.
+  - Carryover = −₹10L (the FY24 debt)
+  - FY25 effective budget = ₹15L − ₹10L = **₹5L**
+
+This is exactly how YNAB handles category overspending — the extra spend is a
+loan from the future, not a free lunch. The debt shows up as reduced budget in
+the next period.
+
+**Orphan pool:** If a stock exits (no allocation in next FY), its remaining
+(positive or negative) goes into a pool distributed proportionally by
+`allocation_pct` among all next-FY stocks.
 
 ---
 
@@ -69,11 +138,11 @@ Open app
 
 **Priority order:**
 1. FY selector (which year am I viewing)
-2. FY summary strip — Total FY Allocation, Total Allocated, Remaining
+2. FY summary strip — Total FY Allocation, Total Invested (currentCost), Remaining (FY)
 3. Per-stock list rows — each row shows:
    - Primary: Stock symbol + signal dot
-   - Secondary: Allocated so far + Remaining
-   - Tertiary: Category + allocation %
+   - Secondary: Remaining (FY) + Invested (currentCost)
+   - Bar fill: currentCost as % of FY budget
 4. Completed / exited stocks — collapsed by default
 
 **What is NOT here:** Band bars, tranche details, CMP, P&L.
@@ -103,18 +172,18 @@ Open app
 1. Stock name + signal badge (header — always visible)
 2. Band bar with CMP pin + zone label — always visible, not collapsible
 3. CMP value + Refresh button (auto-fetches on load)
-4. **FY Allocation group:**
+4. **FY section** (this year's planning view):
    - FY Remaining (most important — drives next action)
-   - FY Allocated
+   - FY Invested (spent, for planning)
    - FY Total Allocation
-5. **All-Time group:**
-   - Total Allocated (to avoid over-buying in future FYs)
-   - Total Allocation
-6. **Position group** (smallest, least important):
-   - Shares held
-   - Avg cost
-7. Tranches — Generate / Add / list
-8. Edit Financials button — opens sheet (rarely needed)
+   - Shares + Avg Cost
+5. **All-Time section** (honest deployed capital):
+   - Total Invested (currentCost = allTimeQty × allTimeAvg)
+   - Total Allocation across all FYs
+   - Shares held (all-time net qty)
+   - Avg Cost
+6. Tranches — Generate / Add / list
+7. Edit Financials button — opens sheet (rarely needed)
 
 **What is NOT here:** Transactions, P&L hero, manual CMP input.
 
@@ -153,12 +222,12 @@ must be consistent — same label, same format, same precision.
 |-------------|-----------|-----------|--------------|------|
 | Signal | dot | badge | badge | — |
 | FY Remaining | ✓ (per row) | — | ✓ (prominent) | — |
-| FY Allocated | ✓ (per row) | — | ✓ | — |
+| FY Invested | ✓ (per row) | — | ✓ | — |
+| All-Time Invested | — | — | ✓ | — |
 | Band bar | — | ✓ | ✓ | — |
 | CMP | — | ✓ | ✓ | — |
 | Tranches | — | ✓ | ✓ | — |
 | Allocation % | ✓ | — | — | ✓ |
-| Total Allocated | — | — | ✓ | — |
 
 **Rule:** When the same number appears on two screens, it must use the same
 label word (see Vocabulary above) and the same format (e.g. ₹3.8L not ₹3,80,000).
