@@ -113,11 +113,30 @@ export function computeStockRows(
     const budget    = (alloc.allocation_pct / 100) * totalBudget + carryover
     const remaining = budget - spent
 
-    // All-time holdings at cost — sequential average-cost method.
-    // Process in date order: buys add to cost basis; each sell retires
-    // soldQty × currentAvg from the basis. This correctly resets cost
-    // after a full exit — unlike an aggregate buy/sell split which blends
-    // pre-exit and post-re-entry buys into one wrong average.
+    // FY position at cost — sequential average-cost on FY-filtered txns.
+    // Same scope as budget/remaining: only this FY's transactions.
+    // Sells retire soldQty × currentAvg from the cost basis so a
+    // harvest + re-entry within the FY shows only the new position.
+    const sortedTxns = [...txns].sort((a, b) =>
+      a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
+
+    let fyQty  = 0
+    let fyCost = 0
+    for (const t of sortedTxns) {
+      if (t.trade_type === 'buy') {
+        fyQty  += t.quantity
+        fyCost += t.amount
+      } else {
+        const avg = fyQty > 0 ? fyCost / fyQty : 0
+        fyCost = Math.max(0, fyCost - t.quantity * avg)
+        fyQty  = Math.max(0, fyQty  - t.quantity)
+      }
+    }
+    const currentCost = fyCost
+
+    // All-time holdings — qty, avgCost, unrealisedPnL only.
+    // Uses allTransactions so prior-FY holdings aren't lost when
+    // a stock has no transactions in the current FY.
     const allTxns = (allTransactions ?? transactions)
       .filter(t => t.symbol === alloc.symbol)
       .slice()
@@ -132,11 +151,10 @@ export function computeStockRows(
       } else {
         const avg    = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
         allTimeCost  = Math.max(0, allTimeCost - t.quantity * avg)
-        allTimeQty   = Math.max(0, allTimeQty - t.quantity)
+        allTimeQty   = Math.max(0, allTimeQty  - t.quantity)
       }
     }
-    const allTimeAvg  = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
-    const currentCost = allTimeCost
+    const allTimeAvg = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null

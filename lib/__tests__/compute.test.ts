@@ -315,27 +315,24 @@ describe('computeCarryover — edge cases', () => {
 
 // ── computeStockRows — currentCost (all-time invested) ───────────────────────
 
-describe('computeStockRows — currentCost', () => {
-  it('currentCost = allTimeQty × allTimeAvgCost with no sells', () => {
+// currentCost = FY sequential cost (same scope as budget/remaining)
+// qty/avgCost = all-time sequential (for unrealised PnL)
+describe('computeStockRows — currentCost (FY-scoped)', () => {
+  it('currentCost = FY buy cost when no sells', () => {
     const allocs = [mkAlloc('INFY', 10)]
     const txns   = [mkTxn('INFY', 'buy', 100, 1500)]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
-    expect(row.qty).toBe(100)
-    expect(row.avgCost).toBe(1500)
     expect(row.currentCost).toBe(150_000)
   })
 
-  it('full harvest: allTimeQty=0 so currentCost=0', () => {
-    // Tax harvest: buy 100 then sell all 100
+  it('full FY harvest: currentCost=0, nothing held from this FY', () => {
     const allocs = [mkAlloc('ITC', 10)]
     const txns   = [mkTxn('ITC', 'buy', 100, 400), mkTxn('ITC', 'sell', 100, 380)]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
-    expect(row.qty).toBe(0)
     expect(row.currentCost).toBe(0)
   })
 
-  it('re-buy after full harvest: currentCost reflects only the new holding', () => {
-    // Buy 100 @ 400, sell all 100 @ 380 (harvest), then buy 50 @ 360
+  it('FY harvest + re-entry: currentCost = re-entry cost only', () => {
     const allocs = [mkAlloc('ITC', 10)]
     const txns   = [
       mkTxn('ITC', 'buy',  100, 400),
@@ -343,24 +340,29 @@ describe('computeStockRows — currentCost', () => {
       mkTxn('ITC', 'buy',   50, 360),
     ]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
-    // After full exit, cost basis resets to 0.
-    // Re-entry: 50 shares at 360 = 18000. Old buys don't pollute the average.
-    expect(row.qty).toBe(50)
-    expect(row.avgCost).toBe(360)
-    expect(row.currentCost).toBe(50 * 360)
+    expect(row.currentCost).toBe(50 * 360)  // 18000 — old pre-harvest cost doesn't bleed in
   })
 
-  it('uses allTransactions param for currentCost when FY txns differ', () => {
-    // FY view: 1 buy in FY26 (for planning/spent); all-time has earlier FY25 buy too
+  it('no FY transactions → currentCost=0 even if allTransactions has prior-FY buys', () => {
+    // Stock accumulated in FY25, no activity in FY26
+    const allocs  = [mkAlloc('CAMS', 10, FY26)]
+    const fyTxns  : Transaction[] = []
+    const allTxns = [mkTxn('CAMS', 'buy', 100, 1500, FY25)]
+    const [row]   = computeStockRows(allocs, fyTxns, noBands, totalBudget, FY26, undefined, allTxns)
+    expect(row.currentCost).toBe(0)       // nothing deployed this FY
+    expect(row.qty).toBe(100)             // but shares are still held (all-time)
+    expect(row.avgCost).toBe(1500)        // and avg cost is known for unrealised PnL
+    expect(row.spent).toBe(0)
+  })
+
+  it('allTransactions does not affect currentCost — only qty/avgCost', () => {
     const allocs   = [mkAlloc('INFY', 10, FY26)]
     const fyTxns   = [mkTxn('INFY', 'buy', 50, 1800, FY26)]
     const allTxns  = [mkTxn('INFY', 'buy', 100, 1500, FY25), mkTxn('INFY', 'buy', 50, 1800, FY26)]
     const [row]    = computeStockRows(allocs, fyTxns, noBands, totalBudget, FY26, undefined, allTxns)
-    // allTimeQty = 150; allTimeAvg = (100*1500 + 50*1800) / 150 = 240000/150 = 1600
-    expect(row.qty).toBe(150)
-    expect(row.avgCost).toBe(1600)
-    expect(row.currentCost).toBe(150 * 1600)
-    // spent is still FY-only
+    expect(row.currentCost).toBe(50 * 1800)   // FY26 only
+    expect(row.qty).toBe(150)                  // all-time
+    expect(row.avgCost).toBe(1600)             // all-time avg
     expect(row.spent).toBe(50 * 1800)
   })
 })

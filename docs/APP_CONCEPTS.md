@@ -47,27 +47,36 @@ for different purposes. They must never be conflated.
   `remaining = full budget`. The ₹1.5L net proceeds freed up future budget,
   so 0 is correct for planning purposes.
 
-#### `currentCost` — what you currently have deployed (display only)
+#### `currentCost` — what you have deployed this FY (display only)
 
-`currentCost` = the cost of shares you currently hold, computed using the
-**sequential average-cost method**. It is not a simple sum of all buy amounts.
+`currentCost` = the cost of shares bought this FY that you still hold,
+computed using the **sequential average-cost method** on this FY's transactions only.
 
-**How it works — process transactions in date order:**
+**Same scope as everything else on the allocation screen** — budget, remaining,
+bar fill, donut — all FY-scoped. `currentCost` is no different.
 
-- **Buy:** add the buy amount to your running cost basis.
-- **Sell:** a sell retires shares at the current average cost.
-  `costBasis -= soldQty × (costBasis / heldQty)`
+**How it works — process this FY's transactions in date order:**
+
+- **Buy:** add the buy amount to a running cost basis.
+- **Sell:** retire `soldQty × currentAvg` from the cost basis.
   The remaining shares keep the same per-share cost.
 
-**Why sequential matters — the re-entry problem:**
+**Why sequential, not just sum(buys) − sum(sells):**
 
-If you bought ₹3L of CAMS, sold all of it, then re-bought ₹2.42L:
-- Wrong (aggregate): `allTimeAvg = (3L + 2.42L) / allBuyQty = ₹X`, `currentCost = heldQty × X` → inflated, blends old and new buys
-- Correct (sequential): after the full exit, cost basis drops to ₹0. The ₹2.42L re-entry is the only thing that matters. `currentCost = 2.42L` ✓
+If you bought ₹1L of ITC, harvested for ₹2.5L (full exit), then re-bought ₹75K:
+- Wrong (net): buys − sells = 1.075L − 2.5L = −1.425L → clamped to 0. Re-entry invisible.
+- Correct (sequential): after the full exit, cost basis drops to ₹0. Re-entry of ₹75K → `currentCost = 75K` ✓
 
-A sell permanently retires shares and their associated cost. It does not "net against" future buys.
+A sell permanently retires shares and their cost. Subsequent buys start fresh.
 
-**Scope:** all transactions across all FYs.
+**What about holdings from a prior FY?**
+
+`currentCost = 0` if there were no transactions this FY — even if you hold
+shares from last year. Those show up in `qty` / `avgCost` (all-time) which
+drives unrealised P&L on the bands screen, not the allocation screen.
+
+**`qty` and `avgCost` are all-time** (using all transactions, not FY-filtered).
+They are only used for unrealised P&L calculations, not for the allocation screen.
 
 #### Why the split matters
 
