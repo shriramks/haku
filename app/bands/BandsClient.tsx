@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { formatINR } from '@/lib/formatter'
+import { formatINR, formatPriceNum } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import { getBandSignal } from '@/lib/compute'
 import TrancheSection from '@/components/TrancheSection'
@@ -15,20 +15,28 @@ import { formatPrice } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 import type { BandSignal } from '@/lib/types'
 
-function signalLabel(signal: BandSignal) {
+function signalLabel(signal: BandSignal | null): string {
   if (signal === 'deep') return 'Deep'
   if (signal === 'buy')  return 'Buy'
   if (signal === 'hold') return 'Hold'
   if (signal === 'trim') return 'Trim'
-  return ''
+  return '—'
 }
-function signalPillStyle(signal: BandSignal): React.CSSProperties {
-  const base: React.CSSProperties = { padding: '2px 7px', borderRadius: 20, display: 'inline-block' }
-  if (signal === 'deep') return { ...base, color: '#30D158', background: 'rgba(48,209,88,0.10)' }
-  if (signal === 'buy')  return { ...base, color: '#34C759', background: 'rgba(52,199,89,0.10)' }
-  if (signal === 'hold') return { ...base, color: '#FF9500', background: 'rgba(255,149,0,0.10)' }
-  if (signal === 'trim') return { ...base, color: '#FF3B30', background: 'rgba(255,59,48,0.10)' }
-  return base
+function signalPillStyle(signal: BandSignal | null): React.CSSProperties {
+  const base: React.CSSProperties = {
+    fontSize: 12, fontWeight: 700, letterSpacing: '0.02em',
+    padding: '4px 9px', borderRadius: 20, flexShrink: 0, display: 'inline-block',
+  }
+  if (signal === 'deep') return { ...base, color: '#30D158', background: 'rgba(48,209,88,0.13)' }
+  if (signal === 'buy')  return { ...base, color: '#34C759', background: 'rgba(52,199,89,0.11)' }
+  if (signal === 'hold') return { ...base, color: '#FF9F0A', background: 'rgba(255,159,10,0.11)' }
+  if (signal === 'trim') return { ...base, color: '#FF453A', background: 'rgba(255,69,58,0.11)' }
+  return { ...base, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.07)' }
+}
+function signalColor(signal: BandSignal | null): string {
+  if (signal === 'deep') return '#30D158'
+  if (signal === 'buy')  return '#34C759'
+  return 'var(--text-primary)'
 }
 
 // Mini 4-zone band bar for collapsed rows
@@ -48,7 +56,7 @@ function MiniBar({ buyLow, buyHigh, midHigh, trimPrice, cmp }: {
 
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', gap: 1 }}>
+      <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1.5 }}>
         <div style={{ width: `${dW}%`, background: '#30D158', opacity: 0.65 }} />
         <div style={{ width: `${bW}%`, background: '#34C759' }} />
         <div style={{ width: `${hW}%`, background: '#FF9500' }} />
@@ -434,38 +442,48 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           return (
             <div key={row.symbol}>
             <div className="border-b"
-                 style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
+                 style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : !hasBands ? 0.4 : (signal === 'hold' || signal === 'trim') ? 0.55 : 1 }}>
               {/* Collapsed header */}
               <div
                 onClick={() => toggle(row.symbol)}
-                className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row cursor-pointer">
+                className="w-full flex items-center gap-3 px-4 text-left tap-row cursor-pointer"
+                style={{ minHeight: 66 }}>
 
                 {/* Ticker */}
-                <div style={{ flexShrink: 0, minWidth: 80 }}>
-                  <p className="font-semibold text-headline">{row.symbol}</p>
-                </div>
+                <span className="font-bold text-headline flex-shrink-0" style={{ minWidth: 68 }}>{row.symbol}</span>
 
-                {/* Mini bar — only when bands exist */}
+                {/* Signal badge */}
+                <span style={signalPillStyle(hasBands ? signal : null)}>
+                  {hasBands ? signalLabel(signal) : '—'}
+                </span>
+
+                {/* Mini bar */}
                 <div className="flex-1 min-w-0">
-                  {hasBands && (
+                  {hasBands ? (
                     <MiniBar
                       buyLow={buyLow!} buyHigh={buyHigh!}
                       midHigh={midHigh!} trimPrice={trimPrice!}
                       cmp={cmp}
                     />
+                  ) : (
+                    <div style={{ height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)' }} />
                   )}
                 </div>
 
-                {/* CMP — no color coding */}
-                {cmp != null ? (
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+                {/* CMP + remaining */}
+                <div className="text-right flex-shrink-0">
+                  {cmp != null ? (
+                    <p className="text-headline font-bold tabnum" style={{ color: signalColor(hasBands ? signal : null) }}>
                       {formatPrice(cmp)}
                     </p>
-                  </div>
-                ) : (
-                  <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>No CMP</span>
-                )}
+                  ) : (
+                    <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No CMP</p>
+                  )}
+                  <p className="tabnum" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+                    {formatINR(Math.max(0, row.remaining))} left
+                  </p>
+                </div>
+
                 <ChevronDownIcon className={`w-4 h-4 flex-shrink-0 transition-transform ${isExp ? 'rotate-180' : ''}`}
                   style={{ color: 'var(--text-faint)' }} />
               </div>
@@ -490,6 +508,20 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         midLow={midLow!} midHigh={midHigh!}
                         trimPrice={trimPrice!} cmp={cmp}
                       />
+                      {/* 4-col price grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, marginTop: 12 }}>
+                        {[
+                          { label: 'DEEP', range: `<${formatPrice(buyLow!)}`,                       bg: 'rgba(48,209,88,0.09)',  color: '#30D158' },
+                          { label: 'BUY',  range: `${formatPrice(buyLow!)}–${formatPriceNum(buyHigh!)}`,  bg: 'rgba(52,199,89,0.07)',  color: '#34C759' },
+                          { label: 'HOLD', range: `${formatPrice(buyHigh!)}–${formatPriceNum(trimPrice!)}`, bg: 'rgba(255,159,10,0.07)', color: '#FF9F0A' },
+                          { label: 'TRIM', range: `>${formatPrice(trimPrice!)}`,                     bg: 'rgba(255,69,58,0.07)',  color: '#FF453A' },
+                        ].map(({ label, range, bg, color }) => (
+                          <div key={label} style={{ borderRadius: 10, padding: '8px 9px', background: bg }}>
+                            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color, marginBottom: 3 }}>{label}</p>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontVariantNumeric: 'tabular-nums' }}>{range}</p>
+                          </div>
+                        ))}
+                      </div>
                       {/* 52W range — Low anchored left, High anchored right */}
                       {(week52[row.symbol]?.low != null || week52[row.symbol]?.high != null) && (
                         <div className="flex justify-between mt-3">
