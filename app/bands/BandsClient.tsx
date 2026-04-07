@@ -442,7 +442,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
           return (
             <div key={row.symbol}>
             <div className="border-b"
-                 style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : !hasBands ? 0.4 : (signal === 'hold' || signal === 'trim') ? 0.55 : 1 }}>
+                 style={{ borderColor: 'var(--border-faint)', opacity: isDone ? 0.45 : 1 }}>
               {/* Collapsed header */}
               <div
                 onClick={() => toggle(row.symbol)}
