@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { formatINR, formatPriceNum } from '@/lib/formatter'
+import { formatINR } from '@/lib/formatter'
 import type { StockRow, BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
 import { getBandSignal } from '@/lib/compute'
 import TrancheSection from '@/components/TrancheSection'
@@ -452,11 +452,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                 {/* Ticker */}
                 <span className="font-bold text-headline flex-shrink-0" style={{ minWidth: 68 }}>{row.symbol}</span>
 
-                {/* Signal badge */}
-                <span style={signalPillStyle(hasBands ? signal : null)}>
-                  {hasBands ? signalLabel(signal) : '—'}
-                </span>
-
                 {/* Mini bar */}
                 <div className="flex-1 min-w-0">
                   {hasBands ? (
@@ -479,7 +474,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                   ) : (
                     <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No CMP</p>
                   )}
-                  <p className="tabnum" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+                  <p className="tabnum" style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 1 }}>
                     {formatINR(Math.max(0, row.remaining))} left
                   </p>
                 </div>
@@ -501,77 +496,67 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
                         ))}
                       </div>
                     </div>
-                  ) : hasBands ? (
-                    <div className="px-4 pt-4 pb-2">
-                      <BandBar
-                        buyLow={buyLow!} buyHigh={buyHigh!}
-                        midLow={midLow!} midHigh={midHigh!}
-                        trimPrice={trimPrice!} cmp={cmp}
-                      />
-                      {/* 4-col price grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, marginTop: 12 }}>
-                        {[
-                          { label: 'DEEP', range: `<${formatPrice(buyLow!)}`,                       bg: 'rgba(48,209,88,0.09)',  color: '#30D158' },
-                          { label: 'BUY',  range: `${formatPrice(buyLow!)}–${formatPriceNum(buyHigh!)}`,  bg: 'rgba(52,199,89,0.07)',  color: '#34C759' },
-                          { label: 'HOLD', range: `${formatPrice(buyHigh!)}–${formatPriceNum(trimPrice!)}`, bg: 'rgba(255,159,10,0.07)', color: '#FF9F0A' },
-                          { label: 'TRIM', range: `>${formatPrice(trimPrice!)}`,                     bg: 'rgba(255,69,58,0.07)',  color: '#FF453A' },
-                        ].map(({ label, range, bg, color }) => (
-                          <div key={label} style={{ borderRadius: 10, padding: '8px 9px', background: bg }}>
-                            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color, marginBottom: 3 }}>{label}</p>
-                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontVariantNumeric: 'tabular-nums' }}>{range}</p>
-                          </div>
-                        ))}
+                  ) : (
+                    <>
+                      {/* Action row: mode pill (left) + Regen + Refresh (right) — above band bar */}
+                      <div className="px-4 border-t flex items-center justify-between gap-3"
+                        style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
+                        {hasQuarters ? (
+                          <button onClick={() => setQSheetSymbol(row.symbol)}
+                            className="flex items-center gap-1.5 text-body font-medium flex-shrink-0 rounded-lg"
+                            style={{ padding: '6px 11px', background: 'rgba(120,120,128,0.12)', color: 'var(--text-primary)', border: 'none', cursor: 'pointer' }}>
+                            {qMode === 'bear' ? 'Bear' : qMode === 'bull' ? 'Bull' : 'Normal'}
+                            <ChevronDownIcon className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
+                          </button>
+                        ) : <div />}
+                        <div className="flex items-center gap-4">
+                          <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
+                            className="flex items-center gap-1.5 text-body disabled:opacity-40"
+                            style={{ color: 'var(--accent)' }}>
+                            <RefreshIcon className="w-3.5 h-3.5" />
+                            {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
+                          </button>
+                          <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
+                            className="flex items-center gap-1.5 text-body disabled:opacity-40"
+                            style={{ color: 'var(--accent)' }}>
+                            <SparkleIcon className="w-3.5 h-3.5" />
+                            {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
+                          </button>
+                        </div>
                       </div>
-                      {/* 52W range — Low anchored left, High anchored right */}
-                      {(week52[row.symbol]?.low != null || week52[row.symbol]?.high != null) && (
-                        <div className="flex justify-between mt-3">
-                          <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                            {week52[row.symbol]?.low != null ? `52W Low ${formatPrice(week52[row.symbol].low!)}` : ''}
-                          </p>
-                          <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
-                            {week52[row.symbol]?.high != null ? `52W High ${formatPrice(week52[row.symbol].high!)}` : ''}
-                          </p>
+
+                      {hasBands ? (
+                        <div className="px-4 pt-3 pb-2">
+                          <BandBar
+                            buyLow={buyLow!} buyHigh={buyHigh!}
+                            midLow={midLow!} midHigh={midHigh!}
+                            trimPrice={trimPrice!} cmp={cmp}
+                          />
+                          {/* 52W range */}
+                          {(week52[row.symbol]?.low != null || week52[row.symbol]?.high != null) && (
+                            <div className="flex justify-between mt-3">
+                              <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                                {week52[row.symbol]?.low != null ? `52W Low ${formatPrice(week52[row.symbol].low!)}` : ''}
+                              </p>
+                              <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}>
+                                {week52[row.symbol]?.high != null ? `52W High ${formatPrice(week52[row.symbol].high!)}` : ''}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="px-4 pt-3 pb-2">
+                          <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet — tap Regen Bands to generate</p>
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <div className="px-4 pt-4 pb-2">
-                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>No bands yet — tap Regenerate Bands to generate</p>
-                    </div>
+                      {genError[row.symbol] && (
+                        <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
+                      )}
+                      {genWarning[row.symbol] && (
+                        <p className="px-4 pb-2 text-subheadline text-warning">{genWarning[row.symbol]}</p>
+                      )}
+                    </>
                   )}
-                  {genError[row.symbol] && (
-                    <p className="px-4 pb-2 text-subheadline text-negative">{genError[row.symbol]}</p>
-                  )}
-                  {genWarning[row.symbol] && (
-                    <p className="px-4 pb-2 text-subheadline text-warning">{genWarning[row.symbol]}</p>
-                  )}
-
-                  {/* Action row: quarter pill (left) + Regen Bands + Refresh CMP (right) */}
-                  <div className="px-4 border-t flex items-center justify-between gap-3"
-                    style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
-                    {hasQuarters ? (
-                      <button onClick={() => setQSheetSymbol(row.symbol)}
-                        className="flex items-center gap-1.5 text-body font-medium flex-shrink-0 rounded-lg"
-                        style={{ padding: '6px 11px', background: 'rgba(120,120,128,0.12)', color: 'var(--text-primary)', border: 'none', cursor: 'pointer' }}>
-                        {qMode === 'bear' ? 'Bear' : qMode === 'bull' ? 'Bull' : 'Normal'}
-                        <ChevronDownIcon className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
-                      </button>
-                    ) : <div />}
-                    <div className="flex items-center gap-4">
-                      <button onClick={() => generateBands(row.symbol)} disabled={generating[row.symbol]}
-                        className="flex items-center gap-1.5 text-body disabled:opacity-40"
-                        style={{ color: 'var(--accent)' }}>
-                        <SparkleIcon className="w-3.5 h-3.5" />
-                        {generating[row.symbol] ? 'Generating…' : 'Regen Bands'}
-                      </button>
-                      <button onClick={() => refreshCMP(row.symbol)} disabled={isRefresh}
-                        className="flex items-center gap-1.5 text-body disabled:opacity-40"
-                        style={{ color: 'var(--accent)' }}>
-                        <RefreshIcon className="w-3.5 h-3.5" />
-                        {isRefresh ? 'Refreshing…' : 'Refresh CMP'}
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Tranches */}
                   <TrancheSection
