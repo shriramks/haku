@@ -118,14 +118,28 @@ export default function BandsClient({ rows, bands: initialBands, allocations, in
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  // Fetch fresh 52W low/high for all symbols on mount
+  // Fetch fresh 52W low/high for all symbols on mount and persist to DB
   useEffect(() => {
     if (rows.length === 0) return
     const symbols = rows.map(r => r.symbol).join(',')
     fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols)}`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.week52) setWeek52(data.week52)
+      .then(async (data) => {
+        if (!data?.week52) return
+        setWeek52(data.week52)
+        // Persist so 52W survives page reload — batch fetch only updates local state otherwise
+        const sb = getSupabaseBrowser()
+        await Promise.all(
+          Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
+            .filter(([, v]) => v.low != null || v.high != null)
+            .map(([sym, v]) =>
+              sb.from('buy_bands')
+                .update({ week_52_low: v.low, week_52_high: v.high })
+                .eq('symbol', sym)
+                .eq('is_current', true)
+            )
+        )
+        revalidateBuyBands()
       })
       .catch(() => {})
   }, [rows])
