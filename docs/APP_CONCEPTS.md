@@ -47,20 +47,27 @@ for different purposes. They must never be conflated.
   `remaining = full budget`. The ₹1.5L net proceeds freed up future budget,
   so 0 is correct for planning purposes.
 
-#### `currentCost` — all-time deployed capital (display only)
+#### `currentCost` — what you currently have deployed (display only)
 
-`currentCost = allTimeQty × allTimeAvgCost`
+`currentCost` = the cost of shares you currently hold, computed using the
+**sequential average-cost method**. It is not a simple sum of all buy amounts.
 
-where:
-- `allTimeQty = max(0, allTimeBuys - allTimeSells)` — shares currently held
-- `allTimeAvgCost = totalBuyAmount / totalBuyQty` — average cost across all buys ever
+**How it works — process transactions in date order:**
 
-- Used for: "Invested" column on Allocation screen, "Invested" on Stock Detail
-- Scope: all transactions across all FYs for this stock
-- Natural gate: qty is physically immutable — can't own negative shares.
-  After full exit, qty=0 so currentCost=0 (honest: nothing in market).
-  After new buy post-harvest, qty>0 so currentCost>0 immediately (also honest).
-- No clamping needed — the quantity floor at 0 handles everything.
+- **Buy:** add the buy amount to your running cost basis.
+- **Sell:** a sell retires shares at the current average cost.
+  `costBasis -= soldQty × (costBasis / heldQty)`
+  The remaining shares keep the same per-share cost.
+
+**Why sequential matters — the re-entry problem:**
+
+If you bought ₹3L of CAMS, sold all of it, then re-bought ₹2.42L:
+- Wrong (aggregate): `allTimeAvg = (3L + 2.42L) / allBuyQty = ₹X`, `currentCost = heldQty × X` → inflated, blends old and new buys
+- Correct (sequential): after the full exit, cost basis drops to ₹0. The ₹2.42L re-entry is the only thing that matters. `currentCost = 2.42L` ✓
+
+A sell permanently retires shares and their associated cost. It does not "net against" future buys.
+
+**Scope:** all transactions across all FYs.
 
 #### Why the split matters
 
@@ -68,8 +75,8 @@ where:
 |----------|---------|---------------|----------|
 | Buy ₹1L, hold | ₹1L | ₹1L | ✓ same |
 | Buy ₹1L, sell all ₹2.5L (harvest) | ₹0 | ₹0 | ✓ nothing held |
-| Buy ₹1L, sell ₹2.5L, buy ₹50K | ₹0 (FY net still negative) | ₹50K | ✓ honest about new holding |
-| Buy across 2 FYs | FY2 only | all-time qty × avg | ✓ full picture |
+| Buy ₹1L, sell ₹2.5L, buy ₹75K | ₹0 (FY net still negative) | ₹75K | ✓ shows the live position |
+| Buy ₹3L, sell all, re-buy ₹2.42L | FY net spend | ₹2.42L | ✓ old cost doesn't bleed in |
 
 ---
 

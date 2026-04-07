@@ -334,7 +334,7 @@ describe('computeStockRows — currentCost', () => {
     expect(row.currentCost).toBe(0)
   })
 
-  it('re-buy after full harvest: currentCost reflects new holding', () => {
+  it('re-buy after full harvest: currentCost reflects only the new holding', () => {
     // Buy 100 @ 400, sell all 100 @ 380 (harvest), then buy 50 @ 360
     const allocs = [mkAlloc('ITC', 10)]
     const txns   = [
@@ -343,10 +343,11 @@ describe('computeStockRows — currentCost', () => {
       mkTxn('ITC', 'buy',   50, 360),
     ]
     const [row]  = computeStockRows(allocs, txns, noBands, totalBudget)
-    // allTimeQty = max(0, 150 - 100) = 50
-    // allTimeAvg = (100*400 + 50*360) / 150 = 58000/150 ≈ 386.67
+    // After full exit, cost basis resets to 0.
+    // Re-entry: 50 shares at 360 = 18000. Old buys don't pollute the average.
     expect(row.qty).toBe(50)
-    expect(row.currentCost).toBeCloseTo(50 * (58_000 / 150))
+    expect(row.avgCost).toBe(360)
+    expect(row.currentCost).toBe(50 * 360)
   })
 
   it('uses allTransactions param for currentCost when FY txns differ', () => {

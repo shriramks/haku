@@ -113,16 +113,30 @@ export function computeStockRows(
     const budget    = (alloc.allocation_pct / 100) * totalBudget + carryover
     const remaining = budget - spent
 
-    // All-time holdings at cost — used for "Invested" display only
-    const allTxns       = (allTransactions ?? transactions).filter(t => t.symbol === alloc.symbol)
-    const allBuys       = allTxns.filter(t => t.trade_type === 'buy')
-    const allSells      = allTxns.filter(t => t.trade_type === 'sell')
-    const allBuyQty     = allBuys.reduce((s, t) => s + t.quantity, 0)
-    const allBuyValue   = allBuys.reduce((s, t) => s + t.amount, 0)
-    const allSellQty    = allSells.reduce((s, t) => s + t.quantity, 0)
-    const allTimeQty    = Math.max(0, allBuyQty - allSellQty)
-    const allTimeAvg    = allBuyQty > 0 ? allBuyValue / allBuyQty : 0
-    const currentCost   = allTimeQty * allTimeAvg
+    // All-time holdings at cost — sequential average-cost method.
+    // Process in date order: buys add to cost basis; each sell retires
+    // soldQty × currentAvg from the basis. This correctly resets cost
+    // after a full exit — unlike an aggregate buy/sell split which blends
+    // pre-exit and post-re-entry buys into one wrong average.
+    const allTxns = (allTransactions ?? transactions)
+      .filter(t => t.symbol === alloc.symbol)
+      .slice()
+      .sort((a, b) => a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
+
+    let allTimeQty  = 0
+    let allTimeCost = 0
+    for (const t of allTxns) {
+      if (t.trade_type === 'buy') {
+        allTimeQty  += t.quantity
+        allTimeCost += t.amount
+      } else {
+        const avg    = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
+        allTimeCost  = Math.max(0, allTimeCost - t.quantity * avg)
+        allTimeQty   = Math.max(0, allTimeQty - t.quantity)
+      }
+    }
+    const allTimeAvg  = allTimeQty > 0 ? allTimeCost / allTimeQty : 0
+    const currentCost = allTimeCost
 
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null
