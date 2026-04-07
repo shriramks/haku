@@ -397,7 +397,7 @@ function DetailRow({ label, value, valueColor, muted, prefix }: {
       style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
       <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
       <span
-        className={`text-headline font-semibold tabnum ${valueColor ?? ''}`}
+        className={`text-body tabnum ${valueColor ?? ''}`}
         style={valueColor ? undefined : { color: muted ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {prefix}{value}
       </span>
