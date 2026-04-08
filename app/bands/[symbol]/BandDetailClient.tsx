@@ -252,15 +252,15 @@ export default function BandDetailClient({
       </div>
 
       {/* CMP hero */}
-      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-faint)', padding: '18px 20px 16px' }}>
+      <div style={{ background: 'var(--bg-primary)', padding: '18px 20px 16px' }}>
         <p className="tabnum" style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--text-primary)', lineHeight: 1.1 }}>
           {cmp != null ? formatPrice(cmp) : '—'}
         </p>
         <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-faint)' }}>Current Market Price</p>
       </div>
 
-      {/* Band bar card */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)', padding: '14px 20px' }}>
+      {/* Section 1: Band bar + 52W */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10, padding: '14px 20px' }}>
         <p className="text-footnote font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
           Buy Band
         </p>
@@ -271,7 +271,6 @@ export default function BandDetailClient({
               midLow={midLow!} midHigh={midHigh!}
               trimPrice={trimPrice!} cmp={cmp}
             />
-            {/* 52W */}
             {(week52.low != null || week52.high != null) && (
               <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
                 <div>
@@ -294,10 +293,25 @@ export default function BandDetailClient({
         )}
       </div>
 
-      {/* Mode toggle (quarters) */}
-      {hasQuarters && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)', padding: '10px 20px' }}>
-          <div className="flex items-center gap-2">
+      {/* Section 2: Actions (Refresh CMP, Regen Bands) + Bear/Bull toggle */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <div style={{ minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+          <button onClick={refreshCMP} disabled={refreshing}
+            className="flex items-center gap-1.5 text-body disabled:opacity-40"
+            style={{ color: 'var(--accent)', minHeight: 44 }}>
+            <RefreshIcon className="w-4 h-4" />
+            {refreshing ? 'Refreshing…' : 'Refresh CMP'}
+          </button>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+          <button onClick={generateBands} disabled={generating}
+            className="flex items-center gap-1.5 text-body disabled:opacity-40"
+            style={{ color: 'var(--accent)', minHeight: 44 }}>
+            <SparkleIcon className="w-4 h-4" />
+            {generating ? 'Generating…' : 'Regen Bands'}
+          </button>
+        </div>
+        {hasQuarters && (
+          <div className="flex items-center gap-2 px-5 pb-3 pt-1" style={{ borderTop: '1px solid var(--border-faint)' }}>
             <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)', marginRight: 4 }}>Recent quarters</span>
             {(['bear', 'normal', 'bull'] as const).map(m => (
               <button key={m} onClick={() => {
@@ -309,7 +323,7 @@ export default function BandDetailClient({
               }}
                 className="text-subheadline font-semibold"
                 style={{
-                  padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', minHeight: 32,
                   ...(m === qMode
                     ? m === 'bear'
                       ? { background: 'rgba(255,149,0,0.14)', color: '#C07200' }
@@ -322,12 +336,36 @@ export default function BandDetailClient({
               </button>
             ))}
           </div>
+        )}
+      </div>
+      {genError && <p className="px-5 pt-2 text-subheadline text-negative">{genError}</p>}
+
+      {/* Section 3: Allocation */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <DetailSectionHeader label="Allocation" />
+        <DetailRow label="FY Allocation Left" value={formatINR(fyRemaining)} accent />
+        <DetailRow label="All-Time Allocation Left" value={formatINR(allTimeLeft)} accent />
+      </div>
+
+      {/* Section 4: Position (overall) */}
+      {fyRow && (fyRow.qty > 0 || fyRow.currentCost > 0) && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+          <DetailSectionHeader label="Position" />
+          <DetailRow label="Shares" value={fyRow.qty > 0 ? String(Math.round(fyRow.qty)) : '—'} />
+          <DetailRow label="Avg Cost" value={fyRow.avgCost > 0 ? formatPrice(fyRow.avgCost) : '—'} />
+          <DetailRow label="Current Cost" value={fyRow.currentCost > 0 ? formatINR(fyRow.currentCost) : '—'} />
+          {fyRow.unrealisedPnL != null && fyRow.unrealisedPnL !== 0 && (
+            <DetailRow
+              label="Unrealized P&L"
+              value={`${fyRow.unrealisedPnL >= 0 ? '+' : ''}${formatINR(fyRow.unrealisedPnL)}`}
+            />
+          )}
         </div>
       )}
 
-      {/* Financials */}
+      {/* Section 5: Financials */}
       {financialsRows.length > 0 && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
           <DetailSectionHeader label="Financials">
             <button onClick={() => { /* TODO: open edit sheet */ }}
               className="flex items-center gap-1 text-body"
@@ -341,47 +379,6 @@ export default function BandDetailClient({
           ))}
         </div>
       )}
-
-      {/* Position */}
-      {fyRow && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
-          <DetailSectionHeader label="Position" />
-          <DetailRow label="Shares" value={fyRow.qty > 0 ? String(Math.round(fyRow.qty)) : '—'} />
-          <DetailRow label="Avg Cost" value={fyRow.avgCost > 0 ? formatPrice(fyRow.avgCost) : '—'} />
-          <DetailRow label="Current Cost" value={fyRow.currentCost > 0 ? formatINR(fyRow.currentCost) : '—'} />
-          {fyRow.unrealisedPnL != null && (
-            <DetailRow
-              label="Unrealized P&L"
-              value={`${fyRow.unrealisedPnL >= 0 ? '+' : ''}${formatINR(fyRow.unrealisedPnL)}`}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Allocation */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
-        <DetailSectionHeader label="Allocation" />
-        <DetailRow label="FY Allocation Left" value={formatINR(fyRemaining)} accent />
-        <DetailRow label="All-Time Allocation Left" value={formatINR(allTimeLeft)} accent />
-      </div>
-
-      {/* Actions: Refresh CMP | Regen Bands */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10, borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)', minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
-        <button onClick={refreshCMP} disabled={refreshing}
-          className="flex items-center gap-1.5 text-body disabled:opacity-40"
-          style={{ color: 'var(--accent)' }}>
-          <RefreshIcon className="w-3.5 h-3.5" />
-          {refreshing ? 'Refreshing…' : 'Refresh CMP'}
-        </button>
-        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-        <button onClick={generateBands} disabled={generating}
-          className="flex items-center gap-1.5 text-body disabled:opacity-40"
-          style={{ color: 'var(--accent)' }}>
-          <SparkleIcon className="w-3.5 h-3.5" />
-          {generating ? 'Generating…' : 'Regen Bands'}
-        </button>
-      </div>
-      {genError && <p className="px-5 pt-2 text-subheadline text-negative">{genError}</p>}
 
       {/* View Buy Levels CTA */}
       <div style={{ padding: '20px 20px 0' }}>

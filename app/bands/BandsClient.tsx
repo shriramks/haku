@@ -203,11 +203,11 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
 
       {/* Refresh All CMP strip */}
       <div className="flex items-center justify-end px-4 border-b"
-        style={{ borderColor: 'var(--border-faint)', minHeight: 40 }}>
+        style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
         <button onClick={refreshAllCMP} disabled={refreshingAll}
-          className="flex items-center gap-1.5 text-subheadline disabled:opacity-40"
-          style={{ color: 'var(--accent)' }}>
-          <RefreshIcon className="w-3 h-3" />
+          className="flex items-center gap-1.5 text-body disabled:opacity-40"
+          style={{ color: 'var(--accent)', minHeight: 44, paddingLeft: 8 }}>
+          <RefreshIcon className="w-4 h-4" />
           {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
         </button>
       </div>
