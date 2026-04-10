@@ -345,20 +345,13 @@ export default function StockDetailClient({
       </div>
 
       {/* ── Buy Levels row → sheet ── */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+      <div className="px-4" style={{ marginTop: 10 }}>
         <button
           onClick={() => setShowTranches(true)}
-          className="flex items-center justify-between w-full px-4"
-          style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
-          <span className="text-body" style={{ color: 'var(--text-2)' }}>Buy Levels</span>
-          <div className="flex items-center gap-2">
-            {tranches.length > 0 && (
-              <span className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>
-                {tranches.length} level{tranches.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            <span className="text-body" style={{ color: 'var(--text-faint)' }}>›</span>
-          </div>
+          className="flex items-center justify-center gap-1.5 w-full rounded-2xl text-body font-semibold"
+          style={{ minHeight: 48, background: 'color-mix(in srgb, var(--accent) 20%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', color: 'var(--accent)' }}>
+          Buy Levels
+          <span style={{ opacity: 0.6 }}>›</span>
         </button>
       </div>
 
