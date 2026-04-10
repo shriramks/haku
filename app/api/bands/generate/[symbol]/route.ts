@@ -8,24 +8,51 @@ import type { StockCategory } from '@/lib/types'
 
 // ── AI provider helpers ───────────────────────────────────────────────────────
 
+// Model preference order — tried in sequence until one succeeds
+const GEMINI_MODELS = [
+  'gemini-2.5-flash-preview-05-20',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+]
+
 async function callGemini(prompt: string, key: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        tools: [{ google_search: {} }],
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      }),
+  let lastErr: Error = new Error('No Gemini models available')
+
+  for (const model of GEMINI_MODELS) {
+    let res: Response
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify({
+            tools: [{ google_search: {} }],
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          }),
+          signal: AbortSignal.timeout(45_000),
+        }
+      )
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e))
+      continue  // network/timeout — try next model
     }
-  )
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
-  const data = await res.json()
-  const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? []
-  // Gemini 2.5 Flash returns thought parts first; skip them to get the actual response
-  const textParts = parts.filter(p => p.text && !p.thought)
-  return (textParts.map(p => p.text).join('') || parts[0]?.text) ?? ''
+
+    if (res.status === 503 || res.status === 429) {
+      lastErr = new Error(`Gemini ${res.status}: ${await res.text()}`)
+      continue  // capacity/rate-limit — try next model
+    }
+
+    if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
+
+    const data = await res.json()
+    const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? []
+    // Filter out thought parts returned by reasoning models (e.g. 2.5 Flash)
+    const textParts = parts.filter(p => p.text && !p.thought)
+    return (textParts.map(p => p.text).join('') || parts[0]?.text) ?? ''
+  }
+
+  throw new Error(`Gemini fetch failed: ${lastErr.message}`)
 }
 
 async function callClaude(prompt: string, key: string): Promise<string> {
