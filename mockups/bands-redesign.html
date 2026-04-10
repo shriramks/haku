@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buy Bands — Redesign Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; padding: 32px 16px; }
+
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #888; margin: 40px 0 12px; }
+  h2:first-of-type { margin-top: 0; }
+  .note { font-size: 13px; color: #666; margin-bottom: 16px; line-height: 1.5; }
+
+  /* Phone frame */
+  .phone { width: 375px; background: #1C1C1E; border-radius: 20px; overflow: hidden; border: 1px solid #2C2C2E; margin-bottom: 8px; }
+
+  /* Tokens */
+  --bg1: #1C1C1E;
+  --bg2: #2C2C2E;
+  --bg3: #3A3A3C;
+  --border: #3A3A3C;
+  --border-faint: #2C2C2E;
+  --text1: #fff;
+  --text2: rgba(255,255,255,.65);
+  --muted: rgba(255,255,255,.4);
+  --faint: rgba(255,255,255,.25);
+  --accent: #0A84FF;
+  --positive: #30D158;
+  --negative: #FF453A;
+  --warn: #FF9F0A;
+
+  /* Header */
+  .header {
+    padding: 52px 16px 12px;
+    background: rgba(28,28,30,.92);
+    border-bottom: 1px solid #2C2C2E;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-title { font-size: 28px; font-weight: 700; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .fy-pill { font-size: 14px; font-weight: 600; color: #0A84FF; background: rgba(10,132,255,.12); padding: 5px 10px; border-radius: 20px; border: 1px solid rgba(10,132,255,.2); }
+
+  /* Section header */
+  .section-label {
+    padding: 10px 16px 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: rgba(255,255,255,.35);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .section-count {
+    font-size: 11px; font-weight: 600;
+    background: rgba(255,255,255,.1); color: rgba(255,255,255,.5);
+    border-radius: 10px; padding: 1px 6px;
+  }
+  .section-count.deep { background: rgba(48,209,88,.15); color: #30D158; }
+  .section-count.buy  { background: rgba(52,199,89,.12); color: #34C759; }
+
+  /* Collapsed row */
+  .row { border-bottom: 1px solid #2C2C2E; }
+  .row-collapsed {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; min-height: 60px; cursor: pointer;
+  }
+  .ticker { font-size: 16px; font-weight: 700; min-width: 64px; flex-shrink: 0; }
+  .signal-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .03em;
+    padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
+  }
+  .sig-deep  { color: #30D158; background: rgba(48,209,88,.12); }
+  .sig-buy   { color: #34C759; background: rgba(52,199,89,.10); }
+  .sig-hold  { color: #FF9F0A; background: rgba(255,159,10,.10); }
+  .sig-trim  { color: #FF453A; background: rgba(255,69,58,.10); }
+  .sig-none  { color: rgba(255,255,255,.35); background: rgba(255,255,255,.06); }
+
+  .mini-bar-wrap { flex: 1; min-width: 0; }
+  .mini-bar { height: 6px; border-radius: 3px; display: flex; gap: 1px; overflow: hidden; position: relative; }
+  .mini-bar-d { background: #30D158; opacity: .7; }
+  .mini-bar-b { background: #34C759; }
+  .mini-bar-h { background: #FF9F0A; }
+  .mini-bar-t { background: #FF453A; opacity: .65; }
+  .cmp-pin {
+    position: absolute; top: -3px; height: 12px; width: 2px; border-radius: 1px;
+    background: #fff; transform: translateX(-50%);
+  }
+  .row-cmp { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; color: #fff; text-align: right; }
+  .row-remaining { font-size: 12px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.45); flex-shrink: 0; text-align: right; }
+  .chevron { color: rgba(255,255,255,.3); flex-shrink: 0; width: 16px; height: 16px; }
+
+  /* Expanded content */
+  .row-expanded {
+    border-top: 1px solid #2C2C2E;
+    padding: 14px 16px 0;
+  }
+
+  /* Full band bar */
+  .band-bar-wrap { position: relative; margin-bottom: 4px; }
+  .band-bar { height: 10px; border-radius: 5px; display: flex; gap: 1.5px; overflow: hidden; }
+  .band-bar-d { background: #30D158; flex: 12; opacity: .75; }
+  .band-bar-b { background: #34C759; flex: 15; }
+  .band-bar-h { background: #FF9F0A; flex: 20; }
+  .band-bar-t { background: #FF453A; flex: 8; opacity: .65; }
+  .cmp-pin-lg {
+    position: absolute; top: -4px; height: 18px; width: 3px; border-radius: 2px;
+    background: #fff; transform: translateX(-50%); box-shadow: 0 0 4px rgba(0,0,0,.5);
+  }
+
+  /* Price labels */
+  .price-labels { display: flex; justify-content: space-between; margin-top: 6px; margin-bottom: 2px; }
+  .price-label { font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.4); }
+
+  /* Zone labels row */
+  .zone-labels { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
+  .zone-tag { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 12px; display: flex; align-items: center; gap: 3px; }
+  .zone-tag-deep { color: #30D158; background: rgba(48,209,88,.1); }
+  .zone-tag-buy  { color: #34C759; background: rgba(52,199,89,.08); }
+  .zone-tag-hold { color: #FF9F0A; background: rgba(255,159,10,.08); }
+  .zone-tag-trim { color: #FF453A; background: rgba(255,69,58,.08); }
+  .zone-range { font-size: 11px; font-variant-numeric: tabular-nums; color: inherit; opacity: .75; }
+
+  /* 52W */
+  .week52-row { display: flex; justify-content: space-between; margin: 6px 0 10px; }
+  .week52-val { font-size: 11px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.35); }
+
+  /* Action row — mode left, ops right */
+  .action-row {
+    border-top: 1px solid #2C2C2E;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0; min-height: 44px;
+  }
+  .mode-pill {
+    font-size: 13px; font-weight: 600;
+    padding: 5px 11px; border-radius: 20px;
+    background: rgba(120,120,128,.15); color: rgba(255,255,255,.8);
+    border: none; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  }
+  .mode-pill.bear { color: #FF9F0A; background: rgba(255,159,10,.1); }
+  .mode-pill.bull { color: #30D158; background: rgba(48,209,88,.1); }
+  .ops { display: flex; align-items: center; gap: 16px; }
+  .op-btn {
+    font-size: 13px; color: #0A84FF; background: none; border: none;
+    cursor: pointer; display: flex; align-items: center; gap: 4px; min-height: 44px;
+  }
+
+  /* Tranches — compact */
+  .tranches-section { padding: 10px 0 12px; }
+  .tranches-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .tranches-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.35); }
+  .tranches-actions { display: flex; align-items: center; gap: 14px; }
+  .t-action { font-size: 13px; color: #0A84FF; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 3px; }
+  .t-action.destructive { color: rgba(255,255,255,.3); }
+
+  .tranche-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+  .tranche-price { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tranche-meta { font-size: 12px; color: rgba(255,255,255,.45); font-variant-numeric: tabular-nums; }
+  .tranche-amt { font-size: 13px; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.7); text-align: right; }
+  .tranche-qty { font-size: 12px; color: rgba(255,255,255,.4); text-align: right; }
+
+  /* No bands state */
+  .no-bands {
+    padding: 14px 0;
+    font-size: 14px; color: rgba(255,255,255,.4);
+  }
+
+  /* Divider */
+  .section-divider { height: 1px; background: #2C2C2E; margin: 4px 0; }
+
+  /* Option B — no signal grouping, but stronger collapsed row */
+  .optb-note { font-size: 12px; color: #666; font-style: italic; margin-bottom: 4px; }
+
+  /* Summary strip (optional) */
+  .summary-strip {
+    padding: 10px 16px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid #2C2C2E;
+    display: flex; gap: 20px; align-items: center;
+  }
+  .strip-item { display: flex; flex-direction: column; gap: 2px; }
+  .strip-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .strip-lbl { font-size: 11px; color: rgba(255,255,255,.4); }
+
+  svg { display: inline; }
+</style>
+</head>
+<body>
+
+<h2>Option A — Signal-grouped, info in collapsed row</h2>
+<p class="note">
+  Key ideas: stocks grouped by signal (Deep first = buy now), signal badge visible on collapsed row,
+  remaining budget shown inline, zone prices visible in expanded, mode pill clearly separated from action ops.
+</p>
+
+<div class="phone">
+  <!-- Header -->
+  <div class="header">
+    <span class="header-title">Buy Bands</span>
+    <div class="header-right">
+      <span class="fy-pill">FY26 ▾</span>
+      <!-- user icon placeholder -->
+      <div style="width:32px;height:32px;border-radius:50%;background:#3A3A3C;display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deep section -->
+  <div class="section-label">
+    Deep Value
+    <span class="section-count deep">1</span>
+  </div>
+
+  <!-- CAMS — expanded example -->
+  <div class="row">
+    <div class="row-collapsed" style="background:rgba(48,209,88,.04);">
+      <span class="ticker">CAMS</span>
+      <span class="signal-badge sig-deep">Deep</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:8%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#30D158;">₹807</div>
+        <div class="row-remaining">₹2.9L left</div>
+      </div>
+      <svg class="chevron" style="transform:rotate(180deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+
+    <!-- Expanded -->
+    <div class="row-expanded">
+      <!-- Band bar -->
+      <div class="band-bar-wrap">
+        <div class="band-bar">
+          <div class="band-bar-d"></div>
+          <div class="band-bar-b"></div>
+          <div class="band-bar-h"></div>
+          <div class="band-bar-t"></div>
+        </div>
+        <div class="cmp-pin-lg" style="left:13%;"></div>
+      </div>
+
+      <!-- Zone tags with ranges -->
+      <div class="zone-labels">
+        <span class="zone-tag zone-tag-deep">Deep <span class="zone-range">&lt;₹840</span></span>
+        <span class="zone-tag zone-tag-buy">Buy <span class="zone-range">₹840–₹1,010</span></span>
+        <span class="zone-tag zone-tag-hold">Hold <span class="zone-range">₹1,010–₹1,345</span></span>
+        <span class="zone-tag zone-tag-trim">Trim <span class="zone-range">&gt;₹1,345</span></span>
+      </div>
+
+      <!-- 52W range -->
+      <div class="week52-row">
+        <span class="week52-val">52W Low ₹680</span>
+        <span class="week52-val">52W High ₹1,230</span>
+      </div>
+
+      <!-- Action row: mode (left) + ops (right) -->
+      <div class="action-row">
+        <button class="mode-pill bear">
+          Bear
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="ops">
+          <button class="op-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+            Refresh
+          </button>
+          <button class="op-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l.5 1.4a7 7 0 0 1 .5 1.6l.3.9.9-.3a7 7 0 0 1 1.6-.2 3 3 0 0 1 2.7 1.7l.3.7-.5.6A7 7 0 0 1 17 10a6.9 6.9 0 0 1-.5 2.6l-.3.8.7.5a3 3 0 0 1 .1 4.6l-.5.5-.7-.3a7 7 0 0 1-2.4-.4 7.1 7.1 0 0 1-1.4 3.4l-.4.6-.6-.4A7 7 0 0 1 9 20.7a7 7 0 0 1-2.4-2.5l-.4-.7.6-.5a3 3 0 0 1 .1-4.5l.7-.5-.3-.8A6.9 6.9 0 0 1 7 9c-.2-.9-.1-1.8.2-2.6l.3-.8.9.2a3 3 0 0 1 2.7-1.7c.5 0 1 .1 1.4.3l.5-.9Z"/></svg>
+            Regen
+          </button>
+        </div>
+      </div>
+
+      <!-- Tranches section -->
+      <div class="tranches-section" style="border-top:1px solid #2C2C2E;">
+        <div class="tranches-header" style="padding-top:10px;">
+          <span class="tranches-label">Tranches</span>
+          <div class="tranches-actions">
+            <button class="t-action">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Add
+            </button>
+            <button class="t-action">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l.5 1.4a7 7 0 0 1 .5 1.6l.3.9.9-.3a7 7 0 0 1 1.6-.2 3 3 0 0 1 2.7 1.7l.3.7-.5.6A7 7 0 0 1 17 10a6.9 6.9 0 0 1-.5 2.6l-.3.8.7.5a3 3 0 0 1 .1 4.6l-.5.5-.7-.3a7 7 0 0 1-2.4-.4 7.1 7.1 0 0 1-1.4 3.4l-.4.6-.6-.4A7 7 0 0 1 9 20.7a7 7 0 0 1-2.4-2.5l-.4-.7.6-.5a3 3 0 0 1 .1-4.5l.7-.5-.3-.8A6.9 6.9 0 0 1 7 9c-.2-.9-.1-1.8.2-2.6l.3-.8.9.2a3 3 0 0 1 2.7-1.7c.5 0 1 .1 1.4.3l.5-.9Z"/></svg>
+              Generate
+            </button>
+            <button class="t-action destructive">Clear</button>
+          </div>
+        </div>
+        <div class="tranche-row">
+          <div>
+            <div class="tranche-price">₹810</div>
+            <div class="tranche-meta">120 shares</div>
+          </div>
+          <div>
+            <div class="tranche-amt">₹97.2K</div>
+          </div>
+        </div>
+        <div style="height:1px;background:#2C2C2E;"></div>
+        <div class="tranche-row">
+          <div>
+            <div class="tranche-price">₹770</div>
+            <div class="tranche-meta">127 shares</div>
+          </div>
+          <div>
+            <div class="tranche-amt">₹97.8K</div>
+          </div>
+        </div>
+        <div style="height:1px;background:#2C2C2E;"></div>
+        <div class="tranche-row">
+          <div>
+            <div class="tranche-price">₹725</div>
+            <div class="tranche-meta">135 shares</div>
+          </div>
+          <div>
+            <div class="tranche-amt">₹97.9K</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buy section header -->
+  <div class="section-label" style="margin-top:4px;">
+    Buy Zone
+    <span class="section-count buy">2</span>
+  </div>
+
+  <!-- ITC — collapsed -->
+  <div class="row">
+    <div class="row-collapsed">
+      <span class="ticker">ITC</span>
+      <span class="signal-badge sig-buy">Buy</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:16%;"></div>
+          <div class="mini-bar-b" style="width:22%;"></div>
+          <div class="mini-bar-h" style="width:30%;"></div>
+          <div class="mini-bar-t" style="width:32%;"></div>
+          <div class="cmp-pin" style="left:22%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#34C759;">₹262</div>
+        <div class="row-remaining">₹75K left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- INFY — collapsed -->
+  <div class="row">
+    <div class="row-collapsed">
+      <span class="ticker">INFY</span>
+      <span class="signal-badge sig-buy">Buy</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:18%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#34C759;">₹1,340</div>
+        <div class="row-remaining">₹1.2L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- Hold section -->
+  <div class="section-label" style="margin-top:4px;">
+    Hold / Above Zone
+    <span class="section-count" style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.35);">3</span>
+  </div>
+
+  <!-- HDFC — collapsed, dimmed -->
+  <div class="row" style="opacity:.55;">
+    <div class="row-collapsed">
+      <span class="ticker">HDFC</span>
+      <span class="signal-badge sig-hold">Hold</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:43%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp">₹1,870</div>
+        <div class="row-remaining">₹3.1L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- TCS — no bands -->
+  <div class="row" style="opacity:.45;">
+    <div class="row-collapsed">
+      <span class="ticker">TCS</span>
+      <span class="signal-badge sig-none">—</span>
+      <div class="mini-bar-wrap">
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);"></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:rgba(255,255,255,.3);">No CMP</div>
+        <div class="row-remaining">₹2.4L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+
+
+<h2>Option B — Same rows, but no grouping; signal badge + remaining always visible</h2>
+<p class="note">
+  Simpler variant — no section headers, just alphabetical or remaining-descending order.
+  Signal badge + remaining in collapsed row gives enough scan ability.
+  Fewer moving parts, easier to implement.
+</p>
+
+<div class="phone">
+  <div class="header">
+    <span class="header-title">Buy Bands</span>
+    <div class="header-right">
+      <span class="fy-pill">FY26 ▾</span>
+      <div style="width:32px;height:32px;border-radius:50%;background:#3A3A3C;display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMS deep -->
+  <div class="row">
+    <div class="row-collapsed" style="background:rgba(48,209,88,.03);">
+      <span class="ticker">CAMS</span>
+      <span class="signal-badge sig-deep">Deep</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:8%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#30D158;">₹807</div>
+        <div class="row-remaining">₹2.9L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- HDFC hold -->
+  <div class="row" style="opacity:.6;">
+    <div class="row-collapsed">
+      <span class="ticker">HDFC</span>
+      <span class="signal-badge sig-hold">Hold</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:43%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp">₹1,870</div>
+        <div class="row-remaining">₹3.1L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- ITC buy -->
+  <div class="row">
+    <div class="row-collapsed">
+      <span class="ticker">ITC</span>
+      <span class="signal-badge sig-buy">Buy</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:16%;"></div>
+          <div class="mini-bar-b" style="width:22%;"></div>
+          <div class="mini-bar-h" style="width:30%;"></div>
+          <div class="mini-bar-t" style="width:32%;"></div>
+          <div class="cmp-pin" style="left:22%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#34C759;">₹262</div>
+        <div class="row-remaining">₹75K left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <!-- TCS no bands -->
+  <div class="row" style="opacity:.45;">
+    <div class="row-collapsed">
+      <span class="ticker">TCS</span>
+      <span class="signal-badge sig-none">—</span>
+      <div class="mini-bar-wrap">
+        <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.08);"></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:rgba(255,255,255,.3);">No CMP</div>
+        <div class="row-remaining">₹2.4L left</div>
+      </div>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+
+
+<h2>Expanded detail — Option A (zone price tags variant)</h2>
+<p class="note">
+  Alternative for the expanded band area: instead of zone-tags below the bar,
+  show a small 4-column price grid. More scannable as a reference card.
+</p>
+
+<div class="phone">
+  <div class="header">
+    <span class="header-title">Buy Bands</span>
+    <div class="header-right"><span class="fy-pill">FY26 ▾</span></div>
+  </div>
+
+  <div class="row">
+    <div class="row-collapsed" style="background:rgba(48,209,88,.04);">
+      <span class="ticker">CAMS</span>
+      <span class="signal-badge sig-deep">Deep</span>
+      <div class="mini-bar-wrap">
+        <div class="mini-bar" style="position:relative;">
+          <div class="mini-bar-d" style="width:14%;"></div>
+          <div class="mini-bar-b" style="width:20%;"></div>
+          <div class="mini-bar-h" style="width:28%;"></div>
+          <div class="mini-bar-t" style="width:38%;"></div>
+          <div class="cmp-pin" style="left:8%;"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="row-cmp" style="color:#30D158;">₹807</div>
+        <div class="row-remaining">₹2.9L left</div>
+      </div>
+      <svg class="chevron" style="transform:rotate(180deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+
+    <div class="row-expanded">
+      <div class="band-bar-wrap">
+        <div class="band-bar">
+          <div class="band-bar-d"></div>
+          <div class="band-bar-b"></div>
+          <div class="band-bar-h"></div>
+          <div class="band-bar-t"></div>
+        </div>
+        <div class="cmp-pin-lg" style="left:13%;"></div>
+      </div>
+
+      <!-- 4-column price grid -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin:10px 0 4px;">
+        <div style="background:rgba(48,209,88,.08);border-radius:8px;padding:7px 8px;">
+          <div style="font-size:10px;color:#30D158;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">DEEP</div>
+          <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);">&lt;₹840</div>
+        </div>
+        <div style="background:rgba(52,199,89,.07);border-radius:8px;padding:7px 8px;">
+          <div style="font-size:10px;color:#34C759;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">BUY</div>
+          <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);">₹840–₹1,010</div>
+        </div>
+        <div style="background:rgba(255,159,10,.07);border-radius:8px;padding:7px 8px;">
+          <div style="font-size:10px;color:#FF9F0A;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">HOLD</div>
+          <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);">₹1,010–₹1,345</div>
+        </div>
+        <div style="background:rgba(255,69,58,.07);border-radius:8px;padding:7px 8px;">
+          <div style="font-size:10px;color:#FF453A;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">TRIM</div>
+          <div style="font-size:12px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);">&gt;₹1,345</div>
+        </div>
+      </div>
+
+      <div class="week52-row">
+        <span class="week52-val">52W Low ₹680</span>
+        <span class="week52-val">52W High ₹1,230</span>
+      </div>
+
+      <div class="action-row">
+        <button class="mode-pill bear">Bear <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="ops">
+          <button class="op-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+            Refresh
+          </button>
+          <button class="op-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l.5 1.4a7 7 0 0 1 .5 1.6l.3.9.9-.3a7 7 0 0 1 1.6-.2 3 3 0 0 1 2.7 1.7l.3.7-.5.6A7 7 0 0 1 17 10a6.9 6.9 0 0 1-.5 2.6l-.3.8.7.5a3 3 0 0 1 .1 4.6l-.5.5-.7-.3a7 7 0 0 1-2.4-.4 7.1 7.1 0 0 1-1.4 3.4l-.4.6-.6-.4A7 7 0 0 1 9 20.7a7 7 0 0 1-2.4-2.5l-.4-.7.6-.5a3 3 0 0 1 .1-4.5l.7-.5-.3-.8A6.9 6.9 0 0 1 7 9c-.2-.9-.1-1.8.2-2.6l.3-.8.9.2a3 3 0 0 1 2.7-1.7c.5 0 1 .1 1.4.3l.5-.9Z"/></svg>
+            Regen
+          </button>
+        </div>
+      </div>
+
+      <div class="tranches-section" style="border-top:1px solid #2C2C2E;">
+        <div class="tranches-header" style="padding-top:10px;">
+          <span class="tranches-label">Tranches</span>
+          <div class="tranches-actions">
+            <button class="t-action">+ Add</button>
+            <button class="t-action">✦ Generate</button>
+            <button class="t-action destructive">Clear</button>
+          </div>
+        </div>
+        <div class="tranche-row">
+          <div><div class="tranche-price">₹810</div><div class="tranche-meta">120 sh</div></div>
+          <div style="text-align:right;"><div class="tranche-amt">₹97.2K</div></div>
+        </div>
+        <div style="height:1px;background:#2C2C2E;"></div>
+        <div class="tranche-row">
+          <div><div class="tranche-price">₹770</div><div class="tranche-meta">127 sh</div></div>
+          <div style="text-align:right;"><div class="tranche-amt">₹97.8K</div></div>
+        </div>
+        <div style="height:1px;background:#2C2C2E;"></div>
+        <div class="tranche-row">
+          <div><div class="tranche-price">₹725</div><div class="tranche-meta">135 sh</div></div>
+          <div style="text-align:right;"><div class="tranche-amt">₹97.9K</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:80px;"></div>
+</div>
+
+<div style="height:60px;"></div>
+</body>
+</html>

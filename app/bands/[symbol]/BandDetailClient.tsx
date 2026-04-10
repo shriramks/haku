@@ -258,7 +258,7 @@ export default function BandDetailClient({
         </button>
         <button onClick={refreshCMP} disabled={refreshing}
           className="flex items-center gap-1.5 disabled:opacity-40"
-          style={{ color: 'var(--text-muted)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing…' : 'Refresh CMP'}
         </button>

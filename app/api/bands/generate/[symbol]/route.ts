@@ -10,8 +10,8 @@ import type { StockCategory } from '@/lib/types'
 
 // Model preference order — tried in sequence until one succeeds
 const GEMINI_MODELS = [
-  'gemini-3-flash-preview',
-  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
 ]
 
 async function callGemini(prompt: string, key: string): Promise<string> {
@@ -37,9 +37,9 @@ async function callGemini(prompt: string, key: string): Promise<string> {
       continue  // network/timeout — try next model
     }
 
-    if (res.status === 503 || res.status === 429) {
+    if (res.status === 503 || res.status === 429 || res.status === 404) {
       lastErr = new Error(`Gemini ${res.status}: ${await res.text()}`)
-      continue  // capacity/rate-limit — try next model
+      continue  // capacity/rate-limit/unavailable — try next model
     }
 
     if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
