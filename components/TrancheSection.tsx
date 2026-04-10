@@ -6,7 +6,7 @@ import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
   symbol, tranches, remaining, budget, hasBands, cmp,
-  onAdd, onDelete, onUpdate, onGenerate, onClear, generating,
+  onAdd, onDelete, onUpdate, onGenerate, onClear, generating, hideHeader,
 }: {
   symbol: string
   tranches: BuyTranche[]
@@ -20,6 +20,7 @@ export default function TrancheSection({
   onGenerate: () => void
   onClear: () => Promise<void>
   generating: boolean
+  hideHeader?: boolean
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
@@ -27,14 +28,21 @@ export default function TrancheSection({
   return (
     <div style={{ padding: '6px 0 4px 0' }}>
       {/* Label + available amount */}
-      <div className="px-4 mb-3">
-        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Buy levels</p>
-        {plannedTotal > 0 && (
-          <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
-            {formatINR(remaining - plannedTotal)} available after planned tranches
-          </p>
-        )}
-      </div>
+      {!hideHeader && (
+        <div className="px-4 mb-3">
+          <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Buy levels</p>
+          {plannedTotal > 0 && (
+            <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+              {formatINR(remaining - plannedTotal)} available after planned tranches
+            </p>
+          )}
+        </div>
+      )}
+      {hideHeader && plannedTotal > 0 && (
+        <p className="px-4 mb-3 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+          {symbol} · {formatINR(remaining - plannedTotal)} remaining after tranches
+        </p>
+      )}
       {/* Actions — tinted accent buttons (less heavy than solid fill) */}
       <div className="flex gap-2.5 px-4 pb-3 pt-1">
         <button
@@ -65,29 +73,35 @@ export default function TrancheSection({
       )}
 
       {/* Tranche list */}
-      <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+      <div>
         {editingId === 'new' && (
-          <TrancheInputRow
-            maxAmount={remaining - plannedTotal}
-            onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
-            onCancel={() => setEditingId(null)}
-          />
+          <div style={{ borderTop: '1px solid var(--border-faint)' }}>
+            <TrancheInputRow
+              maxAmount={remaining - plannedTotal}
+              onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
+              onCancel={() => setEditingId(null)}
+            />
+          </div>
         )}
-        {tranches.map(t =>
-          editingId === t.id
-            ? <TrancheInputRow
-                key={t.id}
-                initialQty={String(Math.round(t.qty))}
-                initialPrice={String(t.price)}
-                maxAmount={remaining - plannedTotal + t.qty * t.price}
-                onSave={async (qty, price) => { await onUpdate(t.id, qty, price); setEditingId(null) }}
-                onDelete={() => { onDelete(t.id); setEditingId(null) }}
-                onCancel={() => setEditingId(null)}
-              />
-            : <TrancheRow key={t.id} tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
-        )}
+        {tranches.map(t => (
+          <div key={t.id} style={{ borderTop: '1px solid var(--border-faint)' }}>
+            {editingId === t.id
+              ? <TrancheInputRow
+                  initialQty={String(Math.round(t.qty))}
+                  initialPrice={String(t.price)}
+                  maxAmount={remaining - plannedTotal + t.qty * t.price}
+                  onSave={async (qty, price) => { await onUpdate(t.id, qty, price); setEditingId(null) }}
+                  onDelete={() => { onDelete(t.id); setEditingId(null) }}
+                  onCancel={() => setEditingId(null)}
+                />
+              : <TrancheRow tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+            }
+          </div>
+        ))}
         {tranches.length === 0 && editingId !== 'new' && (
-          <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No levels yet — tap Generate</p>
+          <p className="px-4 py-3 text-subheadline" style={{ borderTop: '1px solid var(--border-faint)', color: 'var(--text-faint)' }}>
+            No levels yet — tap Generate
+          </p>
         )}
       </div>
     </div>

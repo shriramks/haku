@@ -207,7 +207,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
         <button onClick={refreshAllCMP} disabled={refreshingAll}
           className="flex items-center gap-1.5 text-body disabled:opacity-40"
           style={{ color: 'var(--accent)', minHeight: 44, paddingLeft: 8 }}>
-          <RefreshIcon className="w-4 h-4" />
+          <RefreshIcon className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
           {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
         </button>
       </div>

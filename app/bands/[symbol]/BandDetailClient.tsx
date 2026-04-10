@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
 import { getBandSignal } from '@/lib/compute'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear, StockRow } from '@/lib/types'
@@ -52,6 +52,8 @@ export default function BandDetailClient({
   const [aiProvider, setAiProvider]         = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
   const [showQInfo, setShowQInfo]           = useState(false)
+  const [showFinancials, setShowFinancials] = useState(false)
+  const [showTranches, setShowTranches]     = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -223,23 +225,6 @@ export default function BandDetailClient({
   const fyLabel = selectedFY?.label
   const backHref = fyLabel ? `/bands?fy=${encodeURIComponent(fyLabel)}` : '/bands'
 
-  // Financials display based on anchor type
-  const financialsRows: { label: string; value: string }[] = []
-  if (band) {
-    financialsRows.push({ label: 'Anchor', value: band.anchor_type.replace('_', '/') })
-    if (band.anchor_type === 'PE' && band.eps != null)
-      financialsRows.push({ label: 'EPS', value: formatPrice(band.eps) })
-    if (band.anchor_type === 'PB' && band.bvps != null)
-      financialsRows.push({ label: 'BVPS', value: formatPrice(band.bvps) })
-    if (band.anchor_type === 'EV_EBITDA') {
-      if (band.ebitda != null) financialsRows.push({ label: 'EBITDA', value: formatINR(band.ebitda) })
-      if (band.net_debt != null) financialsRows.push({ label: 'Net Debt', value: formatINR(band.net_debt) })
-      if (band.shares != null) financialsRows.push({ label: 'Shares (Cr)', value: String(band.shares) })
-    }
-    if (band.anchor_type === 'P_EV' && band.embedded_value != null)
-      financialsRows.push({ label: 'Embedded Value', value: formatINR(band.embedded_value) })
-  }
-
   return (
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
@@ -262,9 +247,15 @@ export default function BandDetailClient({
         </div>
       </div>
 
-      {/* ── Refresh CMP strip ── */}
-      <div className="flex items-center justify-end border-b px-4"
+      {/* ── CMP / Regen strip ── */}
+      <div className="flex items-center justify-between border-b px-4 gap-2"
         style={{ borderColor: 'var(--border-faint)', minHeight: 40, background: 'var(--bg-primary)' }}>
+        <button onClick={generateBands} disabled={generating}
+          className="flex items-center gap-1.5 disabled:opacity-40"
+          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
+          {generating ? 'Generating…' : 'Regen Bands'}
+        </button>
         <button onClick={refreshCMP} disabled={refreshing}
           className="flex items-center gap-1.5 disabled:opacity-40"
           style={{ color: 'var(--text-muted)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
@@ -350,47 +341,33 @@ export default function BandDetailClient({
         </div>
       )}
 
-      {/* ── Financials ── */}
-      {(financialsRows.length > 0 || !band) && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-          <SectionHeader label="Financials">
-            <div style={{ display: 'flex', gap: 16 }}>
-              <button onClick={generateBands} disabled={generating}
-                className="flex items-center gap-1 text-body disabled:opacity-40"
-                style={{ color: 'var(--accent)', minHeight: 36 }}>
-                <SparkleIcon className="w-3.5 h-3.5" />
-                {generating ? 'Generating…' : 'Regen'}
-              </button>
-            </div>
-          </SectionHeader>
-          {financialsRows.map(r => (
-            <DetailRow key={r.label} label={r.label} value={r.value} />
-          ))}
-          {financialsRows.length === 0 && (
-            <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
-              No financials — tap Regen to generate bands
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Buy Levels (inline) ── */}
+      {/* ── Financials row → sheet ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        <SectionHeader label="Buy Levels" />
-        <TrancheSection
-          symbol={symbol}
-          tranches={tranches}
-          remaining={fyRemaining}
-          budget={fyRow?.budget ?? 0}
-          hasBands={hasBands}
-          cmp={cmp}
-          onAdd={(_sym, qty, price) => addTranche(qty, price)}
-          onDelete={deleteTranche}
-          onUpdate={updateTranche}
-          onGenerate={generateTranches}
-          onClear={clearAllTranches}
-          generating={generatingTranches}
-        />
+        <button
+          onClick={() => setShowFinancials(true)}
+          className="flex items-center justify-between w-full px-4"
+          style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>Financials</span>
+          <span className="text-body text-accent">Edit ›</span>
+        </button>
+      </div>
+
+      {/* ── Buy Levels row → sheet ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <button
+          onClick={() => setShowTranches(true)}
+          className="flex items-center justify-between w-full px-4"
+          style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>Buy Levels</span>
+          <div className="flex items-center gap-2">
+            {tranches.length > 0 && (
+              <span className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>
+                {tranches.length} level{tranches.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            <span className="text-body" style={{ color: 'var(--text-faint)' }}>›</span>
+          </div>
+        </button>
       </div>
 
       {/* ── Sheets ── */}
@@ -402,6 +379,36 @@ export default function BandDetailClient({
         />
       )}
       {showQInfo && <QuartersInfoSheet onClose={() => setShowQInfo(false)} />}
+      {showFinancials && (
+        <FinancialsSheet
+          symbol={symbol}
+          band={band}
+          allocation={allocation}
+          fyId={fyId}
+          generating={generating}
+          genError={genError}
+          onGenerate={generateBands}
+          onBandSaved={b => setBand(b)}
+          onClose={() => setShowFinancials(false)}
+        />
+      )}
+      {showTranches && (
+        <TranchesSheet
+          symbol={symbol}
+          tranches={tranches}
+          remaining={fyRemaining}
+          budget={fyRow?.budget ?? 0}
+          hasBands={hasBands}
+          cmp={cmp}
+          generating={generatingTranches}
+          onAdd={(_sym, qty, price) => addTranche(qty, price)}
+          onDelete={deleteTranche}
+          onUpdate={updateTranche}
+          onGenerate={generateTranches}
+          onClear={clearAllTranches}
+          onClose={() => setShowTranches(false)}
+        />
+      )}
     </div>
   )
 }
@@ -435,6 +442,211 @@ function DetailRow({ label, value, bold, muted, color }: {
         {value}
       </span>
     </div>
+  )
+}
+
+// ── Financials Sheet ─────────────────────────────────────────────────────────
+
+function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError, onGenerate, onBandSaved, onClose }: {
+  symbol: string
+  band: BuyBand | null
+  allocation: StockAllocation | null
+  fyId: string
+  generating: boolean
+  genError: string
+  onGenerate: () => void
+  onBandSaved: (b: BuyBand) => void
+  onClose: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [eps, setEps]         = useState(band?.eps?.toString()            ?? '')
+  const [bvps, setBvps]       = useState(band?.bvps?.toString()           ?? '')
+  const [ebitda, setEbitda]   = useState(band?.ebitda?.toString()         ?? '')
+  const [netDebt, setNetDebt] = useState(band?.net_debt?.toString()       ?? '')
+  const [shares, setShares]   = useState(band?.shares?.toString()         ?? '')
+  const [ev, setEv]           = useState(band?.embedded_value?.toString() ?? '')
+
+  // Sync inputs when band updates (e.g. after AI generation)
+  useEffect(() => {
+    if (!editing) {
+      setEps(band?.eps?.toString()            ?? '')
+      setBvps(band?.bvps?.toString()          ?? '')
+      setEbitda(band?.ebitda?.toString()      ?? '')
+      setNetDebt(band?.net_debt?.toString()   ?? '')
+      setShares(band?.shares?.toString()      ?? '')
+      setEv(band?.embedded_value?.toString()  ?? '')
+    }
+  }, [band, editing])
+
+  async function save() {
+    setSaving(true)
+    const sb = getSupabaseBrowser()
+    const fields = {
+      eps:            parseFloat(eps)     || null,
+      bvps:           parseFloat(bvps)    || null,
+      ebitda:         parseFloat(ebitda)  || null,
+      net_debt:       parseFloat(netDebt) || null,
+      shares:         parseFloat(shares)  || null,
+      embedded_value: parseFloat(ev)      || null,
+      last_updated_at: new Date().toISOString(),
+    }
+    let savedBand: BuyBand | null = null
+    if (band) {
+      const { data } = await sb.from('buy_bands').update(fields).eq('id', band.id).select().single()
+      savedBand = data
+    } else {
+      const { data: { user } } = await sb.auth.getUser()
+      if (user) {
+        const { data } = await sb.from('buy_bands').insert({
+          user_id: user.id, symbol, anchor_type: 'PE', is_current: true, ...fields,
+        }).select().single()
+        savedBand = data
+      }
+    }
+    if (savedBand) { onBandSaved(savedBand); setEditing(false) }
+    setSaving(false)
+  }
+
+  const hasData = !!(band?.eps || band?.bvps || band?.ebitda || band?.embedded_value)
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-headline">Financials</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+        </div>
+        <div className="px-5 pt-4">
+          <button onClick={onGenerate} disabled={generating}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl w-full mb-4 text-body font-medium disabled:opacity-40"
+            style={{ background: 'rgba(10,132,255,0.10)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.22)' }}>
+            <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+            {generating ? 'Generating…' : 'Regen from AI'}
+          </button>
+          {genError && <p className="text-subheadline text-negative mb-3">{genError}</p>}
+          {editing ? (
+            <>
+              <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
+                {allocation?.category ? `${allocation.category} · ` : ''}PE
+              </p>
+              <div className="flex flex-col gap-1 mb-4">
+                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
+                <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
+                  onChange={e => setEps(e.target.value)}
+                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
+                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </div>
+              <button onClick={save} disabled={saving}
+                className="w-full mt-2 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"
+                style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => setEditing(false)}
+                className="w-full mt-2 py-3 rounded-xl text-body"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                Cancel
+              </button>
+            </>
+          ) : hasData ? (
+            <>
+              <div className="grid grid-cols-2 gap-y-4 gap-x-4 mb-4">
+                {band?.eps            && <FinItem k="EPS"            v={`₹${band.eps}`} />}
+                {band?.bvps           && <FinItem k="BVPS"           v={`₹${band.bvps}`} />}
+                {band?.ebitda         && <FinItem k="EBITDA"         v={`${band.ebitda} Cr`} />}
+                {band?.net_debt       && <FinItem k="Net Debt"       v={`${band.net_debt} Cr`} />}
+                {band?.shares         && <FinItem k="Shares"         v={`${band.shares} Cr`} />}
+                {band?.embedded_value && <FinItem k="Embedded Value" v={`${band.embedded_value} Cr`} />}
+              </div>
+              <button onClick={() => setEditing(true)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                <PencilIcon className="w-4 h-4" />
+                Edit values
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-subheadline mb-4" style={{ color: 'var(--text-faint)' }}>
+                No data — tap Regen to auto-fill, or Edit to enter manually
+              </p>
+              <button onClick={() => setEditing(true)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                <PencilIcon className="w-4 h-4" />
+                Enter manually
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function FinItem({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{k}</p>
+      <p className="font-semibold tabnum text-body" style={{ color: 'var(--text-primary)' }}>{v}</p>
+    </div>
+  )
+}
+
+// ── Tranches Sheet ────────────────────────────────────────────────────────────
+
+function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, generating,
+  onAdd, onDelete, onUpdate, onGenerate, onClear, onClose }: {
+  symbol: string
+  tranches: BuyTranche[]
+  remaining: number
+  budget: number
+  hasBands: boolean
+  cmp: number | null
+  generating: boolean
+  onAdd: (symbol: string, qty: number, price: number) => Promise<void>
+  onDelete: (id: string) => void
+  onUpdate: (id: string, qty: number, price: number) => Promise<void>
+  onGenerate: () => void
+  onClear: () => Promise<void>
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-headline">Buy Levels</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+        </div>
+        <TrancheSection
+          symbol={symbol}
+          tranches={tranches}
+          remaining={remaining}
+          budget={budget}
+          hasBands={hasBands}
+          cmp={cmp}
+          onAdd={onAdd}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
+          onGenerate={onGenerate}
+          onClear={onClear}
+          generating={generating}
+          hideHeader
+        />
+      </div>
+    </>
   )
 }
 

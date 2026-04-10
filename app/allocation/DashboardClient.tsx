@@ -126,7 +126,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {/* Left column — text */}
               <div className="flex-1 min-w-0">
                 <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
-                <p className="text-display font-bold tabnum mb-3">
+                <p className="text-title-1 font-bold tabnum mb-3">
                   <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(totalBudget).slice(1)}
                 </p>
                 <div className="flex gap-5">
