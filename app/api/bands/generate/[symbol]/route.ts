@@ -10,9 +10,8 @@ import type { StockCategory } from '@/lib/types'
 
 // Model preference order — tried in sequence until one succeeds
 const GEMINI_MODELS = [
-  'gemini-2.5-flash-preview-05-20',
+  'gemini-3-flash-preview',
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
 ]
 
 async function callGemini(prompt: string, key: string): Promise<string> {
@@ -47,7 +46,7 @@ async function callGemini(prompt: string, key: string): Promise<string> {
 
     const data = await res.json()
     const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? []
-    // Filter out thought parts returned by reasoning models (e.g. 2.5 Flash)
+    // Skip thought parts from reasoning models; fall back to first part if all filtered
     const textParts = parts.filter(p => p.text && !p.thought)
     return (textParts.map(p => p.text).join('') || parts[0]?.text) ?? ''
   }
