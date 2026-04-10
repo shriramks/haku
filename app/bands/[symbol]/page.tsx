@@ -79,7 +79,9 @@ export default async function BandDetailPage({
         band={band}
         allocation={allocation}
         fyRow={fyRow}
-        allTimeLeft={allTimeLeft}
+        allTimeQty={allTimePosition.qty}
+        allTimeCost={allTimePosition.cost}
+        allTimeAvgCost={allTimePosition.avgCost}
         tranches={stockTranches}
         fyId={fy?.id ?? ''}
         fiscalYears={fiscalYears}

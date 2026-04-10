@@ -1,5 +1,5 @@
-import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY, getUserId } from '@/lib/data'
-import { computeCarryover } from '@/lib/compute'
+import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY } from '@/lib/data'
+import { computeCarryover, computeStockRows, seqCost } from '@/lib/compute'
 import type { BuyTranche } from '@/lib/types'
 import StockDetailClient from './StockDetailClient'
 import BottomNav from '@/components/BottomNav'
@@ -34,41 +34,38 @@ export default async function StockDetailPage({
       ])
     : [[], [], [], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }]
 
-  // Compute carryover for this stock in the current FY
-  const carryoverInr = (() => {
-    if (!prevFY || !fy) return 0
-    const prevBudget = prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0)
-    const result = computeCarryover(prevAllocations, prevTransactions, prevBudget, prevFY.id, allocations)
-    return result.adjustments.get(symbol) ?? 0
-  })()
+  const carryoverMap = prevFY
+    ? computeCarryover(
+        prevAllocations, prevTransactions,
+        prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0),
+        prevFY.id, allocations,
+      ).adjustments
+    : undefined
+
+  const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
+  const rows = computeStockRows(allocations, transactions, bands, totalBudget, fy?.id, carryoverMap)
+  const fyRow = rows.find(r => r.symbol === symbol) ?? null
+
+  const allTimePosition = seqCost(allSymbolTxns)
 
   const allocation = allocations.find(a => a.symbol === symbol) ?? null
   const band       = bands.find(b => b.symbol === symbol) ?? null
-  const stockTxns  = transactions.filter(t => t.symbol === symbol)
   const { hasKey, provider: aiProvider } = aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }
-
-  // All-FY budget: sum of base allocations only (carryover excluded to avoid double-counting)
-  const allFYBudget = symbolAllocations.reduce((sum, alloc) => {
-    const fyRow = fiscalYears.find(f => f.id === alloc.fy_id)
-    if (!fyRow) return sum
-    return sum + (alloc.allocation_pct / 100) * (fyRow.total_budget_inr + (fyRow.unallocated_carryover_inr ?? 0))
-  }, 0)
 
   return (
     <>
       <StockDetailClient
         symbol={symbol}
-        fiscalYear={fy ?? null}
-        allocation={allocation}
-        transactions={stockTxns}
-        allTransactions={allSymbolTxns as typeof stockTxns}
-        allFYBudget={allFYBudget}
-        carryoverInr={carryoverInr}
         band={band}
-        initialTranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
-        hasKey={hasKey}
-        aiProvider={aiProvider}
-        userId={await getUserId() ?? ''}
+        allocation={allocation}
+        fyRow={fyRow}
+        allTimeQty={allTimePosition.qty}
+        allTimeCost={allTimePosition.cost}
+        allTimeAvgCost={allTimePosition.avgCost}
+        tranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
+        fyId={fy?.id ?? ''}
+        initialHasKey={hasKey}
+        initialAiProvider={aiProvider}
       />
       <BottomNav />
     </>

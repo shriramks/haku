@@ -137,8 +137,8 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         onSwitchFY={switchFY}
         onAllocationsChange={setAllocations}
         onNewPlan={() => setShowNewPlan(true)}
-        onFYBudgetChange={(budget, deployCapital) => {
-          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget, deploy_capital_inr: deployCapital })
+        onFYBudgetChange={(budget) => {
+          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
         }}
         onDeleteFY={deleteFY}
       />
@@ -171,7 +171,7 @@ function PlanTab({
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
   onNewPlan: () => void
-  onFYBudgetChange: (budget: number, deployCapital: number | null) => void
+  onFYBudgetChange: (budget: number) => void
   onDeleteFY: () => void
 }) {
   const [showBudgetSheet, setShowBudgetSheet] = useState(false)
@@ -210,12 +210,12 @@ function PlanTab({
     setApplyingCarryover(false)
   }
 
-  async function saveBudget(budget: number, deployCapital: number | null) {
+  async function saveBudget(budget: number) {
     if (!selectedFY) return
     await getSupabaseBrowser().from('fiscal_years')
-      .update({ total_budget_inr: budget, deploy_capital_inr: deployCapital })
+      .update({ total_budget_inr: budget })
       .eq('id', selectedFY.id)
-    onFYBudgetChange(budget, deployCapital)
+    onFYBudgetChange(budget)
     setShowBudgetSheet(false)
   }
 
@@ -308,30 +308,22 @@ function PlanTab({
           {(() => {
             const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
             const effectiveBudget = totalBudget + unallocCarryover
-            const deployCapital = selectedFY.deploy_capital_inr
             return (
           <button onClick={() => setShowBudgetSheet(true)}
             className="w-full flex items-center gap-3 px-4 border-b tap-row"
             style={{ borderColor: 'var(--border)' }}>
-            {/* Rows */}
             <div className="flex-1">
-              <div className="flex items-center justify-between py-3.5"
-                   style={undefined}>
-                <span className="text-headline" style={{ color: 'var(--text-2)' }}>Total Budget</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-title-2 font-bold tabnum">
-                    {formatINRFull(effectiveBudget)}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between py-3.5">
+                <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
+                <span className="text-title-2 font-bold tabnum">{formatINRFull(effectiveBudget)}</span>
               </div>
-              {deployCapital != null && (
-                <div className="flex items-center justify-between py-3.5">
-                  <span className="text-headline" style={{ color: 'var(--text-2)' }}>Deploy Capital</span>
-                  <span className="text-title-2 font-bold tabnum">{formatINRFull(deployCapital)}</span>
+              {unallocCarryover > 0 && (
+                <div className="flex items-center justify-between py-3.5" style={{ borderTop: '1px solid var(--border-faint)' }}>
+                  <span className="text-headline" style={{ color: 'var(--text-2)' }}>Carryover</span>
+                  <span className="text-headline tabnum" style={{ color: 'var(--text-muted)' }}>+{formatINRFull(unallocCarryover)}</span>
                 </div>
               )}
             </div>
-            {/* Single pencil, centred across all rows */}
             <PencilIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
           </button>
             )
@@ -516,22 +508,18 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
   selectedFY: FiscalYear
   fyHasTxns: boolean
   onClose: () => void
-  onSave: (budget: number, deployCapital: number | null) => Promise<void>
+  onSave: (budget: number) => Promise<void>
   onDeleteFY: () => void
 }) {
   const [budgetInput, setBudgetInput] = useState(String(selectedFY.total_budget_inr))
-  const [deployInput, setDeployInput] = useState(
-    selectedFY.deploy_capital_inr != null ? String(selectedFY.deploy_capital_inr) : ''
-  )
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   async function handleSave() {
     const budget = parseFloat(budgetInput)
     if (!budget || budget <= 0) return
-    const deploy = deployInput.trim() ? parseFloat(deployInput) : null
     setSaving(true)
-    await onSave(budget, deploy && deploy > 0 ? deploy : null)
+    await onSave(budget)
     await revalidateFiscalYears()
     setSaving(false)
   }
@@ -568,23 +556,6 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
           </div>
         </div>
 
-        {/* Deploy Capital field */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <p className="text-body">Deploy Capital</p>
-          <div className="flex items-center gap-1">
-            <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
-            <input
-              type="number" inputMode="decimal"
-              value={deployInput} onChange={e => setDeployInput(e.target.value)}
-              placeholder="Optional"
-              className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36 placeholder:font-normal"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-            />
-          </div>
-        </div>
-        <p className="px-5 pt-2 pb-4 text-subheadline" style={{ color: 'var(--text-faint)' }}>
-          Amount available to invest at time of generating tranches. If not set, tranches use the remaining allocation amount as the limit.
-        </p>
 
         {/* Delete plan */}
         <div className="px-5 pt-2">

@@ -9,3 +9,4 @@ supabase/seed*.sql
 supabase/migrations/
 .claude/
 docs/mocks/
+CLAUDE.md

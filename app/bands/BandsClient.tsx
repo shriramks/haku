@@ -9,28 +9,27 @@ import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, ChevronRightIcon } from '@/components/icons'
 import { formatPrice } from '@/lib/formatter'
 
-// Mini 4-zone band bar for list rows
-function MiniBar({ buyLow, buyHigh, midHigh, trimPrice, cmp }: {
-  buyLow: number; buyHigh: number; midHigh: number; trimPrice: number; cmp: number | null
+// Mini 3-zone band bar for list rows (deep · buy · mid — no trim zone, matches BandBar)
+function MiniBar({ buyLow, buyHigh, midHigh, cmp }: {
+  buyLow: number; buyHigh: number; midHigh: number; cmp: number | null
 }) {
   const min = buyLow * 0.85
-  const max = trimPrice * 1.1
+  const max = midHigh * 1.12
   const range = max - min
-  const p = (v: number) => Math.min(100, Math.max(0, ((v - min) / range) * 100))
+  const p = (v: number) => Math.max(0, ((v - min) / range) * 100)
 
   const dW = p(buyLow)
   const bW = p(buyHigh) - dW
-  const hW = p(trimPrice) - dW - bW
-  const tW = 100 - dW - bW - hW
-  const cmpX = cmp != null ? p(cmp) : null
+  const mW = 100 - dW - bW
+  // Allow marker to reach right edge when CMP is in trim territory
+  const cmpX = cmp != null ? Math.min(100, p(cmp)) : null
 
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1.5 }}>
         <div style={{ width: `${dW}%`, background: '#30D158', opacity: 0.65 }} />
         <div style={{ width: `${bW}%`, background: '#34C759' }} />
-        <div style={{ width: `${hW}%`, background: '#FF9500' }} />
-        <div style={{ width: `${tW}%`, background: '#FF3B30', opacity: 0.65 }} />
+        <div style={{ width: `${mW}%`, background: '#FF9500' }} />
       </div>
       {cmpX !== null && (
         <div style={{
@@ -119,7 +118,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
     try {
       const symbols = rows.map(r => r.symbol).join(',')
       const res = await fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols)}`)
-      if (!res.ok) return
+      if (!res.ok) throw new Error('batch fetch failed')
       const data = await res.json()
       const sb = getSupabaseBrowser()
 
@@ -155,8 +154,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       }
     } catch {
       // silently fail
+    } finally {
+      setRefreshingAll(false)
     }
-    setRefreshingAll(false)
   }
 
   const computedBandsMap = useMemo(() => {
@@ -247,7 +247,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
                   {hasBands ? (
                     <MiniBar
                       buyLow={buyLow!} buyHigh={buyHigh!}
-                      midHigh={midHigh!} trimPrice={trimPrice!}
+                      midHigh={midHigh!}
                       cmp={cmp}
                     />
                   ) : (

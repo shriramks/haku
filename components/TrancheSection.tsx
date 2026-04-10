@@ -35,31 +35,34 @@ export default function TrancheSection({
           </p>
         )}
       </div>
-      {/* Actions — hyperlink style, spread full width */}
-      <div className="flex items-center justify-between px-4 pb-1">
+      {/* Actions — tinted accent buttons (less heavy than solid fill) */}
+      <div className="flex gap-2.5 px-4 pb-3 pt-1">
         <button
           onClick={onGenerate}
           disabled={!hasBands || generating}
-          className="flex items-center gap-1.5 text-body disabled:opacity-40"
-          style={{ color: 'var(--accent)' }}>
+          className="flex-1 flex items-center justify-center gap-1.5 text-body font-semibold rounded-xl disabled:opacity-40"
+          style={{ minHeight: 40, background: 'rgba(0,122,255,0.08)', border: '1px solid rgba(0,122,255,0.25)', color: 'var(--accent)' }}>
           <SparkleIcon className="w-3.5 h-3.5" />
           {generating ? 'Generating…' : 'Generate'}
         </button>
         <button
           onClick={() => setEditingId(editingId === 'new' ? null : 'new')}
-          className="flex items-center gap-1.5 text-body"
-          style={{ color: 'var(--accent)' }}>
+          className="flex-1 flex items-center justify-center gap-1.5 text-body font-semibold rounded-xl"
+          style={{ minHeight: 40, background: 'rgba(0,122,255,0.08)', border: '1px solid rgba(0,122,255,0.25)', color: 'var(--accent)' }}>
           <PlusIcon className="w-3.5 h-3.5" />
-          Add Tranche
-        </button>
-        <button
-          onClick={() => onClear()}
-          disabled={tranches.length === 0}
-          className="flex items-center gap-1.5 text-body disabled:opacity-40 text-negative">
-          <TrashIcon className="w-3.5 h-3.5" />
-          Clear
+          Manual
         </button>
       </div>
+      {tranches.length > 0 && (
+        <div className="flex justify-end px-4 pb-2">
+          <button
+            onClick={() => onClear()}
+            className="flex items-center gap-1.5 text-subheadline disabled:opacity-40 text-negative">
+            <TrashIcon className="w-3 h-3" />
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Tranche list */}
       <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>

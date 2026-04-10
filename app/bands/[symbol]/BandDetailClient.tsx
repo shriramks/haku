@@ -3,10 +3,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, computeTrancheprices, computeTrancheAmounts, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { formatINR, formatPrice } from '@/lib/formatter'
+import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
+import { getBandSignal } from '@/lib/compute'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
-import { RefreshIcon, SparkleIcon, PencilIcon, TrashIcon, PlusIcon, CheckIcon, ChevronDownIcon } from '@/components/icons'
+import QuartersToggle from '@/components/QuartersToggle'
+import TrancheSection from '@/components/TrancheSection'
+import { BandSignalBadge } from '@/components/SignalBadge'
+import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 
 interface Props {
@@ -14,7 +18,9 @@ interface Props {
   band: BuyBand | null
   allocation: StockAllocation | null
   fyRow: StockRow | null
-  allTimeLeft: number
+  allTimeQty: number
+  allTimeCost: number
+  allTimeAvgCost: number
   tranches: BuyTranche[]
   fyId: string
   fiscalYears: FiscalYear[]
@@ -25,7 +31,8 @@ interface Props {
 
 export default function BandDetailClient({
   symbol, band: initialBand, allocation: initialAllocation,
-  fyRow, allTimeLeft, tranches: initialTranches,
+  fyRow, allTimeQty, allTimeCost, allTimeAvgCost,
+  tranches: initialTranches,
   fyId, fiscalYears, selectedFY, initialHasKey, initialAiProvider,
 }: Props) {
   const router = useRouter()
@@ -44,10 +51,7 @@ export default function BandDetailClient({
   const [hasKey, setHasKey]                 = useState(initialHasKey)
   const [aiProvider, setAiProvider]         = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
-  const [showTranches, setShowTranches]     = useState(false)
-  const [showQMode, setShowQMode]           = useState(false)
   const [showQInfo, setShowQInfo]           = useState(false)
-  const [addingTranche, setAddingTranche]   = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -71,10 +75,17 @@ export default function BandDetailClient({
   const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
   const hasBands  = buyLow != null && trimPrice != null
+  const signal    = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
-  const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
   const fyRemaining = fyRow?.remaining ?? 0
-  const remainingAfterTranches = fyRemaining - plannedTotal
+
+  // All-time current value (live — updates after CMP refresh)
+  const allTimeCurrentValue = cmp != null && allTimeQty > 0
+    ? Math.round(allTimeQty) * cmp
+    : null
+  const allTimeUnrealisedPnL = allTimeCurrentValue != null && allTimeCost > 0
+    ? allTimeCurrentValue - allTimeCost
+    : null
 
   async function refreshCMP() {
     setRefreshing(true)
@@ -106,8 +117,9 @@ export default function BandDetailClient({
       }
     } catch {
       // silently fail
+    } finally {
+      setRefreshing(false)
     }
-    setRefreshing(false)
   }
 
   async function generateBands() {
@@ -174,11 +186,7 @@ export default function BandDetailClient({
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fyId,
-          remainingInr: fyRemaining,
-          userLiquidInr: selectedFY?.deploy_capital_inr ?? fyRemaining,
-        }),
+        body: JSON.stringify({ fyId, remainingInr: fyRemaining }),
       })
       const json = await res.json()
       if (res.ok && json.tranches?.length > 0) setTranches(json.tranches)
@@ -195,6 +203,11 @@ export default function BandDetailClient({
       sort_order: tranches.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data].sort((a, b) => b.price - a.price))
+  }
+
+  async function updateTranche(id: string, qty: number, price: number) {
+    setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
+    await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
   }
 
   async function deleteTranche(id: string) {
@@ -229,41 +242,40 @@ export default function BandDetailClient({
 
   return (
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-      {/* Nav */}
+
+      {/* ── Nav ── */}
       <div
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
-        style={{
-          background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
-          paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
-        }}>
+        style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between px-4 pb-3">
           <button onClick={() => router.push(backHref)}
             className="flex items-center gap-1 text-body flex-shrink-0"
-            style={{ color: 'var(--accent)', minWidth: 60 }}>
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 1L1 8l7 7" />
-            </svg>
+            style={{ color: 'var(--accent)', minWidth: 60, minHeight: 44 }}>
+            <svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M7 1L1 7l6 6" /></svg>
             Bands
           </button>
-          <span className="text-headline font-semibold">{symbol}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-headline font-semibold">{symbol}</span>
+            {signal !== 'unknown' && <BandSignalBadge signal={signal} />}
+          </div>
           <div style={{ minWidth: 60 }} />
         </div>
       </div>
 
-      {/* CMP hero */}
-      <div style={{ background: 'var(--bg-primary)', padding: '18px 20px 16px' }}>
-        <p className="tabnum" style={{ fontSize: 38, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--text-primary)', lineHeight: 1.1 }}>
-          {cmp != null ? formatPrice(cmp) : '—'}
-        </p>
-        <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-faint)' }}>Current Market Price</p>
+      {/* ── Refresh CMP strip ── */}
+      <div className="flex items-center justify-end border-b px-4"
+        style={{ borderColor: 'var(--border-faint)', minHeight: 40, background: 'var(--bg-primary)' }}>
+        <button onClick={refreshCMP} disabled={refreshing}
+          className="flex items-center gap-1.5 disabled:opacity-40"
+          style={{ color: 'var(--text-muted)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing…' : 'Refresh CMP'}
+        </button>
       </div>
 
-      {/* Section 1: Band bar + 52W */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10, padding: '14px 20px' }}>
-        <p className="text-footnote font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
-          Buy Band
-        </p>
+      {/* ── Band bar ── */}
+      <div style={{ background: 'var(--bg-primary)', padding: '14px 16px 0' }}>
+        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', marginBottom: 10 }}>Buy Band</p>
         {hasBands ? (
           <>
             <BandBar
@@ -271,126 +283,117 @@ export default function BandDetailClient({
               midLow={midLow!} midHigh={midHigh!}
               trimPrice={trimPrice!} cmp={cmp}
             />
-            {(week52.low != null || week52.high != null) && (
-              <div className="flex justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
-                <div>
-                  <p className="text-footnote font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)', letterSpacing: '0.06em' }}>52W Low</p>
-                  <p className="text-body font-semibold tabnum mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                    {week52.low != null ? formatPrice(week52.low) : '—'}
-                  </p>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p className="text-footnote font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)', letterSpacing: '0.06em' }}>52W High</p>
-                  <p className="text-body font-semibold tabnum mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                    {week52.high != null ? formatPrice(week52.high) : '—'}
-                  </p>
-                </div>
+            {/* ── 52W Low | CMP | 52W High ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low</p>
+                <p className="text-body font-semibold tabnum">{week52.low != null ? formatPrice(week52.low) : '—'}</p>
               </div>
-            )}
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price</p>
+                <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+                  {cmp != null ? formatPrice(cmp) : '—'}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High</p>
+                <p className="text-body font-semibold tabnum">{week52.high != null ? formatPrice(week52.high) : '—'}</p>
+              </div>
+            </div>
           </>
         ) : (
-          <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands yet — tap Regen Bands to generate</p>
-        )}
-      </div>
-
-      {/* Section 2: Actions (Refresh CMP, Regen Bands) + Bear/Bull toggle */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        <div style={{ minHeight: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
-          <button onClick={refreshCMP} disabled={refreshing}
-            className="flex items-center gap-1.5 text-body disabled:opacity-40"
-            style={{ color: 'var(--accent)', minHeight: 44 }}>
-            <RefreshIcon className="w-4 h-4" />
-            {refreshing ? 'Refreshing…' : 'Refresh CMP'}
-          </button>
-          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-          <button onClick={generateBands} disabled={generating}
-            className="flex items-center gap-1.5 text-body disabled:opacity-40"
-            style={{ color: 'var(--accent)', minHeight: 44 }}>
-            <SparkleIcon className="w-4 h-4" />
-            {generating ? 'Generating…' : 'Regen Bands'}
-          </button>
-        </div>
-        {hasQuarters && (
-          <div className="flex items-center gap-2 px-5 pb-3 pt-1" style={{ borderTop: '1px solid var(--border-faint)' }}>
-            <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)', marginRight: 4 }}>Recent quarters</span>
-            {(['bear', 'normal', 'bull'] as const).map(m => (
-              <button key={m} onClick={() => {
-                if (m === qMode) return
-                if (m === 'bear') toggleQuarters('two_weak_quarters', true)
-                else if (m === 'bull') toggleQuarters('two_strong_quarters', true)
-                else if (allocation?.two_weak_quarters) toggleQuarters('two_weak_quarters', false)
-                else toggleQuarters('two_strong_quarters', false)
-              }}
-                className="text-subheadline font-semibold"
-                style={{
-                  padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', minHeight: 32,
-                  ...(m === qMode
-                    ? m === 'bear'
-                      ? { background: 'rgba(255,149,0,0.14)', color: '#C07200' }
-                      : m === 'bull'
-                        ? { background: 'rgba(52,199,89,0.14)', color: '#1C8A3A' }
-                        : { background: 'rgba(10,132,255,0.12)', color: 'var(--accent)' }
-                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }),
-                }}>
-                {m.charAt(0).toUpperCase() + m.slice(1)}
-              </button>
-            ))}
+          <div className="h-7 rounded-lg flex items-center px-3 mb-4" style={{ background: 'var(--bg-tertiary)' }}>
+            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands yet — set financials to generate</p>
           </div>
         )}
       </div>
-      {genError && <p className="px-5 pt-2 text-subheadline text-negative">{genError}</p>}
 
-      {/* Section 3: Allocation */}
+      {/* ── Bear / Normal / Bull + ⓘ ── */}
+      {hasQuarters && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10, padding: '10px 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <QuartersToggle
+            twoWeakQuarters={allocation!.two_weak_quarters}
+            twoStrongQuarters={allocation!.two_strong_quarters}
+            onChange={toggleQuarters}
+          />
+          <button
+            onClick={() => setShowQInfo(true)}
+            style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--bg-secondary)', fontSize: 13, fontStyle: 'italic', fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            i
+          </button>
+        </div>
+      )}
+      {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
+
+      {/* ── Allocation ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        <DetailSectionHeader label="Allocation" />
-        <DetailRow label="FY Allocation Left" value={formatINR(fyRemaining)} accent />
-        <DetailRow label="All-Time Allocation Left" value={formatINR(allTimeLeft)} accent />
+        <SectionHeader label="Allocation" />
+        <DetailRow label="Remaining" value={formatINRFull(fyRemaining)} bold />
+        <DetailRow label="Invested" value={formatINRFull(fyRow?.currentCost ?? 0)} />
+        <DetailRow label="Planned Allocation" value={formatINRFull(fyRow?.budget ?? 0)} muted />
       </div>
 
-      {/* Section 4: Position (overall) */}
-      {fyRow && (fyRow.qty > 0 || fyRow.currentCost > 0) && (
+      {/* ── Position (all-time holdings) ── */}
+      {(allTimeQty > 0 || allTimeCost > 0) && (
         <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-          <DetailSectionHeader label="Position" />
-          <DetailRow label="Shares" value={fyRow.qty > 0 ? String(Math.round(fyRow.qty)) : '—'} />
-          <DetailRow label="Avg Cost" value={fyRow.avgCost > 0 ? formatPrice(fyRow.avgCost) : '—'} />
-          <DetailRow label="Current Cost" value={fyRow.currentCost > 0 ? formatINR(fyRow.currentCost) : '—'} />
-          {fyRow.unrealisedPnL != null && fyRow.unrealisedPnL !== 0 && (
+          <SectionHeader label="Position" />
+          <DetailRow label="Shares" value={allTimeQty > 0 ? String(Math.round(allTimeQty)) : '—'} />
+          <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost) : '—'} />
+          <DetailRow label="Current Value" value={allTimeCurrentValue != null ? formatINRFull(Math.round(allTimeCurrentValue)) : '—'} />
+          {allTimeUnrealisedPnL != null && allTimeUnrealisedPnL !== 0 && (
             <DetailRow
               label="Unrealized P&L"
-              value={`${fyRow.unrealisedPnL >= 0 ? '+' : ''}${formatINR(fyRow.unrealisedPnL)}`}
+              value={`${allTimeUnrealisedPnL >= 0 ? '+' : ''}${formatINRFull(Math.round(allTimeUnrealisedPnL))}`}
+              color={allTimeUnrealisedPnL >= 0 ? 'var(--text-positive)' : 'var(--text-negative)'}
             />
           )}
         </div>
       )}
 
-      {/* Section 5: Financials */}
-      {financialsRows.length > 0 && (
+      {/* ── Financials ── */}
+      {(financialsRows.length > 0 || !band) && (
         <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-          <DetailSectionHeader label="Financials">
-            <button onClick={() => { /* TODO: open edit sheet */ }}
-              className="flex items-center gap-1 text-body"
-              style={{ color: 'var(--accent)' }}>
-              <PencilIcon className="w-3.5 h-3.5" />
-              Edit
-            </button>
-          </DetailSectionHeader>
+          <SectionHeader label="Financials">
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button onClick={generateBands} disabled={generating}
+                className="flex items-center gap-1 text-body disabled:opacity-40"
+                style={{ color: 'var(--accent)', minHeight: 36 }}>
+                <SparkleIcon className="w-3.5 h-3.5" />
+                {generating ? 'Generating…' : 'Regen'}
+              </button>
+            </div>
+          </SectionHeader>
           {financialsRows.map(r => (
             <DetailRow key={r.label} label={r.label} value={r.value} />
           ))}
+          {financialsRows.length === 0 && (
+            <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+              No financials — tap Regen to generate bands
+            </p>
+          )}
         </div>
       )}
 
-      {/* View Buy Levels CTA */}
-      <div style={{ padding: '20px 20px 0' }}>
-        <button
-          onClick={() => setShowTranches(true)}
-          className="w-full text-headline font-semibold text-white rounded-2xl"
-          style={{ background: 'var(--accent)', padding: '16px', border: 'none', cursor: 'pointer' }}>
-          View Buy Levels →
-        </button>
+      {/* ── Buy Levels (inline) ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <SectionHeader label="Buy Levels" />
+        <TrancheSection
+          symbol={symbol}
+          tranches={tranches}
+          remaining={fyRemaining}
+          budget={fyRow?.budget ?? 0}
+          hasBands={hasBands}
+          cmp={cmp}
+          onAdd={(_sym, qty, price) => addTranche(qty, price)}
+          onDelete={deleteTranche}
+          onUpdate={updateTranche}
+          onGenerate={generateTranches}
+          onClear={clearAllTranches}
+          generating={generatingTranches}
+        />
       </div>
 
-      {/* Sheets */}
+      {/* ── Sheets ── */}
       {showKeyPrompt && (
         <KeyPromptSheet
           initialProvider={aiProvider}
@@ -398,49 +401,18 @@ export default function BandDetailClient({
           onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
         />
       )}
-      {showQMode && (
-        <QModeSheet
-          currentMode={qMode}
-          onSelect={m => {
-            if (m === 'bear') toggleQuarters('two_weak_quarters', true)
-            else if (m === 'bull') toggleQuarters('two_strong_quarters', true)
-            else if (allocation?.two_weak_quarters) toggleQuarters('two_weak_quarters', false)
-            else toggleQuarters('two_strong_quarters', false)
-            setShowQMode(false)
-          }}
-          onInfo={() => { setShowQMode(false); setShowQInfo(true) }}
-          onClose={() => setShowQMode(false)}
-        />
-      )}
       {showQInfo && <QuartersInfoSheet onClose={() => setShowQInfo(false)} />}
-
-      {/* Tranche Sheet */}
-      {showTranches && (
-        <TrancheSheet
-          symbol={symbol}
-          tranches={tranches}
-          remainingAfterTranches={remainingAfterTranches}
-          generatingTranches={generatingTranches}
-          addingTranche={addingTranche}
-          onGenerate={generateTranches}
-          onAdd={addTranche}
-          onDelete={deleteTranche}
-          onClearAll={clearAllTranches}
-          onClose={() => setShowTranches(false)}
-          setAddingTranche={setAddingTranche}
-        />
-      )}
     </div>
   )
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-function DetailSectionHeader({ label, children }: { label: string; children?: React.ReactNode }) {
+function SectionHeader({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-5"
+    <div className="flex items-center justify-between px-4"
       style={{ minHeight: 36, borderBottom: '1px solid var(--border-faint)' }}>
-      <span className="text-footnote font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+      <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
         {label}
       </span>
       {children}
@@ -448,233 +420,21 @@ function DetailSectionHeader({ label, children }: { label: string; children?: Re
   )
 }
 
-function DetailRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function DetailRow({ label, value, bold, muted, color }: {
+  label: string; value: string; bold?: boolean; muted?: boolean; color?: string
+}) {
   return (
-    <div className="flex items-center justify-between px-5"
-      style={{ minHeight: 46, borderBottom: '1px solid var(--border-faint)' }}>
+    <div className="flex items-center justify-between px-4"
+      style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
       <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
-      <span className="text-body tabnum" style={{ color: accent ? 'var(--accent)' : 'var(--text-primary)' }}>
+      <span className="tabnum" style={{
+        fontSize: bold ? 17 : 15,
+        fontWeight: bold ? 700 : 400,
+        color: color ?? (muted ? 'var(--text-muted)' : 'var(--text-primary)'),
+      }}>
         {value}
       </span>
     </div>
-  )
-}
-
-// ── Tranche Sheet ────────────────────────────────────────────────────────────
-
-function TrancheSheet({
-  symbol, tranches, remainingAfterTranches,
-  generatingTranches, addingTranche,
-  onGenerate, onAdd, onDelete, onClearAll, onClose, setAddingTranche,
-}: {
-  symbol: string
-  tranches: BuyTranche[]
-  remainingAfterTranches: number
-  generatingTranches: boolean
-  addingTranche: boolean
-  onGenerate: () => void
-  onAdd: (qty: number, price: number) => Promise<void>
-  onDelete: (id: string) => void
-  onClearAll: () => Promise<void>
-  onClose: () => void
-  setAddingTranche: (v: boolean) => void
-}) {
-  return (
-    <>
-      {/* Scrim */}
-      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-hidden"
-        style={{ background: 'var(--bg-secondary)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 8px)' }}>
-
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pb-3 flex-shrink-0 border-b"
-          style={{ borderColor: 'var(--border)' }}>
-          <span className="text-title-2 font-bold">Buy Levels</span>
-          <button onClick={onClose} className="text-body" style={{ color: 'var(--accent)' }}>Done</button>
-        </div>
-
-        {/* Meta */}
-        <p className="text-subheadline px-5 pt-2.5 pb-1 flex-shrink-0 tabnum" style={{ color: 'var(--text-faint)' }}>
-          {symbol} · {formatINR(Math.max(0, remainingAfterTranches))} remaining after tranches
-        </p>
-
-        {/* Tranche list */}
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          {tranches.length === 0 && !addingTranche && (
-            <p className="px-5 py-4 text-subheadline" style={{ color: 'var(--text-faint)' }}>
-              No levels yet — tap Auto-generate
-            </p>
-          )}
-          {tranches.map(t => (
-            <TrancheRow key={t.id} tranche={t} onDelete={() => onDelete(t.id)} />
-          ))}
-          {addingTranche && (
-            <AddTrancheRow
-              maxAmount={remainingAfterTranches}
-              onSave={async (qty, price) => { await onAdd(qty, price); setAddingTranche(false) }}
-              onCancel={() => setAddingTranche(false)}
-            />
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3 px-5 pt-3 flex-shrink-0">
-          <button onClick={onGenerate} disabled={generatingTranches}
-            className="flex-1 flex items-center justify-center gap-1.5 text-body font-semibold rounded-xl disabled:opacity-40"
-            style={{ padding: '14px', background: 'rgba(10,132,255,0.10)', color: 'var(--accent)', border: 'none', cursor: 'pointer' }}>
-            <SparkleIcon className="w-3.5 h-3.5" />
-            {generatingTranches ? 'Generating…' : 'Auto-generate'}
-          </button>
-          <button onClick={() => setAddingTranche(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 text-body font-semibold text-white rounded-xl"
-            style={{ padding: '14px', background: 'var(--accent)', border: 'none', cursor: 'pointer' }}>
-            <PlusIcon className="w-3.5 h-3.5" />
-            Add Manual
-          </button>
-          <button onClick={onClearAll} disabled={tranches.length === 0}
-            className="text-body disabled:opacity-40"
-            style={{ color: 'var(--text-negative)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-            Clear All
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
-function TrancheRow({ tranche, onDelete }: { tranche: BuyTranche; onDelete: () => void }) {
-  const amount = tranche.qty * tranche.price
-  return (
-    <div className="flex items-center px-5 border-b" style={{ borderColor: 'var(--border-faint)', minHeight: 56 }}>
-      <div className="flex-1">
-        <p className="tabnum">
-          <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {formatPrice(tranche.price)}
-          </span>
-          <span className="text-body" style={{ color: 'var(--text-faint)', margin: '0 5px' }}>×</span>
-          <span className="text-body" style={{ color: 'var(--text-2)' }}>{Math.round(tranche.qty)}</span>
-        </p>
-      </div>
-      <p className="text-body tabnum flex-shrink-0" style={{ color: 'var(--text-2)' }}>
-        {formatINR(amount)}
-      </p>
-      <button onClick={onDelete}
-        className="w-10 h-10 flex items-center justify-center flex-shrink-0 -mr-1"
-        style={{ color: 'var(--text-negative)', background: 'none', border: 'none', cursor: 'pointer' }}>
-        <TrashIcon className="w-4 h-4" />
-      </button>
-    </div>
-  )
-}
-
-function AddTrancheRow({ maxAmount, onSave, onCancel }: {
-  maxAmount: number
-  onSave: (qty: number, price: number) => Promise<void>
-  onCancel: () => void
-}) {
-  const [qty, setQty]     = useState('')
-  const [price, setPrice] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
-  const overBudget = amount > 0 && amount > maxAmount
-
-  async function save() {
-    const q = parseFloat(qty), p = parseFloat(price)
-    if (!q || !p || overBudget) return
-    setSaving(true)
-    await onSave(q, p)
-    setSaving(false)
-  }
-
-  return (
-    <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-      <div className="flex items-center gap-2 mb-2">
-        <input type="text" inputMode="numeric" placeholder="Qty" value={qty}
-          onChange={e => setQty(e.target.value)}
-          className="tabnum"
-          style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
-        <span style={{ fontSize: 13, color: 'var(--text-faint)', flexShrink: 0 }}>×</span>
-        <input type="text" inputMode="decimal" placeholder="Price" value={price}
-          onChange={e => setPrice(e.target.value)}
-          className="tabnum"
-          style={{ flex: 2, minWidth: 0, padding: '10px 12px', borderRadius: 10, fontSize: 15, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', outline: 'none' }} />
-      </div>
-      {overBudget && (
-        <p className="text-subheadline mb-2 tabnum" style={{ color: 'var(--text-negative)' }}>
-          Exceeds by {formatINR(amount - maxAmount)}
-        </p>
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button onClick={save} disabled={saving || !qty || !price || overBudget}
-            className="px-4 py-2.5 rounded-xl text-body font-semibold disabled:opacity-40 text-white"
-            style={{ background: 'var(--accent)', border: 'none', cursor: 'pointer' }}>
-            {saving ? '…' : 'Save'}
-          </button>
-        </div>
-        <button onClick={onCancel}
-          className="px-4 py-2.5 rounded-xl text-body font-medium"
-          style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', cursor: 'pointer' }}>
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Quarter Mode Sheet ───────────────────────────────────────────────────────
-
-function QModeSheet({ currentMode, onSelect, onInfo, onClose }: {
-  currentMode: 'bear' | 'normal' | 'bull'
-  onSelect: (mode: 'bear' | 'normal' | 'bull') => void
-  onInfo: () => void
-  onClose: () => void
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 8px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <p className="text-center text-footnote font-semibold uppercase tracking-wider pb-2"
-           style={{ color: 'var(--text-faint)', letterSpacing: '0.04em' }}>
-          Recent Quarters
-        </p>
-        {(['Bear', 'Normal', 'Bull'] as const).map(label => {
-          const mode = label.toLowerCase() as 'bear' | 'normal' | 'bull'
-          const active = currentMode === mode
-          return (
-            <button key={mode}
-              onClick={() => onSelect(mode)}
-              className="flex items-center justify-between w-full px-5 border-t"
-              style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
-              <span className="text-headline">{label}</span>
-              {active && (
-                <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'var(--accent)' }}>
-                  <CheckIcon className="w-3 h-3 text-white" />
-                </span>
-              )}
-            </button>
-          )
-        })}
-        <button onClick={onInfo}
-          className="flex items-center justify-center w-full border-t"
-          style={{ minHeight: 44, borderColor: 'var(--border-faint)', color: 'var(--accent)' }}>
-          <span className="text-body">About Recent Quarters…</span>
-        </button>
-      </div>
-    </>
   )
 }
 
@@ -692,7 +452,7 @@ function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <div className="w-14" />
           <p className="font-semibold text-headline">Recent Quarters</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right">Done</button>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
         <div className="px-5 pt-4">
           <p className="text-body leading-relaxed mb-5" style={{ color: 'var(--text-2)' }}>
@@ -758,10 +518,11 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">AI API Key</p>
           <button onClick={save} disabled={saving || !key.trim()}
-            className="text-accent text-headline font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

@@ -33,6 +33,25 @@ export function formatAmt(amount: number): string {
   return formatINR(amount).replace('₹', '')
 }
 
+/** Compact Indian amount with up to 2 decimal places; trailing zeros stripped.
+ * 132_000 → "₹1.32L", 130_000 → "₹1.3L", 100_000 → "₹1L", 8_400 → "₹8,400" */
+export function formatINRFine(amount: number): string {
+  const abs  = Math.abs(amount)
+  const sign = amount < 0 ? '-' : ''
+  if (abs >= CR)  return `${sign}₹${parseFloat((abs / CR).toFixed(2))}Cr`
+  if (abs >= LAC) return `${sign}₹${parseFloat((abs / LAC).toFixed(2))}L`
+  if (abs >= K)   return `${sign}₹${parseFloat((abs / K).toFixed(2))}K`
+  return `${sign}₹${Math.round(abs)}`
+}
+
+/** Price with up to 2 decimal places — for avg cost display.
+ * Comma rules match formatPrice: no commas below ₹10,000. */
+export function formatPriceFine(price: number): string {
+  const v = parseFloat(price.toFixed(2))
+  if (v < 10000) return `₹${v}`
+  return `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+}
+
 /** Price display: no commas below ₹10,000; Indian locale (en-IN) above — e.g. ₹1284, ₹14,800, ₹1,48,000 */
 export function formatPrice(price: number): string {
   const n = Math.round(price)

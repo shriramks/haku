@@ -1,5 +1,47 @@
 import { describe, it, expect } from 'vitest'
-import { fyLabel, formatINR } from '../formatter'
+import { fyLabel, formatINR, formatINRFine, formatPriceFine } from '../formatter'
+
+describe('formatINRFine — up to 2 decimal places, trailing zeros stripped', () => {
+  it('1.32L — two significant decimals', () => {
+    expect(formatINRFine(132_000)).toBe('₹1.32L')
+  })
+  it('1.3L — second decimal zero, stripped', () => {
+    expect(formatINRFine(130_000)).toBe('₹1.3L')
+  })
+  it('1L — whole number, no decimals', () => {
+    expect(formatINRFine(100_000)).toBe('₹1L')
+  })
+  it('3.5L — one decimal', () => {
+    expect(formatINRFine(350_000)).toBe('₹3.5L')
+  })
+  it('84.2K — K range', () => {
+    expect(formatINRFine(84_200)).toBe('₹84.2K')
+  })
+  it('negatives preserved', () => {
+    expect(formatINRFine(-132_000)).toBe('-₹1.32L')
+  })
+  it('K range: 8.4K', () => {
+    expect(formatINRFine(8_400)).toBe('₹8.4K')
+  })
+})
+
+describe('formatPriceFine — price with up to 2 decimal places', () => {
+  it('whole number below 10k — no commas, no decimals', () => {
+    expect(formatPriceFine(1284)).toBe('₹1284')
+  })
+  it('decimal below 10k — shown', () => {
+    expect(formatPriceFine(529.38)).toBe('₹529.38')
+  })
+  it('trailing zero stripped', () => {
+    expect(formatPriceFine(529.30)).toBe('₹529.3')
+  })
+  it('whole number above 10k — commas, no decimals', () => {
+    expect(formatPriceFine(14800)).toBe('₹14,800')
+  })
+  it('decimal above 10k — commas + decimal', () => {
+    expect(formatPriceFine(14800.50)).toBe('₹14,800.5')
+  })
+})
 
 describe('fyLabel — FY boundary (31-Mar / 01-Apr crossover)', () => {
   it('31 Mar 2025 is FY25 (last day of FY25)', () => {

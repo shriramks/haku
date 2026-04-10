@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Allocations Redesign — Option B + Fine Amounts</title>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f2f2f7;
+    --bg-tertiary: #e5e5ea;
+    --bg-nav: rgba(255,255,255,0.88);
+    --text-primary: #000000;
+    --text-2: rgba(60,60,67,0.8);
+    --text-muted: rgba(60,60,67,0.6);
+    --text-faint: rgba(60,60,67,0.38);
+    --border: #c6c6c8;
+    --border-faint: #e5e5ea;
+    --accent: #007aff;
+    --bar-fill: #34c759;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    max-width: 390px;
+    margin: 0 auto;
+  }
+
+  .note { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 8px 12px; margin: 8px 16px; font-size: 12px; color: #856404; }
+  .note.green { background: #d1f7e0; border-color: #28a745; color: #155724; }
+  .note.blue  { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+
+  /* ── Nav ── */
+  .nav {
+    background: var(--bg-nav); border-bottom: 1px solid var(--border);
+    padding: 16px 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-title { font-size: 34px; font-weight: 700; }
+
+  /* ── Summary strip ── */
+  .summary { background: var(--bg-primary); padding: 20px 16px 16px; border-bottom: 1px solid var(--border-faint); }
+  .plan-lbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-bottom: 4px; }
+  .plan-val { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 12px; }
+  .rs-faint  { color: var(--text-faint); font-weight: 400; } /* faint ₹ symbol */
+  .stats-row { display: flex; gap: 24px; }
+  .stat-lbl  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px; }
+  .stat-big  { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-pct  { font-size: 15px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+  /* ── Column headers ── */
+  .col-hdrs {
+    display: grid; grid-template-columns: 1.4fr 1fr 1.2fr;
+    padding: 14px 16px 4px; background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-faint);
+  }
+  .col-hdr { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); }
+
+  /* ── Allocation row ── */
+  .alloc-row {
+    display: grid; grid-template-columns: 1.4fr 1fr 1.2fr;
+    padding: 18px 16px 0; border-bottom: 1px solid var(--border-faint);
+    background: var(--bg-primary); cursor: pointer;
+  }
+  .alloc-ticker { font-size: 17px; font-weight: 500; }
+  .alloc-left-col { text-align: center; }
+  .alloc-left { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .alloc-pct  { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .alloc-right-col { display: flex; align-items: flex-start; justify-content: flex-end; gap: 4px; }
+  .alloc-invested { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .alloc-bar-wrap { grid-column: 1/-1; margin-top: 10px; padding-bottom: 0; }
+  .alloc-bar { height: 6px; border-radius: 3px; background: var(--border-faint); margin-bottom: -1px; }
+  .alloc-bar-fill { height: 100%; border-radius: 3px; background: var(--bar-fill); }
+
+  .chevron { color: var(--text-faint); flex-shrink: 0; margin-top: 2px; }
+
+  /* ── Detail rows (per-stock page) ── */
+  .section { background: var(--bg-primary); margin-top: 10px; }
+  .sec-hdr {
+    padding: 10px 16px 4px; font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-faint); border-bottom: 1px solid var(--border-faint);
+  }
+  .drow {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; min-height: 44px;
+    border-bottom: 1px solid var(--border-faint); background: var(--bg-primary);
+  }
+  .drow:last-child { border-bottom: none; }
+  .d-lbl { font-size: 15px; color: var(--text-2); }
+  .d-val { font-size: 15px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .d-val.bold { font-weight: 700; font-size: 17px; }
+  .d-val.muted { color: var(--text-muted); }
+
+  .page-label {
+    padding: 16px 16px 6px; font-size: 17px; font-weight: 700;
+    background: var(--bg-primary); border-bottom: 1px solid var(--border-faint);
+  }
+  .page-note {
+    padding: 4px 16px 10px; font-size: 12px; color: var(--text-faint);
+    background: var(--bg-primary); border-bottom: 1px solid var(--border-faint);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+  PART 1: Summary View — Option B (faint ₹)
+  Amounts: up to 2 decimal places, strip trailing zeros
+  e.g. 1.32L, 3.5L, 84K (not 84.0K)
+═══════════════════════════════════════ -->
+
+<div class="page-label">Summary — Option B (faint ₹)</div>
+<div class="page-note">₹ symbol is visible but subdued. Amounts up to 2 decimal places.</div>
+
+<!-- Nav -->
+<div class="nav" style="position:relative">
+  <h1 class="nav-title">Allocation</h1>
+</div>
+
+<!-- Summary strip -->
+<div class="summary">
+  <p class="plan-lbl">Plan</p>
+  <p class="plan-val"><span class="rs-faint">₹</span>35,00,000</p>
+  <div class="stats-row">
+    <div>
+      <p class="stat-lbl">Left</p>
+      <!-- Full amount in hero, faint ₹ -->
+      <p class="stat-big"><span class="rs-faint">₹</span>14,80,000</p>
+      <p class="stat-pct">42.3%</p>
+    </div>
+    <div>
+      <p class="stat-lbl">Invested</p>
+      <p class="stat-big" style="color:var(--text-2)"><span class="rs-faint">₹</span>20,20,000</p>
+      <p class="stat-pct">57.7%</p>
+    </div>
+  </div>
+</div>
+
+<!-- Column headers -->
+<div class="col-hdrs">
+  <span class="col-hdr">Stock</span>
+  <span class="col-hdr" style="text-align:center">Left</span>
+  <span class="col-hdr" style="text-align:right">Invested</span>
+</div>
+
+<!-- Row 1: 1.32L precision -->
+<div class="alloc-row">
+  <div><span class="alloc-ticker">NIFTYBEES</span></div>
+  <div class="alloc-left-col">
+    <div class="alloc-left"><span class="rs-faint">₹</span>1.32L</div>
+    <div class="alloc-pct">37%</div>
+  </div>
+  <div class="alloc-right-col">
+    <div style="text-align:right">
+      <div class="alloc-invested"><span class="rs-faint">₹</span>2.18L</div>
+      <div class="alloc-pct">63%</div>
+    </div>
+    <svg class="chevron" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l6 6-6 6"/></svg>
+  </div>
+  <div class="alloc-bar-wrap">
+    <div class="alloc-bar"><div class="alloc-bar-fill" style="width:63%"></div></div>
+  </div>
+</div>
+
+<!-- Row 2: 3.5L — second decimal zero, show one -->
+<div class="alloc-row">
+  <div><span class="alloc-ticker">HDFC</span></div>
+  <div class="alloc-left-col">
+    <div class="alloc-left"><span class="rs-faint">₹</span>84K</div>
+    <div class="alloc-pct">28%</div>
+  </div>
+  <div class="alloc-right-col">
+    <div style="text-align:right">
+      <div class="alloc-invested"><span class="rs-faint">₹</span>2.16L</div>
+      <div class="alloc-pct">72%</div>
+    </div>
+    <svg class="chevron" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l6 6-6 6"/></svg>
+  </div>
+  <div class="alloc-bar-wrap">
+    <div class="alloc-bar"><div class="alloc-bar-fill" style="width:72%"></div></div>
+  </div>
+</div>
+
+<!-- Row 3: 3.5L — one decimal -->
+<div class="alloc-row">
+  <div><span class="alloc-ticker">ICICIBANK</span></div>
+  <div class="alloc-left-col">
+    <div class="alloc-left"><span class="rs-faint">₹</span>3.5L</div>
+    <div class="alloc-pct">100%</div>
+  </div>
+  <div class="alloc-right-col">
+    <div style="text-align:right">
+      <div class="alloc-invested"><span class="rs-faint">₹</span>0</div>
+      <div class="alloc-pct">0%</div>
+    </div>
+    <svg class="chevron" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l6 6-6 6"/></svg>
+  </div>
+  <div class="alloc-bar-wrap">
+    <div class="alloc-bar"><div class="alloc-bar-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="note blue" style="margin-top:8px">
+  Amount rule: up to 2 decimal places, strip trailing zeros.<br>
+  1,32,000 → <strong>1.32L</strong> · 2,18,000 → <strong>2.18L</strong> · 3,50,000 → <strong>3.5L</strong> · 84,000 → <strong>84K</strong>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+  PART 2: Per-Stock View — same as bands page
+  (faint ₹ + fine amounts)
+═══════════════════════════════════════ -->
+
+<div class="page-label" style="margin-top:24px">Per-Stock View (from Allocations)</div>
+<div class="page-note">Same page as /bands/[symbol]. Faint ₹, fine amounts, 2 dp avg cost.</div>
+
+<!-- FY section — unified page, full Indian-locale amounts (same as bands per-stock) -->
+<div class="section" style="margin-top:0">
+  <div class="sec-hdr">FY26</div>
+  <div class="drow">
+    <span class="d-lbl">Remaining</span>
+    <span class="d-val bold tabnum"><span class="rs-faint">₹</span>1,32,452</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Invested</span>
+    <span class="d-val tabnum"><span class="rs-faint">₹</span>2,18,000</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Planned Allocation</span>
+    <span class="d-val muted tabnum"><span class="rs-faint">₹</span>3,50,452</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Shares</span>
+    <span class="d-val tabnum">412</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Avg Cost</span>
+    <span class="d-val tabnum"><span class="rs-faint">₹</span>529.38</span>
+  </div>
+</div>
+
+<!-- All time section -->
+<div class="section">
+  <div class="sec-hdr">All Time</div>
+  <div class="drow">
+    <span class="d-lbl">Total Remaining</span>
+    <span class="d-val bold tabnum"><span class="rs-faint">₹</span>1,32,452</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Total Invested</span>
+    <span class="d-val tabnum"><span class="rs-faint">₹</span>6,48,000</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Planned Allocation</span>
+    <span class="d-val muted tabnum"><span class="rs-faint">₹</span>7,80,452</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Shares</span>
+    <span class="d-val tabnum">1,220</span>
+  </div>
+  <div class="drow">
+    <span class="d-lbl">Avg Cost</span>
+    <span class="d-val tabnum"><span class="rs-faint">₹</span>529.38</span>
+  </div>
+</div>
+
+<div class="note green" style="margin-top:8px; margin-bottom:24px">
+  Per-stock page is unified — full Indian-locale amounts (₹1,32,452) match the bands page. Summary list stays compact (1.32L).
+</div>
+
+</body>
+</html>

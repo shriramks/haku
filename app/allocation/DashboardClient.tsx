@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt, formatINR, formatINRFull } from '@/lib/formatter'
+import { formatAmt, formatINR, formatINRFull, formatINRFine } from '@/lib/formatter'
 import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -127,14 +127,14 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex-1 min-w-0">
                 <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
                 <p className="text-display font-bold tabnum mb-3">
-                  {formatINRFull(totalBudget)}
+                  <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(totalBudget).slice(1)}
                 </p>
                 <div className="flex gap-5">
                   {/* Left stat */}
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
                     <p className="text-title-2 font-bold tabnum leading-none">
-                      {formatINRFull(Math.max(0, totalRemaining))}
+                      <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(Math.max(0, totalRemaining)).slice(1)}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctLeft.toFixed(1)}%
@@ -144,7 +144,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested</p>
                     <p className="text-title-2 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
-                      {formatINRFull(totalDeployed)}
+                      <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(totalDeployed).slice(1)}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctDeployed.toFixed(1)}%
@@ -244,7 +244,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>done</p>
           ) : (
             <>
-              <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>{formatINR(row.remaining)}</p>
+              <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+            <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFine(row.remaining).slice(1)}
+          </p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
             </>
           )}
@@ -253,7 +255,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {/* Col 3 — Invested (secondary) + chevron */}
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
-            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>{formatINR(row.currentCost)}</p>
+            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
+              <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFine(row.currentCost).slice(1)}
+            </p>
             {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{investedPct}%</p>}
           </div>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />

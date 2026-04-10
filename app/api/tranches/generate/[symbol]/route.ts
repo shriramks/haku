@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const { symbol } = await params
   const upperSymbol = symbol.toUpperCase()
-  const { fyId, remainingInr, userLiquidInr } = await req.json().catch(() => ({})) as { fyId?: string; remainingInr?: number; userLiquidInr?: number }
+  const { fyId, remainingInr } = await req.json().catch(() => ({})) as { fyId?: string; remainingInr?: number }
 
   if (!fyId) return NextResponse.json({ error: 'fyId required' }, { status: 400 })
 
@@ -97,9 +97,7 @@ export async function POST(
     }
   } catch { /* fall back to stored CMP, no 52-week low */ }
 
-  const deployable = userLiquidInr != null
-    ? Math.min(remaining, userLiquidInr)
-    : remaining
+  const deployable = remaining
 
   const totalCapital = fy?.total_budget_inr ?? 0
   const suggestedAmt = trancheSuggestion(deployable, totalCapital)

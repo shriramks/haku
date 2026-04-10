@@ -1,87 +1,67 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, computeTrancheprices, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { getBandSignal, seqCost } from '@/lib/compute'
-import { BandSignalBadge } from '@/components/SignalBadge'
-import { formatINR, formatPrice } from '@/lib/formatter'
-import type { StockCategory, FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from '@/lib/types'
-import TrancheSection from '@/components/TrancheSection'
+import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
+import { getBandSignal } from '@/lib/compute'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
-import { getStockName } from '@/lib/stock-names'
-import CmpBadge from '@/components/CmpBadge'
 import QuartersToggle from '@/components/QuartersToggle'
-import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
+import TrancheSection from '@/components/TrancheSection'
+import { BandSignalBadge } from '@/components/SignalBadge'
+import { RefreshIcon, SparkleIcon } from '@/components/icons'
+import { revalidateBuyBands } from '@/app/actions'
 
 interface Props {
   symbol: string
-  fiscalYear: FiscalYear | null
-  allocation: StockAllocation | null
-  transactions: Transaction[]
-  allTransactions: Transaction[]
-  allFYBudget: number
-  carryoverInr: number
   band: BuyBand | null
-  initialTranches: BuyTranche[]
-  hasKey: boolean
-  aiProvider: 'gemini' | 'claude'
-  userId: string
+  allocation: StockAllocation | null
+  fyRow: StockRow | null
+  allTimeQty: number
+  allTimeCost: number
+  allTimeAvgCost: number
+  tranches: BuyTranche[]
+  fyId: string
+  initialHasKey: boolean
+  initialAiProvider: 'gemini' | 'claude'
 }
 
 export default function StockDetailClient({
-  symbol, fiscalYear, allocation, transactions, allTransactions, allFYBudget, carryoverInr,
-  band: initialBand, initialTranches, hasKey, aiProvider, userId,
+  symbol, band: initialBand, allocation: initialAllocation,
+  fyRow, allTimeQty, allTimeCost, allTimeAvgCost,
+  tranches: initialTranches, fyId, initialHasKey, initialAiProvider,
 }: Props) {
   const router = useRouter()
-  const [band, setBand]                     = useState(initialBand)
-  const [allocState, setAllocState]         = useState(allocation)
-  const [tranches, setTranches]             = useState(initialTranches)
-  const [refreshing, setRefreshing]         = useState(false)
-  const [showFinancials, setShowFinancials] = useState(false)
+  const [band, setBand]               = useState(initialBand)
+  const [allocation, setAllocation]   = useState(initialAllocation)
+  const [tranches, setTranches]       = useState(initialTranches)
+  const [cmp, setCmp]                 = useState(initialBand?.manual_cmp ?? null)
+  const [week52, setWeek52]           = useState<{ low: number | null; high: number | null }>({
+    low: initialBand?.week_52_low ?? null,
+    high: initialBand?.week_52_high ?? null,
+  })
+  const [refreshing, setRefreshing]               = useState(false)
+  const [generating, setGenerating]               = useState(false)
+  const [genError, setGenError]                   = useState('')
   const [generatingTranches, setGeneratingTranches] = useState(false)
+  const [hasKey, setHasKey]                       = useState(initialHasKey)
+  const [aiProvider, setAiProvider]               = useState(initialAiProvider)
+  const [showKeyPrompt, setShowKeyPrompt]         = useState(false)
+  const [showQInfo, setShowQInfo]                 = useState(false)
+  const [userId, setUserId]                       = useState<string | null>(null)
 
-  // ── FY spend calculations ────────────────────────────────────────────────────
-  const fyTxns = fiscalYear
-    ? transactions.filter(t => t.advance_fy_id == null || t.advance_fy_id === fiscalYear.id)
-    : transactions
+  useEffect(() => {
+    getSupabaseBrowser().auth.getSession()
+      .then(({ data }) => setUserId(data.session?.user?.id ?? null))
+  }, [])
 
-  // FY budget/remaining: aggregate net spend (clamped ≥ 0) — for planning only
-  const fySellTxns  = fyTxns.filter(t => t.trade_type === 'sell')
-  const fyBuyValue  = fyTxns.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0)
-  const fySellValue = fySellTxns.reduce((s, t) => s + t.amount, 0)
-  const fySellQty   = fySellTxns.reduce((s, t) => s + t.quantity, 0)
-  const spent = Math.max(0, fyBuyValue - fySellValue)
+  const hasQuarters = allocation && !CATEGORIES_WITHOUT_QUARTERS.has(allocation.category as StockCategory)
 
-  // FY "Invested" display + FY shares/avg cost
-  const { cost: currentCost, qty: fyQty, avgCost: fyAvgCost } = seqCost(fyTxns)
-
-  const budget    = allocation && fiscalYear
-    ? (allocation.allocation_pct / 100) * (fiscalYear.total_budget_inr + (fiscalYear.unallocated_carryover_inr ?? 0)) + carryoverInr
-    : 0
-  const remaining = budget - spent
-
-  // All-time position (sequential) — used for Shares, Avg Cost, unrealised P&L
-  const { qty: allTimeQty, cost: allTimeCost, avgCost: allTimeAvg } = seqCost(allTransactions)
-
-  // All-time sell totals for realised P&L
-  const allTimeSellTxns  = allTransactions.filter(t => t.trade_type === 'sell')
-  const allTimeSellQty   = allTimeSellTxns.reduce((s, t) => s + t.quantity, 0)
-  const allTimeSellValue = allTimeSellTxns.reduce((s, t) => s + t.amount, 0)
-
-  // Realised P&L (approximate: sequential avg cost used as cost basis)
-  const allTimeRealPnL = allTimeAvg > 0 && allTimeSellQty > 0
-    ? allTimeSellValue - allTimeAvg * allTimeSellQty : null
-  const fyRealPnL = allTimeAvg > 0 && fySellQty > 0
-    ? fySellValue - allTimeAvg * fySellQty : null
-
-  const remainingDisplay = remaining
-
-  // ── Band computations ────────────────────────────────────────────────────────
-  const computed = (band && allocState) ? calculateBands({
-    category:          allocState.category as StockCategory,
-    twoWeakQuarters:   allocState.two_weak_quarters,
-    twoStrongQuarters: allocState.two_strong_quarters,
+  const computed = band ? calculateBands({
+    category: allocation?.category as StockCategory,
+    twoWeakQuarters: allocation?.two_weak_quarters ?? false,
+    twoStrongQuarters: allocation?.two_strong_quarters ?? false,
     eps: band.eps,
   }) : null
 
@@ -90,425 +70,56 @@ export default function StockDetailClient({
   const midLow    = computed?.midLow    ?? band?.mid_low    ?? null
   const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
-  const cmp       = band?.manual_cmp    ?? null
   const hasBands  = buyLow != null && trimPrice != null
-  const signal = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
+  const signal    = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
-  // ── CMP refresh ─────────────────────────────────────────────────────────────
+  const fyRemaining = fyRow?.remaining ?? 0
+
+  const allTimeCurrentValue = cmp != null && allTimeQty > 0
+    ? Math.round(allTimeQty) * cmp
+    : null
+  const allTimeUnrealisedPnL = allTimeCurrentValue != null && allTimeCost > 0
+    ? allTimeCurrentValue - allTimeCost
+    : null
+
   async function refreshCMP() {
     setRefreshing(true)
     try {
       const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
       if (!res.ok) throw new Error('fetch failed')
-      const { price } = await res.json()
+      const { price, week52Low, week52High } = await res.json()
+      setCmp(price)
+      setWeek52({ low: week52Low ?? null, high: week52High ?? null })
       const sb = getSupabaseBrowser()
       if (band) {
-        await sb.from('buy_bands').update({ manual_cmp: price, last_updated_at: new Date().toISOString() }).eq('id', band.id)
-        setBand(prev => prev ? { ...prev, manual_cmp: price } : prev)
+        await sb.from('buy_bands').update({
+          manual_cmp: price,
+          week_52_low: week52Low ?? null,
+          week_52_high: week52High ?? null,
+          last_updated_at: new Date().toISOString(),
+        }).eq('id', band.id)
+        setBand(prev => prev ? { ...prev, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : prev)
+        revalidateBuyBands()
       } else {
         const { data: { user } } = await sb.auth.getUser()
         if (user) {
           const { data } = await sb.from('buy_bands').insert({
-            user_id: user.id, symbol, anchor_type: 'PE', manual_cmp: price, is_current: true,
+            user_id: user.id, symbol, anchor_type: 'PE',
+            manual_cmp: price, is_current: true,
           }).select().single()
           if (data) setBand(data)
         }
       }
-    } catch { /* silently fail */ }
-    setRefreshing(false)
-  }
-
-  // ── Bear / Normal / Bull toggle ──────────────────────────────────────────────
-  async function toggleQuarters(field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
-    if (!allocState) return
-    const patch: Record<string, boolean> = { [field]: value }
-    if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
-    const updated = { ...allocState, ...patch }
-    setAllocState(updated)
-
-    if (band && band.eps) {
-      const result = calculateBands({
-        category: updated.category as StockCategory,
-        twoWeakQuarters:   updated.two_weak_quarters,
-        twoStrongQuarters: updated.two_strong_quarters,
-        eps: band.eps,
-      })
-      if (result) {
-        setBand(prev => prev ? {
-          ...prev,
-          buy_low: result.buyLow, buy_high: result.buyHigh,
-          mid_low: result.midLow, mid_high: result.midHigh,
-          trim_price: result.trimPrice,
-        } : prev)
-        const sb = getSupabaseBrowser()
-        await Promise.all([
-          sb.from('stock_allocations').update(patch).eq('id', allocState.id),
-          sb.from('buy_bands').update({
-            buy_low: result.buyLow, buy_high: result.buyHigh,
-            mid_low: result.midLow, mid_high: result.midHigh,
-            trim_price: result.trimPrice,
-            last_updated_at: new Date().toISOString(),
-          }).eq('symbol', symbol).eq('is_current', true),
-        ])
-        return
-      }
+    } catch {
+      // silently fail
+    } finally {
+      setRefreshing(false)
     }
-    getSupabaseBrowser().from('stock_allocations').update(patch).eq('id', allocState.id)
   }
 
-  // ── Tranche operations ───────────────────────────────────────────────────────
-  async function addTranche(sym: string, qty: number, price: number) {
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) return
-    const existing = tranches.filter(t => t.symbol === sym)
-    const { data } = await sb.from('buy_tranches').insert({
-      user_id: user.id, symbol: sym, qty, price,
-      sort_order: existing.length + 1, fy_id: fiscalYear?.id ?? '',
-    }).select().single()
-    if (data) setTranches(prev => [...prev, data])
-  }
-
-  async function deleteTranche(id: string) {
-    await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
-    setTranches(prev => prev.filter(t => t.id !== id))
-  }
-
-  async function updateTranche(id: string, qty: number, price: number) {
-    setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
-    await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
-  }
-
-  async function clearTranches() {
-    const fyId = fiscalYear?.id ?? ''
-    await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
-    setTranches([])
-  }
-
-  async function generateTranches() {
-    if (!fiscalYear?.id) return
-    setGeneratingTranches(true)
-    try {
-      const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId: fiscalYear.id, remainingInr: Math.max(0, remaining), userLiquidInr: fiscalYear.deploy_capital_inr ?? undefined }),
-      })
-      const json = await res.json()
-      if (res.ok && json.tranches?.length > 0) {
-        setTranches(prev => [...prev.filter(t => t.symbol !== symbol), ...json.tranches])
-      }
-    } catch { /* silently fail */ }
-    setGeneratingTranches(false)
-  }
-
-  const fyLabel = fiscalYear?.label ?? 'This FY'
-
-  return (
-    <div style={{ minHeight: '100dvh' }}>
-
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div
-        className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
-        style={{
-          background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
-          paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
-        }}>
-        <div className="flex items-start gap-3">
-          <button
-            onClick={() => router.back()}
-            className="mt-0.5 p-3 -ml-3 flex-shrink-0"
-            style={{ color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="flex-1 pt-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-title-1 font-bold" style={{ color: 'var(--text-primary)' }}>{symbol}</h1>
-              <BandSignalBadge signal={signal} />
-            </div>
-            {getStockName(symbol) && (
-              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>{getStockName(symbol)}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-
-        {/* ── Band bar + CMP ────────────────────────────────────────────────── */}
-        <div className="px-4 pt-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          {hasBands ? (
-            <BandBar
-              buyLow={buyLow!} buyHigh={buyHigh!}
-              midLow={midLow!} midHigh={midHigh!}
-              trimPrice={trimPrice!} cmp={cmp}
-            />
-          ) : (
-            <div className="h-7 rounded-lg flex items-center px-3" style={{ background: 'var(--bg-tertiary)' }}>
-              <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>
-                No bands yet — set financials to generate
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between mt-4">
-            <div>
-              {cmp != null ? (
-                <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                  ₹{Math.round(cmp)}
-                </p>
-              ) : (
-                <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>—</p>
-              )}
-              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>CMP</p>
-            </div>
-            <button
-              onClick={refreshCMP}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 rounded-xl text-subheadline font-medium disabled:opacity-40"
-              style={{
-                minHeight: 44,
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-2)',
-                border: '1px solid var(--border)',
-              }}>
-              <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* ── Bear / Normal / Bull ─────────────────────────────────────────────── */}
-        {allocState && !CATEGORIES_WITHOUT_QUARTERS.has(allocState.category as StockCategory) && (
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <QuartersToggle
-              twoWeakQuarters={allocState.two_weak_quarters}
-              twoStrongQuarters={allocState.two_strong_quarters}
-              onChange={(field, value) => toggleQuarters(field, value)}
-            />
-          </div>
-        )}
-
-        {/* ── FY section ───────────────────────────────────────────────────── */}
-        <SectionHeader title={fyLabel} first />
-        <DetailRow
-          label="Remaining"
-          value={formatINR(Math.abs(remainingDisplay))}
-          prefix={remainingDisplay < 0 ? '−' : undefined}
-        />
-        <DetailRow label="Invested" value={formatINR(currentCost)} />
-        <DetailRow label="Allocation" value={formatINR(budget)} muted />
-        {carryoverInr !== 0 && (
-          <DetailRow
-            label="Carryover"
-            value={`${carryoverInr > 0 ? '+' : '−'}${formatINR(Math.abs(carryoverInr))}`}
-          />
-        )}
-        {fyRealPnL !== null && (
-          <DetailRow
-            label="Realised P&L"
-            value={formatINR(Math.abs(fyRealPnL))}
-            prefix={fyRealPnL < 0 ? '−' : undefined}
-          />
-        )}
-        <DetailRow label="Shares" value={fyQty > 0 ? Math.round(fyQty).toLocaleString('en-IN') : '0'} muted={fyQty === 0} />
-        <DetailRow label="Avg Cost" value={fyAvgCost > 0 && fyQty > 0 ? formatPrice(fyAvgCost) : '—'} muted={fyQty === 0} />
-
-        {/* ── All Time ─────────────────────────────────────────────────────── */}
-        <SectionHeader title="All Time" />
-        <DetailRow
-          label="Total Remaining"
-          value={formatINR(Math.abs(allFYBudget - allTimeCost))}
-          prefix={allFYBudget - allTimeCost < 0 ? '−' : undefined}
-        />
-        <DetailRow label="Total Invested" value={formatINR(allTimeCost)} />
-        <DetailRow label="Total Allocation" value={formatINR(allFYBudget)} muted />
-        {allTimeRealPnL !== null && (
-          <DetailRow
-            label="Realised P&L"
-            value={formatINR(Math.abs(allTimeRealPnL))}
-            prefix={allTimeRealPnL < 0 ? '−' : undefined}
-          />
-        )}
-        <DetailRow label="Shares" value={allTimeQty > 0 ? Math.round(allTimeQty).toLocaleString('en-IN') : '0'} muted={allTimeQty === 0} />
-        <DetailRow label="Avg Cost" value={allTimeAvg > 0 && allTimeQty > 0 ? formatPrice(allTimeAvg) : '—'} muted={allTimeQty === 0} />
-
-        {/* ── Tranches ─────────────────────────────────────────────────────── */}
-        <TrancheSection
-          symbol={symbol}
-          tranches={tranches}
-          remaining={remainingDisplay}
-          budget={budget}
-          hasBands={hasBands}
-          cmp={cmp}
-          onAdd={addTranche}
-          onDelete={deleteTranche}
-          onUpdate={updateTranche}
-          onGenerate={generateTranches}
-          onClear={clearTranches}
-          generating={generatingTranches}
-        />
-
-        {/* ── Financials edit ───────────────────────────────────────────────── */}
-        <div className="border-t" style={{ borderColor: 'var(--border-faint)' }}>
-          <button
-            onClick={() => setShowFinancials(true)}
-            className="flex items-center justify-between w-full px-4"
-            style={{ minHeight: 44 }}>
-            <span className="text-body" style={{ color: 'var(--text-2)' }}>Financials</span>
-            <span className="text-body text-accent">Edit ›</span>
-          </button>
-        </div>
-
-      </div>
-
-      {/* ── Financials bottom sheet ───────────────────────────────────────── */}
-      {showFinancials && (
-        <FinancialsSheet
-          symbol={symbol}
-          band={band}
-          allocation={allocation}
-          fyId={fiscalYear?.id ?? ''}
-          hasKey={hasKey}
-          aiProvider={aiProvider}
-          onBandSaved={b => { setBand(b); setShowFinancials(false) }}
-          onClose={() => setShowFinancials(false)}
-        />
-      )}
-    </div>
-  )
-}
-
-// ── Detail row (label left, value right) ─────────────────────────────────────
-
-function DetailRow({ label, value, valueColor, muted, prefix }: {
-  label: string
-  value: string
-  valueColor?: string
-  muted?: boolean
-  prefix?: string
-}) {
-  return (
-    <div
-      className="flex items-center justify-between px-4 border-b"
-      style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
-      <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
-      <span
-        className={`text-body tabnum ${valueColor ?? ''}`}
-        style={valueColor ? undefined : { color: muted ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-        {prefix}{value}
-      </span>
-    </div>
-  )
-}
-
-// ── Section header ────────────────────────────────────────────────────────────
-
-function SectionHeader({ title, first }: { title: string; first?: boolean }) {
-  return (
-    <div
-      className={`px-4 pb-2 border-b ${first ? 'pt-2' : 'pt-4 border-t mt-1'}`}
-      style={{ borderColor: 'var(--border-faint)' }}>
-      <span
-        className="text-footnote font-semibold uppercase"
-        style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
-        {title}
-      </span>
-    </div>
-  )
-}
-
-// ── Financials bottom sheet ───────────────────────────────────────────────────
-
-function FinancialsSheet({ symbol, band, allocation, fyId, hasKey, aiProvider, onBandSaved, onClose }: {
-  symbol: string
-  band: BuyBand | null
-  allocation: StockAllocation | null
-  fyId: string
-  hasKey: boolean
-  aiProvider: 'gemini' | 'claude'
-  onBandSaved: (b: BuyBand) => void
-  onClose: () => void
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl animate-slide-up overflow-hidden"
-        style={{
-          background: 'var(--bg-secondary)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)',
-        }}>
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--bg-tertiary)' }} />
-        </div>
-        {/* Sheet header */}
-        <div
-          className="flex items-center justify-between px-5 pt-2 pb-3 border-b"
-          style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Financials</p>
-          <button
-            onClick={onClose}
-            className="text-accent text-body w-14 text-right"
-            style={{ minHeight: 44 }}>
-            Done
-          </button>
-        </div>
-        {/* Content */}
-        <div className="overflow-y-auto px-5 pt-4" style={{ maxHeight: '70vh' }}>
-          <FinancialsCard
-            symbol={symbol}
-            band={band}
-            allocation={allocation}
-            fyId={fyId}
-            hasKey={hasKey}
-            aiProvider={aiProvider}
-            onBandSaved={onBandSaved}
-            onTranchesUpdated={() => {}}
-          />
-        </div>
-      </div>
-    </>
-  )
-}
-
-// ── Financials card ───────────────────────────────────────────────────────────
-
-function FinancialsCard({ symbol, band, allocation, fyId, hasKey, aiProvider, onBandSaved, onTranchesUpdated }: {
-  symbol: string
-  band: BuyBand | null
-  allocation: StockAllocation | null
-  fyId: string
-  hasKey: boolean
-  aiProvider: 'gemini' | 'claude'
-  onBandSaved: (b: BuyBand) => void
-  onTranchesUpdated: (t: BuyTranche[]) => void
-}) {
-
-  const anchor = 'PE'
-
-  const category = allocation?.category
-
-  const [editing, setEditing]   = useState(false)
-  const [generating, setGen]    = useState(false)
-  const [genError, setGenError] = useState('')
-  const [saving, setSaving]     = useState(false)
-
-  const [eps,    setEps]    = useState(band?.eps?.toString()            ?? '')
-  const [bvps,   setBvps]   = useState(band?.bvps?.toString()           ?? '')
-  const [ebitda, setEbitda] = useState(band?.ebitda?.toString()         ?? '')
-  const [netDebt,setNetDebt]= useState(band?.net_debt?.toString()       ?? '')
-  const [shares, setShares] = useState(band?.shares?.toString()         ?? '')
-  const [ev,     setEv]     = useState(band?.embedded_value?.toString() ?? '')
-
-  async function generate() {
-    if (!hasKey) { setGenError('No AI key set — add one in Settings (person icon)'); return }
-    setGen(true)
+  async function generateBands() {
+    if (!hasKey) { setShowKeyPrompt(true); return }
+    setGenerating(true)
     setGenError('')
     try {
       const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
@@ -519,136 +130,432 @@ function FinancialsCard({ symbol, band, allocation, fyId, hasKey, aiProvider, on
       const json = await res.json()
       if (!res.ok) {
         setGenError(json.error ?? 'Generation failed')
-      } else {
-        if (json.band) {
-          onBandSaved(json.band)
-          setEps(json.band.eps?.toString()           ?? '')
-          setBvps(json.band.bvps?.toString()         ?? '')
-          setEbitda(json.band.ebitda?.toString()     ?? '')
-          setNetDebt(json.band.net_debt?.toString()  ?? '')
-          setShares(json.band.shares?.toString()     ?? '')
-          setEv(json.band.embedded_value?.toString() ?? '')
-        }
-        if (json.tranches?.length > 0) onTranchesUpdated(json.tranches)
+      } else if (json.band) {
+        setBand(json.band)
+        setCmp(json.band.manual_cmp ?? cmp)
+        if (json.tranches?.length > 0) setTranches(json.tranches)
       }
     } catch {
       setGenError('Network error')
     }
-    setGen(false)
+    setGenerating(false)
   }
 
-  async function save() {
-    setSaving(true)
-    const sb = getSupabaseBrowser()
-    const fields = {
-      eps:            parseFloat(eps)     || null,
-      bvps:           parseFloat(bvps)    || null,
-      ebitda:         parseFloat(ebitda)  || null,
-      net_debt:       parseFloat(netDebt) || null,
-      shares:         parseFloat(shares)  || null,
-      embedded_value: parseFloat(ev)      || null,
-      last_updated_at: new Date().toISOString(),
-    }
+  async function toggleQuarters(field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
+    if (!allocation) return
+    const patch: Record<string, boolean> = { [field]: value }
+    if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
+    const updated = { ...allocation, ...patch }
+    setAllocation(updated)
 
-    let savedBand: BuyBand | null = null
-    if (band) {
-      const { data } = await sb.from('buy_bands').update(fields).eq('id', band.id).select().single()
-      savedBand = data
-    } else {
-      const { data: { user } } = await sb.auth.getUser()
-      if (user) {
-        const { data } = await sb.from('buy_bands').insert({
-          user_id: user.id, symbol, anchor_type: 'PE', is_current: true, ...fields,
-        }).select().single()
-        savedBand = data
+    const sb = getSupabaseBrowser()
+    await sb.from('stock_allocations').update(patch).eq('id', allocation.id)
+
+    if (band?.eps) {
+      const result = calculateBands({
+        category: updated.category as StockCategory,
+        twoWeakQuarters: updated.two_weak_quarters,
+        twoStrongQuarters: updated.two_strong_quarters,
+        eps: band.eps,
+      })
+      if (result) {
+        await sb.from('buy_bands').update({
+          buy_low: result.buyLow, buy_high: result.buyHigh,
+          mid_low: result.midLow, mid_high: result.midHigh,
+          trim_price: result.trimPrice,
+          last_updated_at: new Date().toISOString(),
+        }).eq('symbol', symbol).eq('is_current', true)
+        setBand(prev => prev ? {
+          ...prev,
+          buy_low: result.buyLow, buy_high: result.buyHigh,
+          mid_low: result.midLow, mid_high: result.midHigh,
+          trim_price: result.trimPrice,
+        } : prev)
       }
     }
-    if (savedBand) onBandSaved(savedBand)
-    setSaving(false)
-    setEditing(false)
   }
 
-  const hasData = !!(band?.eps || band?.bvps || band?.ebitda || band?.embedded_value)
+  async function generateTranches() {
+    setGeneratingTranches(true)
+    try {
+      const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fyId, remainingInr: fyRemaining }),
+      })
+      const json = await res.json()
+      if (res.ok && json.tranches?.length > 0) setTranches(json.tranches)
+    } catch {
+      // silently fail
+    }
+    setGeneratingTranches(false)
+  }
+
+  async function addTranche(qty: number, price: number) {
+    if (!userId) return
+    const { data } = await getSupabaseBrowser().from('buy_tranches').insert({
+      user_id: userId, symbol, qty, price,
+      sort_order: tranches.length + 1, fy_id: fyId,
+    }).select().single()
+    if (data) setTranches(prev => [...prev, data].sort((a, b) => b.price - a.price))
+  }
+
+  async function updateTranche(id: string, qty: number, price: number) {
+    setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
+    await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+  }
+
+  async function deleteTranche(id: string) {
+    await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
+    setTranches(prev => prev.filter(t => t.id !== id))
+  }
+
+  async function clearAllTranches() {
+    await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
+    setTranches([])
+  }
+
+  // Financials display based on anchor type
+  const financialsRows: { label: string; value: string }[] = []
+  if (band) {
+    financialsRows.push({ label: 'Anchor', value: band.anchor_type.replace('_', '/') })
+    if (band.anchor_type === 'PE' && band.eps != null)
+      financialsRows.push({ label: 'EPS', value: formatPrice(band.eps) })
+    if (band.anchor_type === 'PB' && band.bvps != null)
+      financialsRows.push({ label: 'BVPS', value: formatPrice(band.bvps) })
+    if (band.anchor_type === 'EV_EBITDA') {
+      if (band.ebitda != null)   financialsRows.push({ label: 'EBITDA', value: formatINR(band.ebitda) })
+      if (band.net_debt != null) financialsRows.push({ label: 'Net Debt', value: formatINR(band.net_debt) })
+      if (band.shares != null)   financialsRows.push({ label: 'Shares (Cr)', value: String(band.shares) })
+    }
+    if (band.anchor_type === 'P_EV' && band.embedded_value != null)
+      financialsRows.push({ label: 'Embedded Value', value: formatINR(band.embedded_value) })
+  }
 
   return (
-    <>
-      {/* Generate button */}
-      <button
-        onClick={generate}
-        disabled={generating}
-        className="flex items-center gap-2 px-4 py-3 rounded-xl w-full mb-4 text-body font-medium disabled:opacity-40"
-        style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
-        <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-        {generating ? 'Generating…' : 'Generate from AI'}
-      </button>
+    <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
-      {genError && <p className="text-subheadline text-negative mb-3">{genError}</p>}
+      {/* ── Nav ── */}
+      <div
+        className="sticky top-0 z-10 backdrop-blur-xl border-b"
+        style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
+        <div className="flex items-center justify-between px-4 pb-3">
+          <button onClick={() => router.back()}
+            className="flex items-center gap-1 text-body flex-shrink-0"
+            style={{ color: 'var(--accent)', minWidth: 60, minHeight: 44 }}>
+            <svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M7 1L1 7l6 6" /></svg>
+            Stocks
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-headline font-semibold">{symbol}</span>
+            {signal !== 'unknown' && <BandSignalBadge signal={signal} />}
+          </div>
+          <div style={{ minWidth: 60 }} />
+        </div>
+      </div>
 
-      {editing ? (
-        <>
-          <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
-            {category ? `${category} · ` : ''}PE
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
-              <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
-                onChange={e => setEps(e.target.value)}
-                className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+      {/* ── Refresh CMP strip ── */}
+      <div className="flex items-center justify-end border-b px-4"
+        style={{ borderColor: 'var(--border-faint)', minHeight: 40, background: 'var(--bg-primary)' }}>
+        <button onClick={refreshCMP} disabled={refreshing}
+          className="flex items-center gap-1.5 disabled:opacity-40"
+          style={{ color: 'var(--text-muted)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing…' : 'Refresh CMP'}
+        </button>
+      </div>
+
+      {/* ── Band bar ── */}
+      <div style={{ background: 'var(--bg-primary)', padding: '14px 16px 0' }}>
+        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', marginBottom: 10 }}>Buy Band</p>
+        {hasBands ? (
+          <>
+            <BandBar
+              buyLow={buyLow!} buyHigh={buyHigh!}
+              midLow={midLow!} midHigh={midHigh!}
+              trimPrice={trimPrice!} cmp={cmp}
+            />
+            {/* ── 52W Low | CMP | 52W High ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low</p>
+                <p className="text-body font-semibold tabnum">{week52.low != null ? formatPrice(week52.low) : '—'}</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price</p>
+                <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+                  {cmp != null ? formatPrice(cmp) : '—'}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High</p>
+                <p className="text-body font-semibold tabnum">{week52.high != null ? formatPrice(week52.high) : '—'}</p>
+              </div>
             </div>
+          </>
+        ) : (
+          <div className="h-7 rounded-lg flex items-center px-3 mb-4" style={{ background: 'var(--bg-tertiary)' }}>
+            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands yet — set financials to generate</p>
           </div>
-          <button onClick={save} disabled={saving}
-            className="w-full mt-4 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"
-            style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button onClick={() => setEditing(false)}
-            className="w-full mt-2 py-3 rounded-xl text-body"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            Cancel
-          </button>
-        </>
-      ) : hasData ? (
-        <>
-          <div className="grid grid-cols-2 gap-y-4 gap-x-4 mb-4">
-            {band?.eps            && <InputRow k="EPS"            v={`₹${band.eps}`} />}
-            {band?.bvps           && <InputRow k="BVPS"           v={`₹${band.bvps}`} />}
-            {band?.ebitda         && <InputRow k="EBITDA"         v={`${band.ebitda} Cr`} />}
-            {band?.net_debt       && <InputRow k="Net Debt"       v={`${band.net_debt} Cr`} />}
-            {band?.shares         && <InputRow k="Shares"         v={`${band.shares} Cr`} />}
-            {band?.embedded_value && <InputRow k="Embedded Value" v={`${band.embedded_value} Cr`} />}
-          </div>
-          <button onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <PencilIcon className="w-4 h-4" />
-            Edit values
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-subheadline mb-4" style={{ color: 'var(--text-faint)' }}>
-            No data — tap Generate to auto-fill, or Edit to enter manually
-          </p>
-          <button onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <PencilIcon className="w-4 h-4" />
-            Enter manually
-          </button>
-        </>
-      )}
-    </>
-  )
-}
+        )}
+      </div>
 
-function InputRow({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{k}</p>
-      <p className="font-semibold tabnum text-body" style={{ color: 'var(--text-primary)' }}>{v}</p>
+      {/* ── Bear / Normal / Bull + ⓘ ── */}
+      {hasQuarters && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10, padding: '10px 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <QuartersToggle
+            twoWeakQuarters={allocation!.two_weak_quarters}
+            twoStrongQuarters={allocation!.two_strong_quarters}
+            onChange={toggleQuarters}
+          />
+          <button
+            onClick={() => setShowQInfo(true)}
+            style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--bg-secondary)', fontSize: 13, fontStyle: 'italic', fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            i
+          </button>
+        </div>
+      )}
+      {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
+
+      {/* ── Allocation ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <SectionHeader label="Allocation" />
+        <DetailRow label="Remaining" value={formatINRFull(fyRemaining)} bold />
+        <DetailRow label="Invested" value={formatINRFull(fyRow?.currentCost ?? 0)} />
+        <DetailRow label="Planned Allocation" value={formatINRFull(fyRow?.budget ?? 0)} muted />
+      </div>
+
+      {/* ── Position (all-time holdings) ── */}
+      {(allTimeQty > 0 || allTimeCost > 0) && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+          <SectionHeader label="Position" />
+          <DetailRow label="Shares" value={allTimeQty > 0 ? String(Math.round(allTimeQty)) : '—'} />
+          <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost) : '—'} />
+          <DetailRow label="Current Value" value={allTimeCurrentValue != null ? formatINRFull(Math.round(allTimeCurrentValue)) : '—'} />
+          {allTimeUnrealisedPnL != null && allTimeUnrealisedPnL !== 0 && (
+            <DetailRow
+              label="Unrealized P&L"
+              value={`${allTimeUnrealisedPnL >= 0 ? '+' : ''}${formatINRFull(Math.round(allTimeUnrealisedPnL))}`}
+              color={allTimeUnrealisedPnL >= 0 ? 'var(--text-positive)' : 'var(--text-negative)'}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Financials ── */}
+      {(financialsRows.length > 0 || !band) && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+          <SectionHeader label="Financials">
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button onClick={generateBands} disabled={generating}
+                className="flex items-center gap-1 text-body disabled:opacity-40"
+                style={{ color: 'var(--accent)', minHeight: 36 }}>
+                <SparkleIcon className="w-3.5 h-3.5" />
+                {generating ? 'Generating…' : 'Regen'}
+              </button>
+            </div>
+          </SectionHeader>
+          {financialsRows.map(r => (
+            <DetailRow key={r.label} label={r.label} value={r.value} />
+          ))}
+          {financialsRows.length === 0 && (
+            <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+              No financials — tap Regen to generate bands
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Buy Levels ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <SectionHeader label="Buy Levels" />
+        <TrancheSection
+          symbol={symbol}
+          tranches={tranches}
+          remaining={fyRemaining}
+          budget={fyRow?.budget ?? 0}
+          hasBands={hasBands}
+          cmp={cmp}
+          onAdd={(_sym, qty, price) => addTranche(qty, price)}
+          onDelete={deleteTranche}
+          onUpdate={updateTranche}
+          onGenerate={generateTranches}
+          onClear={clearAllTranches}
+          generating={generatingTranches}
+        />
+      </div>
+
+      {/* ── Sheets ── */}
+      {showKeyPrompt && (
+        <KeyPromptSheet
+          initialProvider={aiProvider}
+          onClose={() => setShowKeyPrompt(false)}
+          onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
+        />
+      )}
+      {showQInfo && <QuartersInfoSheet onClose={() => setShowQInfo(false)} />}
     </div>
   )
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function SectionHeader({ label, children }: { label: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-4"
+      style={{ minHeight: 36, borderBottom: '1px solid var(--border-faint)' }}>
+      <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+        {label}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+function DetailRow({ label, value, bold, muted, color }: {
+  label: string; value: string; bold?: boolean; muted?: boolean; color?: string
+}) {
+  return (
+    <div className="flex items-center justify-between px-4"
+      style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
+      <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
+      <span className="tabnum" style={{
+        fontSize: bold ? 17 : 15,
+        fontWeight: bold ? 700 : 400,
+        color: color ?? (muted ? 'var(--text-muted)' : 'var(--text-primary)'),
+      }}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+// ── Quarters Info Sheet ──────────────────────────────────────────────────────
+
+function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-headline">Recent Quarters</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+        </div>
+        <div className="px-5 pt-4">
+          <p className="text-body leading-relaxed mb-5" style={{ color: 'var(--text-2)' }}>
+            Adjusts buy band multiples based on the last 2 quarters of reported results.
+          </p>
+          {[
+            { mode: 'Bear', desc: 'Two recent weak quarters. Buy range compresses to the lower half of standard multiples — you demand deeper discounts before committing.' },
+            { mode: 'Normal', desc: 'Base case. Full standard multiples apply. Use when recent quarters are in line with expectations.' },
+            { mode: 'Bull', desc: 'Two recent strong quarters. Buy range shifts to premium multiples (where defined) or the upper half of the standard range.' },
+          ].map(({ mode, desc }, i, arr) => (
+            <div key={mode}>
+              <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
+              <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
+              {i < arr.length - 1 && <div className="my-4" style={{ height: 1, background: 'var(--border-faint)' }} />}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── AI Key Prompt Sheet ──────────────────────────────────────────────────────
+
+function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
+  initialProvider: 'gemini' | 'claude'
+  onClose: () => void
+  onSaved: (provider: 'gemini' | 'claude') => void
+}) {
+  const [provider, setProvider] = useState<'gemini' | 'claude'>(initialProvider)
+  const [key, setKey]           = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/settings/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: key.trim(), provider }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Failed to save'); setSaving(false); return }
+      onSaved(provider)
+      onClose()
+    } catch {
+      setError('Network error')
+    }
+    setSaving(false)
+  }
+
+  const placeholder = provider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'
+  const keyLink     = provider === 'claude' ? 'console.anthropic.com' : 'aistudio.google.com'
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+          <p className="font-semibold text-headline">AI API Key</p>
+          <button onClick={save} disabled={saving || !key.trim()}
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+        <div className="px-5 pt-4 space-y-4">
+          <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+            {(['gemini', 'claude'] as const).map(p => (
+              <button key={p} type="button" onClick={() => { setProvider(p); setKey(''); setError('') }}
+                className="flex-1 py-3 text-body font-medium transition-colors"
+                style={provider === p
+                  ? { background: '#0A84FF', color: '#fff' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                {p === 'gemini' ? 'Google Gemini' : 'Claude'}
+              </button>
+            ))}
+          </div>
+          {provider === 'gemini' && (
+            <p className="text-subheadline text-center text-positive">
+              ★ Recommended — best accuracy for live financial data
+            </p>
+          )}
+          <input
+            type="password" placeholder={placeholder} value={key}
+            onChange={e => setKey(e.target.value)}
+            className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            autoFocus
+          />
+          {error && <p className="text-negative text-subheadline">{error}</p>}
+          <div className="rounded-2xl p-3.5"
+               style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
+            <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
+              <span className="font-semibold text-accent">Stored securely.</span>{' '}
+              Your API key lives in your database and is locked to your login via row-level security.
+              Band generation runs entirely on the server — your browser never sees the key again after you save it.
+            </p>
+          </div>
+          <p className="text-subheadline text-center" style={{ color: 'var(--text-muted)' }}>
+            Get a key at <span className="text-accent">{keyLink}</span>
+          </p>
+        </div>
+      </div>
+    </>
+  )
+}
