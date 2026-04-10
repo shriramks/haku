@@ -526,7 +526,7 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
         <div className="px-5 pt-4">
           <button onClick={onGenerate} disabled={generating}
             className="flex items-center gap-2 px-4 py-3 rounded-xl w-full mb-4 text-body font-medium disabled:opacity-40"
-            style={{ background: 'rgba(10,132,255,0.10)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.22)' }}>
+            style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
             <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
             {generating ? 'Generating…' : 'Regen from AI'}
           </button>

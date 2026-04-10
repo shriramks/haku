@@ -225,7 +225,7 @@ export default function StockDetailClient({
         className="sticky top-0 z-10 backdrop-blur-xl border-b"
         style={{ background: 'var(--bg-nav)', borderColor: 'var(--border)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between px-4 pb-3">
-          <button onClick={() => router.back()}
+          <button onClick={() => router.push('/stocks')}
             className="flex items-center gap-1 text-body flex-shrink-0"
             style={{ color: 'var(--accent)', minWidth: 60, minHeight: 44 }}>
             <svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M7 1L1 7l6 6" /></svg>
@@ -485,7 +485,7 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
         <div className="px-5 pt-4">
           <button onClick={onGenerate} disabled={generating}
             className="flex items-center gap-2 px-4 py-3 rounded-xl w-full mb-4 text-body font-medium disabled:opacity-40"
-            style={{ background: 'rgba(10,132,255,0.10)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.22)' }}>
+            style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
             <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
             {generating ? 'Generating…' : 'Regen from AI'}
           </button>

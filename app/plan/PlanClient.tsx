@@ -290,14 +290,15 @@ function PlanTab({
                     if (typeof window !== 'undefined') localStorage.setItem(`carryover_dismissed_${selectedFY.id}`, '1')
                     setCarryoverDismissed(true)
                   }}
-                  className="px-3 py-1.5 rounded-xl text-subheadline"
-                  style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>
+                  className="px-3 rounded-xl text-subheadline"
+                  style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>
                   Cancel
                 </button>
                 <button
                   onClick={applyCarryover}
                   disabled={applyingCarryover}
-                  className="px-3 py-1.5 rounded-xl text-subheadline font-semibold disabled:opacity-40 bg-accent text-white">
+                  className="px-3 rounded-xl text-subheadline font-semibold disabled:opacity-40 bg-accent text-white"
+                  style={{ minHeight: 44 }}>
                   {applyingCarryover ? '…' : 'Add'}
                 </button>
               </div>
@@ -408,11 +409,11 @@ function PlanTab({
                   ) : (
                     <div className="flex items-center gap-2 px-4 py-3">
                       <button onClick={() => setConfirmClear(false)}
-                        className="text-body px-3 py-2 rounded-xl"
-                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Cancel</button>
+                        className="text-body px-3 rounded-xl"
+                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>Cancel</button>
                       <button onClick={clearAllStocks}
-                        className="text-body font-semibold px-3 py-2 rounded-xl text-negative"
-                        style={{ background: 'rgba(255,59,48,0.10)' }}>Remove all?</button>
+                        className="text-body font-semibold px-3 rounded-xl text-negative"
+                        style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>Remove all?</button>
                     </div>
                   )}
                 </div>
@@ -533,10 +534,11 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">{selectedFY.label} Budget</p>
           <button onClick={handleSave} disabled={saving}
-            className="text-accent text-headline font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -565,11 +567,11 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
                 {fyHasTxns ? 'Clear allocations?' : 'Delete this plan?'}
               </p>
               <button onClick={() => setConfirmDelete(false)}
-                className="px-3 py-2 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>No</button>
+                className="px-3 rounded-xl text-subheadline"
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>No</button>
               <button onClick={onDeleteFY}
-                className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative"
-                style={{ background: 'rgba(255,59,48,0.10)' }}>
+                className="px-3 rounded-xl text-subheadline font-semibold text-negative"
+                style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>
                 {fyHasTxns ? 'Clear' : 'Delete'}
               </button>
             </div>
@@ -631,7 +633,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <div>
             <p className="font-semibold text-headline text-center">{alloc.symbol}</p>
             {getStockName(alloc.symbol) && (
@@ -639,7 +641,8 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             )}
           </div>
           <button onClick={handleSave} disabled={saving}
-            className="text-accent text-headline font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -719,11 +722,11 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             <div className="flex items-center gap-3">
               <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
               <button onClick={() => setConfirmRemove(false)}
-                className="px-3 py-2 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)' }}>Keep</button>
+                className="px-3 rounded-xl text-subheadline"
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>Keep</button>
               <button onClick={handleRemove} disabled={removing}
-                className="px-3 py-2 rounded-xl text-subheadline font-semibold text-negative disabled:opacity-40"
-                style={{ background: 'rgba(255,59,48,0.10)' }}>
+                className="px-3 rounded-xl text-subheadline font-semibold text-negative disabled:opacity-40"
+                style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>
                 {removing ? 'Removing…' : 'Remove'}
               </button>
             </div>
@@ -777,7 +780,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <div>
             {symbol
               ? <p className="font-semibold text-headline text-center">{symbol}</p>
@@ -785,7 +788,8 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             }
           </div>
           <button onClick={handleAdd} disabled={saving || !symbol || pct <= 0}
-            className="text-accent text-headline font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
             {saving ? 'Adding…' : 'Add'}
           </button>
         </div>
@@ -1007,10 +1011,11 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b"
              style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">New Plan</p>
           <button onClick={create} disabled={creating}
-            className="text-accent text-headline font-semibold disabled:opacity-40">
+            className="text-accent text-headline font-semibold disabled:opacity-40"
+            style={{ minHeight: 44 }}>
             {creating ? 'Creating…' : 'Create'}
           </button>
         </div>

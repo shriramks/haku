@@ -205,9 +205,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       <div className="flex items-center justify-end px-4 border-b"
         style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
         <button onClick={refreshAllCMP} disabled={refreshingAll}
-          className="flex items-center gap-1.5 text-body disabled:opacity-40"
-          style={{ color: 'var(--accent)', minHeight: 44, paddingLeft: 8 }}>
-          <RefreshIcon className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
+          className="flex items-center gap-1.5 disabled:opacity-40"
+          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
           {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
         </button>
       </div>
