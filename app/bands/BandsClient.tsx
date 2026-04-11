@@ -196,7 +196,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
               <button
                 onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
                 className="w-full flex items-center gap-3 px-4 border-b text-left"
-                style={{ borderColor: 'var(--border-faint)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
+                style={{ borderColor: 'var(--divider)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
                 {/* Ticker */}
                 <span className="font-bold text-headline flex-shrink-0" style={{ minWidth: 80 }}>{row.symbol}</span>

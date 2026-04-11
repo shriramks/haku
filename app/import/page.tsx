@@ -198,7 +198,7 @@ export default function ImportPage() {
                   {invalidRows.length} row{invalidRows.length > 1 ? 's' : ''} skipped (will not be imported)
                 </p>
               </div>
-              <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+              <div className="divide-y divide-[color:var(--divider)]">
                 {invalidRows.slice(0, 10).map((r, i) => (
                   <div key={i} className="px-4 py-2" style={{ background: 'var(--bg-secondary)' }}>
                     <p className="text-subheadline font-medium">{r.symbol || '(empty)'}</p>

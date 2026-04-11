@@ -29,7 +29,7 @@ export default function Loading() {
               <div className="h-3 w-12 rounded animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
             </div>
             {/* Txn rows */}
-            <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+            <div className="divide-y divide-[color:var(--divider)]">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="flex items-start px-4 py-3.5 gap-3" style={{ minHeight: '56px' }}>
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-[5px] animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />

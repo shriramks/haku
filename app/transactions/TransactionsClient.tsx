@@ -326,7 +326,7 @@ export default function TransactionsClient({
                 </div>
               </div>
               <div className="border-t" style={{ borderColor: 'var(--border-faint)' }} />
-              <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+              <div className="divide-y divide-[color:var(--divider)]">
                 {items.map(txn => (
                   <TxnRow
                     key={txn.id}

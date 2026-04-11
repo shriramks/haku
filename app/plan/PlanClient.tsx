@@ -346,7 +346,7 @@ function PlanTab({
                 Target Allocations
               </p>
 
-              <div className="divide-y" style={{ borderColor: 'var(--border-faint)' }}>
+              <div className="divide-y divide-[color:var(--divider)]">
                 {[...allocations]
                   .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
                   .map(alloc => (

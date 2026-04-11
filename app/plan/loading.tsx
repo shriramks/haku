@@ -33,7 +33,7 @@ export default function Loading() {
       </div>
 
       {/* Stock rows */}
-      <div className="divide-y" style={{ borderColor: 'var(--border-faint)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+      <div className="divide-y divide-[color:var(--divider)]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
         {[...Array(5)].map((_, i) => (
           <div key={i} className="px-4 py-4">
             <div className="flex items-center justify-between mb-2">
