@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands } from '@/lib/band-calculator'
@@ -106,12 +106,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       )
     }
   }
-
-  // Fetch fresh prices on mount
-  useEffect(() => {
-    if (rows.length === 0) return
-    fetchAndSaveCmp(rows.map(r => r.symbol)).catch(() => {})
-  }, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshAllCMP() {
     setRefreshingAll(true)
