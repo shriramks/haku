@@ -125,14 +125,14 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             <div className="flex items-start gap-4">
               {/* Left column — text */}
               <div className="flex-1 min-w-0">
-                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
+                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
                 <p className="text-title-1 font-bold tabnum mb-3">
-                  <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(totalBudget).slice(1)}
+                  {formatINRFull(totalBudget).slice(1)}
                 </p>
                 <div className="flex gap-5">
                   {/* Left stat */}
                   <div>
-                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
+                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
                     <p className="text-title-2 font-bold tabnum leading-none">
                       {formatINRFull(Math.max(0, totalRemaining)).slice(1)}
                     </p>
@@ -142,7 +142,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   </div>
                   {/* Invested stat */}
                   <div>
-                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested</p>
+                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
                     <p className="text-title-2 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
                       {formatINRFull(totalDeployed).slice(1)}
                     </p>
