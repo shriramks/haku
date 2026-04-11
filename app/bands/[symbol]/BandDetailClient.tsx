@@ -4,12 +4,10 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
-import { getBandSignal } from '@/lib/compute'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import QuartersToggle from '@/components/QuartersToggle'
 import TrancheSection from '@/components/TrancheSection'
-import { BandSignalBadge } from '@/components/SignalBadge'
 import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 
@@ -76,7 +74,6 @@ export default function BandDetailClient({
   const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
   const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
   const hasBands  = buyLow != null && trimPrice != null
-  const signal    = getBandSignal(cmp, buyLow, buyHigh, midHigh, trimPrice)
 
   const fyRemaining = fyRow?.remaining ?? 0
 
@@ -237,7 +234,6 @@ export default function BandDetailClient({
           </button>
           <div className="flex items-center gap-2">
             <span className="text-headline font-semibold">{symbol}</span>
-            {signal !== 'unknown' && <BandSignalBadge signal={signal} />}
           </div>
           <div style={{ minWidth: 60 }} />
         </div>
