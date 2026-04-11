@@ -449,22 +449,12 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [eps, setEps]         = useState(band?.eps?.toString()            ?? '')
-  const [bvps, setBvps]       = useState(band?.bvps?.toString()           ?? '')
-  const [ebitda, setEbitda]   = useState(band?.ebitda?.toString()         ?? '')
-  const [netDebt, setNetDebt] = useState(band?.net_debt?.toString()       ?? '')
-  const [shares, setShares]   = useState(band?.shares?.toString()         ?? '')
-  const [ev, setEv]           = useState(band?.embedded_value?.toString() ?? '')
+  const [eps, setEps]         = useState(band?.eps?.toString() ?? '')
 
   // Sync inputs when band updates (e.g. after AI generation)
   useEffect(() => {
     if (!editing) {
-      setEps(band?.eps?.toString()            ?? '')
-      setBvps(band?.bvps?.toString()          ?? '')
-      setEbitda(band?.ebitda?.toString()      ?? '')
-      setNetDebt(band?.net_debt?.toString()   ?? '')
-      setShares(band?.shares?.toString()      ?? '')
-      setEv(band?.embedded_value?.toString()  ?? '')
+      setEps(band?.eps?.toString() ?? '')
     }
   }, [band, editing])
 
@@ -472,12 +462,7 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
     setSaving(true)
     const sb = getSupabaseBrowser()
     const fields = {
-      eps:            parseFloat(eps)     || null,
-      bvps:           parseFloat(bvps)    || null,
-      ebitda:         parseFloat(ebitda)  || null,
-      net_debt:       parseFloat(netDebt) || null,
-      shares:         parseFloat(shares)  || null,
-      embedded_value: parseFloat(ev)      || null,
+      eps:             parseFloat(eps) || null,
       last_updated_at: new Date().toISOString(),
     }
     let savedBand: BuyBand | null = null
@@ -497,7 +482,7 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
     setSaving(false)
   }
 
-  const hasData = !!(band?.eps || band?.bvps || band?.ebitda || band?.embedded_value)
+  const hasData = !!band?.eps
 
   return (
     <>
@@ -545,13 +530,8 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
             </>
           ) : hasData ? (
             <>
-              <div className="grid grid-cols-2 gap-y-4 gap-x-4 mb-4">
-                {band?.eps            && <FinItem k="EPS"            v={`₹${band.eps}`} />}
-                {band?.bvps           && <FinItem k="BVPS"           v={`₹${band.bvps}`} />}
-                {band?.ebitda         && <FinItem k="EBITDA"         v={`${band.ebitda} Cr`} />}
-                {band?.net_debt       && <FinItem k="Net Debt"       v={`${band.net_debt} Cr`} />}
-                {band?.shares         && <FinItem k="Shares"         v={`${band.shares} Cr`} />}
-                {band?.embedded_value && <FinItem k="Embedded Value" v={`${band.embedded_value} Cr`} />}
+              <div className="mb-4">
+                <FinItem k="EPS" v={`₹${band?.eps}`} />
               </div>
               <button onClick={() => setEditing(true)}
                 className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"

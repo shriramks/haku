@@ -32,9 +32,8 @@ function mkTxn(
 
 function mkBand(symbol: string, overrides: Partial<BuyBand> = {}): BuyBand {
   return {
-    id: `band-${symbol}`, symbol, exchange: 'NSE', anchor_type: 'PE',
-    eps: null, bvps: null, ebitda: null, net_debt: null, shares: null, embedded_value: null,
-    buy_low: null, buy_high: null, mid_low: null, mid_high: null, trim_price: null,
+    id: `band-${symbol}`, symbol, anchor_type: 'PE',
+    eps: null, buy_low: null, buy_high: null, mid_low: null, mid_high: null, trim_price: null,
     manual_cmp: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
     ...overrides,
   }

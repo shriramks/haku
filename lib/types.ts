@@ -43,13 +43,8 @@ export interface BuyBand {
   id: string
   user_id?: string
   symbol: string
-  anchor_type: 'PE' | 'PB' | 'EV_EBITDA' | 'P_EV'
+  anchor_type: 'PE'
   eps: number | null
-  bvps: number | null
-  ebitda: number | null
-  net_debt: number | null
-  shares: number | null
-  embedded_value: number | null
   buy_low: number | null
   buy_high: number | null
   mid_low: number | null

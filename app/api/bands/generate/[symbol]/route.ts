@@ -83,99 +83,19 @@ function extractJSON(text: string): Record<string, unknown> {
   return JSON.parse(text.slice(start, end + 1))
 }
 
-function stockPrompt(symbol: string, standalone = false): string {
-  const page = standalone ? 'standalone' : 'consolidated'
-  return `Open https://www.screener.in/company/${symbol}/${page}/ — the ${page} financials page for NSE:${symbol}.
-
-From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
-- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range: ₹5–₹300.
-- "Net Profit" row → in ₹ Crores (you will use this only for cross-checking).
-- "Operating Profit" row → in ₹ Crores. This is EBITDA. Typical large-cap range: ₹500–₹50,000 Cr.
-
-From the Balance Sheet table, most recent available period:
-- "Borrowings" row → total debt in ₹ Crores
-- "Cash Equivalents" row → cash and bank balances in ₹ Crores
-
-Equity shares outstanding in Crores — check in this order:
-1. Screener Key Ratios or company header (preferred)
-2. If Screener is missing this (e.g. newly listed company), check https://www.nseindia.com/get-quotes/equity?symbol=${symbol} or BSE India shareholding disclosures for the total paid-up equity capital
-IMPORTANT: Report shares in Crores. If you see "20.4" that means 20.4 Cr shares (204 million), report 20.4. Typical range: 5–1000 Cr.
-
-Self-validation before returning (do not include in output):
-- Verify: EPS × sharesCr ≈ Net Profit (₹Cr). If they differ by more than 3x, you have a unit error — recheck EPS or shares.
-- EPS below ₹2 for a large/mid-cap with significant profits almost always means a scale error.
-
-Return ONLY this JSON, no markdown, no explanation:
-{"eps":0,"opProfitCr":0,"borrowingsCr":0,"cashCr":0,"sharesCr":0,"asOf":""}
-
-asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
-}
-
-function insurancePrompt(symbol: string): string {
-  return `Find the most recent Group Embedded Value (EV) for NSE:${symbol} — an Indian life insurance company.
-
-The Embedded Value is a consolidated Group-level figure published in their annual report or investor presentation. It is labelled "Embedded Value", "Group EV", or "EV" in ₹ Crores.
-- For SBILIFE: typically ₹50,000–₹70,000 Cr
-- For HDFCLIFE: typically ₹40,000–₹60,000 Cr
-- For LICI: typically ₹4,00,000+ Cr
-- For mid-size insurers: ₹5,000–₹25,000 Cr
-
-IMPORTANT: This is NOT the market cap. It is NOT the book value. It is the actuarially computed Embedded Value — a specific insurance metric.
-
-Also find:
-- Equity shares outstanding in Crores (e.g. 100 Cr shares = 1 billion shares; typical range for listed insurers: 20–700 Cr)
-
-Self-validation: EV ÷ shares should give EV per share in the range of ₹300–₹2,000 for most listed life insurers. If your result is below ₹100 or above ₹5,000, recheck the EV figure or share count.
-
-Sources: NSE disclosures (nseindia.com), investor presentations, annual reports, screener.in, moneycontrol.com.
-
-Return ONLY this JSON, no markdown, no explanation:
-{"embeddedValue":0,"sharesCr":0,"asOf":""}
-
-asOf = the period the embedded value relates to (e.g. "FY25", "Mar 2025")`
-}
-
-function bankPrompt(symbol: string): string {
+function stockPrompt(symbol: string): string {
   return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
 
-From the Key Ratios table, most recent period (prefer TTM if shown, else latest annual FY):
-- "Book Value" row → Book Value per share in ₹. This is per share, NOT in crores. Typical range for large private banks: ₹100–₹800.
-- "EPS in Rs" row → EPS per share in ₹ (for cross-checking only).
-
-From the company header or Key Ratios:
-- Equity shares outstanding in Crores (e.g. 700 Cr shares = 7 billion shares; typical range for large banks: 200–1000 Cr)
-  IMPORTANT: Screener shows shares in Crores. Do not confuse with millions.
-
-From the Balance Sheet, most recent period:
-- "Reserves" row → retained earnings/reserves in ₹ Crores (for cross-checking only).
+From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
+- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range for large/mid-caps: ₹5–₹300.
 
 Self-validation before returning (do not include in output):
-- Verify: bvps × sharesCr ≈ (Equity Capital + Reserves) in ₹Cr. If they differ by more than 3x, you have a unit error — recheck bvps or shares.
-- Book Value below ₹50 for a large listed bank almost always means a scale error.
+- EPS below ₹2 for a large/mid-cap with significant profits almost always means a scale error — recheck.
 
 Return ONLY this JSON, no markdown, no explanation:
-{"bvps":0,"sharesCr":0,"eps":0,"asOf":""}
+{"eps":0,"asOf":""}
 
 asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
-}
-
-function reitPrompt(symbol: string): string {
-  return `Find distribution data for NSE:${symbol} — an Indian REIT listed on NSE.
-
-Find the total distributions per unit (DPU) paid in the last 12 months in ₹:
-- Sum all quarterly or semi-annual distributions declared/paid in the trailing 12 months
-- Labelled "Distribution per unit", "DPU", or "distributions declared" in quarterly reports or investor presentations
-- Typical range for Indian REITs: ₹15–₹35 per unit per year
-
-Also find:
-- Current market price per unit of NSE:${symbol} in ₹
-
-Self-validation: yield = DPU / price should be between 4% and 10% for Indian REITs. If outside this range, recheck.
-
-Return ONLY this JSON, no markdown, no explanation:
-{"dpu":0,"pricePerUnit":0,"asOf":""}
-
-asOf = period the DPU covers, e.g. "TTM Mar 2025"`
 }
 
 function indexPrompt(symbol: string): string {
@@ -253,7 +173,7 @@ export async function POST(
   // Call AI provider with search grounding (retry once on transient failure)
   let aiText: string
   const prompt = isIndex ? indexPrompt(upperSymbol)
-    : stockPrompt(upperSymbol, false)
+    : stockPrompt(upperSymbol)
   const callAI = () => aiProvider === 'claude'
     ? callClaude(prompt, activeKey)
     : callGemini(prompt, activeKey)
@@ -283,13 +203,7 @@ export async function POST(
   }
 
   // Map parsed data to band inputs
-  let eps: number | null           = null
-  let opProfitCr: number | null    = null
-  let borrowingsCr: number | null  = null
-  let cashCr: number | null        = null
-  let sharesCr: number | null      = null
-  let bvps: number | null          = null
-  let embeddedValue: number | null = null
+  let eps: number | null = null
   let asOf = String(parsed.asOf ?? '')
 
   if (isIndex) {
@@ -313,31 +227,19 @@ export async function POST(
     eps  = etfPrice / indexPE
     asOf = String(parsed.asOf ?? '')
   } else {
-    eps          = Number(parsed.eps)          || null
-    opProfitCr   = Number(parsed.opProfitCr)   || null
-    borrowingsCr = Number(parsed.borrowingsCr) || null
-    cashCr       = Number(parsed.cashCr)       || null
-    sharesCr     = Number(parsed.sharesCr)     || null
+    eps = Number(parsed.eps) || null
 
-    // If all key values are null (Gemini search miss), retry once
-    if (!eps && !opProfitCr && !sharesCr) {
+    // If eps is missing (AI search miss), retry once
+    if (!eps) {
       try {
         const retryText = await callAI()
         const retryParsed = extractJSON(retryText)
-        eps          = Number(retryParsed.eps)          || null
-        opProfitCr   = Number(retryParsed.opProfitCr)   || null
-        borrowingsCr = Number(retryParsed.borrowingsCr) || null
-        cashCr       = Number(retryParsed.cashCr)       || null
-        sharesCr     = Number(retryParsed.sharesCr)     || null
+        eps = Number(retryParsed.eps) || null
         if (retryParsed.asOf) asOf = String(retryParsed.asOf)
         aiText = retryText
       } catch { /* ignore retry failure, fall through to band calc error */ }
     }
   }
-
-  const netDebtCr = (borrowingsCr !== null && cashCr !== null)
-    ? borrowingsCr - cashCr
-    : null
 
   // Calculate bands
   const result = calculateBands({
@@ -349,16 +251,10 @@ export async function POST(
 
   if (!result) {
     return NextResponse.json({
-      error: `Not enough data to compute bands for ${upperSymbol}. Got: EPS=${eps}, OpProfit=${opProfitCr}Cr, Shares=${sharesCr}Cr`,
+      error: `Not enough data to compute bands for ${upperSymbol}. Got: EPS=${eps}`,
       raw: aiText.slice(0, 600),
     }, { status: 422 })
   }
-
-  const anchorRaw   = result.anchorUsed.toUpperCase()
-  const anchor_type = anchorRaw.includes('EV/EBITDA') ? 'EV_EBITDA'
-    : anchorRaw.includes('P/EV') ? 'P_EV'
-    : anchorRaw.includes('PB')   ? 'PB'
-    : 'PE'
 
   // Preserve existing CMP before overwriting
   const { data: existingBand } = await supabase
@@ -384,13 +280,8 @@ export async function POST(
     .insert({
       user_id:    user.id,
       symbol:     upperSymbol,
-      anchor_type,
+      anchor_type: 'PE',
       eps,
-      bvps,
-      ebitda:         opProfitCr,
-      net_debt:       netDebtCr,
-      shares:         sharesCr,
-      embedded_value: embeddedValue,
       buy_low:    result.buyLow,
       buy_high:   result.buyHigh,
       mid_low:    result.midLow,
@@ -468,8 +359,7 @@ export async function POST(
   return NextResponse.json({
     symbol: upperSymbol,
     category,
-    financials: { eps, bvps, opProfitCr, borrowingsCr, cashCr, sharesCr, netDebtCr },
-    asOf,
+    financials: { eps, asOf },
     band:     newBand,
     result,
     tranches: generatedTranches,
