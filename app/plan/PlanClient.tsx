@@ -10,7 +10,6 @@ import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
-import { PencilIcon } from '@/components/icons'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -310,23 +309,24 @@ function PlanTab({
             const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
             const effectiveBudget = totalBudget + unallocCarryover
             return (
-          <button onClick={() => setShowBudgetSheet(true)}
-            className="w-full flex items-center gap-3 px-4 border-b tap-row"
-            style={{ borderColor: 'var(--border)' }}>
-            <div className="flex-1">
-              <div className="flex items-center justify-between py-3.5">
-                <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
-                <span className="text-title-2 font-bold tabnum">{formatINRFull(effectiveBudget)}</span>
+          <div className="border-b" style={{ borderColor: 'var(--border)' }}>
+            <button onClick={() => setShowBudgetSheet(true)}
+              className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
+              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
+              <div className="flex items-center gap-0.5 px-3 py-1.5 rounded-xl"
+                   style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
+                <span className="text-title-2 font-bold tabnum">{formatINRFull(effectiveBudget).slice(1)}</span>
               </div>
-              {unallocCarryover > 0 && (
-                <div className="flex items-center justify-between py-3.5" style={{ borderTop: '1px solid var(--border-faint)' }}>
-                  <span className="text-headline" style={{ color: 'var(--text-2)' }}>Carryover</span>
-                  <span className="text-headline tabnum" style={{ color: 'var(--text-muted)' }}>+{formatINRFull(unallocCarryover)}</span>
-                </div>
-              )}
-            </div>
-            <PencilIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-          </button>
+            </button>
+            {unallocCarryover > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5"
+                   style={{ borderTop: '1px solid var(--border-faint)' }}>
+                <span className="text-body" style={{ color: 'var(--text-faint)' }}>Carryover</span>
+                <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>+{formatINRFull(unallocCarryover)}</span>
+              </div>
+            )}
+          </div>
             )
           })()}
 
