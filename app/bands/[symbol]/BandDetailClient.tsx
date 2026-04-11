@@ -247,14 +247,14 @@ export default function BandDetailClient({
       <div className="flex items-center justify-between border-b px-4 gap-2"
         style={{ borderColor: 'var(--border-faint)', minHeight: 40, background: 'var(--bg-primary)' }}>
         <button onClick={generateBands} disabled={generating}
-          className="flex items-center gap-1.5 disabled:opacity-40"
-          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
           <SparkleIcon className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
           {generating ? 'Generating…' : 'Regen Bands'}
         </button>
         <button onClick={refreshCMP} disabled={refreshing}
-          className="flex items-center gap-1.5 disabled:opacity-40"
-          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing…' : 'Refresh CMP'}
         </button>

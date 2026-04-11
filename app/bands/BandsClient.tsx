@@ -27,9 +27,9 @@ function MiniBar({ buyLow, buyHigh, midHigh, cmp }: {
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', height: 7, borderRadius: 4, overflow: 'hidden', gap: 1.5 }}>
-        <div style={{ width: `${dW}%`, background: '#30D158', opacity: 0.65 }} />
-        <div style={{ width: `${bW}%`, background: '#34C759' }} />
-        <div style={{ width: `${mW}%`, background: '#FF9500' }} />
+        <div style={{ width: `${dW}%`, background: 'var(--signal-deep)', opacity: 0.65 }} />
+        <div style={{ width: `${bW}%`, background: 'var(--signal-buy)' }} />
+        <div style={{ width: `${mW}%`, background: 'var(--signal-hold)' }} />
       </div>
       {cmpX !== null && (
         <div style={{
@@ -147,7 +147,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
           borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-1">
           <h1 className="text-display font-bold">Buy Bands</h1>
           <div className="flex items-center gap-2">
             <FYPicker
@@ -164,8 +164,8 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       <div className="flex items-center justify-end px-4 border-b"
         style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
         <button onClick={refreshAllCMP} disabled={refreshingAll}
-          className="flex items-center gap-1.5 disabled:opacity-40"
-          style={{ color: 'var(--accent)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', fontSize: 13, minHeight: 32 }}>
+          className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
           {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
         </button>
@@ -188,15 +188,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
           return (
             <div key={row.symbol}>
               {showDivider && (
-                <div className="px-4 py-2 text-subheadline font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--text-faint)', background: 'var(--bg-secondary)', letterSpacing: '0.06em', fontSize: 11 }}>
+                <div className="px-4 py-2 text-footnote font-semibold uppercase tracking-widest"
+                  style={{ color: 'var(--text-faint)', background: 'var(--bg-secondary)' }}>
                   Done
                 </div>
               )}
               <button
                 onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
                 className="w-full flex items-center gap-3 px-4 border-b text-left"
-                style={{ borderColor: 'var(--border-faint)', minHeight: 66, opacity: isDone ? 0.45 : 1 }}>
+                style={{ borderColor: 'var(--border-faint)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
                 {/* Ticker */}
                 <span className="font-bold text-headline flex-shrink-0" style={{ minWidth: 80 }}>{row.symbol}</span>

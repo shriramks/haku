@@ -6,7 +6,7 @@ import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
 import { formatAmt, formatINR, formatINRFull, formatINRFine } from '@/lib/formatter'
-import { ChevronRightIcon } from '@/components/icons'
+import { ChevronRightIcon, ChevronDownIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -282,11 +282,9 @@ function CollapsibleSection({ title, children }: { title: string; children: Reac
         className="flex items-center justify-between w-full px-4"
         style={{ minHeight: '52px' }}>
         <span className="text-body font-medium" style={{ color: 'var(--text-muted)' }}>{title}</span>
-        <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
-             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-             style={{ color: 'var(--text-faint)' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDownIcon
+          className={`w-5 h-5 transition-transform ${open ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--text-faint)' }} />
       </button>
       {open && children}
     </div>
