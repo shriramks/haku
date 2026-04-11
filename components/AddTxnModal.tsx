@@ -4,10 +4,13 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR } from '@/lib/formatter'
 
-export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () => void; initialSymbol?: string }) {
+export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[] }) {
   const router = useRouter()
   const [symbol, setSymbol]         = useState(initialSymbol ?? '')
-  const [planSymbols, setPlanSymbols] = useState<string[]>([])
+  const [planSymbols, setPlanSymbols] = useState<string[]>(() => {
+    if (planSymbolsProp && planSymbolsProp.length > 0) return planSymbolsProp
+    try { const c = localStorage.getItem('haku_plan_symbols'); return c ? JSON.parse(c) : [] } catch { return [] }
+  })
   const [type, setType]             = useState<'buy' | 'sell'>('buy')
   const [date, setDate]             = useState(todayISO())
   const [qty, setQty]               = useState('')
@@ -35,6 +38,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
   }, [])
 
   useEffect(() => {
+    if (planSymbolsProp && planSymbolsProp.length > 0) return  // already prefetched by BottomNav
     async function loadSymbols() {
       const sb = getSupabaseBrowser()
       // Load symbols from ALL fiscal years so stocks planned for future FYs are selectable
@@ -48,7 +52,7 @@ export default function AddTxnModal({ onClose, initialSymbol }: { onClose: () =>
       }
     }
     loadSymbols()
-  }, [])
+  }, [planSymbolsProp])
 
   const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
 

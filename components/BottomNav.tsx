@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
+import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 const TABS = [
   { href: '/allocation',   label: 'Allocation',   Icon: AllocationIcon },
@@ -21,6 +22,7 @@ export default function BottomNav() {
   const path = usePathname()
   const [addOpen, setAddOpen] = useState(false)
   const [addSymbol, setAddSymbol] = useState<string | undefined>(undefined)
+  const [planSymbols, setPlanSymbols] = useState<string[]>([])
   const [onboarding, setOnboarding] = useState<string | null>(null)
   const [storedFY, setStoredFY] = useState<string | null>(null)
 
@@ -32,6 +34,24 @@ export default function BottomNav() {
     }
     document.addEventListener('open-add-txn', handleOpenAddTxn)
     return () => document.removeEventListener('open-add-txn', handleOpenAddTxn)
+  }, [])
+
+  useEffect(() => {
+    const cached = localStorage.getItem('haku_plan_symbols')
+    if (cached) setPlanSymbols(JSON.parse(cached))
+    async function prefetchSymbols() {
+      const sb = getSupabaseBrowser()
+      const { data: allocs } = await sb
+        .from('stock_allocations')
+        .select('symbol')
+        .order('symbol')
+      if (allocs) {
+        const unique = [...new Set(allocs.map((a: { symbol: string }) => a.symbol))].sort() as string[]
+        setPlanSymbols(unique)
+        localStorage.setItem('haku_plan_symbols', JSON.stringify(unique))
+      }
+    }
+    prefetchSymbols()
   }, [])
 
   useEffect(() => {
@@ -100,7 +120,7 @@ export default function BottomNav() {
 
       </nav>
 
-      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} />}
+      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} />}
     </>
   )
 }
