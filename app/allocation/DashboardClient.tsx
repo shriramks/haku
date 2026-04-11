@@ -28,7 +28,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [selectedFY, setSelectedFY]         = useState(initialFY)
   const [allocations, setAllocations]       = useState(initialAllocations)
   const [transactions, setTransactions]     = useState(initialTransactions)
-  const [allTransactions]                   = useState(initialAllTransactions)
+  const allTransactions                     = initialAllTransactions
   const [prevFY, setPrevFY]                 = useState(initialPrevFY)
   const [prevAllocations, setPrevAllocations] = useState(initialPrevAllocations)
   const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)

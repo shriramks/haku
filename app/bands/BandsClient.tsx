@@ -65,93 +65,58 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
   })
   const [refreshingAll, setRefreshingAll] = useState(false)
 
-  // Fetch fresh prices + 52W for all symbols on mount; persist to DB (no revalidation — see note)
+  // Fetches CMP + 52W for the given symbols and persists to DB + local state.
+  // Does NOT call revalidateBuyBands() — that triggers router.refresh() which
+  // re-runs this effect and a second Yahoo fetch may return nulls, wiping state.
+  async function fetchAndSaveCmp(symbols: string[]) {
+    if (symbols.length === 0) return
+    const res = await fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols.join(','))}`)
+    if (!res.ok) return
+    const data = await res.json()
+    const sb = getSupabaseBrowser()
+
+    if (data.prices) {
+      setBands(prev => prev.map(b => {
+        const price = (data.prices as Record<string, number>)[b.symbol]
+        return price != null ? { ...b, manual_cmp: price } : b
+      }))
+      await Promise.all(
+        Object.entries(data.prices as Record<string, number>)
+          .filter(([, v]) => v != null)
+          .map(([sym, price]) =>
+            sb.from('buy_bands')
+              .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
+              .eq('symbol', sym)
+              .eq('is_current', true)
+          )
+      )
+    }
+
+    if (data.week52) {
+      setWeek52(prev => ({ ...prev, ...data.week52 }))
+      await Promise.all(
+        Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
+          .filter(([, v]) => v.low != null || v.high != null)
+          .map(([sym, v]) =>
+            sb.from('buy_bands')
+              .update({ week_52_low: v.low, week_52_high: v.high })
+              .eq('symbol', sym)
+              .eq('is_current', true)
+          )
+      )
+    }
+  }
+
+  // Fetch fresh prices on mount
   useEffect(() => {
     if (rows.length === 0) return
-    const symbols = rows.map(r => r.symbol).join(',')
-    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(async (data) => {
-        if (!data) return
-        const sb = getSupabaseBrowser()
-
-        if (data.prices) {
-          setBands(prev => prev.map(b => {
-            const price = (data.prices as Record<string, number>)[b.symbol]
-            return price != null ? { ...b, manual_cmp: price } : b
-          }))
-          // Persist CMP to DB — do NOT call revalidateBuyBands() after this:
-          // server actions trigger an implicit router.refresh() which re-renders
-          // server components, re-runs this effect, and a second Yahoo fetch may
-          // return null values wiping the state we just set.
-          await Promise.all(
-            Object.entries(data.prices as Record<string, number>)
-              .filter(([, v]) => v != null)
-              .map(([sym, price]) =>
-                sb.from('buy_bands')
-                  .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
-                  .eq('symbol', sym)
-                  .eq('is_current', true)
-              )
-          )
-        }
-
-        if (data.week52) {
-          setWeek52(prev => ({ ...prev, ...data.week52 }))
-          await Promise.all(
-            Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
-              .filter(([, v]) => v.low != null || v.high != null)
-              .map(([sym, v]) =>
-                sb.from('buy_bands')
-                  .update({ week_52_low: v.low, week_52_high: v.high })
-                  .eq('symbol', sym)
-                  .eq('is_current', true)
-              )
-          )
-        }
-      })
-      .catch(() => {})
-  }, [rows])
+    fetchAndSaveCmp(rows.map(r => r.symbol)).catch(() => {})
+  }, [rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refreshAllCMP() {
     setRefreshingAll(true)
     try {
-      const symbols = rows.map(r => r.symbol).join(',')
-      const res = await fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols)}`)
-      if (!res.ok) throw new Error('batch fetch failed')
-      const data = await res.json()
-      const sb = getSupabaseBrowser()
-
-      if (data.prices) {
-        setBands(prev => prev.map(b => {
-          const price = (data.prices as Record<string, number>)[b.symbol]
-          return price != null ? { ...b, manual_cmp: price } : b
-        }))
-        await Promise.all(
-          Object.entries(data.prices as Record<string, number>)
-            .filter(([, v]) => v != null)
-            .map(([sym, price]) =>
-              sb.from('buy_bands')
-                .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
-                .eq('symbol', sym)
-                .eq('is_current', true)
-            )
-        )
-      }
-
-      if (data.week52) {
-        setWeek52(prev => ({ ...prev, ...data.week52 }))
-        await Promise.all(
-          Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
-            .filter(([, v]) => v.low != null || v.high != null)
-            .map(([sym, v]) =>
-              sb.from('buy_bands')
-                .update({ week_52_low: v.low, week_52_high: v.high })
-                .eq('symbol', sym)
-                .eq('is_current', true)
-            )
-        )
-      }
+      await fetchAndSaveCmp(rows.map(r => r.symbol))
     } catch {
       // silently fail
     } finally {

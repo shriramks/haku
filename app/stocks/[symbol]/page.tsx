@@ -1,7 +1,7 @@
 import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY } from '@/lib/data'
 import { computeCarryover, computeStockRows, seqCost } from '@/lib/compute'
 import type { BuyTranche } from '@/lib/types'
-import StockDetailClient from './StockDetailClient'
+import BandDetailClient from '@/app/bands/[symbol]/BandDetailClient'
 import BottomNav from '@/components/BottomNav'
 
 export default async function StockDetailPage({
@@ -51,10 +51,11 @@ export default async function StockDetailPage({
   const allocation = allocations.find(a => a.symbol === symbol) ?? null
   const band       = bands.find(b => b.symbol === symbol) ?? null
   const { hasKey, provider: aiProvider } = aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }
+  const backHref = fyParam ? `/allocation?fy=${encodeURIComponent(fyParam)}` : '/allocation'
 
   return (
     <>
-      <StockDetailClient
+      <BandDetailClient
         symbol={symbol}
         band={band}
         allocation={allocation}
@@ -64,6 +65,8 @@ export default async function StockDetailPage({
         allTimeAvgCost={allTimePosition.avgCost}
         tranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
         fyId={fy?.id ?? ''}
+        backHref={backHref}
+        backLabel="Allocation"
         initialHasKey={hasKey}
         initialAiProvider={aiProvider}
       />

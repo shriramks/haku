@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
 import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
 import { getBandSignal } from '@/lib/compute'
-import type { BuyBand, BuyTranche, StockAllocation, StockCategory, FiscalYear, StockRow } from '@/lib/types'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import QuartersToggle from '@/components/QuartersToggle'
 import TrancheSection from '@/components/TrancheSection'
@@ -23,8 +23,8 @@ interface Props {
   allTimeAvgCost: number
   tranches: BuyTranche[]
   fyId: string
-  fiscalYears: FiscalYear[]
-  selectedFY: FiscalYear | null
+  backHref: string
+  backLabel: string
   initialHasKey: boolean
   initialAiProvider: 'gemini' | 'claude'
 }
@@ -33,7 +33,7 @@ export default function BandDetailClient({
   symbol, band: initialBand, allocation: initialAllocation,
   fyRow, allTimeQty, allTimeCost, allTimeAvgCost,
   tranches: initialTranches,
-  fyId, fiscalYears, selectedFY, initialHasKey, initialAiProvider,
+  fyId, backHref, backLabel, initialHasKey, initialAiProvider,
 }: Props) {
   const router = useRouter()
   const [band, setBand]               = useState(initialBand)
@@ -61,7 +61,6 @@ export default function BandDetailClient({
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  const qMode = allocation?.two_weak_quarters ? 'bear' : allocation?.two_strong_quarters ? 'bull' : 'normal'
   const hasQuarters = allocation && !CATEGORIES_WITHOUT_QUARTERS.has(allocation.category as StockCategory)
 
   const computed = band ? calculateBands({
@@ -222,9 +221,6 @@ export default function BandDetailClient({
     setTranches([])
   }
 
-  const fyLabel = selectedFY?.label
-  const backHref = fyLabel ? `/bands?fy=${encodeURIComponent(fyLabel)}` : '/bands'
-
   return (
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
@@ -237,7 +233,7 @@ export default function BandDetailClient({
             className="flex items-center gap-1 text-body flex-shrink-0"
             style={{ color: 'var(--accent)', minWidth: 60, minHeight: 44 }}>
             <svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M7 1L1 7l6 6" /></svg>
-            Bands
+            {backLabel}
           </button>
           <div className="flex items-center gap-2">
             <span className="text-headline font-semibold">{symbol}</span>

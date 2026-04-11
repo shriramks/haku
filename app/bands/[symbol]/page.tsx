@@ -55,22 +55,14 @@ export default async function BandDetailPage({
   )
   const fyRow = rows.find(r => r.symbol === symbol) ?? null
 
-  // All-time budget = sum of each FY's budget for this stock
-  const allTimeBudget = symbolAllocs.reduce((sum, alloc) => {
-    const fyForAlloc = fiscalYears.find(f => f.id === alloc.fy_id)
-    if (!fyForAlloc) return sum
-    const fyBudget = fyForAlloc.total_budget_inr + (fyForAlloc.unallocated_carryover_inr ?? 0)
-    return sum + (fyBudget * alloc.allocation_pct / 100)
-  }, 0)
-
-  // All-time spent = current holdings at cost (seqCost walks all transactions in order)
   const allTimePosition = seqCost(symbolTxns)
-  const allTimeLeft = allTimeBudget - allTimePosition.cost
 
   const band = bands.find(b => b.symbol === symbol) ?? null
   const allocation = allocations.find(a => a.symbol === symbol) ?? null
   const stockTranches = tranches.filter(t => t.symbol === symbol).sort((a, b) => b.price - a.price)
   const { hasKey, provider } = aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }
+  const fyLabel = fy?.label
+  const backHref = fyLabel ? `/bands?fy=${encodeURIComponent(fyLabel)}` : '/bands'
 
   return (
     <>
@@ -84,8 +76,8 @@ export default async function BandDetailPage({
         allTimeAvgCost={allTimePosition.avgCost}
         tranches={stockTranches}
         fyId={fy?.id ?? ''}
-        fiscalYears={fiscalYears}
-        selectedFY={fy ?? null}
+        backHref={backHref}
+        backLabel="Bands"
         initialHasKey={hasKey}
         initialAiProvider={provider}
       />

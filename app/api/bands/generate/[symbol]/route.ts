@@ -260,7 +260,7 @@ export async function POST(
   const providerName = aiProvider === 'claude' ? 'Claude' : 'Gemini'
   try {
     aiText = await callAI()
-  } catch (e: unknown) {
+  } catch {
     try {
       // Retry once on transient network failure
       aiText = await callAI()
