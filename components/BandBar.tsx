@@ -5,7 +5,8 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
   midLow: number; midHigh: number
   trimPrice: number; cmp: number | null
 }) {
-  const min = buyLow * 0.9
+  const naturalMin = buyLow * 0.9
+  const min = cmp != null && cmp < naturalMin ? cmp * 0.97 : naturalMin
   const max = midHigh
   const range = max - min
 
