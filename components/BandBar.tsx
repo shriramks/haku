@@ -22,25 +22,13 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
     <div>
       {/* Bar */}
       <div className="relative h-7 rounded-lg overflow-hidden flex" style={{ background: 'var(--bg-tertiary)' }}>
-        <div className="h-full flex items-center justify-center"
-             style={{ width: `${deepW}%`, background: 'rgba(4,120,87,0.28)' }}>
-          {deepW > 8 && <span className="text-footnote font-semibold truncate px-1 text-signal-buy">DEEP</span>}
-        </div>
-        <div className="h-full flex items-center justify-center"
-             style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }}>
-          <span className="text-footnote font-semibold text-signal-buy truncate px-1">BUY</span>
-        </div>
+        <div style={{ width: `${deepW}%`, background: 'rgba(4,120,87,0.28)' }} />
+        <div style={{ width: `${buyW}%`, background: 'rgba(34,197,94,0.35)' }} />
         {showWait && (
-          <div className="h-full flex items-center justify-center"
-               style={{ width: `${waitW}%`,
-                 background: 'repeating-linear-gradient(-45deg, #B8DECC 0px, #B8DECC 3px, #D6EDE5 3px, #D6EDE5 8px)' }}>
-            {waitW > 5 && <span className="text-footnote font-semibold truncate px-1" style={{ color: '#3A8A5A' }}>WAIT</span>}
-          </div>
+          <div style={{ width: `${waitW}%`,
+            background: 'repeating-linear-gradient(-45deg, #B8DECC 0px, #B8DECC 3px, #D6EDE5 3px, #D6EDE5 8px)' }} />
         )}
-        <div className="h-full flex items-center justify-center"
-             style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }}>
-          <span className="text-footnote font-semibold text-signal-hold truncate px-1">HOLD</span>
-        </div>
+        <div style={{ width: `${midW}%`, background: 'rgba(249,115,22,0.30)' }} />
         {cmpPct !== null && (
           <div className="absolute top-0 bottom-0 rounded-full"
                style={{ left: `${cmpPct}%`, width: 4, transform: 'translateX(-50%)', background: 'var(--text-primary)', opacity: 0.9 }} />
