@@ -134,7 +134,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left</p>
                     <p className="text-title-2 font-bold tabnum leading-none">
-                      <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(Math.max(0, totalRemaining)).slice(1)}
+                      {formatINRFull(Math.max(0, totalRemaining)).slice(1)}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctLeft.toFixed(1)}%
@@ -144,7 +144,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <div>
                     <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested</p>
                     <p className="text-title-2 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
-                      <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFull(totalDeployed).slice(1)}
+                      {formatINRFull(totalDeployed).slice(1)}
                     </p>
                     <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
                       {pctDeployed.toFixed(1)}%
@@ -196,8 +196,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <div className="grid px-4 pt-4 pb-1"
                style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
             <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Stock</span>
-            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</span>
-            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</span>
+            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></span>
+            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></span>
           </div>
           {/* Flat allocation rows */}
           <div>
@@ -245,8 +245,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           ) : (
             <>
               <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-            <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFine(row.remaining).slice(1)}
-          </p>
+                {formatINRFine(row.remaining).slice(1)}
+              </p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
             </>
           )}
@@ -256,7 +256,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
             <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
-              <span style={{ color: 'var(--text-faint)', fontWeight: 400 }}>₹</span>{formatINRFine(row.currentCost).slice(1)}
+              {formatINRFine(row.currentCost).slice(1)}
             </p>
             {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{investedPct}%</p>}
           </div>
