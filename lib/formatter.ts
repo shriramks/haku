@@ -71,6 +71,13 @@ export function formatINRFull(amount: number): string {
   return `${sign}₹${abs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
+/** Same as formatINRFull but without the ₹ — for use when ₹ lives in the label */
+export function formatINRFullNum(amount: number): string {
+  const abs  = Math.abs(amount)
+  const sign = amount < 0 ? '−' : ''
+  return `${sign}${abs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+}
+
 /** Parse "YYYY-MM-DD" → "12 Mar" (current year) or "12 Mar '25" (other year) */
 export function formatDate(isoDate: string): string {
   const d = new Date(isoDate + 'T00:00:00')

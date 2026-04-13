@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { formatINRFull, formatPrice, formatPriceFine, formatINR } from '@/lib/formatter'
+import { formatINRFull, formatINRFullNum, formatPrice, formatPriceFine, formatPriceNum, formatINR } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import QuartersToggle from '@/components/QuartersToggle'
@@ -277,18 +277,18 @@ export default function BandDetailClient({
             {/* ── 52W Low | CMP | 52W High ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
               <div>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low</p>
-                <p className="text-body font-semibold tabnum">{week52.low != null ? formatPrice(week52.low) : '—'}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
+                <p className="text-body font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
                 <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-                  {cmp != null ? formatPrice(cmp) : '—'}
+                  {cmp != null ? formatPriceNum(cmp) : '—'}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High</p>
-                <p className="text-body font-semibold tabnum">{week52.high != null ? formatPrice(week52.high) : '—'}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
+                <p className="text-body font-semibold tabnum">{week52.high != null ? formatPriceNum(week52.high) : '—'}</p>
               </div>
             </div>
           </>
@@ -319,9 +319,9 @@ export default function BandDetailClient({
       {/* ── Allocation ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
         <SectionHeader label="Allocation" />
-        <DetailRow label="Remaining" value={formatINRFull(fyRemaining)} bold />
-        <DetailRow label="Invested" value={formatINRFull(fyRow?.currentCost ?? 0)} />
-        <DetailRow label="Planned Allocation" value={formatINRFull(fyRow?.budget ?? 0)} muted />
+        <DetailRow label="Remaining ₹" value={formatINRFullNum(fyRemaining)} bold />
+        <DetailRow label="Invested ₹" value={formatINRFullNum(fyRow?.currentCost ?? 0)} />
+        <DetailRow label="Allocation ₹" value={formatINRFullNum(fyRow?.budget ?? 0)} muted />
       </div>
 
       {/* ── Position (all-time holdings) ── */}
@@ -330,11 +330,11 @@ export default function BandDetailClient({
           <SectionHeader label="Position" />
           <DetailRow label="Shares" value={allTimeQty > 0 ? String(Math.round(allTimeQty)) : '—'} />
           <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost) : '—'} />
-          <DetailRow label="Current Value" value={allTimeCurrentValue != null ? formatINRFull(Math.round(allTimeCurrentValue)) : '—'} />
+          <DetailRow label="Current Value ₹" value={allTimeCurrentValue != null ? formatINRFullNum(Math.round(allTimeCurrentValue)) : '—'} />
           {allTimeUnrealisedPnL != null && allTimeUnrealisedPnL !== 0 && (
             <DetailRow
-              label="Unrealized P&L"
-              value={`${allTimeUnrealisedPnL >= 0 ? '+' : ''}${formatINRFull(Math.round(allTimeUnrealisedPnL))}`}
+              label="P&L ₹"
+              value={`${allTimeUnrealisedPnL >= 0 ? '+' : ''}${formatINRFullNum(Math.round(allTimeUnrealisedPnL))}`}
               color={allTimeUnrealisedPnL >= 0 ? 'var(--text-positive)' : 'var(--text-negative)'}
             />
           )}
