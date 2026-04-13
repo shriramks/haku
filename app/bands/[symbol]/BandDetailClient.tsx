@@ -46,6 +46,7 @@ export default function BandDetailClient({
   const [generating, setGenerating]         = useState(false)
   const [genError, setGenError]             = useState('')
   const [generatingTranches, setGeneratingTranches] = useState(false)
+  const [trancheGenError, setTrancheGenError]       = useState('')
   const [hasKey, setHasKey]                 = useState(initialHasKey)
   const [aiProvider, setAiProvider]         = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
@@ -180,6 +181,7 @@ export default function BandDetailClient({
 
   async function generateTranches() {
     setGeneratingTranches(true)
+    setTrancheGenError('')
     try {
       const res = await fetch(`/api/tranches/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
@@ -187,9 +189,15 @@ export default function BandDetailClient({
         body: JSON.stringify({ fyId, remainingInr: fyRemaining }),
       })
       const json = await res.json()
-      if (res.ok && json.tranches?.length > 0) setTranches(json.tranches)
+      if (!res.ok) {
+        setTrancheGenError(json.error ?? 'Generation failed')
+      } else if (json.tranches?.length > 0) {
+        setTranches(json.tranches)
+      } else {
+        setTrancheGenError('No tranches returned — check remaining budget')
+      }
     } catch {
-      // silently fail
+      setTrancheGenError('Network error — try again')
     }
     setGeneratingTranches(false)
   }
@@ -386,6 +394,7 @@ export default function BandDetailClient({
           hasBands={hasBands}
           cmp={cmp}
           generating={generatingTranches}
+          genError={trancheGenError}
           onAdd={(_sym, qty, price) => addTranche(qty, price)}
           onDelete={deleteTranche}
           onUpdate={updateTranche}
@@ -566,7 +575,7 @@ function FinItem({ k, v }: { k: string; v: string }) {
 
 // ── Tranches Sheet ────────────────────────────────────────────────────────────
 
-function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, generating,
+function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, generating, genError,
   onAdd, onDelete, onUpdate, onGenerate, onClear, onClose }: {
   symbol: string
   tranches: BuyTranche[]
@@ -575,6 +584,7 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
   hasBands: boolean
   cmp: number | null
   generating: boolean
+  genError: string
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -595,6 +605,9 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
           <p className="font-semibold text-headline">Buy Levels</p>
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
+        {genError && (
+          <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
+        )}
         <TrancheSection
           symbol={symbol}
           tranches={tranches}

@@ -78,6 +78,18 @@ export async function POST(
     remaining = Math.max(0, allocBudget - netSpent)
   }
 
+  // Fetch all-time buy transactions for this symbol — used for staged buy pricing
+  const { data: allSymbolBuys } = await supabase
+    .from('transactions')
+    .select('price')
+    .eq('user_id', user.id)
+    .eq('symbol', upperSymbol)
+    .eq('trade_type', 'buy')
+
+  const minBuyPrice = allSymbolBuys && allSymbolBuys.length > 0
+    ? Math.min(...allSymbolBuys.map((t: { price: number }) => t.price))
+    : null
+
   // Fetch 1-year daily chart: gives live CMP (from meta) + 52-week low (from daily lows)
   let liveCmp: number | null = band.manual_cmp ?? null
   let fiftyTwoWeekLow: number | null = null
@@ -97,6 +109,14 @@ export async function POST(
     }
   } catch { /* fall back to stored CMP, no 52-week low */ }
 
+  // Staged buy: in deep value zone, cap effective CMP at (min existing buy price - 1 snap)
+  // so new tranches always average down, never above user's cheapest prior entry.
+  const rawIsDeepZone = liveCmp !== null && liveCmp < buyLow
+  const snapUnit = minBuyPrice != null ? (minBuyPrice < 500 ? 5 : 10) : 10
+  const stagedCmp = (rawIsDeepZone && minBuyPrice != null)
+    ? (liveCmp != null ? Math.min(liveCmp, minBuyPrice - snapUnit) : minBuyPrice - snapUnit)
+    : liveCmp
+
   const deployable = remaining
 
   const totalCapital = fy?.total_budget_inr ?? 0
@@ -105,9 +125,9 @@ export async function POST(
     ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
     : 3
   const isIndex     = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
-  const isAboveZone = liveCmp !== null && liveCmp > buyHigh
-  const isDeepZone  = liveCmp !== null && liveCmp < buyLow
-  const prices = computeTrancheprices(buyLow, buyHigh, liveCmp, midLow, midHigh, trancheCount, fiftyTwoWeekLow, isIndex)
+  const isAboveZone = stagedCmp !== null && stagedCmp > buyHigh
+  const isDeepZone  = stagedCmp !== null && stagedCmp < buyLow
+  const prices = computeTrancheprices(buyLow, buyHigh, stagedCmp, midLow, midHigh, trancheCount, fiftyTwoWeekLow, isIndex)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
@@ -155,6 +175,6 @@ export async function POST(
     symbol: upperSymbol,
     tranches: inserted ?? [],
     warning,
-    _debug: { buyLow, buyHigh, liveCmp, fiftyTwoWeekLow, deployable, trancheCount },
+    _debug: { buyLow, buyHigh, liveCmp, stagedCmp, minBuyPrice, fiftyTwoWeekLow, deployable, trancheCount },
   })
 }
