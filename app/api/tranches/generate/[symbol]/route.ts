@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, trancheSuggestion, INDEX_CATEGORIES } from '@/lib/band-calculator'
+import { calculateBands, computeTrancheprices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -139,13 +139,8 @@ export async function POST(
     }
   } catch { /* fall back to stored CMP, no 52-week low */ }
 
-  // Staged buy: in deep value zone, cap effective CMP at (min existing buy price - 1 snap)
-  // so new tranches always average down, never above user's cheapest prior entry.
-  const rawIsDeepZone = liveCmp !== null && liveCmp < buyLow
-  const snapUnit = minBuyPrice != null ? (minBuyPrice < 500 ? 5 : 10) : 10
-  const stagedCmp = (rawIsDeepZone && minBuyPrice != null)
-    ? (liveCmp != null ? Math.min(liveCmp, minBuyPrice - snapUnit) : minBuyPrice - snapUnit)
-    : liveCmp
+  // Staged buy: in deep value zone, cap effective CMP below the user's cheapest prior entry.
+  const stagedCmp = stagedDeepCmp(liveCmp, buyLow, minBuyPrice)
 
   const deployable = remaining
 

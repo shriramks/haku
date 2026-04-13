@@ -105,6 +105,27 @@ export function calculateBands(input: BandInput): BandResult | null {
   }
 }
 
+/**
+ * Staged-buy price cap for deep value zone.
+ *
+ * When CMP is below buyLow (deep value) AND the user has prior buys at a higher
+ * price, cap the effective CMP at (minBuyPrice − 1 snap unit) so every generated
+ * tranche is strictly cheaper than their cheapest prior entry.
+ *
+ * Outside deep value (CMP ≥ buyLow) or when there are no prior buys, returns
+ * liveCmp unchanged so normal zone logic applies.
+ */
+export function stagedDeepCmp(
+  liveCmp: number | null,
+  buyLow: number,
+  minBuyPrice: number | null,
+): number | null {
+  const isDeep = liveCmp !== null && liveCmp < buyLow
+  if (!isDeep || minBuyPrice === null) return liveCmp
+  const snap = minBuyPrice < 500 ? 5 : 10
+  return Math.min(liveCmp, minBuyPrice - snap)
+}
+
 /** Tranche suggestion: 1–2% of total capital, capped at remaining */
 export function trancheSuggestion(remainingBudget: number, totalCapital: number): number {
   const onePct = totalCapital * 0.01

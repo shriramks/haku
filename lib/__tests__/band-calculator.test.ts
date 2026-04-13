@@ -414,6 +414,137 @@ describe('computeTrancheAmounts — conviction-weighted sizing', () => {
   })
 })
 
+describe('calculateBands — Nifty Next 50 Index (flags ignored)', () => {
+  const base = { category: 'Nifty Next 50 Index' as const, ...normal }
+
+  it('normal: buy range 18–20×, trim 25×', () => {
+    const r = calculateBands({ ...base, eps: 100 })!
+    expect(r.buyLow).toBeCloseTo(18 * 100)
+    expect(r.buyHigh).toBeCloseTo(20 * 100)
+    expect(r.trimPrice).toBeCloseTo(25 * 100)
+  })
+
+  it('bear flag ignored — identical to normal', () => {
+    const bear = calculateBands({ ...base, eps: 100, twoWeakQuarters: true })!
+    const norm = calculateBands({ ...base, eps: 100 })!
+    expect(bear.buyHigh).toBeCloseTo(norm.buyHigh)
+    expect(bear.isTightened).toBe(false)
+  })
+
+  it('bull flag ignored — identical to normal', () => {
+    const bull = calculateBands({ ...base, eps: 100, twoStrongQuarters: true })!
+    const norm = calculateBands({ ...base, eps: 100 })!
+    expect(bull.buyLow).toBeCloseTo(norm.buyLow)
+    expect(bull.isPremium).toBe(false)
+  })
+})
+
+describe('calculateBands — Tobacco Corp bull (upper half, no explicit premium)', () => {
+  const base = { category: 'Tobacco Corp' as const, ...normal }
+
+  it('bull: buyLow shifts to midpoint 22.5×, buyHigh stays 25×', () => {
+    const r = calculateBands({ ...base, eps: 20, twoStrongQuarters: true })!
+    expect(r.isPremium).toBe(true)
+    expect(r.buyLow).toBeCloseTo(22.5 * 20)   // (20+25)/2 × eps
+    expect(r.buyHigh).toBeCloseTo(25 * 20)
+    expect(r.trimPrice).toBe(31 * 20)          // trim never moves
+  })
+})
+
+describe('calculateBands — edge cases', () => {
+  it('eps = 0 → null', () => {
+    expect(calculateBands({ category: 'FMCG', ...normal, eps: 0 })).toBeNull()
+  })
+
+  it('eps negative → null', () => {
+    expect(calculateBands({ category: 'FMCG', ...normal, eps: -10 })).toBeNull()
+  })
+
+  it('eps null → null', () => {
+    expect(calculateBands({ category: 'FMCG', ...normal, eps: null })).toBeNull()
+  })
+
+  it('eps undefined → null', () => {
+    expect(calculateBands({ category: 'FMCG', ...normal })).toBeNull()
+  })
+
+  it('unknown category → null (no multiples defined)', () => {
+    // 'Commodity' has no PE entry
+    expect(calculateBands({ category: 'Commodity', ...normal, eps: 100 })).toBeNull()
+  })
+
+  it('bear trim equals normal trim (bear only compresses buy range, not trim)', () => {
+    // Bear mode squeezes buyHigh down to midpoint — trim ceiling stays unchanged
+    const bear = calculateBands({ category: 'Cap-Light Infra', eps: 100, twoWeakQuarters: true, twoStrongQuarters: false })!
+    const norm = calculateBands({ category: 'Cap-Light Infra', eps: 100, twoWeakQuarters: false, twoStrongQuarters: false })!
+    expect(bear.trimPrice).toBe(norm.trimPrice)
+    // Bull uses the PREMIUM table for Cap-Light Infra (trim: 48 vs base trim: 45)
+    const bull = calculateBands({ category: 'Cap-Light Infra', eps: 100, twoWeakQuarters: false, twoStrongQuarters: true })!
+    expect(bull.trimPrice).toBe(4800)  // premium trim: 48 × 100
+    expect(norm.trimPrice).toBe(4500)  // base trim: 45 × 100
+  })
+
+  it('buyLow is always ≤ buyHigh in every mode', () => {
+    const categories = ['Cap-Light Infra', 'Hospitals', 'FMCG', 'Tobacco Corp'] as const
+    const modes = [
+      { twoWeakQuarters: false, twoStrongQuarters: false },
+      { twoWeakQuarters: true,  twoStrongQuarters: false },
+      { twoWeakQuarters: false, twoStrongQuarters: true  },
+    ]
+    for (const category of categories) {
+      for (const mode of modes) {
+        const r = calculateBands({ category, ...mode, eps: 50 })!
+        expect(r.buyLow).toBeLessThanOrEqual(r.buyHigh)
+      }
+    }
+  })
+})
+
+// ── stagedDeepCmp ─────────────────────────────────────────────────────────────
+
+import { stagedDeepCmp } from '../band-calculator'
+
+describe('stagedDeepCmp — staged buy price cap in deep value', () => {
+  const buyLow = 320  // ITC-style: buyLow = 20× EPS
+
+  it('no prior buys → returns liveCmp unchanged', () => {
+    expect(stagedDeepCmp(290, buyLow, null)).toBe(290)
+  })
+
+  it('CMP above buyLow (not deep) → returns liveCmp unchanged even with prior buys', () => {
+    // CMP 350 is ABOVE buyLow 320 → not in deep zone, no cap
+    expect(stagedDeepCmp(350, buyLow, 299)).toBe(350)
+  })
+
+  it('CMP null → returns null', () => {
+    expect(stagedDeepCmp(null, buyLow, 299)).toBeNull()
+  })
+
+  it('deep zone: CMP above minBuyPrice → capped at minBuyPrice - snap', () => {
+    // CMP=310 is below buyLow=320 (deep zone), user bought at 299
+    // snap = 10 (299 ≥ 500? no → 5... wait 299 < 500 → snap=5)
+    // stagedCmp = min(310, 299-5) = min(310, 294) = 294
+    expect(stagedDeepCmp(310, buyLow, 299)).toBe(294)   // 299 < 500 → snap=5
+  })
+
+  it('deep zone: CMP below minBuyPrice → CMP wins (already below user cost)', () => {
+    // CMP=280 is below buyLow=320 (deep zone), user bought at 299
+    // stagedCmp = min(280, 299-5=294) = 280 (no change, already below cost)
+    expect(stagedDeepCmp(280, buyLow, 299)).toBe(280)
+  })
+
+  it('deep zone: high-priced stock uses ₹10 snap unit', () => {
+    // buyLow=650, CMP=610, minBuyPrice=590 (≥ 500 → snap=10)
+    // stagedCmp = min(610, 590-10=580) = 580
+    expect(stagedDeepCmp(610, 650, 590)).toBe(580)
+  })
+
+  it('deep zone: exactly at buyLow is NOT deep (boundary)', () => {
+    // CMP exactly = buyLow → not < buyLow → not deep → no cap
+    expect(stagedDeepCmp(buyLow, buyLow, 299)).toBe(buyLow)
+  })
+})
+
 describe('computeTrancheprices — deep zone spreads 2-3 tranches at 5% steps', () => {
   it('count=3 → 3 prices, each 5% apart, all ≤ CMP', () => {
     const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)

@@ -73,7 +73,7 @@ export default async function BandDetailPage({
         fyRow={fyRow}
         allTimeQty={allTimePosition.qty}
         allTimeCost={allTimePosition.cost}
-        allTimeAvgCost={allTimePosition.avgCost}
+        allTimeAvgCost={allTimePosition.buyAvgCost}
         tranches={stockTranches}
         fyId={fy?.id ?? ''}
         backHref={backHref}

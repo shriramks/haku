@@ -411,7 +411,7 @@ describe('computeStockRows — bandSignal uses live calculateBands, not stored D
 describe('seqCost', () => {
   it('no transactions → qty=0, cost=0, avgCost=0', () => {
     const r = seqCost([])
-    expect(r).toEqual({ qty: 0, cost: 0, avgCost: 0 })
+    expect(r).toEqual({ qty: 0, cost: 0, avgCost: 0, buyAvgCost: 0 })
   })
 
   it('buys only → qty and cost accumulate', () => {
@@ -462,5 +462,77 @@ describe('seqCost', () => {
     const r = seqCost([buy2, sell1, buy1])   // scrambled order
     expect(r.qty).toBe(50)
     expect(r.cost).toBe(50 * 360)
+  })
+
+  it('oversell guard: qty and cost floor at 0', () => {
+    // Sell 20 when only 10 held — should not go negative
+    const txns = [mkTxn('X', 'buy', 10, 500), mkTxn('X', 'sell', 20, 600)]
+    const r = seqCost(txns)
+    expect(r.qty).toBe(0)
+    expect(r.cost).toBe(0)
+    expect(r.avgCost).toBe(0)
+  })
+})
+
+// ── seqCost — buyAvgCost ──────────────────────────────────────────────────────
+
+describe('seqCost — buyAvgCost (buy-only weighted average, sells ignored)', () => {
+  it('no transactions → buyAvgCost = 0', () => {
+    expect(seqCost([]).buyAvgCost).toBe(0)
+  })
+
+  it('single buy → buyAvgCost = buy price', () => {
+    const r = seqCost([mkTxn('X', 'buy', 100, 900)])
+    expect(r.buyAvgCost).toBeCloseTo(900)
+  })
+
+  it('two buys at different prices → buyAvgCost = weighted average of both', () => {
+    // 100 @ 900 + 200 @ 600 → (90000 + 120000) / 300 = 700
+    const txns = [mkTxn('X', 'buy', 100, 900), mkTxn('X', 'buy', 200, 600)]
+    expect(seqCost(txns).buyAvgCost).toBeCloseTo(700)
+  })
+
+  it('sell does NOT affect buyAvgCost', () => {
+    // User sold half their CAMS — avg cost of what they paid should not shift
+    const txns = [mkTxn('X', 'buy', 100, 900), mkTxn('X', 'sell', 50, 950)]
+    const r = seqCost(txns)
+    expect(r.buyAvgCost).toBeCloseTo(900)   // only the buy matters
+    expect(r.qty).toBe(50)                   // net qty is correct
+  })
+
+  it('full exit then re-entry: buyAvgCost spans ALL buys, not just current', () => {
+    // Historical buy at 900, exit, re-buy at 700
+    // The user wants to know their all-time buy average (800), not just the re-entry price
+    // 100@900 + 200@700 → (90000 + 140000) / 300 = 766.67
+    const txns = [
+      mkTxn('X', 'buy',  100, 900),
+      mkTxn('X', 'sell', 100, 950),   // irrelevant to buyAvgCost
+      mkTxn('X', 'buy',  200, 700),
+    ]
+    const r = seqCost(txns)
+    expect(r.buyAvgCost).toBeCloseTo((100 * 900 + 200 * 700) / 300)   // ≈ 766.67
+    expect(r.avgCost).toBeCloseTo(700)      // only current holding (re-entry) for P&L
+    expect(r.qty).toBe(200)
+  })
+
+  it('multiple buy-sell cycles: buyAvgCost accumulates all buy legs', () => {
+    // 200@900, sell 100, 200@700, sell 50 → buys: (200×900 + 200×700)/400 = 800
+    const txns = [
+      mkTxn('X', 'buy',  200, 900),
+      mkTxn('X', 'sell', 100, 950),
+      mkTxn('X', 'buy',  200, 700),
+      mkTxn('X', 'sell',  50, 720),
+    ]
+    const r = seqCost(txns)
+    expect(r.buyAvgCost).toBeCloseTo((200 * 900 + 200 * 700) / 400)   // 800
+    expect(r.qty).toBe(250)   // 200-100+200-50
+  })
+
+  it('sell-only ledger (no buys) → buyAvgCost = 0 and qty = 0', () => {
+    // Pathological case — shouldn't occur in practice but must not crash
+    const txns = [mkTxn('X', 'sell', 50, 900)]
+    const r = seqCost(txns)
+    expect(r.buyAvgCost).toBe(0)
+    expect(r.qty).toBe(0)
   })
 })

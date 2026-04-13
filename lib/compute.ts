@@ -24,21 +24,35 @@ export function getBandSignal(
  *
  * Returns the current qty held, total cost of those shares, and avg cost per share.
  */
-export function seqCost(txns: Transaction[]): { qty: number; cost: number; avgCost: number } {
+export function seqCost(txns: Transaction[]): {
+  qty: number; cost: number; avgCost: number
+  /** Weighted average of BUY transactions only — unaffected by sells.
+   *  Use this for display ("Avg Cost") so a past sell doesn't distort
+   *  the per-share price you paid. */
+  buyAvgCost: number
+} {
   const sorted = [...txns].sort((a, b) =>
     a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : 0)
   let qty = 0, cost = 0
+  let buyQty = 0, buyCost = 0
   for (const t of sorted) {
     if (t.trade_type === 'buy') {
-      qty  += t.quantity
-      cost += t.amount
+      qty     += t.quantity
+      cost    += t.amount
+      buyQty  += t.quantity
+      buyCost += t.amount
     } else {
       const avg = qty > 0 ? cost / qty : 0
       cost = Math.max(0, cost - t.quantity * avg)
       qty  = Math.max(0, qty  - t.quantity)
     }
   }
-  return { qty, cost, avgCost: qty > 0 ? cost / qty : 0 }
+  return {
+    qty,
+    cost,
+    avgCost:    qty    > 0 ? cost    / qty    : 0,
+    buyAvgCost: buyQty > 0 ? buyCost / buyQty : 0,
+  }
 }
 
 // ── Carryover ─────────────────────────────────────────────────────────────────
