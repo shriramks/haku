@@ -315,7 +315,7 @@ export default function BandDetailClient({
       {/* ── Allocation + Position ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
         <DetailRow label="Remaining" value={formatINRFullNum(fyRemaining)} bold />
-        <DetailRow label="Invested" value={formatINRFullNum(fyRow?.currentCost ?? 0)} />
+        <DetailRow label="Invested" value={formatINRFullNum(allTimeCost)} />
         <DetailRow label="Allocation" value={formatINRFullNum(fyRow?.budget ?? 0)} muted />
         {allTimeCurrentValue != null && (
           <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />

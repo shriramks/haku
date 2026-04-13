@@ -319,10 +319,14 @@ function PlanTab({
               </div>
             </button>
             {unallocCarryover > 0 && (
-              <div className="flex items-center justify-between px-4 py-2.5"
-                   style={{ borderTop: '1px solid var(--border-faint)' }}>
-                <span className="text-body" style={{ color: 'var(--text-faint)' }}>Carryover ₹</span>
-                <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>+{formatINRFull(unallocCarryover).slice(1)}</span>
+              <div className="flex items-center justify-between px-4"
+                   style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
+                <span className="text-body" style={{ color: 'var(--text-2)' }}>
+                  Carryover <span style={{ color: 'var(--text-faint)' }}>₹</span>
+                </span>
+                <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
+                  +{formatINRFull(unallocCarryover).slice(1)}
+                </span>
               </div>
             )}
           </div>

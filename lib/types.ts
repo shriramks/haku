@@ -154,7 +154,7 @@ export interface StockRow {
   pctRemaining: number
   qty: number
   avgCost: number
-  /** All-time holdings at cost = allTimeQty × allTimeAvgCost — drives "Invested" display */
+  /** FY-scoped sequential cost (seqCost on this FY's transactions) — drives bar fill and FY deployed % */
   currentCost: number
   cmp: number | null
   unrealisedPnL: number | null
