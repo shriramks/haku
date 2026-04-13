@@ -19,7 +19,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Fetch allocation (category + qualifier flags) and current band (financials + CMP)
-  const [{ data: alloc }, { data: band }] = await Promise.all([
+  const [{ data: fyAllocMeta }, { data: band }] = await Promise.all([
     supabase.from('stock_allocations')
       .select('category, two_weak_quarters, two_strong_quarters')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
@@ -30,14 +30,33 @@ export async function POST(
       .maybeSingle(),
   ])
 
+  // If current FY's allocation has no category, fall back to any FY for this symbol.
+  // Mirrors the band-generate route which queries without fy_id filter.
+  // Quarter flags (bear/bull) still come from the current FY row if available.
+  let alloc = fyAllocMeta
+  if (!alloc?.category) {
+    const { data: anyAlloc } = await supabase
+      .from('stock_allocations')
+      .select('category, two_weak_quarters, two_strong_quarters')
+      .eq('user_id', user.id).eq('symbol', upperSymbol)
+      .not('category', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (anyAlloc?.category) {
+      // Use category from the historical row, but quarter flags from current FY if available
+      alloc = { ...anyAlloc, ...fyAllocMeta }
+    }
+  }
+
   // Recompute bands live from current allocation category + stored financials.
   // This ensures tranches reflect any category change since the last band generation.
   // Done before the guard so computed values (from EPS) satisfy the check even when
   // buy_low / buy_high were never persisted to the DB.
   const freshResult = (alloc?.category && band?.eps) ? calculateBands({
     category: alloc.category as StockCategory,
-    twoWeakQuarters:   alloc.two_weak_quarters   ?? false,
-    twoStrongQuarters: alloc.two_strong_quarters  ?? false,
+    twoWeakQuarters:   alloc?.two_weak_quarters   ?? false,
+    twoStrongQuarters: alloc?.two_strong_quarters  ?? false,
     eps:           band.eps,
   }) : null
 
@@ -47,8 +66,17 @@ export async function POST(
   const midHigh = freshResult?.midHigh ?? band?.mid_high ?? band?.buy_high ?? null
 
   if (!buyLow || !buyHigh) {
+    const why = !band
+      ? 'no buy_bands row (is_current=true) found'
+      : !band.eps
+        ? 'EPS not set — open Financials and enter EPS'
+        : !alloc
+          ? `no stock_allocations row found for fy_id=${fyId}`
+          : !alloc.category
+            ? 'category not set on this FY\'s allocation row'
+            : `calculateBands returned null (category="${alloc.category}", eps=${band.eps})`
     return NextResponse.json({
-      error: `No bands for ${upperSymbol} — set EPS in Financials first.`,
+      error: `Cannot generate tranches for ${upperSymbol}: ${why}`,
     }, { status: 422 })
   }
 
