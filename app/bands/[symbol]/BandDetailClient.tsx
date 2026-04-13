@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
-import { formatINRFull, formatINRFullNum, formatPrice, formatPriceFine, formatPriceNum, formatINR } from '@/lib/formatter'
+import { formatINRFull, formatINRFullNum, formatPrice, formatPriceNum, formatINR } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import QuartersToggle from '@/components/QuartersToggle'
@@ -18,7 +18,6 @@ interface Props {
   fyRow: StockRow | null
   allTimeQty: number
   allTimeCost: number
-  allTimeAvgCost: number
   tranches: BuyTranche[]
   fyId: string
   backHref: string
@@ -29,7 +28,7 @@ interface Props {
 
 export default function BandDetailClient({
   symbol, band: initialBand, allocation: initialAllocation,
-  fyRow, allTimeQty, allTimeCost, allTimeAvgCost,
+  fyRow, allTimeQty, allTimeCost,
   tranches: initialTranches,
   fyId, backHref, backLabel, initialHasKey, initialAiProvider,
 }: Props) {
@@ -81,9 +80,6 @@ export default function BandDetailClient({
   // All-time current value (live — updates after CMP refresh)
   const allTimeCurrentValue = cmp != null && allTimeQty > 0
     ? Math.round(allTimeQty) * cmp
-    : null
-  const allTimeUnrealisedPnL = allTimeCurrentValue != null && allTimeCost > 0
-    ? allTimeCurrentValue - allTimeCost
     : null
 
   async function refreshCMP() {
@@ -277,18 +273,18 @@ export default function BandDetailClient({
             {/* ── 52W Low | CMP | 52W High ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
               <div>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
-                <p className="text-body font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
+                <p className="text-title-2 font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
                 <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
                   {cmp != null ? formatPriceNum(cmp) : '—'}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
-                <p className="text-body font-semibold tabnum">{week52.high != null ? formatPriceNum(week52.high) : '—'}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
+                <p className="text-title-2 font-semibold tabnum">{week52.high != null ? formatPriceNum(week52.high) : '—'}</p>
               </div>
             </div>
           </>
@@ -316,30 +312,15 @@ export default function BandDetailClient({
       )}
       {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
 
-      {/* ── Allocation ── */}
+      {/* ── Allocation + Position ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        <SectionHeader label="Allocation" />
-        <DetailRow label="Remaining ₹" value={formatINRFullNum(fyRemaining)} bold />
-        <DetailRow label="Invested ₹" value={formatINRFullNum(fyRow?.currentCost ?? 0)} />
-        <DetailRow label="Allocation ₹" value={formatINRFullNum(fyRow?.budget ?? 0)} muted />
+        <DetailRow label="Remaining" value={formatINRFullNum(fyRemaining)} bold />
+        <DetailRow label="Invested" value={formatINRFullNum(fyRow?.currentCost ?? 0)} />
+        <DetailRow label="Allocation" value={formatINRFullNum(fyRow?.budget ?? 0)} muted />
+        {allTimeCurrentValue != null && (
+          <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
+        )}
       </div>
-
-      {/* ── Position (all-time holdings) ── */}
-      {(allTimeQty > 0 || allTimeCost > 0) && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-          <SectionHeader label="Position" />
-          <DetailRow label="Shares" value={allTimeQty > 0 ? String(Math.round(allTimeQty)) : '—'} />
-          <DetailRow label="Avg Cost ₹" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost).slice(1) : '—'} />
-          <DetailRow label="Current Value ₹" value={allTimeCurrentValue != null ? formatINRFullNum(Math.round(allTimeCurrentValue)) : '—'} />
-          {allTimeUnrealisedPnL != null && allTimeUnrealisedPnL !== 0 && (
-            <DetailRow
-              label="P&L ₹"
-              value={`${allTimeUnrealisedPnL >= 0 ? '+' : ''}${formatINRFullNum(Math.round(allTimeUnrealisedPnL))}`}
-              color={allTimeUnrealisedPnL >= 0 ? 'var(--text-positive)' : 'var(--text-negative)'}
-            />
-          )}
-        </div>
-      )}
 
       {/* ── Financials row → sheet ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
@@ -427,7 +408,9 @@ function DetailRow({ label, value, bold, muted, color }: {
   return (
     <div className="flex items-center justify-between px-4"
       style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
-      <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
+      <span className="text-body" style={{ color: 'var(--text-2)' }}>
+        {label} <span style={{ color: 'var(--text-faint)' }}>₹</span>
+      </span>
       <span className="tabnum" style={{
         fontSize: bold ? 17 : 15,
         fontWeight: bold ? 700 : 400,
