@@ -54,7 +54,6 @@ export async function hasBands(): Promise<boolean> {
     .from('buy_bands')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('is_current', true)
   return (count ?? 0) > 0
 }
 

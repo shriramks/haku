@@ -98,7 +98,6 @@ const _fetchBuyBands = unstable_cache(
       .from('buy_bands')
       .select('id, symbol, anchor_type, eps, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, week_52_low, week_52_high, last_updated_at, generated_at, is_current, notes')
       .eq('user_id', userId)
-      .eq('is_current', true)
       .order('generated_at', { ascending: false })
     return data ?? []
   },

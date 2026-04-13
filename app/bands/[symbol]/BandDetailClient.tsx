@@ -103,10 +103,10 @@ export default function BandDetailClient({
       } else {
         const { data: { user } } = await sb.auth.getUser()
         if (user) {
-          const { data } = await sb.from('buy_bands').insert({
+          const { data } = await sb.from('buy_bands').upsert({
             user_id: user.id, symbol, anchor_type: 'PE',
-            manual_cmp: price, is_current: true,
-          }).select().single()
+            manual_cmp: price,
+          }, { onConflict: 'user_id,symbol' }).select().single()
           if (data) setBand(data)
         }
       }
@@ -164,7 +164,7 @@ export default function BandDetailClient({
           mid_low: result.midLow, mid_high: result.midHigh,
           trim_price: result.trimPrice,
           last_updated_at: new Date().toISOString(),
-        }).eq('symbol', symbol).eq('is_current', true)
+        }).eq('symbol', symbol)
         setBand(prev => prev ? {
           ...prev,
           buy_low: result.buyLow, buy_high: result.buyHigh,
@@ -460,9 +460,9 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
     } else {
       const { data: { user } } = await sb.auth.getUser()
       if (user) {
-        const { data } = await sb.from('buy_bands').insert({
-          user_id: user.id, symbol, anchor_type: 'PE', is_current: true, ...fields,
-        }).select().single()
+        const { data } = await sb.from('buy_bands').upsert({
+          user_id: user.id, symbol, anchor_type: 'PE', ...fields,
+        }, { onConflict: 'user_id,symbol' }).select().single()
         savedBand = data
       }
     }

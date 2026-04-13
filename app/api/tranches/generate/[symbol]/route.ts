@@ -26,7 +26,7 @@ export async function POST(
       .maybeSingle(),
     supabase.from('buy_bands')
       .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, eps, bvps, ebitda, net_debt, shares, embedded_value')
-      .eq('user_id', user.id).eq('symbol', upperSymbol).eq('is_current', true)
+      .eq('user_id', user.id).eq('symbol', upperSymbol)
       .maybeSingle(),
   ])
 
@@ -67,7 +67,7 @@ export async function POST(
 
   if (!buyLow || !buyHigh) {
     const why = !band
-      ? 'no buy_bands row (is_current=true) found'
+      ? 'no buy_bands row found — generate bands first'
       : !band.eps
         ? 'EPS not set — open Financials and enter EPS'
         : !alloc

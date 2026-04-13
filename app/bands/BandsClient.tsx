@@ -87,7 +87,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
             sb.from('buy_bands')
               .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
               .eq('symbol', sym)
-              .eq('is_current', true)
           )
       )
     }
@@ -101,7 +100,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
             sb.from('buy_bands')
               .update({ week_52_low: v.low, week_52_high: v.high })
               .eq('symbol', sym)
-              .eq('is_current', true)
           )
       )
     }

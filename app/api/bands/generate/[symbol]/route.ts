@@ -262,22 +262,14 @@ export async function POST(
     .select('manual_cmp')
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
-    .eq('is_current', true)
     .maybeSingle()
   const existingCmp = existingBand?.manual_cmp ?? null
 
-  // Version the band — mark old as not current
-  await supabase
-    .from('buy_bands')
-    .update({ is_current: false })
-    .eq('user_id', user.id)
-    .eq('symbol', upperSymbol)
-    .eq('is_current', true)
-
+  // Upsert — unique constraint (user_id, symbol) ensures exactly one row per stock
   const now = new Date().toISOString()
-  const { data: newBand, error: insertError } = await supabase
+  const { data: newBand, error: upsertError } = await supabase
     .from('buy_bands')
-    .insert({
+    .upsert({
       user_id:    user.id,
       symbol:     upperSymbol,
       anchor_type: 'PE',
@@ -291,13 +283,12 @@ export async function POST(
       notes:      `${result.anchorUsed} | ${asOf}`,
       last_updated_at: now,
       generated_at:    now,
-      is_current:      true,
-    })
+    }, { onConflict: 'user_id,symbol' })
     .select()
     .single()
 
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  if (upsertError) {
+    return NextResponse.json({ error: upsertError.message }, { status: 500 })
   }
 
   // ── Auto-generate tranches ─────────────────────────────────────────────────
