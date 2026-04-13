@@ -312,18 +312,17 @@ function PlanTab({
           <div className="border-b" style={{ borderColor: 'var(--border)' }}>
             <button onClick={() => setShowBudgetSheet(true)}
               className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
-              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
-              <div className="flex items-center gap-0.5 px-3 py-1.5 rounded-xl"
+              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan <span style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-muted)' }}>₹</span></span>
+              <div className="flex items-center px-3 py-1.5 rounded-xl"
                    style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
                 <span className="text-title-2 font-bold tabnum">{formatINRFull(effectiveBudget).slice(1)}</span>
               </div>
             </button>
             {unallocCarryover > 0 && (
               <div className="flex items-center justify-between px-4 py-2.5"
                    style={{ borderTop: '1px solid var(--border-faint)' }}>
-                <span className="text-body" style={{ color: 'var(--text-faint)' }}>Carryover</span>
-                <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>+{formatINRFull(unallocCarryover)}</span>
+                <span className="text-body" style={{ color: 'var(--text-faint)' }}>Carryover ₹</span>
+                <span className="text-body tabnum" style={{ color: 'var(--text-faint)' }}>+{formatINRFull(unallocCarryover).slice(1)}</span>
               </div>
             )}
           </div>

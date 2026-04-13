@@ -329,7 +329,7 @@ export default function BandDetailClient({
         <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
           <SectionHeader label="Position" />
           <DetailRow label="Shares" value={allTimeQty > 0 ? String(Math.round(allTimeQty)) : '—'} />
-          <DetailRow label="Avg Cost" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost) : '—'} />
+          <DetailRow label="Avg Cost ₹" value={allTimeAvgCost > 0 ? formatPriceFine(allTimeAvgCost).slice(1) : '—'} />
           <DetailRow label="Current Value ₹" value={allTimeCurrentValue != null ? formatINRFullNum(Math.round(allTimeCurrentValue)) : '—'} />
           {allTimeUnrealisedPnL != null && allTimeUnrealisedPnL !== 0 && (
             <DetailRow
