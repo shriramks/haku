@@ -30,25 +30,27 @@ export async function POST(
       .maybeSingle(),
   ])
 
-  if (!band?.buy_low || !band?.buy_high) {
-    return NextResponse.json({
-      error: `No bands found for ${upperSymbol}. Generate bands first.`,
-    }, { status: 422 })
-  }
-
   // Recompute bands live from current allocation category + stored financials.
   // This ensures tranches reflect any category change since the last band generation.
-  const freshResult = alloc?.category ? calculateBands({
+  // Done before the guard so computed values (from EPS) satisfy the check even when
+  // buy_low / buy_high were never persisted to the DB.
+  const freshResult = (alloc?.category && band?.eps) ? calculateBands({
     category: alloc.category as StockCategory,
     twoWeakQuarters:   alloc.two_weak_quarters   ?? false,
     twoStrongQuarters: alloc.two_strong_quarters  ?? false,
     eps:           band.eps,
   }) : null
 
-  const buyLow  = freshResult?.buyLow  ?? band.buy_low
-  const buyHigh = freshResult?.buyHigh ?? band.buy_high
-  const midLow  = freshResult?.midLow  ?? band.mid_low  ?? band.buy_high
-  const midHigh = freshResult?.midHigh ?? band.mid_high ?? band.buy_high
+  const buyLow  = freshResult?.buyLow  ?? band?.buy_low  ?? null
+  const buyHigh = freshResult?.buyHigh ?? band?.buy_high ?? null
+  const midLow  = freshResult?.midLow  ?? band?.mid_low  ?? band?.buy_high ?? null
+  const midHigh = freshResult?.midHigh ?? band?.mid_high ?? band?.buy_high ?? null
+
+  if (!buyLow || !buyHigh) {
+    return NextResponse.json({
+      error: `No bands for ${upperSymbol} — set EPS in Financials first.`,
+    }, { status: 422 })
+  }
 
   // Compute remaining budget for this stock in this FY
   const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
@@ -91,7 +93,7 @@ export async function POST(
     : null
 
   // Fetch 1-year daily chart: gives live CMP (from meta) + 52-week low (from daily lows)
-  let liveCmp: number | null = band.manual_cmp ?? null
+  let liveCmp: number | null = band?.manual_cmp ?? null
   let fiftyTwoWeekLow: number | null = null
   try {
     const cmpRes = await fetch(
