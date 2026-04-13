@@ -75,6 +75,7 @@ export default async function BandDetailPage({
         allTimeCost={allTimePosition.cost}
         tranches={stockTranches}
         fyId={fy?.id ?? ''}
+        fyLabel={fyLabel ?? ''}
         backHref={backHref}
         backLabel="Bands"
         initialHasKey={hasKey}

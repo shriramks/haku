@@ -20,6 +20,7 @@ interface Props {
   allTimeCost: number
   tranches: BuyTranche[]
   fyId: string
+  fyLabel: string
   backHref: string
   backLabel: string
   initialHasKey: boolean
@@ -30,7 +31,7 @@ export default function BandDetailClient({
   symbol, band: initialBand, allocation: initialAllocation,
   fyRow, allTimeQty, allTimeCost,
   tranches: initialTranches,
-  fyId, backHref, backLabel, initialHasKey, initialAiProvider,
+  fyId, fyLabel, backHref, backLabel, initialHasKey, initialAiProvider,
 }: Props) {
   const router = useRouter()
   const [band, setBand]               = useState(initialBand)
@@ -315,8 +316,8 @@ export default function BandDetailClient({
       {/* ── Allocation + Position ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
         <DetailRow label="Remaining" value={formatINRFullNum(fyRemaining)} bold />
-        <DetailRow label="Invested" value={formatINRFullNum(allTimeCost)} />
-        <DetailRow label="Allocation" value={formatINRFullNum(fyRow?.budget ?? 0)} muted />
+        <DetailRow label={`Invested ${fyLabel}`} value={formatINRFullNum(fyRow?.spent ?? 0)} />
+        <DetailRow label="Invested Total" value={formatINRFullNum(allTimeCost)} />
         {allTimeCurrentValue != null && (
           <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
         )}

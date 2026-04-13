@@ -64,6 +64,7 @@ export default async function StockDetailPage({
         allTimeCost={allTimePosition.cost}
         tranches={(tranches as BuyTranche[]).filter(t => t.symbol === symbol)}
         fyId={fy?.id ?? ''}
+        fyLabel={fy?.label ?? ''}
         backHref={backHref}
         backLabel="Allocation"
         initialHasKey={hasKey}
