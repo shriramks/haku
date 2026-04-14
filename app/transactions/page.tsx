@@ -5,22 +5,19 @@ import BottomNav from '@/components/BottomNav'
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string; fy?: string }>
+  searchParams: Promise<{ symbol?: string }>
 }) {
-  const { symbol, fy: fyParam } = await searchParams
+  const { symbol } = await searchParams
   const fiscalYears = await getFiscalYears()
-
-  const selectedFY = getCurrentFY(fiscalYears, fyParam)
-
-  const transactions = await getTransactions(selectedFY?.id)
+  const currentFY = getCurrentFY(fiscalYears) ?? null
+  const transactions = await getTransactions()
 
   return (
     <>
       <TransactionsClient
-        key={selectedFY?.id ?? 'no-fy'}
         transactions={transactions}
         fiscalYears={fiscalYears}
-        selectedFY={selectedFY ?? null}
+        currentFY={currentFY}
         filterSymbol={symbol?.toUpperCase()}
       />
       <BottomNav />

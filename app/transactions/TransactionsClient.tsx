@@ -1,12 +1,10 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
-import FYPicker from '@/components/FYPicker'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
 
 // ── Date filter types + helpers ───────────────────────────────────────────────
@@ -19,21 +17,19 @@ interface DateFilter {
 
 function toYMD(d: Date) { return d.toISOString().slice(0, 10) }
 
-const QUICK_OPTIONS = [
+const ROLLING_OPTIONS = [
   { key: 'last7',  label: 'Last 7 days' },
   { key: 'last30', label: 'Last 30 days' },
   { key: 'last3m', label: 'Last 3 months' },
-  { key: 'thisfy', label: 'This FY' },
 ]
 
-function getQuickRange(key: string, fy: FiscalYear | null): { from: string; to: string } {
+function getRollingRange(key: string): { from: string; to: string } {
   const today = new Date()
   const ago = (days: number) => { const d = new Date(today); d.setDate(today.getDate() - days); return d }
   const agoMonths = (m: number) => { const d = new Date(today); d.setMonth(today.getMonth() - m); return d }
-  if (key === 'last7')  return { from: toYMD(ago(6)),        to: toYMD(today) }
-  if (key === 'last30') return { from: toYMD(ago(29)),       to: toYMD(today) }
+  if (key === 'last7')  return { from: toYMD(ago(6)),       to: toYMD(today) }
+  if (key === 'last30') return { from: toYMD(ago(29)),      to: toYMD(today) }
   if (key === 'last3m') return { from: toYMD(agoMonths(3)), to: toYMD(today) }
-  if (key === 'thisfy' && fy) return { from: fy.start_date, to: fy.end_date }
   return { from: '', to: '' }
 }
 
@@ -42,23 +38,25 @@ function getQuickRange(key: string, fy: FiscalYear | null): { from: string; to: 
 export default function TransactionsClient({
   transactions: initial,
   fiscalYears,
-  selectedFY,
+  currentFY,
   filterSymbol,
 }: {
   transactions: Transaction[]
   fiscalYears: FiscalYear[]
-  selectedFY: FiscalYear | null
+  currentFY: FiscalYear | null
   filterSymbol?: string
 }) {
-  const router = useRouter()
+  const defaultDateFilter: DateFilter | null = currentFY
+    ? { label: currentFY.label, from: currentFY.start_date, to: currentFY.end_date }
+    : null
+
   const [txns, setTxns]       = useState(initial)
   const [mounted, setMounted] = useState(false)
 
   // Filters
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
   const [symbolFilter, setSymbolFilter] = useState('all')
-  const [dateFilter,   setDateFilter]   = useState<DateFilter | null>(null)
-  const [notesFilter,  setNotesFilter]  = useState('')
+  const [dateFilter,   setDateFilter]   = useState<DateFilter | null>(defaultDateFilter)
 
   // Sheet visibility
   const [filterOpen,     setFilterOpen]     = useState(false)
@@ -68,17 +66,17 @@ export default function TransactionsClient({
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setTxns(initial) }, [initial])
 
-  function deleteTxn(id: string)      { setTxns(prev => prev.filter(t => t.id !== id)) }
-  function updateTxn(u: Transaction)  { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function deleteTxn(id: string)     { setTxns(prev => prev.filter(t => t.id !== id)) }
+  function updateTxn(u: Transaction) { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
 
   function resetFilters() {
     setTypeFilter('all')
     setSymbolFilter('all')
-    setDateFilter(null)
-    setNotesFilter('')
+    setDateFilter(defaultDateFilter)
   }
 
-  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !!dateFilter || !!notesFilter
+  const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
+  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !isDefaultDate
 
   const symbols = useMemo(() =>
     Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
@@ -87,9 +85,8 @@ export default function TransactionsClient({
     .filter(t => !filterSymbol || t.symbol === filterSymbol)
     .filter(t => typeFilter === 'all' || t.trade_type === typeFilter)
     .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
-    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to))
-    .filter(t => !notesFilter || t.notes.toLowerCase().includes(notesFilter.toLowerCase())),
-    [txns, filterSymbol, typeFilter, symbolFilter, dateFilter, notesFilter]
+    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
+    [txns, filterSymbol, typeFilter, symbolFilter, dateFilter]
   )
 
   const grouped = groupByMonth(displayed)
@@ -99,11 +96,9 @@ export default function TransactionsClient({
   if (typeFilter !== 'all')
     activeTags.push({ key: 'type',   label: typeFilter === 'buy' ? 'Buys' : 'Sells', clear: () => setTypeFilter('all') })
   if (!filterSymbol && symbolFilter !== 'all')
-    activeTags.push({ key: 'symbol', label: symbolFilter,  clear: () => setSymbolFilter('all') })
-  if (dateFilter)
-    activeTags.push({ key: 'date',   label: dateFilter.label, clear: () => setDateFilter(null) })
-  if (notesFilter)
-    activeTags.push({ key: 'notes',  label: `"${notesFilter}"`, clear: () => setNotesFilter('') })
+    activeTags.push({ key: 'symbol', label: symbolFilter, clear: () => setSymbolFilter('all') })
+  if (dateFilter && !isDefaultDate)
+    activeTags.push({ key: 'date', label: dateFilter.label, clear: () => setDateFilter(defaultDateFilter) })
 
   // ── Filter sheet ──
   const filterSheet = filterOpen && mounted && createPortal(
@@ -175,18 +170,6 @@ export default function TransactionsClient({
           </span>
         </button>
 
-        {/* Notes */}
-        <div className="px-5 pt-4">
-          <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Notes</p>
-          <input
-            type="text"
-            placeholder="Search notes…"
-            value={notesFilter}
-            onChange={e => setNotesFilter(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-          />
-        </div>
       </div>
     </>,
     document.body
@@ -217,7 +200,7 @@ export default function TransactionsClient({
            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <DateSubSheet
           value={dateFilter}
-          selectedFY={selectedFY}
+          fiscalYears={fiscalYears}
           onApply={f => { setDateFilter(f); setDateSheetOpen(false) }}
           onClose={() => setDateSheetOpen(false)}
         />
@@ -243,14 +226,7 @@ export default function TransactionsClient({
               <a href="/transactions" className="text-subheadline text-accent">← All</a>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <FYPicker
-              fiscalYears={fiscalYears}
-              selectedFY={selectedFY}
-              onSelect={fy => router.push(`/transactions?fy=${encodeURIComponent(fy.label)}`)}
-            />
-            <UserMenu />
-          </div>
+          <UserMenu />
         </div>
 
         {/* Filter row */}
@@ -305,10 +281,10 @@ export default function TransactionsClient({
           </p>
         </div>
       ) : (
-        <div className="pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+        <div className="pt-1 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
-              <div className="flex items-start justify-between gap-3 px-4 pt-6 pb-3">
+              <div className="flex items-start justify-between gap-3 px-4 pt-3 pb-3">
                 <p className="text-title-1 font-bold">{month}</p>
                 <div className="flex gap-3 pt-1 flex-shrink-0">
                   {buyTotal  > 0 && (
@@ -426,41 +402,40 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
 
 // ── DateSubSheet ──────────────────────────────────────────────────────────────
 
-function DateSubSheet({ value, selectedFY, onApply, onClose }: {
+function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
   value: DateFilter | null
-  selectedFY: FiscalYear | null
+  fiscalYears: FiscalYear[]
   onApply: (f: DateFilter | null) => void
   onClose: () => void
 }) {
-  const initKey = value ? (QUICK_OPTIONS.find(o => o.label === value.label)?.key ?? null) : null
-  const [quickKey,    setQuickKey]    = useState<string | null>(initKey)
-  const [customFrom,  setCustomFrom]  = useState(value?.from ?? '')
-  const [customTo,    setCustomTo]    = useState(value?.to ?? '')
+  const [customFrom, setCustomFrom] = useState(value?.from ?? '')
+  const [customTo,   setCustomTo]   = useState(value?.to   ?? '')
 
-  function selectQuick(key: string) {
-    const range = getQuickRange(key, selectedFY)
-    setQuickKey(key)
-    setCustomFrom(range.from)
-    setCustomTo(range.to)
+  function isSelected(from: string, to: string) {
+    return customFrom === from && customTo === to
   }
 
-  function handleCustomFrom(v: string) { setCustomFrom(v); setQuickKey(null) }
-  function handleCustomTo(v: string)   { setCustomTo(v);   setQuickKey(null) }
+  function selectPreset(from: string, to: string) {
+    setCustomFrom(from)
+    setCustomTo(to)
+  }
+
+  function handleCustomFrom(v: string) { setCustomFrom(v) }
+  function handleCustomTo(v: string)   { setCustomTo(v) }
 
   function apply() {
-    if (quickKey) {
-      const label = QUICK_OPTIONS.find(o => o.key === quickKey)!.label
-      onApply({ label, from: customFrom, to: customTo })
-    } else if (customFrom && customTo) {
-      const fmt = (d: string) =>
-        new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
-      onApply({ label: `${fmt(customFrom)} – ${fmt(customTo)}`, from: customFrom, to: customTo })
-    } else {
-      onApply(null)
-    }
+    if (!customFrom || !customTo) { onApply(null); return }
+    const rolling = ROLLING_OPTIONS.find(o => {
+      const r = getRollingRange(o.key)
+      return r.from === customFrom && r.to === customTo
+    })
+    if (rolling) { onApply({ label: rolling.label, from: customFrom, to: customTo }); return }
+    const fy = fiscalYears.find(f => f.start_date === customFrom && f.end_date === customTo)
+    if (fy) { onApply({ label: fy.label, from: customFrom, to: customTo }); return }
+    const fmt = (d: string) =>
+      new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })
+    onApply({ label: `${fmt(customFrom)} – ${fmt(customTo)}`, from: customFrom, to: customTo })
   }
-
-  const hasValue = !!(quickKey || (customFrom && customTo))
 
   return (
     <>
@@ -484,25 +459,47 @@ function DateSubSheet({ value, selectedFY, onApply, onClose }: {
         </button>
       </div>
 
-      {/* Quick selects */}
+      {/* Rolling quick selects */}
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-          Quick select
+          Recent
         </p>
-        {QUICK_OPTIONS.map(opt => (
-          <button key={opt.key}
-            onClick={() => selectQuick(opt.key)}
-            className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
-            style={{ borderColor: 'var(--border-faint)' }}>
-            <span className="text-body"
-                  style={{ color: quickKey === opt.key ? '#0A84FF' : 'var(--text-primary)', fontWeight: quickKey === opt.key ? 500 : 400 }}>
-              {opt.label}
-            </span>
-            {quickKey === opt.key && (
-              <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />
-            )}
-          </button>
-        ))}
+        {ROLLING_OPTIONS.map(opt => {
+          const range = getRollingRange(opt.key)
+          const sel = isSelected(range.from, range.to)
+          return (
+            <button key={opt.key}
+              onClick={() => selectPreset(range.from, range.to)}
+              className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
+              style={{ borderColor: 'var(--border-faint)' }}>
+              <span className="text-body" style={{ color: sel ? '#0A84FF' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
+                {opt.label}
+              </span>
+              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Fiscal year selects */}
+      <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+          Fiscal year
+        </p>
+        {[...fiscalYears].reverse().map(fy => {
+          const sel = isSelected(fy.start_date, fy.end_date)
+          return (
+            <button key={fy.id}
+              onClick={() => selectPreset(fy.start_date, fy.end_date)}
+              className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
+              style={{ borderColor: 'var(--border-faint)' }}>
+              <span className="text-body" style={{ color: sel ? '#0A84FF' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
+                {fy.label}
+              </span>
+              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+            </button>
+          )
+        })}
       </div>
 
       {/* Custom range */}
@@ -516,12 +513,7 @@ function DateSubSheet({ value, selectedFY, onApply, onClose }: {
             value={customFrom}
             onChange={e => handleCustomFrom(e.target.value)}
             className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
-            style={{
-              background: customFrom && !quickKey ? 'rgba(10,132,255,0.08)' : 'var(--bg-tertiary)',
-              color:      customFrom && !quickKey ? '#0A84FF' : 'var(--text-primary)',
-              border:     customFrom && !quickKey ? '1px solid rgba(10,132,255,0.25)' : '1px solid var(--border)',
-              colorScheme: 'light dark',
-            }}
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }}
           />
           <span className="text-body flex-shrink-0" style={{ color: 'var(--text-faint)' }}>→</span>
           <input
@@ -529,12 +521,7 @@ function DateSubSheet({ value, selectedFY, onApply, onClose }: {
             value={customTo}
             onChange={e => handleCustomTo(e.target.value)}
             className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
-            style={{
-              background: customTo && !quickKey ? 'rgba(10,132,255,0.08)' : 'var(--bg-tertiary)',
-              color:      customTo && !quickKey ? '#0A84FF' : 'var(--text-primary)',
-              border:     customTo && !quickKey ? '1px solid rgba(10,132,255,0.25)' : '1px solid var(--border)',
-              colorScheme: 'light dark',
-            }}
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }}
           />
         </div>
       </div>
