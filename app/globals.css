@@ -4,10 +4,10 @@
 
 /* ── Theme tokens (light default, dark override) ─────────────────────────── */
 :root {
-  --bg-primary:   #F2F2F7;
+  --bg-primary:   #FFFFFF;
   --bg-secondary: #FFFFFF;
   --bg-tertiary:  #E5E5EA;
-  --bg-nav:       rgba(242,242,247,0.90);
+  --bg-nav:       rgba(255,255,255,0.92);
   --text-primary: #000000;
   --text-2:       rgba(0,0,0,0.60);
   --text-muted:   rgba(0,0,0,0.40);
