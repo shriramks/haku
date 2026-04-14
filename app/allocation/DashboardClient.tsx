@@ -122,7 +122,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       {selectedFY && (() => {
         const pctLeft = 100 - pctDeployed
         return (
-          <div className="px-4 pt-4 pb-3 border-b" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
+          <div className="px-4 pt-4 pb-3 border-b" style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
             {/* Three stat columns, top-aligned */}
             <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
 
