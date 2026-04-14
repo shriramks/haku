@@ -22,12 +22,6 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   const [done, setDone]             = useState(false)
   const kh = useKeyboardHeight()
 
-  // Lock body scroll while modal is open so iOS doesn't scroll the page
-  // behind the sheet when the keyboard appears. Restore on unmount.
-  // Note: we intentionally omit `top: -scrollY` because setting a negative top
-  // on a fixed body causes iOS WebKit to treat it as the containing block for
-  // fixed children, shifting the modal up by scrollY and creating a gap.
-  // The background content jumps to scroll-top on open, but the backdrop hides it.
   useEffect(() => {
     const scrollY = window.scrollY
     document.body.style.position = 'fixed'
@@ -40,10 +34,9 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   }, [])
 
   useEffect(() => {
-    if (planSymbolsProp && planSymbolsProp.length > 0) return  // already prefetched by BottomNav
+    if (planSymbolsProp && planSymbolsProp.length > 0) return
     async function loadSymbols() {
       const sb = getSupabaseBrowser()
-      // Load symbols from ALL fiscal years so stocks planned for future FYs are selectable
       const { data: allocs } = await sb
         .from('stock_allocations')
         .select('symbol')
@@ -101,6 +94,8 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
     }, 700)
   }
 
+  const signalColor = type === 'buy' ? '#34C759' : '#FF3B30'
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
@@ -112,24 +107,61 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
           background: 'var(--bg-secondary)',
           paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)',
         }}>
+
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-1 pb-4">
-          <button onClick={onClose} className="text-accent text-headline">Cancel</button>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3">
+          <button onClick={onClose} className="text-accent text-headline min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
           <p className="font-semibold text-headline">New Transaction</p>
           <div className="w-16" />
         </div>
+
+        {/* Buy / Sell toggle — dominant, first */}
+        <div className="px-4 mb-0">
+          <div className="flex rounded-xl overflow-hidden" style={{ border: `1.5px solid var(--border)`, height: 54 }}>
+            {(['buy', 'sell'] as const).map(t => (
+              <button key={t} type="button" onClick={() => setType(t)}
+                className="flex-1 text-headline font-bold transition-colors"
+                style={type === t
+                  ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                {t === 'buy' ? 'Buy' : 'Sell'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live total — always visible, hero number */}
+        <div className="flex flex-col items-center py-3">
+          {amount > 0 ? (
+            <>
+              <p className="tabnum font-bold" style={{ fontSize: 34, letterSpacing: -0.5, color: signalColor }}>
+                {formatINR(amount)}
+              </p>
+              <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {qty} × {formatINR(parseFloat(price) || 0)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-bold" style={{ fontSize: 34, letterSpacing: -0.5, color: 'var(--text-faint)' }}>₹ —</p>
+              <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-faint)' }}>enter qty &amp; price below</p>
+            </>
+          )}
+        </div>
+
+        <div style={{ height: 1, background: 'var(--border-faint)', margin: '0 16px 14px' }} />
 
         <form onSubmit={submit} className="px-4 space-y-3">
 
           {/* Stock chips */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-footnote uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
+              <p className="text-footnote uppercase tracking-wide" style={{ color: 'var(--text-faint)', fontWeight: 700, letterSpacing: '0.07em' }}>Stock</p>
               {symbol && (
                 <button type="button" onClick={() => setSymbol('')}
                   className="text-subheadline" style={{ color: 'var(--text-faint)' }}>
@@ -144,11 +176,21 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
                     key={s}
                     type="button"
                     onClick={() => setSymbol(s)}
-                    className="px-3 py-2 rounded-xl text-body font-semibold transition-colors"
-                    style={symbol === s
-                      ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
-                      : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }
-                    }>
+                    className="px-3 rounded-xl text-body font-semibold transition-colors"
+                    style={{
+                      minHeight: 36,
+                      ...(symbol === s
+                        ? {
+                            background: type === 'buy' ? 'rgba(52,199,89,0.10)' : 'rgba(255,59,48,0.10)',
+                            color: signalColor,
+                            border: `1.5px solid ${signalColor}`,
+                          }
+                        : {
+                            background: 'var(--bg-tertiary)',
+                            color: 'var(--text-2)',
+                            border: '1.5px solid transparent',
+                          }),
+                    }}>
                     {s}
                   </button>
                 ))}
@@ -158,25 +200,9 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
             )}
           </div>
 
-          {/* Buy / Sell toggle */}
-          <div>
-            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
-            <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-              {(['buy', 'sell'] as const).map(t => (
-                <button key={t} type="button" onClick={() => setType(t)}
-                  className="flex-1 py-3.5 text-body font-bold transition-colors"
-                  style={type === t
-                    ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
-                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                  {t === 'buy' ? 'Buy' : 'Sell'}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Date */}
           <div className="overflow-hidden">
-            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
+            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-faint)', fontWeight: 700, letterSpacing: '0.07em' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
               onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
               className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
@@ -187,36 +213,34 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
               }} />
           </div>
 
-          {/* Qty × Price */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Qty × Price — grouped card */}
+          <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
             {[
-              { label: 'Quantity', val: qty, set: setQty, ph: '100', decimal: false },
-              { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50', decimal: true },
-            ].map(({ label, val, set, ph, decimal }) => (
-              <div key={label}>
-                <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
-                <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
-                  onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
+              { label: 'Quantity', val: qty, set: setQty, ph: '100', decimal: false, align: 'left' },
+              { label: 'Price ₹', val: price, set: setPrice, ph: '1250.50', decimal: true, align: 'right' },
+            ].map(({ label, val, set, ph, decimal, align }, i) => (
+              <div key={label} className="p-3" style={i === 1 ? { borderLeft: '1px solid var(--border)' } : {}}>
+                <p className="text-footnote uppercase mb-1" style={{ fontWeight: 700, letterSpacing: '0.07em', color: 'var(--text-faint)' }}>{label}</p>
+                <input
+                  type="number"
+                  inputMode={decimal ? 'decimal' : 'numeric'}
+                  placeholder={ph}
+                  value={val}
+                  onChange={e => set(e.target.value)}
+                  required
+                  min={decimal ? '0.001' : '1'}
+                  step={decimal ? 'any' : '1'}
                   onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-                  className="w-full px-3 py-3.5 rounded-xl text-headline tabnum outline-none"
+                  className="w-full bg-transparent tabnum font-bold outline-none"
                   style={{
-                    background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
-                    border: '1px solid var(--border)',
-                  }} />
+                    fontSize: 22,
+                    color: 'var(--text-primary)',
+                    textAlign: align === 'right' ? 'right' : 'left',
+                  }}
+                />
               </div>
             ))}
           </div>
-
-          {/* Live total */}
-          {amount > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
-                 style={{ background: 'var(--bg-tertiary)' }}>
-              <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
-              <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
-                {formatINR(amount)}
-              </span>
-            </div>
-          )}
 
           {/* Redeploy toggle — sell only */}
           {type === 'sell' && amount > 0 && (
@@ -244,7 +268,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
 
           <button type="submit" disabled={loading || !symbol || !qty || !price}
             className="w-full py-4 rounded-xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
-            style={{ background: done ? 'var(--border)' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
+            style={{ background: done ? 'var(--border)' : signalColor }}>
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>
         </form>

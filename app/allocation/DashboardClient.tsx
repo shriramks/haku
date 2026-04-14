@@ -118,66 +118,53 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         </div>
       </div>
 
-      {/* Summary strip */}
+      {/* Summary strip — Plan | Left | Invested + bar */}
       {selectedFY && (() => {
-        const circumference = 276.5 // 2π × 44
-        const filled = Math.min(100, pctDeployed) / 100 * circumference
         const pctLeft = 100 - pctDeployed
         return (
-          <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <div className="flex items-start gap-4">
-              {/* Left column — text */}
-              <div className="flex-1 min-w-0">
-                <p className="text-footnote font-bold uppercase mb-1" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
-                <p className="text-title-1 font-bold tabnum mb-3">
+          <div className="px-4 pt-4 pb-3 border-b" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-faint)' }}>
+            {/* Three stat columns, top-aligned */}
+            <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
+
+              {/* Plan ₹ — only column with ₹ in label */}
+              <div className="flex flex-col gap-0.5">
+                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan ₹</p>
+                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
                   {formatINRFull(totalBudget).slice(1)}
                 </p>
-                <div className="flex gap-5">
-                  {/* Left stat */}
-                  <div>
-                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Left <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
-                    <p className="text-title-2 font-bold tabnum leading-none">
-                      {formatINRFull(Math.max(0, totalRemaining)).slice(1)}
-                    </p>
-                    <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {pctLeft.toFixed(1)}%
-                    </p>
-                  </div>
-                  {/* Invested stat */}
-                  <div>
-                    <p className="text-footnote font-semibold uppercase mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.04em' }}>Invested <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></p>
-                    <p className="text-title-2 font-bold tabnum leading-none" style={{ color: 'var(--text-2)' }}>
-                      {formatINRFull(totalDeployed).slice(1)}
-                    </p>
-                    <p className="text-body tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {pctDeployed.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
               </div>
 
-              {/* Right column — donut */}
-              <svg width="108" height="108" viewBox="0 0 108 108" style={{ flexShrink: 0, alignSelf: 'flex-start', display: 'block', marginTop: 4 }}>
-                {/* track */}
-                <circle cx="54" cy="54" r="44" fill="none"
-                  stroke="var(--border-faint)" strokeWidth="11" />
-                {/* fill */}
-                <circle cx="54" cy="54" r="44" fill="none"
-                  stroke="var(--bar-fill)" strokeWidth="11"
-                  strokeDasharray={`${filled} ${circumference}`}
-                  strokeDashoffset={circumference * 0.25}
-                  strokeLinecap="round"
-                  transform="rotate(-90 54 54)" />
-                {/* center text */}
-                <text x="54" y="50" textAnchor="middle"
-                  fontFamily="-apple-system,BlinkMacSystemFont,sans-serif"
-                  fontSize="18" fontWeight="700"
-                  fill="var(--text-primary)">{Math.round(pctDeployed)}%</text>
-                <text x="54" y="66" textAnchor="middle"
-                  fontFamily="-apple-system,BlinkMacSystemFont,sans-serif"
-                  fontSize="11" fontWeight="500"
-                  fill="var(--text-muted)">Invested</text>
-              </svg>
+              <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
+
+              {/* Left */}
+              <div className="flex flex-col gap-0.5 items-center">
+                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</p>
+                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+                  {formatINRFull(Math.max(0, totalRemaining)).slice(1)}
+                </p>
+                <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
+                  {pctLeft.toFixed(1)}%
+                </p>
+              </div>
+
+              <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
+
+              {/* Invested */}
+              <div className="flex flex-col gap-0.5 items-end">
+                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</p>
+                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+                  {formatINRFull(totalDeployed).slice(1)}
+                </p>
+                <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
+                  {pctDeployed.toFixed(1)}%
+                </p>
+              </div>
+
+            </div>
+
+            {/* Progress bar — invested portion */}
+            <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
+              <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--bar-fill)' }} />
             </div>
           </div>
         )
