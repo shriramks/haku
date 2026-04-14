@@ -101,27 +101,29 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
       <div
-        className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl max-h-[92vh] overflow-y-auto sheet-kb"
+        className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl flex flex-col overflow-hidden sheet-kb"
         style={{
           bottom: kh,
           background: 'var(--bg-secondary)',
-          paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)',
+          maxHeight: kh > 0
+            ? `calc(100dvh - ${kh}px - max(env(safe-area-inset-top,0px), 16px))`
+            : '92dvh',
         }}>
 
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-1 pb-3">
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0">
           <button onClick={onClose} className="text-accent text-headline min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
           <p className="font-semibold text-headline">New Transaction</p>
           <div className="w-16" />
         </div>
 
         {/* Buy / Sell toggle — dominant, first */}
-        <div className="px-4 mb-0">
+        <div className="px-4 mb-0 flex-shrink-0">
           <div className="flex rounded-xl overflow-hidden" style={{ border: `1.5px solid var(--border)`, height: 54 }}>
             {(['buy', 'sell'] as const).map(t => (
               <button key={t} type="button" onClick={() => setType(t)}
@@ -136,7 +138,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
         </div>
 
         {/* Live total — always visible, hero number */}
-        <div className="flex flex-col items-center py-3">
+        <div className="flex flex-col items-center py-3 flex-shrink-0">
           {amount > 0 ? (
             <>
               <p className="tabnum font-bold" style={{ fontSize: 34, letterSpacing: -0.5, color: signalColor }}>
@@ -154,8 +156,10 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
           )}
         </div>
 
-        <div style={{ height: 1, background: 'var(--border-faint)', margin: '0 16px 14px' }} />
+        <div className="flex-shrink-0" style={{ height: 1, background: 'var(--border-faint)', margin: '0 16px 14px' }} />
 
+        {/* Scrollable form area */}
+        <div className="overflow-y-auto" style={{ paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
         <form onSubmit={submit} className="px-4 space-y-3">
 
           {/* Stock chips */}
@@ -272,6 +276,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
             {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
           </button>
         </form>
+        </div>
       </div>
     </>
   )

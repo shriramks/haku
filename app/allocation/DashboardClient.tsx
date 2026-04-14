@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt, formatINR, formatINRFull, formatINRFine } from '@/lib/formatter'
+import { formatAmt, formatINR, formatINRFine } from '@/lib/formatter'
 import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -130,7 +130,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan ₹</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFull(totalBudget).slice(1)}
+                  {formatINRFine(totalBudget).slice(1)}
                 </p>
               </div>
 
@@ -140,7 +140,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-center">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFull(Math.max(0, totalRemaining)).slice(1)}
+                  {formatINRFine(Math.max(0, totalRemaining)).slice(1)}
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
                   {pctLeft.toFixed(1)}%
@@ -153,7 +153,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-end">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFull(totalDeployed).slice(1)}
+                  {formatINRFine(totalDeployed).slice(1)}
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
                   {pctDeployed.toFixed(1)}%
