@@ -17,9 +17,7 @@ export function useKeyboardHeight(): number {
     const update = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        // vv.offsetTop: non-zero when Safari URL bar animates simultaneously.
-        // Subtracting it prevents the sheet from overshooting.
-        setKh(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+        setKh(Math.max(0, window.innerHeight - vv.height))
       })
     }
 
