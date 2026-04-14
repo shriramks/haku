@@ -10,6 +10,7 @@ import QuartersToggle from '@/components/QuartersToggle'
 import TrancheSection from '@/components/TrancheSection'
 import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
 interface Props {
   symbol: string
@@ -442,6 +443,7 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
   const [editing, setEditing] = useState(false)
   const [saving, setSaving]   = useState(false)
   const [eps, setEps]         = useState(band?.eps?.toString() ?? '')
+  const kh = useKeyboardHeight()
 
   // Sync inputs when band updates (e.g. after AI generation)
   useEffect(() => {
@@ -479,8 +481,8 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>

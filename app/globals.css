@@ -96,6 +96,11 @@ body {
 
 .tap-row:active { background: var(--tap-active); }
 
+/* Keyboard-aware sheet: animates bottom up above keyboard, suppresses safe-area pad */
+.sheet-kb {
+  transition: bottom 0.25s ease;
+}
+
 /* Sheet slide-up animation */
 @keyframes slideUp {
   from { transform: translateY(100%); }

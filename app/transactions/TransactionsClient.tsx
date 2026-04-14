@@ -6,6 +6,7 @@ import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
 // ── Date filter types + helpers ───────────────────────────────────────────────
 
@@ -62,6 +63,8 @@ export default function TransactionsClient({
   const [filterOpen,     setFilterOpen]     = useState(false)
   const [stockSheetOpen, setStockSheetOpen] = useState(false)
   const [dateSheetOpen,  setDateSheetOpen]  = useState(false)
+
+  const kh = useKeyboardHeight()
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setTxns(initial) }, [initial])
@@ -179,8 +182,8 @@ export default function TransactionsClient({
   const stockSheet = stockSheetOpen && mounted && createPortal(
     <>
       <div className="fixed inset-0 z-[210]" onClick={() => setStockSheetOpen(false)} />
-      <div className="fixed bottom-0 left-0 right-0 z-[210] rounded-t-[28px]"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+      <div className="fixed left-0 right-0 z-[210] rounded-t-[28px] sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <StockSubSheet
           symbols={symbols}
           value={symbolFilter}
@@ -196,8 +199,8 @@ export default function TransactionsClient({
   const dateSheet = dateSheetOpen && mounted && createPortal(
     <>
       <div className="fixed inset-0 z-[210]" onClick={() => setDateSheetOpen(false)} />
-      <div className="fixed bottom-0 left-0 right-0 z-[210] rounded-t-[28px]"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+      <div className="fixed left-0 right-0 z-[210] rounded-t-[28px] sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <DateSubSheet
           value={dateFilter}
           fiscalYears={fiscalYears}

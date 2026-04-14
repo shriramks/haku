@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR } from '@/lib/formatter'
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
 export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[] }) {
   const router = useRouter()
@@ -19,6 +20,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [done, setDone]             = useState(false)
+  const kh = useKeyboardHeight()
 
   // Lock body scroll while modal is open so iOS doesn't scroll the page
   // behind the sheet when the keyboard appears. Restore on unmount.
@@ -104,10 +106,11 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl max-h-[92vh] overflow-y-auto"
+        className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl max-h-[92vh] overflow-y-auto sheet-kb"
         style={{
+          bottom: kh,
           background: 'var(--bg-secondary)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)',
+          paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)',
         }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -175,6 +178,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
           <div className="overflow-hidden">
             <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
+              onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
               className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
               style={{
                 background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
@@ -193,6 +197,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
                 <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
                 <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
+                  onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
                   className="w-full px-3 py-3.5 rounded-xl text-headline tabnum outline-none"
                   style={{
                     background: 'var(--bg-tertiary)', color: 'var(--text-primary)',

@@ -10,6 +10,7 @@ import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -518,6 +519,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
   const [budgetInput, setBudgetInput] = useState(String(selectedFY.total_budget_inr))
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const kh = useKeyboardHeight()
 
   async function handleSave() {
     const budget = parseFloat(budgetInput)
@@ -531,8 +533,8 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
@@ -758,6 +760,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   const [pct, setPct]           = useState(10)
   const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
   const [saving, setSaving]     = useState(false)
+  const kh = useKeyboardHeight()
 
   const freeWithoutThis  = 100 - totalPct
   const sliderMax        = Math.min(100, freeWithoutThis)
@@ -776,8 +779,8 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
