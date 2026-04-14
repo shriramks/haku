@@ -322,7 +322,7 @@ export default function BandDetailClient({
           <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
         )}
         {allTimeQty > 0 && (
-          <DetailRow label="Shares Held" value={String(allTimeQty)} />
+          <DetailRow label="Shares Held" value={String(allTimeQty)} noRupee />
         )}
       </div>
 
@@ -406,14 +406,14 @@ function SectionHeader({ label, children }: { label: string; children?: React.Re
   )
 }
 
-function DetailRow({ label, value, bold, muted, color }: {
-  label: string; value: string; bold?: boolean; muted?: boolean; color?: string
+function DetailRow({ label, value, bold, muted, color, noRupee }: {
+  label: string; value: string; bold?: boolean; muted?: boolean; color?: string; noRupee?: boolean
 }) {
   return (
     <div className="flex items-center justify-between px-4"
       style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
       <span className="text-body" style={{ color: 'var(--text-2)' }}>
-        {label} <span style={{ color: 'var(--text-faint)' }}>₹</span>
+        {label} {!noRupee && <span style={{ color: 'var(--text-faint)' }}>₹</span>}
       </span>
       <span className="tabnum" style={{
         fontSize: bold ? 17 : 15,
