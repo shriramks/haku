@@ -321,6 +321,9 @@ export default function BandDetailClient({
         {allTimeCurrentValue != null && (
           <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
         )}
+        {allTimeQty > 0 && (
+          <DetailRow label="Shares Held" value={String(allTimeQty)} />
+        )}
       </div>
 
       {/* ── Financials row → sheet ── */}

@@ -1,6 +1,104 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getCurrentFY } from '../fy-utils'
 import type { FiscalYear } from '../types'
+
+// --- user_id isolation tests ---
+
+// vi.hoisted ensures these are available inside vi.mock factory closures
+const { TEST_USER_ID, OTHER_USER_ID } = vi.hoisted(() => ({
+  TEST_USER_ID: 'test-user-123',
+  OTHER_USER_ID: 'other-user-456',
+}))
+
+vi.mock('react', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('react')>()
+  return { ...mod, cache: (fn: unknown) => fn }
+})
+
+vi.mock('next/cache', () => ({
+  unstable_cache: (fn: unknown) => fn,
+  revalidateTag: vi.fn(),
+}))
+
+vi.mock('../supabase-server', () => ({
+  createSupabaseServerClient: vi.fn().mockResolvedValue({
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { user: { id: TEST_USER_ID } } },
+      }),
+    },
+  }),
+}))
+
+vi.mock('../supabase-service', () => ({
+  createSupabaseServiceClient: vi.fn(),
+}))
+
+import { createSupabaseServiceClient } from '../supabase-service'
+import {
+  getAllocations, getTransactions, getTransactionsBySymbol,
+  getSymbolAllocations, getBuyBands, getBuyTranches,
+} from '../data'
+
+// Builds a chainable Supabase query mock that records eq() calls
+function makeQueryMock() {
+  const eqCalls: [string, string][] = []
+  const mock: Record<string, unknown> = {}
+  const chain = () => mock
+  mock.select = chain
+  mock.order = chain
+  mock.or = chain
+  mock.eq = (col: string, val: string) => { eqCalls.push([col, val]); return mock }
+  mock.maybeSingle = vi.fn().mockResolvedValue({ data: null })
+  // Make the mock thenable so await works on query chains
+  mock.then = (resolve: (v: { data: [] }) => void) => Promise.resolve({ data: [] }).then(resolve)
+  mock._eqCalls = eqCalls
+  return mock
+}
+
+describe('data.ts — user_id isolation', () => {
+  let queryMock: ReturnType<typeof makeQueryMock>
+
+  beforeEach(() => {
+    queryMock = makeQueryMock()
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => queryMock,
+    } as never)
+  })
+
+  function assertUserIdFilter() {
+    const eqCalls = queryMock._eqCalls as [string, string][]
+    const userIdCall = eqCalls.find(([col]) => col === 'user_id')
+    expect(userIdCall, 'query must include .eq("user_id", ...)').toBeDefined()
+    expect(userIdCall![1]).toBe(TEST_USER_ID)
+    expect(userIdCall![1]).not.toBe(OTHER_USER_ID)
+  }
+
+  it('getAllocations filters by user_id', async () => {
+    await getAllocations('fy-1')
+    assertUserIdFilter()
+  })
+
+  it('getTransactions filters by user_id', async () => {
+    await getTransactions('fy-1')
+    assertUserIdFilter()
+  })
+
+  it('getTransactionsBySymbol filters by user_id', async () => {
+    await getTransactionsBySymbol('ITC')
+    assertUserIdFilter()
+  })
+
+  it('getSymbolAllocations filters by user_id', async () => {
+    await getSymbolAllocations('ITC')
+    assertUserIdFilter()
+  })
+
+  it('getBuyTranches filters by user_id', async () => {
+    await getBuyTranches('fy-1')
+    assertUserIdFilter()
+  })
+})
 
 function mkFY(label: string, start: string, end: string): FiscalYear {
   return {
