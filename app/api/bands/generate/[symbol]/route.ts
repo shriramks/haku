@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTrancheprices } from '@/lib/band-calculator'
+import { calculateBands, computeTranchePrices } from '@/lib/band-calculator'
 import { fetchCmp } from '@/lib/market-data'
 import { decrypt } from '@/lib/encrypt'
 import type { StockCategory } from '@/lib/types'
@@ -318,7 +318,7 @@ export async function POST(
     // Fetch live CMP so tranches are never placed above current market price
     const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
 
-    const prices = computeTrancheprices(result.buyLow, result.buyHigh, liveCmp, result.midLow, result.midHigh)
+    const prices = computeTranchePrices(result.buyLow, result.buyHigh, liveCmp)
     const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
     await supabase.from('buy_tranches')

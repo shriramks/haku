@@ -92,7 +92,7 @@ export default function TransactionsClient({
     [txns, filterSymbol, typeFilter, symbolFilter, dateFilter]
   )
 
-  const grouped = groupByMonth(displayed)
+  const grouped = useMemo(() => groupByMonth(displayed), [displayed])
 
   // Active dismissible tags
   const activeTags: { key: string; label: string; clear: () => void }[] = []
@@ -137,7 +137,7 @@ export default function TransactionsClient({
               <button key={t} onClick={() => setTypeFilter(t)}
                 className="flex-1 py-2.5 text-body font-medium transition-colors"
                 style={typeFilter === t
-                  ? { background: '#0A84FF', color: '#fff' }
+                  ? { background: 'var(--accent)', color: '#fff' }
                   : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
                 {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
               </button>
@@ -153,7 +153,7 @@ export default function TransactionsClient({
             style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
             <span className="text-body">Stock</span>
             <span className="flex items-center gap-1.5 text-body"
-                  style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : '#0A84FF' }}>
+                  style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : 'var(--accent)' }}>
               {symbolFilter === 'all' ? 'Any' : symbolFilter}
               <ChevronRightIcon className="w-4 h-4 opacity-40" />
             </span>
@@ -167,7 +167,7 @@ export default function TransactionsClient({
           style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
           <span className="text-body">Date</span>
           <span className="flex items-center gap-1.5 text-body"
-                style={{ color: dateFilter ? '#0A84FF' : 'var(--text-muted)' }}>
+                style={{ color: dateFilter ? 'var(--accent)' : 'var(--text-muted)' }}>
             {dateFilter?.label ?? 'Any time'}
             <ChevronRightIcon className="w-4 h-4 opacity-40" />
           </span>
@@ -239,7 +239,7 @@ export default function TransactionsClient({
             onClick={() => setFilterOpen(true)}
             className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
             style={hasFilters
-              ? { background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }
+              ? { background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }
               : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
             <FilterIcon className="w-3.5 h-3.5" />
             Filter
@@ -252,12 +252,12 @@ export default function TransactionsClient({
           {activeTags.map(tag => (
             <div key={tag.key}
               className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
-              style={{ background: 'rgba(10,132,255,0.12)', color: '#0A84FF', border: '1px solid rgba(10,132,255,0.25)' }}>
+              style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }}>
               {tag.label}
               <button
                 onClick={tag.clear}
                 className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
-                style={{ background: 'rgba(10,132,255,0.2)', color: '#0A84FF' }}>
+                style={{ background: 'rgba(10,132,255,0.2)', color: 'var(--accent)' }}>
                 ×
               </button>
             </div>
@@ -378,10 +378,10 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
             background: value === 'all' ? 'rgba(10,132,255,0.04)' : undefined,
           }}>
           <span className="text-body"
-                style={{ color: value === 'all' ? '#0A84FF' : 'var(--text-primary)', fontWeight: value === 'all' ? 500 : 400 }}>
+                style={{ color: value === 'all' ? 'var(--accent)' : 'var(--text-primary)', fontWeight: value === 'all' ? 500 : 400 }}>
             Any stock
           </span>
-          {value === 'all' && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+          {value === 'all' && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
         </button>
         {filtered.map(s => (
           <button key={s}
@@ -392,10 +392,10 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
               background: value === s ? 'rgba(10,132,255,0.04)' : undefined,
             }}>
             <span className="text-body"
-                  style={{ color: value === s ? '#0A84FF' : 'var(--text-primary)', fontWeight: value === s ? 500 : 400 }}>
+                  style={{ color: value === s ? 'var(--accent)' : 'var(--text-primary)', fontWeight: value === s ? 500 : 400 }}>
               {s}
             </span>
-            {value === s && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+            {value === s && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
           </button>
         ))}
       </div>
@@ -475,10 +475,10 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
               onClick={() => selectPreset(range.from, range.to)}
               className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
               style={{ borderColor: 'var(--border-faint)' }}>
-              <span className="text-body" style={{ color: sel ? '#0A84FF' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
+              <span className="text-body" style={{ color: sel ? 'var(--accent)' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
                 {opt.label}
               </span>
-              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
             </button>
           )
         })}
@@ -496,10 +496,10 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
               onClick={() => selectPreset(fy.start_date, fy.end_date)}
               className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
               style={{ borderColor: 'var(--border-faint)' }}>
-              <span className="text-body" style={{ color: sel ? '#0A84FF' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
+              <span className="text-body" style={{ color: sel ? 'var(--accent)' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
                 {fy.label}
               </span>
-              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: '#0A84FF' } as React.CSSProperties} />}
+              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
             </button>
           )
         })}
@@ -659,13 +659,13 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
                     }}>
                     <div>
                       <p className="text-body font-medium"
-                         style={{ color: advanceFyId === fy.id ? '#0A84FF' : 'var(--text-primary)' }}>{fy.label}</p>
+                         style={{ color: advanceFyId === fy.id ? 'var(--accent)' : 'var(--text-primary)' }}>{fy.label}</p>
                       <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                         {shortMonthYear(fy.start_date)} – {shortMonthYear(fy.end_date)}
                       </p>
                     </div>
                     {advanceFyId === fy.id && (
-                      <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#0A84FF" strokeWidth={2.5}>
+                      <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     )}

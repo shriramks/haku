@@ -36,20 +36,14 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     if (!selectedFY) return
     const sb = getSupabaseBrowser()
 
-    // Check if any transactions reference this FY — if so, keep the fiscal_years
-    // row to avoid orphaning those transactions. Only clear allocations + tranches.
-    const { count } = await sb.from('transactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('fy_id', selectedFY.id)
-
-    const hasTxns = (count ?? 0) > 0
-
+    // fyHasTxns is kept up-to-date by the useEffect below — use it directly
+    // instead of issuing a duplicate count query here.
     await Promise.all([
       sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
       sb.from('buy_tranches').delete().eq('fy_id', selectedFY.id),
     ])
 
-    if (hasTxns) {
+    if (fyHasTxns) {
       // Reset budget but keep the FY row — transactions stay linked
       await sb.from('fiscal_years').update({ total_budget_inr: 0 }).eq('id', selectedFY.id)
       setAllocations([])

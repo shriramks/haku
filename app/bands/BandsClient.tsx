@@ -80,29 +80,25 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
         const price = (data.prices as Record<string, number>)[b.symbol]
         return price != null ? { ...b, manual_cmp: price } : b
       }))
-      await Promise.all(
-        Object.entries(data.prices as Record<string, number>)
-          .filter(([, v]) => v != null)
-          .map(([sym, price]) =>
-            sb.from('buy_bands')
-              .update({ manual_cmp: price, last_updated_at: new Date().toISOString() })
-              .eq('symbol', sym)
-          )
-      )
     }
-
     if (data.week52) {
       setWeek52(prev => ({ ...prev, ...data.week52 }))
-      await Promise.all(
-        Object.entries(data.week52 as Record<string, { low: number | null; high: number | null }>)
-          .filter(([, v]) => v.low != null || v.high != null)
-          .map(([sym, v]) =>
-            sb.from('buy_bands')
-              .update({ week_52_low: v.low, week_52_high: v.high })
-              .eq('symbol', sym)
-          )
-      )
     }
+
+    // One DB update per symbol combining both price and week52 fields
+    const now = new Date().toISOString()
+    const prices = data.prices as Record<string, number> | undefined
+    const week52 = data.week52 as Record<string, { low: number | null; high: number | null }> | undefined
+    const allSymbols = new Set([...Object.keys(prices ?? {}), ...Object.keys(week52 ?? {})])
+    await Promise.all(
+      Array.from(allSymbols).map(sym => {
+        const patch: Record<string, unknown> = {}
+        if (prices?.[sym] != null)                                  { patch.manual_cmp = prices[sym]; patch.last_updated_at = now }
+        if (week52?.[sym]?.low != null || week52?.[sym]?.high != null) { patch.week_52_low = week52![sym].low; patch.week_52_high = week52![sym].high }
+        if (Object.keys(patch).length === 0) return Promise.resolve()
+        return sb.from('buy_bands').update(patch).eq('symbol', sym)
+      })
+    )
   }
 
   async function refreshAllCMP() {

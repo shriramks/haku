@@ -31,7 +31,6 @@ const PREMIUM: Partial<Record<StockCategory, Mult>> = {
 
 // Categories where bear/bull quarter flags are ignored (index ETFs, commodities)
 export const CATEGORIES_WITHOUT_QUARTERS = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
-const FLAGS_IGNORED = CATEGORIES_WITHOUT_QUARTERS
 
 export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
 
@@ -72,8 +71,8 @@ export function calculateBands(input: BandInput): BandResult | null {
   if (!base) return null  // Commodity or unknown
 
   // Bear wins if both flags set; flags ignored for index/commodity
-  const isBear = !FLAGS_IGNORED.has(input.category) && input.twoWeakQuarters
-  const isBull = !FLAGS_IGNORED.has(input.category) && input.twoStrongQuarters && !isBear
+  const isBear = !CATEGORIES_WITHOUT_QUARTERS.has(input.category) && input.twoWeakQuarters
+  const isBull = !CATEGORIES_WITHOUT_QUARTERS.has(input.category) && input.twoStrongQuarters && !isBear
 
   let m: Mult
   if (isBear) {
@@ -175,18 +174,14 @@ export function computeTrancheAmounts(remaining: number, count: number, equal = 
  *
  * midLow / midHigh are accepted for API compatibility but unused.
  */
-export function computeTrancheprices(
+export function computeTranchePrices(
   buyLow: number,
   buyHigh: number,
   cmp: number | null,
-  midLow = buyHigh,   // unused — kept for call-site compat
-  midHigh = buyHigh,  // unused — kept for call-site compat
   count = 3,
   fiftyTwoWeekLow?: number | null,
   isIndex = false,
 ): number[] {
-  void midLow; void midHigh
-
   // Floor is the higher of 52-week low and buyLow — never price below either.
   // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
   //   entry), so use buyLow as floor so tranches spread across the buy zone.
@@ -209,7 +204,7 @@ export function computeTrancheprices(
       const deepFloor = Math.max(1, cmp - zoneWidth)
       const deepCeil  = cmp
       if (deepFloor < deepCeil) {
-        return computeTrancheprices(deepFloor, deepCeil, cmp, deepCeil, deepCeil, count, fiftyTwoWeekLow, false)
+        return computeTranchePrices(deepFloor, deepCeil, cmp, count, fiftyTwoWeekLow, false)
       }
     }
     const ref        = cmp ?? floor

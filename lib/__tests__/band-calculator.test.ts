@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateBands, computeTrancheprices, trancheSuggestion, computeTrancheAmounts } from '../band-calculator'
+import { calculateBands, computeTranchePrices, trancheSuggestion, computeTrancheAmounts } from '../band-calculator'
 
 // ── calculateBands ────────────────────────────────────────────────────────────
 
@@ -140,12 +140,12 @@ describe('calculateBands — Commodity (no bands)', () => {
   })
 })
 
-// ── computeTrancheprices ──────────────────────────────────────────────────────
+// ── computeTranchePrices ──────────────────────────────────────────────────────
 
-describe('computeTrancheprices', () => {
+describe('computeTranchePrices', () => {
   // Above buy zone (CMP > buyHigh or null): floor=buyLow, ceiling=buyHigh
   it('CMP null: prices span full buy zone [buyLow, buyHigh]', () => {
-    const prices = computeTrancheprices(1000, 1500, null, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, null, 3)
     expect(prices.length).toBeGreaterThanOrEqual(2)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
@@ -154,7 +154,7 @@ describe('computeTrancheprices', () => {
   })
 
   it('CMP above buy zone: prices span full buy zone [buyLow, buyHigh]', () => {
-    const prices = computeTrancheprices(1000, 1500, 2000, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, 2000, 3)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1500)
@@ -164,7 +164,7 @@ describe('computeTrancheprices', () => {
   // In buy zone: floor = max(24wkLow, buyLow), ceiling = CMP
   it('CMP inside buy zone (no 24wk low): floor = buyLow, ceiling = CMP', () => {
     // buyLow=1000 → floor=1000, ceiling=1200
-    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, 1200, 3)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1200)
@@ -173,7 +173,7 @@ describe('computeTrancheprices', () => {
 
   it('CMP inside buy zone (24wk low > buyLow): floor = 24wkLow', () => {
     // buyLow=1000, 24wkLow=1100, CMP=1200 → floor=max(1100,1000)=1100, ceiling=1200
-    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3, 1100)
+    const prices = computeTranchePrices(1000, 1500, 1200, 3, 1100)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1100)
       expect(p).toBeLessThanOrEqual(1200)
@@ -182,7 +182,7 @@ describe('computeTrancheprices', () => {
 
   it('CMP inside buy zone (24wk low < buyLow): floor = buyLow', () => {
     // buyLow=1000, 24wkLow=900, CMP=1200 → floor=max(900,1000)=1000, ceiling=1200
-    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 3, 900)
+    const prices = computeTranchePrices(1000, 1500, 1200, 3, 900)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
       expect(p).toBeLessThanOrEqual(1200)
@@ -192,7 +192,7 @@ describe('computeTrancheprices', () => {
   // Deep zone: CMP < buyLow — spreads 2-3 tranches at 5% steps below CMP (equal-weighted by caller)
   it('CMP below buy zone (deep, no 24wk low): spreads 2-3 tranches at/below CMP', () => {
     // buyLow=1000, CMP=800 → deep zone → 3 tranches: ~800, ~760, ~720
-    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, 800, 3)
     expect(prices.length).toBeGreaterThanOrEqual(2)
     expect(prices.length).toBeLessThanOrEqual(3)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
@@ -200,7 +200,7 @@ describe('computeTrancheprices', () => {
 
   it('CMP below buy zone (deep, 24wk low): spreads 2-3 tranches at/below CMP', () => {
     // 24wkLow doesn't affect deep zone price generation (steps off CMP, not floor)
-    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3, 790)
+    const prices = computeTranchePrices(1000, 1500, 800, 3, 790)
     expect(prices.length).toBeGreaterThanOrEqual(2)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
@@ -209,7 +209,7 @@ describe('computeTrancheprices', () => {
   it('24wkLow >= CMP (at 6-month low): falls back to buyLow floor, spreads normally', () => {
     // buyLow=1000, 24wkLow=1200, CMP=1150 — old behaviour collapsed; new: use buyLow floor
     // floor=1000, ceiling=1150, range=150 → multiple tranches
-    const prices = computeTrancheprices(1000, 1500, 1150, undefined, undefined, 3, 1200)
+    const prices = computeTranchePrices(1000, 1500, 1150, 3, 1200)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(1000)
@@ -220,7 +220,7 @@ describe('computeTrancheprices', () => {
   it('24wkLow = CMP exactly (JUNIORBEES-style): spreads across buy zone, not single tranche', () => {
     // buyLow=600, buyHigh=720, 24wkLow=680, CMP=680
     // use24wkLow = 680 < 680 → false → floor = buyLow = 600, ceiling = CMP = 680
-    const prices = computeTrancheprices(600, 720, 680, undefined, undefined, 5, 680)
+    const prices = computeTranchePrices(600, 720, 680, 5, 680)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(600)
@@ -230,24 +230,24 @@ describe('computeTrancheprices', () => {
 
   // Price rounding
   it('prices < ₹500 snap to nearest ₹5', () => {
-    const prices = computeTrancheprices(200, 400, null, undefined, undefined, 3)
+    const prices = computeTranchePrices(200, 400, null, 3)
     prices.forEach(p => expect(p % 5).toBe(0))
   })
 
   it('prices ≥ ₹500 snap to nearest ₹10', () => {
-    const prices = computeTrancheprices(1000, 1500, null, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, null, 3)
     prices.forEach(p => expect(p % 10).toBe(0))
   })
 
   // No duplicates
   it('returns deduplicated prices', () => {
-    const prices = computeTrancheprices(1000, 1010, null)
+    const prices = computeTranchePrices(1000, 1010, null)
     expect(prices.length).toBe(new Set(prices).size)
   })
 
   // Hard cap: no price above CMP
   it('no price exceeds CMP', () => {
-    const prices = computeTrancheprices(1000, 1500, 1200, undefined, undefined, 4)
+    const prices = computeTranchePrices(1000, 1500, 1200, 4)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(1200))
   })
 
@@ -256,21 +256,21 @@ describe('computeTrancheprices', () => {
     // JUNIORBEES: buyLow=18×eps, buyHigh=22×eps. CMP implies PE=17.8x → CMP < buyLow
     // e.g. eps=38, buyLow=684, buyHigh=836, CMP=676 (below buyLow)
     const buyLow = 684, buyHigh = 836, cmp = 676
-    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, null, true)
+    const prices = computeTranchePrices(buyLow, buyHigh, cmp, 4, null, true)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
   })
 
   it('non-index deep zone spreads 2-3 tranches at/below CMP', () => {
     // Normal stock in deep zone: buyLow=1000, CMP=850 → 3 tranches (capped): ~850, ~810, ~770
-    const prices = computeTrancheprices(1000, 1500, 850, undefined, undefined, 4, null, false)
+    const prices = computeTranchePrices(1000, 1500, 850, 4, null, false)
     expect(prices.length).toBeGreaterThanOrEqual(2)
     expect(prices.length).toBeLessThanOrEqual(3)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(850))
   })
 
   // BUG: index ETF deep zone recursive call must pass 52wkLow, not null
-  // Previously: `computeTrancheprices(..., null, false)` — floor was always buyLow,
+  // Previously: `computeTranchePrices(..., null, false)` — floor was always buyLow,
   // 52wkLow floor was never applied in the spread.
   it('index ETF deep zone: 52wk low is respected as floor in the spread', () => {
     // JUNIORBEES-style: buyLow=684, buyHigh=836, CMP=630, 52wkLow=650
@@ -279,7 +279,7 @@ describe('computeTrancheprices', () => {
     // If 52wkLow=610 (< CMP): spread floor = max(610, deepFloor=478) = 610, not 478
     const buyLow = 684, buyHigh = 836, cmp = 630
     const fiftyTwoWeekLow = 610 // below CMP, so should raise the floor
-    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, fiftyTwoWeekLow, true)
+    const prices = computeTranchePrices(buyLow, buyHigh, cmp, 4, fiftyTwoWeekLow, true)
     expect(prices.length).toBeGreaterThan(1)
     // All prices must be ≥ 52wkLow and ≤ CMP
     prices.forEach(p => {
@@ -291,7 +291,7 @@ describe('computeTrancheprices', () => {
   it('index ETF deep zone: 52wk low above CMP is ignored (use deepFloor as floor)', () => {
     // 52wkLow=640 > CMP=630 → use52wkLow=false → floor = deepFloor, tranches still spread
     const buyLow = 684, buyHigh = 836, cmp = 630
-    const prices = computeTrancheprices(buyLow, buyHigh, cmp, undefined, undefined, 4, 640, true)
+    const prices = computeTranchePrices(buyLow, buyHigh, cmp, 4, 640, true)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
   })
@@ -304,7 +304,7 @@ describe('computeTrancheprices', () => {
     // 52wkLow=800, CMP=900 (above zone). Normal: ceiling=850, floor=max(800,700)=800 → OK.
     // Bear:    ceiling=765, floor=max(800,630)=800 → floor>ceiling → BUG was: single tranche.
     // Fix: fall back to buyLow=630, ceiling=765 → multiple tranches.
-    const prices = computeTrancheprices(630, 765, 900, undefined, undefined, 3, 800)
+    const prices = computeTranchePrices(630, 765, 900, 3, 800)
     expect(prices.length).toBeGreaterThan(1)
     // Prices span the bear buy zone. Upper bound allows 1 snap (₹10) of rounding headroom.
     prices.forEach(p => {
@@ -545,9 +545,9 @@ describe('stagedDeepCmp — staged buy price cap in deep value', () => {
   })
 })
 
-describe('computeTrancheprices — deep zone spreads 2-3 tranches at 5% steps', () => {
+describe('computeTranchePrices — deep zone spreads 2-3 tranches at 5% steps', () => {
   it('count=3 → 3 prices, each 5% apart, all ≤ CMP', () => {
-    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 3)
+    const prices = computeTranchePrices(1000, 1500, 800, 3)
     expect(prices).toHaveLength(3)
     // Sorted desc by caller, but function returns high→low (CMP first, stepping down)
     // Just check all ≤ CMP and they're distinct
@@ -556,13 +556,13 @@ describe('computeTrancheprices — deep zone spreads 2-3 tranches at 5% steps', 
   })
 
   it('count=2 → 2 prices', () => {
-    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 2)
+    const prices = computeTranchePrices(1000, 1500, 800, 2)
     expect(prices).toHaveLength(2)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
 
   it('count capped at 3 even if caller requests more', () => {
-    const prices = computeTrancheprices(1000, 1500, 800, undefined, undefined, 8)
+    const prices = computeTranchePrices(1000, 1500, 800, 8)
     expect(prices.length).toBeLessThanOrEqual(3)
   })
 })

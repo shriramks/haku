@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTrancheprices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
+import { calculateBands, computeTranchePrices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -152,7 +152,7 @@ export async function POST(
   const isIndex     = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
   const isAboveZone = stagedCmp !== null && stagedCmp > buyHigh
   const isDeepZone  = stagedCmp !== null && stagedCmp < buyLow
-  const prices = computeTrancheprices(buyLow, buyHigh, stagedCmp, midLow, midHigh, trancheCount, fiftyTwoWeekLow, isIndex)
+  const prices = computeTranchePrices(buyLow, buyHigh, stagedCmp, trancheCount, fiftyTwoWeekLow, isIndex)
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)

@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getSymbolAllocations, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getTransactionsBySymbol, getBuyBands, getBuyTranches, getAIKeyStatus, getCurrentFY } from '@/lib/data'
 import { computeCarryover, computeStockRows, seqCost } from '@/lib/compute'
 import type { BuyTranche } from '@/lib/types'
 import BandDetailClient from '@/app/bands/[symbol]/BandDetailClient'
@@ -20,19 +20,18 @@ export default async function StockDetailPage({
   const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
   const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
 
-  const [allocations, transactions, allSymbolTxns, bands, symbolAllocations, prevAllocations, prevTransactions, tranches, aiKeyStatus] = fy
+  const [allocations, transactions, allSymbolTxns, bands, prevAllocations, prevTransactions, tranches, aiKeyStatus] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
         getTransactionsBySymbol(symbol),
         getBuyBands(),
-        getSymbolAllocations(symbol),
         prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
         getBuyTranches(fy.id),
         getAIKeyStatus(),
       ])
-    : [[], [], [], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }]
+    : [[], [], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }]
 
   const carryoverMap = prevFY
     ? computeCarryover(

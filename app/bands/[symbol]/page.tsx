@@ -1,6 +1,6 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
-  getCurrentFY, getAIKeyStatus, getSymbolAllocations, getTransactionsBySymbol,
+  getCurrentFY, getAIKeyStatus, getTransactionsBySymbol,
 } from '@/lib/data'
 import { computeStockRows, computeCarryover, seqCost } from '@/lib/compute'
 import BandDetailClient from './BandDetailClient'
@@ -25,7 +25,7 @@ export default async function BandDetailPage({
   const [
     allocations, transactions, bands, tranches,
     prevAllocations, prevTransactions,
-    aiKeyStatus, symbolAllocs, symbolTxns,
+    aiKeyStatus, symbolTxns,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -35,10 +35,9 @@ export default async function BandDetailPage({
         prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
         getAIKeyStatus(),
-        getSymbolAllocations(symbol),
         getTransactionsBySymbol(symbol),
       ])
-    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }, [], []]
+    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }, []]
 
   const carryoverMap = prevFY
     ? computeCarryover(

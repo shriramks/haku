@@ -28,7 +28,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   const [selectedFY, setSelectedFY]         = useState(initialFY)
   const [allocations, setAllocations]       = useState(initialAllocations)
   const [transactions, setTransactions]     = useState(initialTransactions)
-  const allTransactions                     = initialAllTransactions
   const [prevFY, setPrevFY]                 = useState(initialPrevFY)
   const [prevAllocations, setPrevAllocations] = useState(initialPrevAllocations)
   const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)
@@ -46,9 +45,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
       selectedFY?.id ?? undefined,
       carryoverResult?.adjustments,
-      allTransactions,
+      initialAllTransactions,
     ),
-    [allocations, transactions, bands, selectedFY, carryoverResult, allTransactions]
+    [allocations, transactions, bands, selectedFY, carryoverResult, initialAllTransactions]
   )
 
   async function switchFY(fy: FiscalYear) {
@@ -78,8 +77,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     }),
     [rows]
   )
-  const activeRows    = useMemo(() => sortedRows.filter(r => r.remaining > 0), [sortedRows])
-  const completedRows = useMemo(() => sortedRows.filter(r => r.remaining <= 0), [sortedRows])
+  const { activeRows, completedRows } = useMemo(() => ({
+    activeRows:    sortedRows.filter(r => r.remaining > 0),
+    completedRows: sortedRows.filter(r => r.remaining <= 0),
+  }), [sortedRows])
 
   const { totalBudget, totalDeployed, totalRemaining, pctDeployed } = useMemo(() => {
     const totalBudget   = rows.reduce((s, r) => s + r.budget, 0)
