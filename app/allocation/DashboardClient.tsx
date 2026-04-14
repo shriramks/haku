@@ -1,7 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
@@ -24,7 +23,6 @@ interface Props {
 }
 
 export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialAllTransactions, initialPrevFY, initialPrevAllocations, initialPrevTransactions, bands }: Props) {
-  const router = useRouter()
   const [selectedFY, setSelectedFY]         = useState(initialFY)
   const [allocations, setAllocations]       = useState(initialAllocations)
   const [transactions, setTransactions]     = useState(initialTransactions)
@@ -53,7 +51,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
-    router.replace(`/allocation?fy=${encodeURIComponent(fy.label)}`)
+    // Update URL for bookmarking without triggering an RSC re-render.
+    // router.replace() would fire a soft navigation that re-fetches the same
+    // data server-side while getFYData does the same — two concurrent fetches
+    // for identical data, both wasted except one.
+    window.history.replaceState(null, '', `/allocation?fy=${encodeURIComponent(fy.label)}`)
 
     const fyIdx = fiscalYears.findIndex(f => f.id === fy.id)
     const pFY   = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
