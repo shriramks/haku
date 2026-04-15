@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { todayISO, formatINR } from '@/lib/formatter'
+import { todayISO, formatINR, formatPrice } from '@/lib/formatter'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
 export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[] }) {
@@ -145,7 +145,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
                 {formatINR(amount)}
               </p>
               <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {qty} × {formatINR(parseFloat(price) || 0)}
+                {qty} × {formatPrice(parseFloat(price) || 0)}
               </p>
             </>
           ) : (
