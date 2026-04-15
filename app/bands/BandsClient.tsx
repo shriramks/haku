@@ -8,6 +8,7 @@ import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, ChevronRightIcon } from '@/components/icons'
 import { formatPrice } from '@/lib/formatter'
+import { revalidateBuyBands } from '@/app/actions'
 
 // Mini 3-zone band bar for list rows (deep · buy · mid — no trim zone, matches BandBar)
 function MiniBar({ buyLow, buyHigh, midHigh, cmp }: {
@@ -66,8 +67,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
   const [refreshingAll, setRefreshingAll] = useState(false)
 
   // Fetches CMP + 52W for the given symbols and persists to DB + local state.
-  // Does NOT call revalidateBuyBands() — that triggers router.refresh() which
-  // re-runs this effect and a second Yahoo fetch may return nulls, wiping state.
   async function fetchAndSaveCmp(symbols: string[]) {
     if (symbols.length === 0) return
     const res = await fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols.join(','))}`)
@@ -99,6 +98,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
         return sb.from('buy_bands').update(patch).eq('symbol', sym)
       })
     )
+    await revalidateBuyBands()
   }
 
   async function refreshAllCMP() {
