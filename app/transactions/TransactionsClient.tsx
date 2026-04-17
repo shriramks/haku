@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatDate, shortMonthYear } from '@/lib/formatter'
+import { formatINR, formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
@@ -740,7 +740,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className="font-bold tabnum text-headline"
            style={{ color: isBuy ? 'var(--c-positive)' : 'var(--c-negative)' }}>
-          {isBuy ? '+' : '−'}{formatINR(txn.amount)}
+          {isBuy ? '+' : '−'}{formatINRFine(txn.amount)}
         </p>
         <button onClick={openEdit}
           className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"
