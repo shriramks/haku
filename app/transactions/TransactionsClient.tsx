@@ -287,20 +287,20 @@ export default function TransactionsClient({
         <div className="pt-1 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, buyTotal, sellTotal }) => (
             <section key={month}>
-              <div className="flex items-start justify-between gap-3 px-4 pt-3 pb-3">
-                <p className="text-title-1 font-bold">{month}</p>
-                <div className="flex gap-3 pt-1 flex-shrink-0">
-                  {buyTotal  > 0 && (
-                    <span className="text-footnote font-bold uppercase tabnum"
-                          style={{ color: 'var(--c-positive)', letterSpacing: '0.04em' }}>
-                      Buy: {formatINR(buyTotal)}
-                    </span>
+              <div className="flex items-end justify-between gap-3 px-4 pt-4 pb-3">
+                <p className="font-extrabold tracking-tight" style={{ fontSize: 26, letterSpacing: -0.8 }}>{month}</p>
+                <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
+                  {buyTotal > 0 && (
+                    <>
+                      <span className="tabnum text-footnote font-semibold text-right" style={{ color: 'var(--c-positive)' }}>{formatINR(buyTotal)}</span>
+                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>bought</span>
+                    </>
                   )}
                   {sellTotal > 0 && (
-                    <span className="text-footnote font-bold uppercase tabnum"
-                          style={{ color: 'var(--c-negative)', letterSpacing: '0.04em' }}>
-                      Sell: {formatINR(sellTotal)}
-                    </span>
+                    <>
+                      <span className="tabnum text-footnote font-semibold text-right" style={{ color: 'var(--c-negative)' }}>{formatINR(sellTotal)}</span>
+                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>sold</span>
+                    </>
                   )}
                 </div>
               </div>
@@ -715,10 +715,12 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
   // ── Normal display ──
   return (
-    <div className="flex items-center px-4 py-4 gap-3 tap-row">
+    <div className="flex items-center px-4 py-3 gap-3 tap-row">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="font-medium text-headline flex-shrink-0">{txn.symbol}</span>
+          <span className="font-semibold text-headline flex-shrink-0">{txn.symbol}</span>
+          <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-muted)' }}>·</span>
+          <span className="text-subheadline tabnum flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(txn.trade_date)}</span>
           {txn.advance_fy_id && (
             <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent flex-shrink-0"
                   style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
@@ -727,9 +729,8 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           )}
         </div>
         <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {formatDate(txn.trade_date)}
-          {' · '}{txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
-          {' @ ₹'}{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          {txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
+          {' · '}{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
         </p>
         {txn.notes && (
           <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>{txn.notes}</p>
