@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { calculateBands } from '@/lib/band-calculator'
@@ -139,17 +139,18 @@ export default function BandDetailClient({
     setGenerating(false)
   }
 
-  async function saveQualityStress(quality: number, stress: number) {
+  function applyQualityStress(quality: number, stress: number) {
     if (!allocation) return
-    const updated = { ...allocation, quality, stress }
-    setAllocation(updated)
+    setAllocation(prev => prev ? { ...prev, quality, stress } : prev)
+  }
 
+  async function persistQualityStress(quality: number, stress: number) {
+    if (!allocation) return
     const sb = getSupabaseBrowser()
     await sb.from('stock_allocations').update({ quality, stress }).eq('id', allocation.id)
-
     if (band?.eps) {
       const result = calculateBands({
-        category: updated.category as StockCategory,
+        category: allocation.category as StockCategory,
         quality, stress, eps: band.eps,
       })
       if (result) {
@@ -159,12 +160,6 @@ export default function BandDetailClient({
           trim_price: result.trimPrice,
           last_updated_at: new Date().toISOString(),
         }).eq('symbol', symbol)
-        setBand(prev => prev ? {
-          ...prev,
-          buy_low: result.buyLow, buy_high: result.buyHigh,
-          mid_low: result.midLow, mid_high: result.midHigh,
-          trim_price: result.trimPrice,
-        } : prev)
       }
     }
   }
@@ -295,7 +290,8 @@ export default function BandDetailClient({
           <QualityStressControl
             initialQuality={allocation.quality ?? 0}
             initialStress={allocation.stress ?? 0}
-            onSave={saveQualityStress}
+            onApply={applyQualityStress}
+            onPersist={persistQualityStress}
           />
         </div>
       )}
@@ -303,7 +299,7 @@ export default function BandDetailClient({
 
       {/* ── Allocation + Position ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        <DetailRow label="Remaining" value={formatINRFullNum(fyRemaining)} bold />
+        <DetailRow label="Remaining Allocation" value={formatINRFullNum(fyRemaining)} bold />
         <DetailRow label={`Invested ${fyLabel}`} value={formatINRFullNum(fyRow?.spent ?? 0)} />
         <DetailRow label="Invested Total" value={formatINRFullNum(allTimeCost)} />
         {allTimeCurrentValue != null && (
@@ -608,27 +604,28 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
 function QualityStressControl({
   initialQuality,
   initialStress,
-  onSave,
+  onApply,
+  onPersist,
 }: {
   initialQuality: number
   initialStress: number
-  onSave: (quality: number, stress: number) => Promise<void>
+  onApply: (quality: number, stress: number) => void
+  onPersist: (quality: number, stress: number) => Promise<void>
 }) {
   const [quality, setQuality] = useState(initialQuality)
   const [stress, setStress]   = useState(initialStress)
-  const [saving, setSaving]   = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const isDirty = quality !== initialQuality || stress !== initialStress
+  useEffect(() => () => clearTimeout(timerRef.current), [])
 
   function step(field: 'quality' | 'stress', dir: 1 | -1) {
-    if (field === 'quality') setQuality(v => Math.max(0, Math.min(50, v + dir * 5)))
-    else                     setStress(v  => Math.max(0, Math.min(50, v + dir * 5)))
-  }
-
-  async function handleSave() {
-    setSaving(true)
-    await onSave(quality, stress)
-    setSaving(false)
+    const nextQuality = field === 'quality' ? Math.max(0, Math.min(50, quality + dir * 5)) : quality
+    const nextStress  = field === 'stress'  ? Math.max(0, Math.min(50, stress  + dir * 5)) : stress
+    setQuality(nextQuality)
+    setStress(nextStress)
+    onApply(nextQuality, nextStress)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => onPersist(nextQuality, nextStress), 800)
   }
 
   const rowStyle: React.CSSProperties = {
@@ -644,7 +641,6 @@ function QualityStressControl({
 
   return (
     <div style={{ background: 'var(--bg-primary)', borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
-      {/* Header with consolidated ⓘ */}
       <div className="flex items-center justify-between px-4" style={{ paddingTop: 8, paddingBottom: 6 }}>
         <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
           PE Band Adjustments
@@ -696,17 +692,6 @@ function QualityStressControl({
           <button onClick={() => step('stress', +1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>+</button>
         </div>
       </div>
-
-      {/* Save strip — slides in when dirty */}
-      {isDirty && (
-        <div className="flex items-center justify-end px-4" style={{ minHeight: 40, borderTop: '1px solid var(--border-faint)' }}>
-          <button onClick={handleSave} disabled={saving}
-            className="text-accent text-body font-semibold disabled:opacity-40"
-            style={{ minHeight: 40, paddingLeft: 24, background: 'none', border: 'none', cursor: 'pointer' }}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
