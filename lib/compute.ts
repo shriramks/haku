@@ -167,10 +167,10 @@ export function computeStockRows(
     const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp    = band?.manual_cmp ?? null
     const fresh  = band ? calculateBands({
-      category:          alloc.category as StockCategory,
-      twoWeakQuarters:   alloc.two_weak_quarters,
-      twoStrongQuarters: alloc.two_strong_quarters,
-      eps: band.eps,
+      category: alloc.category as StockCategory,
+      quality:  alloc.quality ?? 0,
+      stress:   alloc.stress  ?? 0,
+      eps:      band.eps,
     }) : null
     const _buyLow   = fresh?.buyLow   ?? band?.buy_low   ?? null
     const _buyHigh  = fresh?.buyHigh  ?? band?.buy_high  ?? null

@@ -2,11 +2,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands, CATEGORIES_WITHOUT_QUARTERS } from '@/lib/band-calculator'
+import { calculateBands } from '@/lib/band-calculator'
 import { formatINRFull, formatINRFullNum, formatPrice, formatPriceNum, formatINR } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
 import BandBar from '@/components/BandBar'
-import QuartersToggle from '@/components/QuartersToggle'
 import TrancheSection from '@/components/TrancheSection'
 import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
@@ -51,7 +50,6 @@ export default function BandDetailClient({
   const [hasKey, setHasKey]                 = useState(initialHasKey)
   const [aiProvider, setAiProvider]         = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
-  const [showQInfo, setShowQInfo]           = useState(false)
   const [showFinancials, setShowFinancials] = useState(false)
   const [showTranches, setShowTranches]     = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
@@ -61,13 +59,11 @@ export default function BandDetailClient({
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  const hasQuarters = allocation && !CATEGORIES_WITHOUT_QUARTERS.has(allocation.category as StockCategory)
-
   const computed = band ? calculateBands({
     category: allocation?.category as StockCategory,
-    twoWeakQuarters: allocation?.two_weak_quarters ?? false,
-    twoStrongQuarters: allocation?.two_strong_quarters ?? false,
-    eps: band.eps,
+    quality:  allocation?.quality ?? 0,
+    stress:   allocation?.stress  ?? 0,
+    eps:      band.eps,
   }) : null
 
   const buyLow    = computed?.buyLow    ?? band?.buy_low    ?? null
@@ -143,22 +139,18 @@ export default function BandDetailClient({
     setGenerating(false)
   }
 
-  async function toggleQuarters(field: 'two_weak_quarters' | 'two_strong_quarters', value: boolean) {
+  async function saveQualityStress(quality: number, stress: number) {
     if (!allocation) return
-    const patch: Record<string, boolean> = { [field]: value }
-    if (value) patch[field === 'two_weak_quarters' ? 'two_strong_quarters' : 'two_weak_quarters'] = false
-    const updated = { ...allocation, ...patch }
+    const updated = { ...allocation, quality, stress }
     setAllocation(updated)
 
     const sb = getSupabaseBrowser()
-    await sb.from('stock_allocations').update(patch).eq('id', allocation.id)
+    await sb.from('stock_allocations').update({ quality, stress }).eq('id', allocation.id)
 
     if (band?.eps) {
       const result = calculateBands({
         category: updated.category as StockCategory,
-        twoWeakQuarters: updated.two_weak_quarters,
-        twoStrongQuarters: updated.two_strong_quarters,
-        eps: band.eps,
+        quality, stress, eps: band.eps,
       })
       if (result) {
         await sb.from('buy_bands').update({
@@ -297,19 +289,14 @@ export default function BandDetailClient({
         )}
       </div>
 
-      {/* ── Bear / Normal / Bull + ⓘ ── */}
-      {hasQuarters && (
-        <div style={{ background: 'var(--bg-primary)', marginTop: 10, padding: '10px 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <QuartersToggle
-            twoWeakQuarters={allocation!.two_weak_quarters}
-            twoStrongQuarters={allocation!.two_strong_quarters}
-            onChange={toggleQuarters}
+      {/* ── PE Band Adjustments (Quality / Stress) ── */}
+      {allocation && (
+        <div style={{ marginTop: 10 }}>
+          <QualityStressControl
+            initialQuality={allocation.quality ?? 0}
+            initialStress={allocation.stress ?? 0}
+            onSave={saveQualityStress}
           />
-          <button
-            onClick={() => setShowQInfo(true)}
-            style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--bg-secondary)', fontSize: 13, fontStyle: 'italic', fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer' }}>
-            i
-          </button>
         </div>
       )}
       {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
@@ -357,7 +344,6 @@ export default function BandDetailClient({
           onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
         />
       )}
-      {showQInfo && <QuartersInfoSheet onClose={() => setShowQInfo(false)} />}
       {showFinancials && (
         <FinancialsSheet
           symbol={symbol}
@@ -617,40 +603,133 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
   )
 }
 
-// ── Quarters Info Sheet ──────────────────────────────────────────────────────
+// ── Quality / Stress Control ─────────────────────────────────────────────────
 
-function QuartersInfoSheet({ onClose }: { onClose: () => void }) {
+function QualityStressControl({
+  initialQuality,
+  initialStress,
+  onSave,
+}: {
+  initialQuality: number
+  initialStress: number
+  onSave: (quality: number, stress: number) => Promise<void>
+}) {
+  const [quality, setQuality] = useState(initialQuality)
+  const [stress, setStress]   = useState(initialStress)
+  const [saving, setSaving]   = useState(false)
+
+  const isDirty = quality !== initialQuality || stress !== initialStress
+
+  function step(field: 'quality' | 'stress', dir: 1 | -1) {
+    if (field === 'quality') setQuality(v => Math.max(0, Math.min(50, v + dir * 5)))
+    else                     setStress(v  => Math.max(0, Math.min(50, v + dir * 5)))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave(quality, stress)
+    setSaving(false)
+  }
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center',
+    padding: '0 16px 0 0', minHeight: 48,
+  }
+  const barStyle = (active: boolean): React.CSSProperties => ({
+    width: 3, minHeight: 48, alignSelf: 'stretch', flexShrink: 0, marginRight: 14,
+    borderRadius: '0 2px 2px 0',
+    background: active ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.07)',
+    transition: 'background 200ms',
+  })
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="font-semibold text-headline">Recent Quarters</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-        </div>
-        <div className="px-5 pt-4">
-          <p className="text-body leading-relaxed mb-5" style={{ color: 'var(--text-2)' }}>
-            Adjusts buy band multiples based on the last 2 quarters of reported results.
+    <div style={{ background: 'var(--bg-primary)', borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
+      {/* Header with consolidated ⓘ */}
+      <div className="flex items-center justify-between px-4" style={{ paddingTop: 8, paddingBottom: 6 }}>
+        <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+          PE Band Adjustments
+        </span>
+        <InfoPopover>
+          <p className="text-subheadline leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Quality ↑</span>
+            {' '}(0–50%): raises all band prices — use when you'd pay a premium vs. the sector average.
           </p>
-          {[
-            { mode: 'Bear', desc: 'Two recent weak quarters. Buy range compresses to the lower half of standard multiples — you demand deeper discounts before committing.' },
-            { mode: 'Normal', desc: 'Base case. Full standard multiples apply. Use when recent quarters are in line with expectations.' },
-            { mode: 'Bull', desc: 'Two recent strong quarters. Buy range shifts to premium multiples (where defined) or the upper half of the standard range.' },
-          ].map(({ mode, desc }, i, arr) => (
-            <div key={mode}>
-              <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mode}</p>
-              <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>{desc}</p>
-              {i < arr.length - 1 && <div className="my-4" style={{ height: 1, background: 'var(--border-faint)' }} />}
-            </div>
-          ))}
+          <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Stress ↓</span>
+            {' '}(0–50%): lowers all band prices — use to discount earnings in a realistic bad scenario.
+          </p>
+        </InfoPopover>
+      </div>
+
+      {/* Quality row */}
+      <div style={{ ...rowStyle, borderTop: '1px solid var(--border-faint)' }}>
+        <div style={barStyle(quality > 0)} />
+        <div className="flex items-center gap-1.5 flex-1">
+          <span style={{ fontSize: 14, color: quality > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↑</span>
+          <span className="text-body" style={{ color: quality > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Quality</span>
+        </div>
+        <div className="flex-1 flex justify-center">
+          <span className="tabnum" style={{ fontSize: 17, fontWeight: 600, color: quality > 0 ? 'var(--text-primary)' : 'var(--text-faint)', transition: 'color 200ms', minWidth: 40, textAlign: 'center' }}>
+            {quality}%
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => step('quality', -1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>−</button>
+          <button onClick={() => step('quality', +1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>+</button>
         </div>
       </div>
-    </>
+
+      {/* Stress row */}
+      <div style={{ ...rowStyle, borderTop: '1px solid var(--border-faint)' }}>
+        <div style={barStyle(stress > 0)} />
+        <div className="flex items-center gap-1.5 flex-1">
+          <span style={{ fontSize: 14, color: stress > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↓</span>
+          <span className="text-body" style={{ color: stress > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Stress</span>
+        </div>
+        <div className="flex-1 flex justify-center">
+          <span className="tabnum" style={{ fontSize: 17, fontWeight: 600, color: stress > 0 ? 'var(--text-primary)' : 'var(--text-faint)', transition: 'color 200ms', minWidth: 40, textAlign: 'center' }}>
+            {stress}%
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => step('stress', -1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>−</button>
+          <button onClick={() => step('stress', +1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>+</button>
+        </div>
+      </div>
+
+      {/* Save strip — slides in when dirty */}
+      {isDirty && (
+        <div className="flex items-center justify-end px-4" style={{ minHeight: 40, borderTop: '1px solid var(--border-faint)' }}>
+          <button onClick={handleSave} disabled={saving}
+            className="text-accent text-body font-semibold disabled:opacity-40"
+            style={{ minHeight: 40, paddingLeft: 24, background: 'none', border: 'none', cursor: 'pointer' }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InfoPopover({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--bg-secondary)', fontSize: 11, fontStyle: 'italic', fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer' }}>
+        i
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute z-50 rounded-2xl p-4"
+            style={{ bottom: 'calc(100% + 8px)', right: 0, width: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}>
+            {children}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 

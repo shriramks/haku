@@ -46,7 +46,7 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category, quality, stress')
     .eq('user_id', userId)
     .eq('fy_id', fyId)
     .order('allocation_pct', { ascending: false })
@@ -85,7 +85,7 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category, quality, stress')
     .eq('user_id', userId)
     .eq('symbol', symbol)
     .order('fy_id', { ascending: true })

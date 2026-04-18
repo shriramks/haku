@@ -80,7 +80,7 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
   const sb = createSupabaseServiceClient()
   const { data: source } = await sb
     .from('stock_allocations')
-    .select('symbol, exchange, allocation_pct, category, two_weak_quarters, two_strong_quarters')
+    .select('symbol, exchange, allocation_pct, category, quality, stress')
     .eq('user_id', userId)
     .eq('fy_id', fromFyId)
   if (!source?.length) return []
@@ -90,7 +90,7 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
       fy_id: toFyId, user_id: userId,
       symbol: a.symbol, exchange: a.exchange,
       allocation_pct: a.allocation_pct, category: a.category,
-      two_weak_quarters: false, two_strong_quarters: false,
+      quality: 0, stress: 0,
     })))
     .select()
   return inserted ?? []

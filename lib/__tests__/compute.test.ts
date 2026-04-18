@@ -10,7 +10,7 @@ function mkAlloc(symbol: string, pct: number, fyId = FY25): StockAllocation {
     id: `alloc-${symbol}`, fy_id: fyId, user_id: 'u1',
     symbol, exchange: 'NSE',
     allocation_pct: pct, category: 'large',
-    two_weak_quarters: false, two_strong_quarters: false,
+    quality: 0, stress: 0,
   }
 }
 

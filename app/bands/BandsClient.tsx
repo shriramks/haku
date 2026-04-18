@@ -118,9 +118,9 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       const alloc = allocations.find(a => a.symbol === band.symbol)
       if (alloc) map.set(band.symbol, calculateBands({
         category: alloc.category as StockCategory,
-        twoWeakQuarters: alloc.two_weak_quarters,
-        twoStrongQuarters: alloc.two_strong_quarters,
-        eps: band.eps,
+        quality:  alloc.quality  ?? 0,
+        stress:   alloc.stress   ?? 0,
+        eps:      band.eps,
       }))
     }
     return map

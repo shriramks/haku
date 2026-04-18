@@ -1,11 +1,10 @@
 // TypeScript port of BandCalculator.swift
 // Implements AI Investment Playbook (Part B) — PE anchor only.
 //
-// Bear: compress buy range to lower half. Mid/Trim unchanged.
-// Normal: full range as defined.
-// Bull: use explicit premium overlay if defined; otherwise upper half of buy range.
-// Nifty 50 Index, Nifty Next 50 Index, Commodity: flags ignored, always normal.
-// Trim never moves — it is a valuation ceiling, not a momentum call.
+// Quality (0–50%): raises all PE multiples — use when you'd pay a premium vs. sector average.
+// Stress  (0–50%): lowers all PE multiples — use to discount earnings for a bad scenario.
+// Combined factor: (1 + quality/100) × (1 - stress/100) applied uniformly to all multiples.
+// Commodity: no PE table defined, always returns null.
 
 import type { StockCategory } from './types'
 
@@ -24,14 +23,6 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Nifty Next 50 Index': { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 24, trim: 25 },
 }
 
-// Explicit bull (premium) overlays — only where the playbook defines them
-const PREMIUM: Partial<Record<StockCategory, Mult>> = {
-  'Cap-Light Infra': { buyLow: 32, buyHigh: 38, midLow: 39, midHigh: 47, trim: 48 },
-}
-
-// Categories where bear/bull quarter flags are ignored (index ETFs, commodities)
-export const CATEGORIES_WITHOUT_QUARTERS = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index', 'Commodity'])
-
 export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
 
 
@@ -47,8 +38,10 @@ const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to
 
 export interface BandInput {
   category: StockCategory
-  twoWeakQuarters: boolean
-  twoStrongQuarters: boolean
+  /** 0–50 integer. Raises all PE multiples: factor = (1 + quality/100). Default 0. */
+  quality: number
+  /** 0–50 integer. Lowers all PE multiples: factor = (1 - stress/100). Default 0. */
+  stress: number
   eps?: number | null
 }
 
@@ -59,8 +52,6 @@ export interface BandResult {
   midLow: number
   midHigh: number
   trimPrice: number
-  isTightened: boolean
-  isPremium: boolean
 }
 
 export function calculateBands(input: BandInput): BandResult | null {
@@ -70,37 +61,17 @@ export function calculateBands(input: BandInput): BandResult | null {
   const base = PE[input.category]
   if (!base) return null  // Commodity or unknown
 
-  // Bear wins if both flags set; flags ignored for index/commodity
-  const isBear = !CATEGORIES_WITHOUT_QUARTERS.has(input.category) && input.twoWeakQuarters
-  const isBull = !CATEGORIES_WITHOUT_QUARTERS.has(input.category) && input.twoStrongQuarters && !isBear
+  const quality = Math.max(0, Math.min(50, input.quality ?? 0))
+  const stress  = Math.max(0, Math.min(50, input.stress  ?? 0))
+  const factor  = (1 + quality / 100) * (1 - stress / 100)
 
-  let m: Mult
-  if (isBear) {
-    const midpoint = base.buyLow + (base.buyHigh - base.buyLow) / 2
-    m = { ...base, buyHigh: midpoint }
-  } else if (isBull) {
-    const premium = PREMIUM[input.category]
-    if (premium) {
-      m = premium
-    } else {
-      // Upper half formula — bull buys in the upper half of the buy range
-      const midpoint = base.buyLow + (base.buyHigh - base.buyLow) / 2
-      m = { ...base, buyLow: midpoint }
-    }
-  } else {
-    m = base
-  }
-
-  const suffix = isBear ? ' (bear)' : isBull ? ' (bull)' : ''
   return {
-    anchorUsed: 'PE' + suffix,
-    buyLow:     m.buyLow  * eps,
-    buyHigh:    m.buyHigh * eps,
-    midLow:     m.midLow  * eps,
-    midHigh:    m.midHigh * eps,
-    trimPrice:  m.trim    * eps,
-    isTightened: isBear,
-    isPremium:   isBull,
+    anchorUsed: 'PE',
+    buyLow:    base.buyLow  * factor * eps,
+    buyHigh:   base.buyHigh * factor * eps,
+    midLow:    base.midLow  * factor * eps,
+    midHigh:   base.midHigh * factor * eps,
+    trimPrice: base.trim    * factor * eps,
   }
 }
 
@@ -185,8 +156,8 @@ export function computeTranchePrices(
   // Floor is the higher of 52-week low and buyLow — never price below either.
   // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
   //   entry), so use buyLow as floor so tranches spread across the buy zone.
-  // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. bear mode
-  //   shrinks buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
+  // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. quality/stress
+  //   shifts buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
   //   the entire buy zone and is not a useful pricing floor in that case.
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
   const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)

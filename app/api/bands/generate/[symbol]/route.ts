@@ -145,10 +145,10 @@ export async function POST(
       : 'No Gemini API key configured. Add your key in Settings (profile icon).',
   }, { status: 500 })
 
-  // Fetch allocation for category + qualifier flags
+  // Fetch allocation for category + PE adjustment values
   const { data: alloc } = await supabase
     .from('stock_allocations')
-    .select('category, two_weak_quarters, two_strong_quarters')
+    .select('category, quality, stress')
     .eq('user_id', user.id)
     .eq('symbol', upperSymbol)
     .limit(1)
@@ -244,8 +244,8 @@ export async function POST(
   // Calculate bands
   const result = calculateBands({
     category,
-    twoWeakQuarters:   alloc.two_weak_quarters   ?? false,
-    twoStrongQuarters: alloc.two_strong_quarters  ?? false,
+    quality: alloc.quality ?? 0,
+    stress:  alloc.stress  ?? 0,
     eps,
   })
 

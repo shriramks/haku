@@ -21,7 +21,7 @@ export async function POST(
   // Fetch allocation (category + qualifier flags) and current band (financials + CMP)
   const [{ data: fyAllocMeta }, { data: band, error: bandError }] = await Promise.all([
     supabase.from('stock_allocations')
-      .select('category, two_weak_quarters, two_strong_quarters')
+      .select('category, quality, stress')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
@@ -34,12 +34,12 @@ export async function POST(
 
   // If current FY's allocation has no category, fall back to any FY for this symbol.
   // Mirrors the band-generate route which queries without fy_id filter.
-  // Quarter flags (bear/bull) still come from the current FY row if available.
+  // Quality/stress adjustments from the current FY row take precedence when available.
   let alloc = fyAllocMeta
   if (!alloc?.category) {
     const { data: anyAlloc } = await supabase
       .from('stock_allocations')
-      .select('category, two_weak_quarters, two_strong_quarters')
+      .select('category, quality, stress')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
       .not('category', 'is', null)
       .order('created_at', { ascending: false })
@@ -57,8 +57,8 @@ export async function POST(
   // buy_low / buy_high were never persisted to the DB.
   const freshResult = (alloc?.category && band?.eps) ? calculateBands({
     category: alloc.category as StockCategory,
-    twoWeakQuarters:   alloc?.two_weak_quarters   ?? false,
-    twoStrongQuarters: alloc?.two_strong_quarters  ?? false,
+    quality: alloc?.quality ?? 0,
+    stress:  alloc?.stress  ?? 0,
     eps:           band.eps,
   }) : null
 

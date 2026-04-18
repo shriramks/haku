@@ -19,8 +19,8 @@ export interface StockAllocation {
   exchange: string
   allocation_pct: number
   category: string
-  two_weak_quarters: boolean
-  two_strong_quarters: boolean
+  quality: number
+  stress: number
 }
 
 export interface Transaction {
