@@ -298,7 +298,7 @@ export default function BandDetailClient({
       {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
 
       {/* ── Allocation + Position ── */}
-      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+      <div className="mx-4 rounded-2xl overflow-hidden" style={{ marginTop: 10, background: 'var(--bg-secondary)' }}>
         <DetailRow label="Remaining Allocation" value={formatINRFullNum(fyRemaining)} bold />
         <DetailRow label={`Invested ${fyLabel}`} value={formatINRFullNum(fyRow?.spent ?? 0)} />
         <DetailRow label="Invested Total" value={formatINRFullNum(allTimeCost)} />
@@ -394,7 +394,7 @@ function DetailRow({ label, value, bold, muted, color, noRupee }: {
 }) {
   return (
     <div className="flex items-center justify-between px-4"
-      style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
+      style={{ minHeight: 44 }}>
       <span className="text-body" style={{ color: 'var(--text-2)' }}>
         {label} {!noRupee && <span style={{ color: 'var(--text-faint)' }}>₹</span>}
       </span>
@@ -640,7 +640,7 @@ function QualityStressControl({
   })
 
   return (
-    <div style={{ background: 'var(--bg-primary)', borderTop: '1px solid var(--border-faint)', borderBottom: '1px solid var(--border-faint)' }}>
+    <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
       <div className="flex items-center justify-between px-4" style={{ paddingTop: 8, paddingBottom: 6 }}>
         <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
           PE Band Adjustments
@@ -658,7 +658,7 @@ function QualityStressControl({
       </div>
 
       {/* Quality row */}
-      <div style={{ ...rowStyle, borderTop: '1px solid var(--border-faint)' }}>
+      <div style={rowStyle}>
         <div style={barStyle(quality > 0)} />
         <div className="flex items-center gap-1.5 flex-1">
           <span style={{ fontSize: 14, color: quality > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↑</span>
@@ -676,7 +676,7 @@ function QualityStressControl({
       </div>
 
       {/* Stress row */}
-      <div style={{ ...rowStyle, borderTop: '1px solid var(--border-faint)' }}>
+      <div style={rowStyle}>
         <div style={barStyle(stress > 0)} />
         <div className="flex items-center gap-1.5 flex-1">
           <span style={{ fontSize: 14, color: stress > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↓</span>
