@@ -630,18 +630,12 @@ function QualityStressControl({
 
   const rowStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center',
-    padding: '0 16px 0 0', minHeight: 48,
+    padding: '0 16px', minHeight: 48,
   }
-  const barStyle = (active: boolean): React.CSSProperties => ({
-    width: 3, minHeight: 48, alignSelf: 'stretch', flexShrink: 0, marginRight: 14,
-    borderRadius: '0 2px 2px 0',
-    background: active ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.07)',
-    transition: 'background 200ms',
-  })
 
   return (
-    <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
-      <div className="flex items-center justify-between px-4" style={{ paddingTop: 8, paddingBottom: 6 }}>
+    <div className="mx-4 rounded-2xl" style={{ background: 'var(--bg-secondary)' }}>
+      <div className="flex items-center gap-2 px-4" style={{ paddingTop: 8, paddingBottom: 6 }}>
         <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
           PE Band Adjustments
         </span>
@@ -659,7 +653,6 @@ function QualityStressControl({
 
       {/* Quality row */}
       <div style={rowStyle}>
-        <div style={barStyle(quality > 0)} />
         <div className="flex items-center gap-1.5 flex-1">
           <span style={{ fontSize: 14, color: quality > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↑</span>
           <span className="text-body" style={{ color: quality > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Quality</span>
@@ -677,7 +670,6 @@ function QualityStressControl({
 
       {/* Stress row */}
       <div style={rowStyle}>
-        <div style={barStyle(stress > 0)} />
         <div className="flex items-center gap-1.5 flex-1">
           <span style={{ fontSize: 14, color: stress > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↓</span>
           <span className="text-body" style={{ color: stress > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Stress</span>
