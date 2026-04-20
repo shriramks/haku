@@ -268,7 +268,7 @@ export default function BandDetailClient({
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
                 <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
-                  {cmp != null ? (cmp % 1 === 0 ? String(Math.round(cmp)) : cmp.toFixed(2)) : '—'}
+                  {cmp != null ? String(parseFloat(cmp.toFixed(2))) : '—'}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
