@@ -231,7 +231,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         {/* Col 2 — Left (prominent, green) */}
         <div className="text-center">
           {isDone ? (
-            <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>done</p>
+            <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>Complete</p>
           ) : (
             <>
               <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
@@ -256,7 +256,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 
       {/* Bar — rounded, full-width, serves as row divider */}
       <div className="rounded-full overflow-hidden mb-0" style={{ height: '6px', background: 'var(--border-faint)' }}>
-        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: 'var(--bar-fill)' }} />
+        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: isDone ? 'var(--border-faint)' : 'var(--bar-fill)' }} />
       </div>
     </Link>
   )
