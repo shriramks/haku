@@ -167,8 +167,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
 
       {/* Stock rows */}
       <div>
-        {[...activeRows, ...completedRows].map((row, idx) => {
-          const showDivider = idx === activeRows.length && completedRows.length > 0
+        {[...activeRows, ...completedRows].map((row) => {
           const band      = bands.find(b => b.symbol === row.symbol)
           const isDone    = row.remaining <= 0
           const computed  = computedBandsMap.get(row.symbol)
@@ -181,12 +180,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
 
           return (
             <div key={row.symbol}>
-              {showDivider && (
-                <div className="px-4 py-2 text-footnote font-semibold uppercase tracking-widest"
-                  style={{ color: 'var(--text-faint)', background: 'var(--bg-secondary)' }}>
-                  Done
-                </div>
-              )}
               <button
                 onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
                 className="w-full flex items-center gap-3 px-4 border-b text-left"
