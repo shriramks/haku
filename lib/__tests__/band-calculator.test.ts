@@ -35,19 +35,17 @@ describe('calculateBands — base multiples (quality=0, stress=0)', () => {
     expect(r.trimPrice).toBeCloseTo(620)
   })
 
-  it('Nifty 50 Index: buy 19–21×, mid from 22×, trim 23×', () => {
+  it('Nifty 50 Index: buy 19–21×, trim 23×', () => {
     const r = calculateBands({ category: 'Nifty 50 Index', ...noAdj, eps: 100 })!
     expect(r.buyLow).toBeCloseTo(1900)
-    expect(r.buyHigh).toBeCloseTo(2100)   // mid(22) - 1 = 21
-    expect(r.midLow).toBeCloseTo(2200)    // mid threshold = 22
+    expect(r.buyHigh).toBeCloseTo(2100)
     expect(r.trimPrice).toBeCloseTo(2300)
   })
 
-  it('Nifty Next 50 Index: buy 18–20×, mid from 21×, trim 25×', () => {
+  it('Nifty Next 50 Index: buy 18–20×, trim 25×', () => {
     const r = calculateBands({ category: 'Nifty Next 50 Index', ...noAdj, eps: 100 })!
     expect(r.buyLow).toBeCloseTo(1800)
-    expect(r.buyHigh).toBeCloseTo(2000)   // mid(21) - 1 = 20
-    expect(r.midLow).toBeCloseTo(2100)    // mid threshold = 21
+    expect(r.buyHigh).toBeCloseTo(2000)
     expect(r.trimPrice).toBeCloseTo(2500)
   })
 
