@@ -10,17 +10,19 @@ import type { StockCategory } from './types'
 
 // ── Multiple tables ──────────────────────────────────────────────────────────
 
-interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: number; trim: number }
+// 3 thresholds define 4 zones: buyHigh = mid-1, midHigh = trim-1 (derived)
+interface Mult { buyLow: number; mid: number; trim: number }
 
 // Base PE multiples
 const PE: Partial<Record<StockCategory, Mult>> = {
-  'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
-  'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'FMCG':            { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
-  'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
+  'Cap-Light Infra': { buyLow: 28, mid: 36, trim: 45 },
+  'Hospitals':       { buyLow: 38, mid: 46, trim: 56 },
+  'FMCG':            { buyLow: 35, mid: 51, trim: 61 },
+  'Tobacco Corp':    { buyLow: 20, mid: 26, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
-  'Nifty 50 Index':      { buyLow: 19, buyHigh: 21, midLow: 21, midHigh: 23, trim: 23 },
-  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 24, trim: 25 },
+  // mid bumped +1 so mid-1 preserves the original buyHigh (no wait zone)
+  'Nifty 50 Index':      { buyLow: 19, mid: 22, trim: 23 },
+  'Nifty Next 50 Index': { buyLow: 18, mid: 21, trim: 25 },
 }
 
 export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
@@ -67,11 +69,11 @@ export function calculateBands(input: BandInput): BandResult | null {
 
   return {
     anchorUsed: 'PE',
-    buyLow:    base.buyLow  * factor * eps,
-    buyHigh:   base.buyHigh * factor * eps,
-    midLow:    base.midLow  * factor * eps,
-    midHigh:   base.midHigh * factor * eps,
-    trimPrice: base.trim    * factor * eps,
+    buyLow:    base.buyLow        * factor * eps,
+    buyHigh:   (base.mid - 1)     * factor * eps,
+    midLow:    base.mid           * factor * eps,
+    midHigh:   (base.trim - 1)    * factor * eps,
+    trimPrice: base.trim          * factor * eps,
   }
 }
 
