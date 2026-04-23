@@ -68,7 +68,7 @@ function computeStockHoldings(
     }
   }
   return Object.entries(map)
-    .filter(([, h]) => h.qty > 0.001)
+    .filter(([, h]) => h.qty >= 1)
     .map(([symbol, h]) => {
       const cost = Math.max(0, h.invested)
       const band = bands.find(b => b.symbol === symbol)
@@ -276,13 +276,13 @@ export default function PortfolioClient({
       <div className="flex items-center gap-3 px-4 py-3 border-b"
            style={{ borderColor: 'var(--border-faint)' }}>
         <div className="flex-1 flex flex-col gap-1.5">
-          <div className="flex gap-6">
+          <div className="flex justify-between">
             <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
-            <SCell label="Invested" value={formatINRFine(totalInvested)} />
+            <SCell label="Invested" value={formatINRFine(totalInvested)} right />
           </div>
-          <div className="flex gap-6 pt-1.5 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex justify-between pt-1.5 border-t" style={{ borderColor: 'var(--border-faint)' }}>
             <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
-            <SCell label="XIRR p.a." value="—" />
+            <SCell label="XIRR p.a." value="—" right />
           </div>
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
@@ -445,11 +445,11 @@ export default function PortfolioClient({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SCell({ label, value, positive, negative }: {
-  label: string; value: string; positive?: boolean; negative?: boolean
+function SCell({ label, value, right, positive, negative }: {
+  label: string; value: string; right?: boolean; positive?: boolean; negative?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className={`flex flex-col gap-0.5 ${right ? 'items-end' : ''}`}>
       <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-headline font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
@@ -510,8 +510,8 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
         ].filter(x => x.pct > 0).map(({ label, pct, color }) => (
           <div key={label} className="flex items-center gap-1">
             <div className="rounded-sm flex-shrink-0" style={{ width: 6, height: 6, background: color }} />
-            <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>{label}</span>
-            <span className="text-[9px] font-bold tabnum" style={{ color: 'var(--text-2)' }}>{pct}%</span>
+            <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>{label}</span>
+            <span className="text-footnote font-bold tabnum" style={{ color: 'var(--text-2)' }}>{pct}%</span>
           </div>
         ))}
       </div>
@@ -524,21 +524,21 @@ function SectionHeader({ id, label, gainAmt, gainPct, open, onToggle }: {
 }) {
   const positive = gainAmt !== null && gainAmt >= 0
   const negative = gainAmt !== null && gainAmt < 0
+  const gainColor = positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-faint)'
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4"
             style={{ minHeight: 44, paddingTop: 14, paddingBottom: 6 }}>
       <span className="flex-1 text-left text-footnote font-bold uppercase"
             style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{label}</span>
-      <div className="flex flex-col items-end gap-0.5 mr-2">
+      <div className="flex items-baseline gap-1.5 mr-2">
         {gainAmt !== null && (
-          <span className="text-footnote font-bold tabnum"
-                style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-faint)' }}>
+          <span className="text-subheadline font-bold tabnum" style={{ color: gainColor }}>
             {fmtGain(gainAmt)}
           </span>
         )}
         {gainPct !== null && (
-          <span className="text-[10px] tabnum" style={{ color: gainPct >= 0 ? 'rgba(52,199,89,0.8)' : 'rgba(255,59,48,0.8)' }}>
+          <span className="text-footnote tabnum font-medium" style={{ color: gainColor, opacity: 0.75 }}>
             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
           </span>
         )}
@@ -554,10 +554,10 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   return (
     <div className="flex items-center px-4 py-1 border-t"
          style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--divider)' }}>
-      <span className="flex-1 text-[9px] font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
-      <span className="text-[9px] font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
-      <span className="text-[9px] font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
-      <span className="text-[9px] font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c4}</span>
+      <span className="flex-1 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c4}</span>
     </div>
   )
 }
@@ -571,14 +571,14 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
          style={{ minHeight: 52, borderColor: 'var(--divider)' }}>
       <div className="flex-1 min-w-0 pr-2">
         <p className="text-subheadline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
-        <p className="text-[10px] mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>{meta}</p>
+        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>{meta}</p>
       </div>
       <NumCol value={invested} />
       <NumCol value={current} />
       <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
         <p className="text-subheadline font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>{gain}</p>
-        {xirr && <p className="text-[10px] tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
+        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
       </div>
     </div>
   )
