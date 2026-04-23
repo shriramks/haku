@@ -50,6 +50,34 @@ function computeEquity(transactions: Transaction[], bands: BuyBand[]): EquitySum
   return { holdingsCount, invested, currentValue }
 }
 
+function computeStockHoldings(
+  transactions: Transaction[],
+  bands: BuyBand[],
+): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null }[] {
+  const map: Record<string, { qty: number; invested: number }> = {}
+  for (const txn of transactions) {
+    if (!map[txn.symbol]) map[txn.symbol] = { qty: 0, invested: 0 }
+    const h = map[txn.symbol]
+    if (txn.trade_type === 'buy') {
+      h.qty      += txn.quantity
+      h.invested += txn.amount
+    } else {
+      const avgCost = h.qty > 0 ? h.invested / h.qty : 0
+      h.qty      -= txn.quantity
+      h.invested -= txn.quantity * avgCost
+    }
+  }
+  return Object.entries(map)
+    .filter(([, h]) => h.qty > 0.001)
+    .map(([symbol, h]) => {
+      const cost = Math.max(0, h.invested)
+      const band = bands.find(b => b.symbol === symbol)
+      const currentValue = band?.manual_cmp ? h.qty * band.manual_cmp : null
+      return { symbol, qty: h.qty, invested: cost, currentValue, gain: currentValue !== null ? currentValue - cost : null }
+    })
+    .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
+}
+
 function computeMFHoldings(
   funds: MFund[],
   transactions: MFTransaction[],
@@ -193,10 +221,11 @@ export default function PortfolioClient({
     })
   }, [mfFunds])
 
-  const equity     = useMemo(() => computeEquity(allTransactions, bands), [allTransactions, bands])
-  const mfHoldings = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
-  const sgbBatches = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
-  const ppf        = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])
+  const equity        = useMemo(() => computeEquity(allTransactions, bands), [allTransactions, bands])
+  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands), [allTransactions, bands])
+  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
+  const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
+  const ppf           = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])
 
   // Summary numbers
   const mfInvested      = mfHoldings.reduce((s, h) => s + h.invested, 0)
@@ -243,18 +272,20 @@ export default function PortfolioClient({
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
       </div>
 
-      {/* Compact summary: 2×2 grid + donut */}
+      {/* Compact summary: 2-row flex + pie */}
       <div className="flex items-center gap-3 px-4 py-3 border-b"
            style={{ borderColor: 'var(--border-faint)' }}>
-        <div className="flex-1 grid grid-cols-2">
-          {/* Row 1 */}
-          <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
-          <SCell label="Invested" value={formatINRFine(totalInvested)} right />
-          {/* Row 2 */}
-          <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} topBorder />
-          <SCell label="XIRR p.a." value="—" topBorder right />
+        <div className="flex-1 flex flex-col gap-1.5">
+          <div className="flex gap-6">
+            <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
+            <SCell label="Invested" value={formatINRFine(totalInvested)} />
+          </div>
+          <div className="flex gap-6 pt-1.5 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+            <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+            <SCell label="XIRR p.a." value="—" />
+          </div>
         </div>
-        <DonutChart equity={eqPct} debt={debtPct} gold={goldPct} />
+        <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
 
       {/* Scrollable sections */}
@@ -263,35 +294,47 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          currentValue={formatINRFine(equity.currentValue)}
+          gainAmt={equity.invested > 0 ? equity.currentValue - equity.invested : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
         />
         {openSections.has('equity') && (
-          <Link href="/allocation"
-                className="flex items-center px-4 border-t"
-                style={{ minHeight: 52, borderColor: 'var(--divider)' }}>
-            <div className="flex-1">
-              <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {equity.holdingsCount} holding{equity.holdingsCount !== 1 ? 's' : ''}
-              </p>
-              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>View in Allocation</p>
-            </div>
-            <div className="text-right mr-2">
-              <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>{formatINRFine(equity.currentValue)}</p>
-              <p className="text-footnote tabnum mt-0.5" style={{ color: equity.currentValue > equity.invested ? 'var(--c-positive)' : 'var(--text-faint)' }}>
-                {fmtGain(equity.currentValue - equity.invested)}
-              </p>
-            </div>
-            <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-          </Link>
+          <>
+            {stockHoldings.length > 0 && (
+              <>
+                <ColHeaders c1="Stock" c2="Invested" c3="Current" c4="Return" />
+                {stockHoldings.map(h => (
+                  <FundRow key={h.symbol}
+                    name={h.symbol}
+                    meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} qty`}
+                    invested={formatINRFine(h.invested)}
+                    current={h.currentValue !== null ? formatINRFine(h.currentValue) : '—'}
+                    gain={fmtGain(h.gain)}
+                    xirr=""
+                    positive={(h.gain ?? 0) > 0}
+                  />
+                ))}
+                <Link href="/allocation"
+                      className="flex items-center justify-center border-t"
+                      style={{ minHeight: 40, borderColor: 'var(--divider)' }}>
+                  <span className="text-footnote font-semibold" style={{ color: 'var(--accent)' }}>
+                    View in Allocation
+                  </span>
+                  <ChevronRightIcon className="w-3 h-3 ml-1" style={{ color: 'var(--accent)' }} />
+                </Link>
+              </>
+            )}
+            {stockHoldings.length === 0 && (
+              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No stock holdings yet.</p>
+            )}
+          </>
         )}
 
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="Mutual Funds"
-          currentValue={navsLoading ? '…' : formatINRFine(mfCurrentValue)}
+          gainAmt={mfInvested > 0 && !navsLoading ? mfCurrentValue - mfInvested : null}
           gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
@@ -323,7 +366,7 @@ export default function PortfolioClient({
         {/* SGBs */}
         <SectionHeader
           id="sgb" label="SGBs"
-          currentValue={formatINRFine(sgbCurrentValue)}
+          gainAmt={sgbInvested > 0 && goldPrice !== null ? sgbCurrentValue - sgbInvested : null}
           gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
           open={openSections.has('sgb')}
           onToggle={() => toggleSection('sgb')}
@@ -355,7 +398,7 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          currentValue={formatINRFine(ppf.currentBalance)}
+          gainAmt={ppf.totalDeposited > 0 ? ppf.currentBalance - ppf.totalDeposited : null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
@@ -365,15 +408,17 @@ export default function PortfolioClient({
         )}
 
         {/* Single add button */}
-        <button
-          onClick={() => setTypePickerOpen(true)}
-          className="flex items-center justify-center gap-2 mx-4 mt-3 border rounded-2xl text-accent font-semibold text-body"
-          style={{ minHeight: 48, borderColor: 'var(--border)' }}>
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add transaction
-        </button>
+        <div className="px-4 mt-3">
+          <button
+            onClick={() => setTypePickerOpen(true)}
+            className="flex items-center justify-center gap-2 w-full rounded-xl text-accent font-semibold text-body"
+            style={{ minHeight: 48, background: 'rgba(10,132,255,0.10)', border: '1px solid var(--border)' }}>
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add transaction
+          </button>
+        </div>
       </div>
 
       {/* Type picker sheet */}
@@ -400,14 +445,13 @@ export default function PortfolioClient({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SCell({ label, value, right, topBorder, positive, negative }: {
-  label: string; value: string; right?: boolean; topBorder?: boolean; positive?: boolean; negative?: boolean
+function SCell({ label, value, positive, negative }: {
+  label: string; value: string; positive?: boolean; negative?: boolean
 }) {
   return (
-    <div className={`flex flex-col gap-0.5 py-1.5 ${right ? 'items-end pl-3' : ''}`}
-         style={topBorder ? { borderTop: '1px solid var(--border-faint)' } : {}}>
+    <div className="flex flex-col gap-0.5">
       <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
-      <p className={`text-headline font-bold tabnum`}
+      <p className="text-headline font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
         {value}
       </p>
@@ -415,41 +459,57 @@ function SCell({ label, value, right, topBorder, positive, negative }: {
   )
 }
 
-function DonutChart({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
-  const r   = 26
-  const c   = 2 * Math.PI * r  // 163.36
-  const eqLen   = (equity / 100) * c
-  const debtLen = (debt   / 100) * c
-  const goldLen = (gold   / 100) * c
-  const eqAngle   = -90
-  const debtAngle = eqAngle   + equity * 3.6
-  const goldAngle = debtAngle + debt   * 3.6
+function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
+  const cx = 45, cy = 45, r = 41
+  const total = equity + debt + gold
+
+  function arcPath(startPct: number, pct: number): string {
+    if (pct <= 0) return ''
+    const startAngle = (startPct / 100) * 360 - 90
+    if (pct >= 99.5) {
+      const sx = (cx + r * Math.cos(startAngle * Math.PI / 180)).toFixed(2)
+      const sy = (cy + r * Math.sin(startAngle * Math.PI / 180)).toFixed(2)
+      const mx = (cx + r * Math.cos((startAngle + 180) * Math.PI / 180)).toFixed(2)
+      const my = (cy + r * Math.sin((startAngle + 180) * Math.PI / 180)).toFixed(2)
+      return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 1 1 ${mx} ${my} A ${r} ${r} 0 1 1 ${sx} ${sy} Z`
+    }
+    const endAngle = ((startPct + pct) / 100) * 360 - 90
+    const sx = (cx + r * Math.cos(startAngle * Math.PI / 180)).toFixed(2)
+    const sy = (cy + r * Math.sin(startAngle * Math.PI / 180)).toFixed(2)
+    const ex = (cx + r * Math.cos(endAngle   * Math.PI / 180)).toFixed(2)
+    const ey = (cy + r * Math.sin(endAngle   * Math.PI / 180)).toFixed(2)
+    return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 ${pct > 50 ? 1 : 0} 1 ${ex} ${ey} Z`
+  }
+
+  let offset = 0
+  const paths = [
+    { pct: equity, color: 'var(--accent)' },
+    { pct: debt,   color: 'var(--c-warning)' },
+    { pct: gold,   color: '#FFD60A' },
+  ].map((s, i) => {
+    const d = arcPath(offset, s.pct)
+    offset += s.pct
+    return { d, color: s.color, key: i }
+  })
 
   return (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-      <svg width="64" height="64" viewBox="0 0 66 66">
-        <circle cx="33" cy="33" r={r} fill="none" stroke="var(--bg-tertiary)" strokeWidth="8" />
-        {eqLen > 0.5 && (
-          <circle cx="33" cy="33" r={r} fill="none" stroke="var(--accent)" strokeWidth="8"
-            strokeDasharray={`${eqLen} ${c}`} transform={`rotate(${eqAngle} 33 33)`} />
-        )}
-        {debtLen > 0.5 && (
-          <circle cx="33" cy="33" r={r} fill="none" stroke="var(--c-warning)" strokeWidth="8"
-            strokeDasharray={`${debtLen} ${c}`} transform={`rotate(${debtAngle} 33 33)`} />
-        )}
-        {goldLen > 0.5 && (
-          <circle cx="33" cy="33" r={r} fill="none" stroke="#FFD60A" strokeWidth="8"
-            strokeDasharray={`${goldLen} ${c}`} transform={`rotate(${goldAngle} 33 33)`} />
-        )}
+      <svg width="86" height="86" viewBox="0 0 90 90">
+        {total === 0
+          ? <circle cx={cx} cy={cy} r={r} fill="var(--bg-tertiary)" />
+          : paths.map(p => p.d
+              ? <path key={p.key} d={p.d} fill={p.color} stroke="var(--bg-primary)" strokeWidth="1.5" />
+              : null)
+        }
       </svg>
       <div className="flex flex-col gap-0.5">
         {[
-          { label: 'Eq', pct: equity, color: 'var(--accent)' },
-          { label: 'Debt', pct: debt, color: 'var(--c-warning)' },
-          { label: 'Gold', pct: gold, color: '#FFD60A' },
-        ].map(({ label, pct, color }) => (
+          { label: 'Eq',   pct: equity, color: 'var(--accent)' },
+          { label: 'Debt', pct: debt,   color: 'var(--c-warning)' },
+          { label: 'Gold', pct: gold,   color: '#FFD60A' },
+        ].filter(x => x.pct > 0).map(({ label, pct, color }) => (
           <div key={label} className="flex items-center gap-1">
-            <div className="rounded-full flex-shrink-0" style={{ width: 5, height: 5, background: color }} />
+            <div className="rounded-sm flex-shrink-0" style={{ width: 6, height: 6, background: color }} />
             <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>{label}</span>
             <span className="text-[9px] font-bold tabnum" style={{ color: 'var(--text-2)' }}>{pct}%</span>
           </div>
@@ -459,9 +519,11 @@ function DonutChart({ equity, debt, gold }: { equity: number; debt: number; gold
   )
 }
 
-function SectionHeader({ id, label, currentValue, gainPct, open, onToggle }: {
-  id: string; label: string; currentValue: string; gainPct: number | null; open: boolean; onToggle: () => void
+function SectionHeader({ id, label, gainAmt, gainPct, open, onToggle }: {
+  id: string; label: string; gainAmt: number | null; gainPct: number | null; open: boolean; onToggle: () => void
 }) {
+  const positive = gainAmt !== null && gainAmt >= 0
+  const negative = gainAmt !== null && gainAmt < 0
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4"
@@ -469,7 +531,12 @@ function SectionHeader({ id, label, currentValue, gainPct, open, onToggle }: {
       <span className="flex-1 text-left text-footnote font-bold uppercase"
             style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{label}</span>
       <div className="flex flex-col items-end gap-0.5 mr-2">
-        <span className="text-footnote font-bold tabnum" style={{ color: 'var(--text-faint)' }}>{currentValue}</span>
+        {gainAmt !== null && (
+          <span className="text-footnote font-bold tabnum"
+                style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-faint)' }}>
+            {fmtGain(gainAmt)}
+          </span>
+        )}
         {gainPct !== null && (
           <span className="text-[10px] tabnum" style={{ color: gainPct >= 0 ? 'rgba(52,199,89,0.8)' : 'rgba(255,59,48,0.8)' }}>
             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
