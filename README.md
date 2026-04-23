@@ -15,9 +15,9 @@ Most apps let you monitor existing investments. Haku is for planning them.
 - [Docs](#docs)
 
 <div align="center">
-  <img src="docs/screenshots/plan.png" width="22%" alt="Plan" />
   <img src="docs/screenshots/allocation.png" width="22%" alt="Allocation" />
   <img src="docs/screenshots/buy_bands.png" width="22%" alt="Buy Bands" />
+  <img src="docs/screenshots/plan.png" width="22%" alt="Plan" />
   <img src="docs/screenshots/transactions.jpeg" width="22%" alt="Transactions" />
 </div>
 
