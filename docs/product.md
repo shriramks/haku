@@ -1,4 +1,4 @@
-# Haku — App Concepts
+# Haku — Product
 
 ## Purpose
 

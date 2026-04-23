@@ -1,0 +1,113 @@
+# Valuation Playbook
+
+Rules the band calculator uses to compute buy zones, interpret signals, and place tranches.
+
+---
+
+## Categories & Bands
+
+| Category | Type | Anchor | Buy Low | Buy High | Mid Low | Mid High | Trim |
+|---|---|---|---|---|---|---|---|
+| IT/Technology | Defensive | PE | 20x | 26x | 27x | 32x | 33x |
+| Pharma | Defensive | PE | 22x | 28x | 29x | 35x | 38x |
+| FMCG | Defensive | PE | 35x | 50x | 51x | 60x | 61x |
+| Insurance — Life | Defensive | P/EV | 2.4x | 2.8x | 2.9x | 3.4x | 3.5x |
+| Insurance — General | Defensive | PB | 2.5x | 3.2x | 3.3x | 4.0x | 4.1x |
+| Banks | Cyclical | PB | 1.6x | 1.9x | 2.0x | 2.5x | 2.6x |
+| Auto OEM | Cyclical | PE | 10x | 12x | 13x | 15x | 16x |
+| Capital Goods | Cyclical | EV/EBITDA | 14x | 18x | 19x | 23x | 24x |
+| Defence | Cyclical | PE | 32x | 45x | 46x | 55x | 56x |
+| Hospitals | Growth | PE | 38x | 45x | 46x | 55x | 56x |
+| Hospitals (ramp) | Growth | EV/EBITDA | 18x | 22x | 23x | 28x | 29x |
+| Cap-Light Infra | Growth | PE | 28x | 35x | 36x | 44x | 45x |
+| Retail | Growth | PE | 54x | 66x | 67x | 81x | 93x |
+| REIT | REIT | PE (DPU) | 12x | 14x | 15x | 18x | 20x |
+| Tobacco Corp | Defensive | PE | 20x | 25x | 26x | 30x | 31x |
+| Nifty 50 Index | Passive | PE (idx) | 19x | 21x | 21x | 23x | 23x |
+| Nifty Next 50 Index | Passive | PE (idx) | 18x | 20x | 20x | 24x | 25x |
+| Commodity | Passive | — | No bands — set manually | | | | |
+
+### Computation method
+
+**Formula-computed** (bands calculated directly from multiples × financials):
+FMCG, Cap-Light Infra, Hospitals, Tobacco Corp, Nifty 50 Index, Nifty Next 50 Index
+
+**AI-computed** (Gemini fetches financials and applies the multiples above):
+IT/Technology, Pharma, Banks, Auto OEM, Capital Goods, Defence, Retail,
+Insurance — Life, Insurance — General, REIT, Hospitals (ramp)
+
+### Anchor formulas
+
+| Anchor | Formula |
+|---|---|
+| PE | `EPS × multiple` |
+| EV/EBITDA | `(multiple × EBITDA − net debt) / shares` |
+| P/EV | `multiple × (embedded value / shares)` |
+| PB | `BVPS × multiple` |
+
+**REIT:** "EPS" = trailing 12-month DPU. 12x ≈ 8.3% yield, 20x ≈ 5% yield.
+
+**Index/ETF:** "EPS" = ETF price ÷ index trailing PE (AI identifies the tracked index).
+Deep zone (PE < buyLow) = strong buy for index ETFs — tranches spread from
+`(CMP − buy_zone_width)` to CMP instead of collapsing to a single tranche.
+
+**Hospitals:** Use EV/EBITDA if hospital ramp phase flag is set, else PE.
+
+**Capital Goods:** AI fetches standalone financials (excludes financial services
+subsidiaries). For companies with significant overseas operations, standalone
+may understate EBITDA — verify manually.
+
+**Insurance:** P/EV requires embedded value which Gemini cannot reliably find.
+Falls back to PE using FMCG multiples as a proxy.
+
+---
+
+## Qualitative Adjustments
+
+| Condition | Effect |
+|---|---|
+| Two weak quarters | Buy range compressed to lower half (buyHigh = midpoint). Mid/Trim unchanged. |
+| Two strong quarters | Buy range compressed to upper half (buyLow = midpoint). Mid/Trim unchanged. If a bull premium overlay is defined for the category, it is used instead. |
+| Both set | Tighten takes precedence. |
+| Index / Commodity | Flags always ignored — always normal. |
+
+---
+
+## Signals
+
+| Signal | Condition |
+|---|---|
+| **Deep** | CMP < Buy Low |
+| **Buy** | Buy Low ≤ CMP ≤ Buy High |
+| **Hold** | Buy High < CMP ≤ Mid High |
+| **Trim** | CMP > Mid High |
+
+---
+
+## Tranches
+
+**Count:** 2–8 tranches; driven by `deployable ÷ suggested-per-tranche` (2% of FY budget, floored at 1%). Deeper tranches get larger allocations (back-weighted).
+
+**Pricing zones** (live CMP fetched at generation time):
+
+| CMP position | Floor | Ceiling |
+|---|---|---|
+| Above buy zone | max(24wk-low, Buy Low) | Buy High |
+| Inside buy zone | max(24wk-low, Buy Low) | CMP |
+| Below Buy Low | Single tranche at CMP (deep-value entry at market) | — |
+| 24wk-low ≥ CMP | Buy Low (24wk-low ignored) | — |
+
+No tranche is ever placed above CMP.
+
+**Deploy Capital:** optional FY-level field. If set, deployable per stock =
+`min(stock remaining budget, deploy capital)`. If unset, deployable = stock remaining budget.
+
+---
+
+## Investability Gates
+
+Pass / caution / fail checklist evaluated per stock:
+
+Sector Winds, Circle of Competence, Moat, Owner Earnings, Capital Efficiency,
+Innovation Velocity, Governance, Execution Track, Supply Chain Risk,
+Regulatory Signal, Thesis Breaker, Capital Discipline

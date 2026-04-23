@@ -27,7 +27,7 @@ const config: Config = {
       },
 
       // ── Typography ─────────────────────────────────────────────────────────
-      // Use these role names, never raw px values in components. See STYLE_GUIDE.md §1.
+      // Use these role names, never raw px values in components. See docs/design.md §1.
       fontSize: {
         'display':     ['32px', { lineHeight: '1.1',  letterSpacing: '-0.02em' }],
         'title-1':     ['22px', { lineHeight: '1.2',  letterSpacing: '-0.01em' }],

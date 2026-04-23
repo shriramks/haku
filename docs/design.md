@@ -1,4 +1,4 @@
-# Haku — Style Guide
+# Haku — Design
 
 Mobile-first, iOS native feel. Every screen is a phone screen. Decisions default to Apple HIG
 where unspecified. Inspiration: Stocks.app (information density), SpendStack (financial hierarchy),
@@ -267,21 +267,9 @@ Handle: 4×36px rounded-full --bg-tertiary, centered, mt-2 mb-4
 
 ---
 
-## Applying This Guide
-
-When building or editing a component, ask in order:
-
-1. **What role is this text?** → pick from the scale, don't pick a size.
-2. **What does this colour mean?** → use a token, never a raw value.
-3. **Is this tappable?** → ensure 44px minimum touch target.
-4. **What kind of container is this?** → card, row, sheet — use the contract.
-5. **What spacing am I in?** → internal (8px), between related (12px), section (16px).
-
----
-
 ## 9. IA → Visual Mapping
 
-This section connects `INFORMATION_ARCHITECTURE.md` to the style decisions above.
+This section connects `product.md` to the style decisions above.
 The IA defines *what* appears and in *what priority*. This section defines *how*
 that priority is expressed visually.
 
@@ -350,3 +338,63 @@ The result: a screen with 8–10 fields reads clearly because the structure is
 uniform and hierarchy comes from grouping + colour, not from competing visual
 sizes. This is exactly why Option B (DetailRow) was chosen for Stock Detail
 over Option A (metric cards mixed with rows).
+
+---
+
+## 10. Token Reference
+
+Raw values for all design tokens. Already defined in `app/globals.css` and `tailwind.config.ts` — this section is a quick lookup, not the source of truth.
+
+### Font stack
+
+```css
+font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+```
+
+System font — SF Pro on iOS/macOS, Segoe UI on Windows, Roboto on Android. No web font loaded.
+
+### CSS variables
+
+```css
+:root {
+  --bg-primary:   #F2F2F7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary:  #E5E5EA;
+  --bg-nav:       rgba(242,242,247,0.90);
+  --text-primary: #000000;
+  --text-2:       rgba(0,0,0,0.60);
+  --text-muted:   rgba(0,0,0,0.40);
+  --text-faint:   rgba(0,0,0,0.25);
+  --border:       rgba(0,0,0,0.10);
+  --border-faint: rgba(0,0,0,0.06);
+  --tap-active:   rgba(0,0,0,0.04);
+  --divider:      rgba(0,0,0,0.08);
+  --nav-h:        64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary:   #000000;
+    --bg-secondary: #1C1C1E;
+    --bg-tertiary:  #2C2C2E;
+    --bg-nav:       rgba(0,0,0,0.90);
+    --text-primary: #FFFFFF;
+    --text-2:       rgba(255,255,255,0.60);
+    --text-muted:   rgba(255,255,255,0.40);
+    --text-faint:   rgba(255,255,255,0.25);
+    --border:       rgba(255,255,255,0.10);
+    --border-faint: rgba(255,255,255,0.05);
+    --tap-active:   rgba(255,255,255,0.06);
+    --divider:      rgba(255,255,255,0.08);
+  }
+}
+```
+
+### Accent fills (tinted backgrounds)
+
+```css
+rgba(10,  132, 255, 0.15)  /* accent / blue  */
+rgba(52,  199,  89, 0.12)  /* positive / green */
+rgba(255,  59,  48, 0.10)  /* negative / red  */
+rgba(255, 149,   0, 0.15)  /* warning / amber */
+```
