@@ -184,12 +184,15 @@ export default function PortfolioClient({
   allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
   sgbTransactions, ppfTransactions, ppfOverride,
 }: Props) {
+  const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>([]))
   const [typePickerOpen, setTypePickerOpen] = useState(false)
   const [addSheet, setAddSheet] = useState<'mf' | 'sgb' | 'ppf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
   const [goldPrice, setGoldPrice] = useState<number | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Live gold price from IBJA via our proxy
   useEffect(() => {
@@ -197,11 +200,12 @@ export default function PortfolioClient({
       .then(r => r.json())
       .then(d => { if (d.pricePerGram) setGoldPrice(d.pricePerGram) })
       .catch(() => {})
-  }, [])
+  }, [refreshKey])
 
   // Live NAV fetch from mfapi.in
   useEffect(() => {
     if (mfFunds.length === 0) return
+    setNavsLoading(true)
     Promise.all(
       mfFunds.map(f =>
         fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
@@ -215,7 +219,7 @@ export default function PortfolioClient({
       setNavs(m)
       setNavsLoading(false)
     })
-  }, [mfFunds])
+  }, [mfFunds, refreshKey])
 
   const equity        = useMemo(() => computeEquity(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
@@ -239,6 +243,13 @@ export default function PortfolioClient({
   const eqPct  = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
+
+  function handleRefresh() {
+    setRefreshing(true)
+    setRefreshKey(k => k + 1)
+    router.refresh()
+    setTimeout(() => setRefreshing(false), 1500)
+  }
 
   function toggleSection(id: string) {
     setOpenSections(prev => {
@@ -266,6 +277,14 @@ export default function PortfolioClient({
           </svg>
         </Link>
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
+        <button onClick={handleRefresh}
+                className="flex items-center justify-center min-w-[44px] min-h-[44px]"
+                style={{ color: 'var(--accent)' }}>
+          <svg className={refreshing ? 'animate-spin' : ''} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+        </button>
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
@@ -288,8 +307,9 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          invAmt={equity.invested > 0 ? equity.invested : null}
+          count={equity.holdingsCount > 0 ? equity.holdingsCount : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
+          currentValue={equity.currentValue > 0 ? equity.currentValue : null}
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
         />
@@ -320,8 +340,9 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          invAmt={mfInvested > 0 ? mfInvested : null}
+          count={mfHoldings.length > 0 ? mfHoldings.length : null}
           gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
+          currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
         />
@@ -352,8 +373,9 @@ export default function PortfolioClient({
         {/* SGBs */}
         <SectionHeader
           id="sgb" label="SGB"
-          invAmt={sgbInvested > 0 ? sgbInvested : null}
+          count={sgbBatches.length > 0 ? sgbBatches.length : null}
           gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
+          currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
           open={openSections.has('sgb')}
           onToggle={() => toggleSection('sgb')}
         />
@@ -384,8 +406,9 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          invAmt={ppf.totalDeposited > 0 ? ppf.totalDeposited : null}
+          count={null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
+          currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
         />
@@ -505,28 +528,38 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   )
 }
 
-function SectionHeader({ id, label, invAmt, gainPct, open, onToggle }: {
-  id: string; label: string; invAmt: number | null; gainPct: number | null; open: boolean; onToggle: () => void
+function SectionHeader({ id, label, count, gainPct, currentValue, open, onToggle }: {
+  id: string; label: string; count: number | null; gainPct: number | null; currentValue: number | null; open: boolean; onToggle: () => void
 }) {
+  const hasData = gainPct !== null || currentValue !== null
   const positive = gainPct !== null && gainPct >= 0
-  const negative = gainPct !== null && gainPct < 0
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4 border-t"
             style={{ minHeight: 52, background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
-      <span className="flex-1 text-left text-headline font-bold"
-            style={{ color: 'var(--text-primary)' }}>{label}</span>
-      <div className="flex items-center gap-2 mr-2">
-        {invAmt !== null && (
-          <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-            {formatINRFine(invAmt)}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
+        {count != null && count > 0 && (
+          <span className="text-footnote font-semibold tabnum px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
+            {count}
           </span>
         )}
+      </div>
+      <div className="flex items-baseline gap-2 mr-2 flex-shrink-0">
         {gainPct !== null && (
-          <span className="text-footnote font-semibold tabnum"
+          <span className="text-body font-bold tabnum"
                 style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
           </span>
+        )}
+        {currentValue !== null && (
+          <span className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+            {formatINRFine(currentValue)}
+          </span>
+        )}
+        {!hasData && (
+          <span className="text-headline font-bold" style={{ color: 'var(--text-faint)' }}>—</span>
         )}
       </div>
       <ChevronRightIcon
