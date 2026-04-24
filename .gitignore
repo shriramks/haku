@@ -5,8 +5,8 @@ node_modules/
 .DS_Store
 *.pem
 tsconfig.tsbuildinfo
-supabase/seed*.sql
-supabase/migrations/
+supabase/**/*.sql
+supabase/*.sql
 .claude/
 docs/mocks/
 mockups/
