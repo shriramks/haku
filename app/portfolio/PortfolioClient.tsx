@@ -199,7 +199,12 @@ function noR(s: string): string { return s.replace('₹', '') }
 
 function fmtGainPct(gain: number | null, invested: number): string {
   if (gain === null || invested <= 0) return ''
-  return `${gain >= 0 ? '+' : ''}${((gain / invested) * 100).toFixed(1)}%`
+  return `${gain >= 0 ? '+' : ''}${trimPct((gain / invested) * 100)}%`
+}
+
+function trimPct(v: number): string {
+  const s = v.toFixed(1)
+  return s.endsWith('.0') ? String(Math.round(v)) : s
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -312,14 +317,14 @@ export default function PortfolioClient({
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
-      <div className="grid px-4 py-3 border-b"
+      <div className="grid px-4 py-2 border-b"
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
-        <div className="flex flex-col gap-3">
-          <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
-          <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+        <div className="flex flex-col gap-2">
+          <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
+          <SCell label="Gain ₹" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
-        <div className="flex flex-col gap-3 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 14 }}>
-          <SCell label="Invested" value={formatINRFine(totalInvested)} />
+        <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 14 }}>
+          <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
           <SCell label="XIRR p.a." value="—" />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
@@ -331,7 +336,7 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          count={equity.holdingsCount > 0 ? equity.holdingsCount : null}
+          badge={equity.holdingsCount > 0 ? `${equity.holdingsCount} stocks` : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           currentValue={equity.currentValue > 0 ? equity.currentValue : null}
           open={openSections.has('equity')}
@@ -364,7 +369,7 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          count={mfHoldings.length > 0 ? mfHoldings.length : null}
+          badge={mfHoldings.length > 0 ? `${mfHoldings.length} MFs` : null}
           gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
           open={openSections.has('mf')}
@@ -395,14 +400,22 @@ export default function PortfolioClient({
         )}
 
         {/* Gold */}
-        <SectionHeader
-          id="sgb" label="Gold"
-          count={sgbBatches.length > 0 ? sgbBatches.length : null}
-          gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
-          currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
-          open={openSections.has('sgb')}
-          onToggle={() => toggleSection('sgb')}
-        />
+        {(() => {
+          const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
+          const goldBadge = totalGoldGrams > 0
+            ? `${totalGoldGrams % 1 === 0 ? totalGoldGrams : totalGoldGrams.toFixed(1)}g`
+            : null
+          return (
+            <SectionHeader
+              id="sgb" label="Gold"
+              badge={goldBadge}
+              gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
+              currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
+              open={openSections.has('sgb')}
+              onToggle={() => toggleSection('sgb')}
+            />
+          )
+        })()}
         {openSections.has('sgb') && (
           <>
             {sgbBatches.length > 0 && (
@@ -430,7 +443,7 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          count={null}
+          badge={null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
           open={openSections.has('ppf')}
@@ -441,7 +454,7 @@ export default function PortfolioClient({
         )}
 
         {/* Single add button */}
-        <div className="px-4 mt-3">
+        <div className="px-4 mt-5">
           <button
             onClick={() => setTypePickerOpen(true)}
             className="flex items-center justify-center gap-2 w-full rounded-xl text-accent font-semibold text-body"
@@ -486,14 +499,14 @@ function SCell({ label, value, positive, negative }: {
       <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
-        {value}
+        {noR(value)}
       </p>
     </div>
   )
 }
 
 function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
-  const cx = 45, cy = 45, r = 41
+  const cx = 48, cy = 48, r = 44
   const total = equity + debt + gold
 
   function arcPath(startPct: number, pct: number): string {
@@ -514,73 +527,86 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
     return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 ${pct > 50 ? 1 : 0} 1 ${ex} ${ey} Z`
   }
 
+  function sliceCentroid(startPct: number, pct: number): [number, number] {
+    const midAngle = ((startPct + pct / 2) / 100) * 360 - 90
+    const rad = midAngle * Math.PI / 180
+    const cr = r * 0.58
+    return [cx + cr * Math.cos(rad), cy + cr * Math.sin(rad)]
+  }
+
   let offset = 0
-  const paths = [
-    { pct: equity, color: 'var(--accent)' },
-    { pct: debt,   color: 'var(--c-warning)' },
-    { pct: gold,   color: '#FFD60A' },
+  const slices = [
+    { pct: equity, color: 'var(--accent)',     letter: 'E', darkLabel: false },
+    { pct: debt,   color: 'var(--c-warning)',  letter: 'D', darkLabel: false },
+    { pct: gold,   color: '#FFD60A',           letter: 'G', darkLabel: true  },
   ].map((s, i) => {
-    const d = arcPath(offset, s.pct)
+    const d        = arcPath(offset, s.pct)
+    const centroid = s.pct >= 8 ? sliceCentroid(offset, s.pct) : null
     offset += s.pct
-    return { d, color: s.color, key: i }
+    return { ...s, d, centroid, key: i }
   })
 
   return (
-    <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-      <svg width="104" height="104" viewBox="0 0 90 90">
+    <div className="flex-shrink-0 flex items-center">
+      <svg width="112" height="112" viewBox="0 0 96 96">
         {total === 0
           ? <circle cx={cx} cy={cy} r={r} fill="var(--bg-tertiary)" />
-          : paths.map(p => p.d
-              ? <path key={p.key} d={p.d} fill={p.color} stroke="var(--bg-primary)" strokeWidth="1.5" />
+          : slices.map(s => s.d
+              ? <path key={s.key} d={s.d} fill={s.color} stroke="var(--bg-primary)" strokeWidth="1.5" />
               : null)
         }
-      </svg>
-      <div className="flex flex-col gap-0.5">
-        {[
-          { label: 'Eq',   pct: equity, color: 'var(--accent)' },
-          { label: 'Debt', pct: debt,   color: 'var(--c-warning)' },
-          { label: 'Gold', pct: gold,   color: '#FFD60A' },
-        ].filter(x => x.pct > 0).map(({ label, pct, color }) => (
-          <div key={label} className="flex items-center gap-1">
-            <div className="rounded-sm flex-shrink-0" style={{ width: 6, height: 6, background: color }} />
-            <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>{label}</span>
-            <span className="text-footnote font-bold tabnum" style={{ color: 'var(--text-2)' }}>{pct}%</span>
-          </div>
+        {total > 0 && slices.map(s => s.centroid && (
+          <text
+            key={`lbl-${s.key}`}
+            x={s.centroid[0].toFixed(2)}
+            y={s.centroid[1].toFixed(2)}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="11"
+            fontWeight="800"
+            fill={s.darkLabel ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.90)'}
+            style={{ fontFamily: 'system-ui, -apple-system' }}
+          >
+            {s.letter}
+          </text>
         ))}
-      </div>
+      </svg>
     </div>
   )
 }
 
-function SectionHeader({ id, label, count, gainPct, currentValue, open, onToggle }: {
-  id: string; label: string; count: number | null; gainPct: number | null; currentValue: number | null; open: boolean; onToggle: () => void
+function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle }: {
+  id: string; label: string; badge: string | null; gainPct: number | null; currentValue: number | null; open: boolean; onToggle: () => void
 }) {
   const hasData = gainPct !== null || currentValue !== null
   const positive = gainPct !== null && gainPct >= 0
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4 border-t"
-            style={{ minHeight: 52, background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
+            style={{ minHeight: 58, background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
-        {count != null && count > 0 && (
+        {badge != null && (
           <span className="text-footnote font-semibold tabnum px-1.5 py-0.5 rounded"
                 style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
-            {count}
+            {badge}
           </span>
         )}
       </div>
-      <div className="flex items-baseline gap-2 mr-2 flex-shrink-0">
+      <div className="flex items-baseline gap-1.5 mr-2 flex-shrink-0">
         {gainPct !== null && (
-          <span className="text-body font-bold tabnum"
+          <span className="text-footnote font-bold tabnum"
                 style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
-            {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+            {gainPct >= 0 ? '+' : ''}{trimPct(gainPct)}%
           </span>
         )}
         {currentValue !== null && (
-          <span className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-            {formatINRFine(currentValue)}
-          </span>
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-footnote font-medium" style={{ color: 'var(--text-muted)' }}>₹</span>
+            <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+              {noR(formatINRFine(currentValue))}
+            </span>
+          </div>
         )}
         {!hasData && (
           <span className="text-headline font-bold" style={{ color: 'var(--text-faint)' }}>—</span>
@@ -644,11 +670,11 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
   }
 
   return (
-    <div className="flex items-center px-4 border-t" style={{ minHeight: 52, borderColor: 'var(--divider)' }}>
+    <div className="flex items-center px-4" style={{ minHeight: 52 }}>
       <div className="flex-1">
         <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>PPF Account</p>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>
-          {formatINRFine(ppf.totalDeposited)} deposited · {ppf.override ? 'manual balance' : 'est. 7.1% p.a.'}
+          <span style={{ color: 'var(--text-faint)' }}>₹</span>{noR(formatINRFine(ppf.totalDeposited))} deposited · {ppf.override ? 'manual balance' : 'est. 7.1% p.a.'}
         </p>
       </div>
       {editing ? (
@@ -669,12 +695,18 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
       ) : (
         <>
           <div className="text-right mr-2">
-            <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-              {formatINRFine(ppf.currentBalance)}
-            </p>
-            <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--c-positive)' }}>
-              +{formatINRFine(ppf.currentBalance - ppf.totalDeposited)}
-            </p>
+            <div className="flex items-baseline justify-end gap-0.5">
+              <span className="text-footnote font-medium" style={{ color: 'var(--text-muted)' }}>₹</span>
+              <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+                {noR(formatINRFine(ppf.currentBalance))}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-end gap-0.5 mt-0.5">
+              <span className="text-footnote" style={{ color: 'var(--c-positive)' }}>+₹</span>
+              <span className="text-footnote tabnum" style={{ color: 'var(--c-positive)' }}>
+                {noR(formatINRFine(ppf.currentBalance - ppf.totalDeposited))}
+              </span>
+            </div>
           </div>
           <button onClick={() => setEditing(true)}
             className="flex items-center justify-center min-w-[44px] min-h-[44px]"
