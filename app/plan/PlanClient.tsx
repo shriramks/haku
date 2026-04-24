@@ -891,8 +891,10 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   const yearRange = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]
   const existingLabels = new Set(existingFYs.map(f => f.label))
 
+  const fyLabel = (yr: number) => `FY${String(yr).slice(-2)}`
+
   const [selectedYear, setSelectedYear] = useState<number | null>(() => {
-    return yearRange.find(y => !existingLabels.has(`FY${y}`)) ?? null
+    return yearRange.find(y => !existingLabels.has(fyLabel(y))) ?? null
   })
   const [budget, setBudget]             = useState('')
   const [copyStocks, setCopyStocks]     = useState(true)
@@ -902,7 +904,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   const [sourceAllocs, setSourceAllocs] = useState<StockAllocation[]>([])
   const [carryoverBySymbol, setCarryoverBySymbol] = useState<Record<string, number>>({})
 
-  const label = selectedYear ? `FY${selectedYear}` : ''
+  const label = selectedYear ? fyLabel(selectedYear) : ''
 
   // When the user picks a year, find the chronologically prior FY and compute carryover
   useEffect(() => {
@@ -1040,7 +1042,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
             <p className="text-subheadline mb-2" style={{ color: 'var(--text-muted)' }}>Fiscal Year</p>
             <div className="flex gap-2 flex-wrap">
               {yearRange.map(yr => {
-                const taken = existingLabels.has(`FY${yr}`)
+                const taken = existingLabels.has(fyLabel(yr))
                 const active = selectedYear === yr
                 return (
                   <button key={yr} type="button"
