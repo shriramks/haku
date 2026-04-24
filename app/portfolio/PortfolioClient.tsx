@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
 import { ChevronRightIcon, PencilIcon, SearchIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
-import { mfXirr, sgbXirr, ppfXirr, computePPFBalance } from '@/lib/xirr'
+import { mfXirr, sgbXirr, ppfXirr, computePPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, setPPFBalanceOverride } from './actions'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, MFHolding, SGBBatch, EquitySummary, PPFSummary } from '@/lib/portfolio-types'
@@ -49,7 +49,7 @@ function computeStockHoldings(
   transactions: Transaction[],
   bands: BuyBand[],
   allowedSymbols: string[],
-): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null }[] {
+): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null }[] {
   const allowed = new Set(allowedSymbols)
   const bySymbol: Record<string, Transaction[]> = {}
   for (const t of transactions) {
@@ -62,7 +62,9 @@ function computeStockHoldings(
       if (qty <= 0.001) return []
       const band = bands.find(b => b.symbol === symbol)
       const currentValue = band?.manual_cmp ? qty * band.manual_cmp : null
-      return [{ symbol, qty, invested: cost, currentValue, gain: currentValue !== null ? currentValue - cost : null }]
+      const gain = currentValue !== null ? currentValue - cost : null
+      const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
+      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal }]
     })
     .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
 }
@@ -265,6 +267,16 @@ export default function PortfolioClient({
   const totalCurrent    = equity.currentValue + mfCurrentValue + sgbCurrentValue + ppf.currentBalance
   const totalGain       = totalCurrent - totalInvested
 
+  // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
+  // Use the same symbol filter as computeEquity for consistency with totalCurrent.
+  const overallXirr = useMemo(() => {
+    if (navsLoading || (sgbTransactions.length > 0 && goldPrice === null)) return null
+    const equityTxns = latestYearSymbols.length > 0
+      ? allTransactions.filter(t => latestYearSymbols.includes(t.symbol))
+      : allTransactions
+    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent)
+  }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
+
   // Asset allocation for donut
   const mfEquity  = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const mfDebt    = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
@@ -325,7 +337,7 @@ export default function PortfolioClient({
         </div>
         <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 14 }}>
           <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
-          <SCell label="XIRR p.a." value="—" />
+          <SCell label="XIRR p.a." value={fmtXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -354,7 +366,7 @@ export default function PortfolioClient({
                     invested={noR(formatINRFine(h.invested))}
                     current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
                     gain={noR(fmtGain(h.gain))}
-                    xirr={fmtGainPct(h.gain, h.invested)}
+                    xirr={h.xirr !== null ? fmtXirr(h.xirr) : fmtGainPct(h.gain, h.invested)}
                     positive={(h.gain ?? 0) > 0}
                   />
                 ))}
