@@ -523,11 +523,8 @@ function SectionHeader({ id, label, invAmt, gainPct, open, onToggle }: {
           </span>
         )}
         {gainPct !== null && (
-          <span className="text-footnote font-semibold tabnum px-1.5 py-0.5 rounded"
-                style={{
-                  color:       positive ? 'var(--c-positive)' : 'var(--c-negative)',
-                  background:  positive ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
-                }}>
+          <span className="text-footnote font-semibold tabnum"
+                style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
           </span>
         )}
