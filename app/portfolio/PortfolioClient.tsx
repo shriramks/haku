@@ -292,7 +292,7 @@ export default function PortfolioClient({
           <>
             {stockHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Invested" c3="Current" c4="Return" />
+                <ColHeaders c1="Stock" c2="Inv" c3="Current" c4="Return" />
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
@@ -332,7 +332,7 @@ export default function PortfolioClient({
           <>
             {mfHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Invested" c3="Current" c4="Return" />
+                <ColHeaders c1="Fund" c2="Inv" c3="Current" c4="Return" />
                 {mfHoldings.map(h => (
                   <FundRow key={h.fund.id}
                     name={h.fund.scheme_name}
@@ -364,7 +364,7 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Batch" c2="Invested" c3="Current" c4="Return" />
+                <ColHeaders c1="Batch" c2="Inv" c3="Current" c4="Return" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
                     name={b.key}
@@ -440,7 +440,7 @@ function SCell({ label, value, right, positive, negative }: {
   return (
     <div className={`flex flex-col gap-0.5 ${right ? 'items-end' : ''}`}>
       <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
-      <p className="text-headline font-bold tabnum"
+      <p className="text-title-2 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
         {value}
       </p>
@@ -539,14 +539,16 @@ function SectionHeader({ id, label, gainAmt, gainPct, open, onToggle }: {
   )
 }
 
+const FUND_ROW_COLS = '1.4fr 0.9fr 0.9fr 1fr'
+
 function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4: string }) {
   return (
-    <div className="flex items-center px-4 py-1 border-t"
-         style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--divider)' }}>
-      <span className="flex-1 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ width: 60, color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c4}</span>
+    <div className="grid items-center px-4 py-1 border-t"
+         style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--divider)', gridTemplateColumns: FUND_ROW_COLS }}>
+      <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
+      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c4}</span>
     </div>
   )
 }
@@ -556,27 +558,19 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
   gain: string; xirr: string; positive: boolean
 }) {
   return (
-    <div className="flex items-center px-4 border-t"
-         style={{ minHeight: 52, borderColor: 'var(--divider)' }}>
-      <div className="flex-1 min-w-0 pr-2">
-        <p className="text-subheadline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
+    <div className="grid items-center px-4 border-t"
+         style={{ minHeight: 52, borderColor: 'var(--divider)', gridTemplateColumns: FUND_ROW_COLS }}>
+      <div className="min-w-0 pr-2">
+        <p className="text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>{meta}</p>
       </div>
-      <NumCol value={invested} />
-      <NumCol value={current} />
-      <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
-        <p className="text-subheadline font-semibold tabnum"
+      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{invested}</p>
+      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{current}</p>
+      <div className="text-right">
+        <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>{gain}</p>
         {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
       </div>
-    </div>
-  )
-}
-
-function NumCol({ value }: { value: string }) {
-  return (
-    <div style={{ width: 60, textAlign: 'right', flexShrink: 0 }}>
-      <p className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>{value}</p>
     </div>
   )
 }
