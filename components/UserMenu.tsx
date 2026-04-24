@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
 export default function UserMenu() {
@@ -174,7 +175,7 @@ export default function UserMenu() {
 
           {/* Portfolio */}
           <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <a
+            <Link
               href="/portfolio"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
@@ -190,7 +191,7 @@ export default function UserMenu() {
               }}>
               <PortfolioMenuIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
               Portfolio
-            </a>
+            </Link>
           </div>
 
           {/* Data */}
