@@ -30,6 +30,8 @@ export interface SGBTransaction {
   price_per_gram: number
   amount: number
   maturity_date: string | null
+  gold_type: 'sgb' | 'etf' | 'physical'
+  name: string | null
   created_at?: string
 }
 
@@ -65,7 +67,7 @@ export interface MFHolding {
 }
 
 export interface SGBBatch {
-  key: string               // e.g. "Nov 2021"
+  key: string               // date for SGB ("Nov 2021"), name for ETF/Physical
   transactions: SGBTransaction[]
   grams: number
   invested: number
@@ -73,6 +75,8 @@ export interface SGBBatch {
   currentValue: number | null
   gain: number | null
   xirr: number | null
+  goldType: 'sgb' | 'etf' | 'physical'
+  name: string | null
 }
 
 export interface EquitySummary {

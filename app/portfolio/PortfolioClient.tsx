@@ -9,7 +9,7 @@ import { ChevronRightIcon, PencilIcon, SearchIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, computePPFBalance } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { upsertMFund, addMFTransaction, addSGBTransaction, addPPFTransaction, setPPFBalanceOverride } from './actions'
+import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, setPPFBalanceOverride } from './actions'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, MFHolding, SGBBatch, EquitySummary, PPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
 
@@ -103,16 +103,21 @@ function computeMFHoldings(
 }
 
 function computeSGBBatches(transactions: SGBTransaction[], goldPrice: number | null): SGBBatch[] {
-  const map = new Map<string, { transactions: SGBTransaction[]; grams: number; invested: number; maturityDate: string | null }>()
+  const map = new Map<string, {
+    transactions: SGBTransaction[]; grams: number; invested: number
+    maturityDate: string | null; goldType: 'sgb' | 'etf' | 'physical'; name: string | null
+  }>()
   for (const t of transactions) {
-    const d   = new Date(t.trade_date)
-    const key = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-    const b   = map.get(key) ?? { transactions: [], grams: 0, invested: 0, maturityDate: null }
+    const goldType = t.gold_type ?? 'sgb'
+    const key = goldType === 'sgb'
+      ? new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+      : (t.name ?? (goldType === 'physical' ? 'Physical Gold' : 'Gold ETF'))
+    const b = map.get(key) ?? { transactions: [], grams: 0, invested: 0, maturityDate: null, goldType, name: t.name }
     b.transactions.push(t)
     if (t.trade_type === 'buy') {
       b.grams    += t.grams
       b.invested += t.amount
-      if (!b.maturityDate) b.maturityDate = t.maturity_date
+      if (!b.maturityDate && goldType === 'sgb') b.maturityDate = t.maturity_date
     } else {
       const avgPpg = b.grams > 0 ? b.invested / b.grams : 0
       b.grams    -= t.grams
@@ -135,8 +140,27 @@ function computeSGBBatches(transactions: SGBTransaction[], goldPrice: number | n
         currentValue,
         gain,
         xirr: currentValue !== null ? sgbXirr(b.transactions, currentValue) : null,
+        goldType:     b.goldType,
+        name:         b.name,
       }
     })
+}
+
+function goldDisplayName(b: SGBBatch): string {
+  if (b.goldType === 'sgb') return `SGB ${b.key}`
+  if (b.goldType === 'etf') return b.name ?? b.key
+  return b.name || 'Physical Gold'
+}
+
+function goldMeta(b: SGBBatch): string {
+  if (b.goldType === 'sgb') {
+    const matDate = b.maturityDate
+      ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+      : '—'
+    return `${b.grams.toFixed(1)}g · ${matDate}`
+  }
+  if (b.goldType === 'etf') return `${b.grams.toFixed(1)} units`
+  return `${b.grams.toFixed(1)}g`
 }
 
 function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
@@ -187,7 +211,7 @@ export default function PortfolioClient({
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>([]))
   const [typePickerOpen, setTypePickerOpen] = useState(false)
-  const [addSheet, setAddSheet] = useState<'mf' | 'sgb' | 'ppf' | null>(null)
+  const [addSheet, setAddSheet] = useState<'mf' | 'gold' | 'ppf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
   const [goldPrice, setGoldPrice] = useState<number | null>(null)
@@ -259,7 +283,7 @@ export default function PortfolioClient({
     })
   }
 
-  function openAdd(type: 'mf' | 'sgb' | 'ppf') {
+  function openAdd(type: 'mf' | 'gold' | 'ppf') {
     setTypePickerOpen(false)
     setTimeout(() => setAddSheet(type), 50)
   }
@@ -321,7 +345,7 @@ export default function PortfolioClient({
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
-                    meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} qty`}
+                    meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} shares`}
                     invested={noR(formatINRFine(h.invested))}
                     current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
                     gain={noR(fmtGain(h.gain))}
@@ -370,9 +394,9 @@ export default function PortfolioClient({
           </>
         )}
 
-        {/* SGBs */}
+        {/* Gold */}
         <SectionHeader
-          id="sgb" label="SGB"
+          id="sgb" label="Gold"
           count={sgbBatches.length > 0 ? sgbBatches.length : null}
           gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
           currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
@@ -383,11 +407,11 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Batch" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
+                <ColHeaders c1="Gold" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
-                    name={b.key}
-                    meta={`${b.grams.toFixed(1)}g · ${b.maturityDate ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}`}
+                    name={goldDisplayName(b)}
+                    meta={goldMeta(b)}
                     invested={noR(formatINRFine(b.invested))}
                     current={b.currentValue !== null ? noR(formatINRFine(b.currentValue)) : '—'}
                     gain={noR(fmtGain(b.gain))}
@@ -398,7 +422,7 @@ export default function PortfolioClient({
               </>
             )}
             {sgbBatches.length === 0 && (
-              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No SGB holdings yet.</p>
+              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No gold holdings yet.</p>
             )}
           </>
         )}
@@ -442,8 +466,8 @@ export default function PortfolioClient({
           onClose={() => setAddSheet(null)}
         />
       )}
-      {addSheet === 'sgb' && (
-        <AddSGBSheet onClose={() => setAddSheet(null)} />
+      {addSheet === 'gold' && (
+        <AddGoldSheet onClose={() => setAddSheet(null)} />
       )}
       {addSheet === 'ppf' && (
         <AddPPFSheet onClose={() => setAddSheet(null)} />
@@ -592,7 +616,7 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
          style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
       <div className="min-w-0 pr-2">
         <p className="text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>{meta}</p>
+        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{invested}</p>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{current}</p>
@@ -667,14 +691,14 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
 
 function TypePickerSheet({ onClose, onSelect }: {
   onClose: () => void
-  onSelect: (type: 'mf' | 'sgb' | 'ppf') => void
+  onSelect: (type: 'mf' | 'gold' | 'ppf') => void
 }) {
   const kh = useKeyboardHeight()
   useBodyScrollLock()
   const types = [
-    { id: 'mf'  as const, label: 'Mutual Fund',      Icon: IconMF  },
-    { id: 'sgb' as const, label: 'SGB',               Icon: IconSGB },
-    { id: 'ppf' as const, label: 'PPF',               Icon: IconPPF },
+    { id: 'mf'   as const, label: 'Mutual Fund', Icon: IconMF  },
+    { id: 'gold' as const, label: 'Gold',         Icon: IconSGB },
+    { id: 'ppf'  as const, label: 'PPF',          Icon: IconPPF },
   ]
   return (
     <>
@@ -860,30 +884,67 @@ function AddMFSheet({ existingFunds, onClose }: { existingFunds: MFund[]; onClos
   )
 }
 
-// ── Add SGB Sheet ─────────────────────────────────────────────────────────────
+// ── Add Gold Sheet ────────────────────────────────────────────────────────────
 
-function AddSGBSheet({ onClose }: { onClose: () => void }) {
+type GoldType = 'sgb' | 'etf' | 'physical'
+
+function GoldTypePicker({ value, onChange }: { value: GoldType; onChange: (t: GoldType) => void }) {
+  return (
+    <div className="flex gap-2 mb-3">
+      {(['sgb', 'etf', 'physical'] as const).map(t => (
+        <button key={t} type="button" onClick={() => onChange(t)}
+          className="flex-1 rounded-xl text-subheadline font-bold transition-colors"
+          style={{
+            height: 40,
+            background: value === t ? 'rgba(255,214,10,0.10)' : 'var(--bg-tertiary)',
+            border: value === t ? '1.5px solid rgba(255,214,10,0.40)' : '1.5px solid transparent',
+            color: value === t ? 'rgba(255,214,10,0.90)' : 'var(--text-muted)',
+          }}>
+          {t === 'sgb' ? 'SGB' : t === 'etf' ? 'ETF' : 'Physical'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input type="text" value={value} onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+      className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+      style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+  )
+}
+
+function AddGoldSheet({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const kh     = useKeyboardHeight()
+  const [goldType, setGoldType] = useState<GoldType>('sgb')
   const [type, setType]         = useState<'buy' | 'sell'>('buy')
+  const [name, setName]         = useState('')
   const [date, setDate]         = useState(todayISO())
-  const [grams, setGrams]       = useState('')
-  const [ppg, setPpg]           = useState('')
+  const [qty, setQty]           = useState('')
+  const [price, setPrice]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [done, setDone]         = useState(false)
   useBodyScrollLock()
 
-  const amount      = (parseFloat(grams) || 0) * (parseFloat(ppg) || 0)
-  const maturityDate = type === 'buy' && date
+  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
+  const maturityDate = goldType === 'sgb' && type === 'buy' && date
     ? (() => { const d = new Date(date); d.setFullYear(d.getFullYear() + 8); return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) })()
     : null
+  const breakdown = amount > 0
+    ? goldType === 'etf' ? `${qty} units × ₹${price}/unit` : `${qty}g × ₹${price}/g`
+    : undefined
+  const isDisabled = !qty || !price || (goldType === 'etf' && !name)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!grams || !ppg) return
+    if (isDisabled) return
     setLoading(true); setError(null)
-    const { error: err } = await addSGBTransaction(date, type, parseFloat(grams), parseFloat(ppg))
+    const { error: err } = await addGoldTransaction(goldType, name || null, date, type, parseFloat(qty), parseFloat(price))
     setLoading(false)
     if (err) { setError(err); return }
     setDone(true)
@@ -896,17 +957,26 @@ function AddSGBSheet({ onClose }: { onClose: () => void }) {
       <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl flex flex-col overflow-hidden sheet-kb"
            style={{ bottom: kh, background: 'var(--bg-secondary)', maxHeight: '92dvh' }}>
         <SheetHandle />
-        <SheetHeader title="New SGB" onCancel={onClose} />
+        <SheetHeader title="Add Gold" onCancel={onClose} />
 
         <div className="px-4 flex-shrink-0">
+          <GoldTypePicker value={goldType} onChange={t => { setGoldType(t); setName('') }} />
           <ToggleBuySell type={type} onChange={setType} />
         </div>
-        <AmountHero amount={amount} type={type}
-          breakdown={amount > 0 ? `${grams}g × ₹${ppg}/g` : undefined} />
+        <AmountHero amount={amount} type={type} breakdown={breakdown} />
         <div className="flex-shrink-0 mx-4" style={{ height: 1, background: 'var(--border-faint)', marginBottom: 14 }} />
 
         <form onSubmit={submit} className="overflow-y-auto flex-1 px-4 space-y-3"
               style={{ paddingBottom: kh > 0 ? 8 : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+
+          {goldType !== 'sgb' && (
+            <div>
+              <FieldLabel>{goldType === 'etf' ? 'Fund name' : 'Description (optional)'}</FieldLabel>
+              <TextInput value={name} onChange={setName}
+                placeholder={goldType === 'etf' ? 'SBI Gold ETF' : 'e.g. 22K ring, hallmarked bar…'} />
+            </div>
+          )}
+
           <div>
             <FieldLabel>{type === 'buy' ? 'Purchase date' : 'Sale date'}</FieldLabel>
             <DateInput value={date} onChange={setDate} />
@@ -915,14 +985,15 @@ function AddSGBSheet({ onClose }: { onClose: () => void }) {
           <div>
             <FieldLabel>Details</FieldLabel>
             <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-              <TwoColCell label="Grams" value={grams} onChange={setGrams} placeholder="20" decimal />
-              <TwoColCell label={type === 'buy' ? 'Issue price ₹/g' : 'Sale price ₹/g'}
-                value={ppg} onChange={setPpg} placeholder="9241" decimal right />
+              <TwoColCell label={goldType === 'etf' ? 'Units' : 'Grams'}
+                value={qty} onChange={setQty} placeholder={goldType === 'etf' ? '50' : '20'} decimal />
+              <TwoColCell
+                label={goldType === 'etf' ? 'NAV ₹/unit' : (type === 'buy' ? 'Issue price ₹/g' : 'Sale price ₹/g')}
+                value={price} onChange={setPrice} placeholder="9241" decimal right />
             </div>
           </div>
 
-          {/* Maturity info — buy only */}
-          {type === 'buy' && maturityDate && (
+          {maturityDate && (
             <div className="flex justify-between items-center px-3 py-3 rounded-xl"
                  style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-faint)' }}>
               <span className="text-subheadline" style={{ color: 'var(--text-muted)' }}>Matures on</span>
@@ -930,8 +1001,12 @@ function AddSGBSheet({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {goldType === 'physical' && (
+            <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>Valued at current 24K market rate</p>
+          )}
+
           {error && <p className="text-negative text-subheadline text-center">{error}</p>}
-          <SubmitButton type={type} done={done} loading={loading} disabled={!grams || !ppg} sgbLabel />
+          <SubmitButton type={type} done={done} loading={loading} disabled={isDisabled} sgbLabel />
         </form>
       </div>
     </>

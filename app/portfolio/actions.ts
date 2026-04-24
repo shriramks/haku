@@ -47,9 +47,11 @@ export async function addMFTransaction(
   return { ok: true }
 }
 
-// ── SGB ───────────────────────────────────────────────────────────────────────
+// ── Gold (SGB / ETF / Physical) ───────────────────────────────────────────────
 
-export async function addSGBTransaction(
+export async function addGoldTransaction(
+  goldType: 'sgb' | 'etf' | 'physical',
+  name: string | null,
   tradeDate: string,
   tradeType: 'buy' | 'sell',
   grams: number,
@@ -59,7 +61,7 @@ export async function addSGBTransaction(
   if (!userId) return { error: 'Not authenticated' }
 
   let maturityDate: string | null = null
-  if (tradeType === 'buy') {
+  if (goldType === 'sgb' && tradeType === 'buy') {
     const d = new Date(tradeDate)
     d.setFullYear(d.getFullYear() + 8)
     maturityDate = d.toISOString().split('T')[0]
@@ -69,6 +71,7 @@ export async function addSGBTransaction(
   const { error } = await sb.from('sgb_transactions').insert({
     user_id: userId, trade_date: tradeDate, trade_type: tradeType,
     grams, price_per_gram: pricePerGram, maturity_date: maturityDate,
+    gold_type: goldType, name,
   })
 
   if (error) return { error: error.message }
