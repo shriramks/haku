@@ -8,6 +8,7 @@ import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
 import { ChevronRightIcon, PencilIcon, SearchIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, computePPFBalance } from '@/lib/xirr'
+import { seqCost } from '@/lib/compute'
 import { upsertMFund, addMFTransaction, addSGBTransaction, addPPFTransaction, setPPFBalanceOverride } from './actions'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, MFHolding, SGBBatch, EquitySummary, PPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
@@ -15,6 +16,7 @@ import type { Transaction, BuyBand } from '@/lib/types'
 interface Props {
   allTransactions: Transaction[]
   bands: BuyBand[]
+  latestYearSymbols: string[]
   mfFunds: MFund[]
   mfTransactions: MFTransaction[]
   sgbTransactions: SGBTransaction[]
@@ -24,28 +26,21 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function computeEquity(transactions: Transaction[], bands: BuyBand[]): EquitySummary {
-  const map: Record<string, { qty: number; invested: number }> = {}
-  for (const txn of transactions) {
-    if (!map[txn.symbol]) map[txn.symbol] = { qty: 0, invested: 0 }
-    const h = map[txn.symbol]
-    if (txn.trade_type === 'buy') {
-      h.qty      += txn.quantity
-      h.invested += txn.amount
-    } else {
-      const avgCost = h.qty > 0 ? h.invested / h.qty : 0
-      h.qty      -= txn.quantity
-      h.invested -= txn.quantity * avgCost
-    }
+function computeEquity(transactions: Transaction[], bands: BuyBand[], allowedSymbols: string[]): EquitySummary {
+  const allowed = new Set(allowedSymbols)
+  const bySymbol: Record<string, Transaction[]> = {}
+  for (const t of transactions) {
+    if (allowed.size > 0 && !allowed.has(t.symbol)) continue
+    ;(bySymbol[t.symbol] ??= []).push(t)
   }
   let invested = 0, currentValue = 0, holdingsCount = 0
-  for (const [symbol, h] of Object.entries(map)) {
-    if (h.qty <= 0.001) continue
+  for (const [symbol, txns] of Object.entries(bySymbol)) {
+    const { qty, cost } = seqCost(txns)
+    if (qty <= 0.001) continue
     holdingsCount++
-    const cost = Math.max(0, h.invested)
     invested     += cost
     const band    = bands.find(b => b.symbol === symbol)
-    currentValue += band?.manual_cmp ? h.qty * band.manual_cmp : cost
+    currentValue += band?.manual_cmp ? qty * band.manual_cmp : cost
   }
   return { holdingsCount, invested, currentValue }
 }
@@ -53,27 +48,21 @@ function computeEquity(transactions: Transaction[], bands: BuyBand[]): EquitySum
 function computeStockHoldings(
   transactions: Transaction[],
   bands: BuyBand[],
+  allowedSymbols: string[],
 ): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null }[] {
-  const map: Record<string, { qty: number; invested: number }> = {}
-  for (const txn of transactions) {
-    if (!map[txn.symbol]) map[txn.symbol] = { qty: 0, invested: 0 }
-    const h = map[txn.symbol]
-    if (txn.trade_type === 'buy') {
-      h.qty      += txn.quantity
-      h.invested += txn.amount
-    } else {
-      const avgCost = h.qty > 0 ? h.invested / h.qty : 0
-      h.qty      -= txn.quantity
-      h.invested -= txn.quantity * avgCost
-    }
+  const allowed = new Set(allowedSymbols)
+  const bySymbol: Record<string, Transaction[]> = {}
+  for (const t of transactions) {
+    if (allowed.size > 0 && !allowed.has(t.symbol)) continue
+    ;(bySymbol[t.symbol] ??= []).push(t)
   }
-  return Object.entries(map)
-    .filter(([, h]) => h.qty >= 1)
-    .map(([symbol, h]) => {
-      const cost = Math.max(0, h.invested)
+  return Object.entries(bySymbol)
+    .flatMap(([symbol, txns]) => {
+      const { qty, cost } = seqCost(txns)
+      if (qty <= 0.001) return []
       const band = bands.find(b => b.symbol === symbol)
-      const currentValue = band?.manual_cmp ? h.qty * band.manual_cmp : null
-      return { symbol, qty: h.qty, invested: cost, currentValue, gain: currentValue !== null ? currentValue - cost : null }
+      const currentValue = band?.manual_cmp ? qty * band.manual_cmp : null
+      return [{ symbol, qty, invested: cost, currentValue, gain: currentValue !== null ? currentValue - cost : null }]
     })
     .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
 }
@@ -185,7 +174,7 @@ function fmtGain(gain: number | null): string {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  allTransactions, bands, mfFunds, mfTransactions,
+  allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
   sgbTransactions, ppfTransactions, ppfOverride,
 }: Props) {
   const [openSections, setOpenSections] = useState(new Set(['equity', 'mf', 'sgb', 'ppf']))
@@ -221,8 +210,8 @@ export default function PortfolioClient({
     })
   }, [mfFunds])
 
-  const equity        = useMemo(() => computeEquity(allTransactions, bands), [allTransactions, bands])
-  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands), [allTransactions, bands])
+  const equity        = useMemo(() => computeEquity(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
+  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
   const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
   const ppf           = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])

@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getTransactions, getBuyBands } from '@/lib/data'
+import { getTransactions, getBuyBands, getFiscalYears, getAllocations } from '@/lib/data'
+import { getCurrentFY } from '@/lib/fy-utils'
 import PortfolioClient from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride } from '@/lib/portfolio-types'
@@ -17,6 +18,7 @@ export default async function PortfolioPage() {
   const [
     allTransactions,
     bands,
+    fiscalYears,
     { data: mfFunds },
     { data: mfTransactions },
     { data: sgbTransactions },
@@ -25,6 +27,7 @@ export default async function PortfolioPage() {
   ] = await Promise.all([
     getTransactions(),
     getBuyBands(),
+    getFiscalYears(),
     svc.from('mf_funds').select('*').eq('user_id', userId).order('scheme_name'),
     svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
     svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
@@ -32,11 +35,16 @@ export default async function PortfolioPage() {
     svc.from('ppf_balance_override').select('*').eq('user_id', userId).limit(1),
   ])
 
+  const currentFY = getCurrentFY(fiscalYears)
+  const currentFYAllocations = currentFY ? await getAllocations(currentFY.id) : []
+  const latestYearSymbols = currentFYAllocations.map(a => a.symbol)
+
   return (
     <>
       <PortfolioClient
         allTransactions={allTransactions}
         bands={bands}
+        latestYearSymbols={latestYearSymbols}
         mfFunds={(mfFunds ?? []) as MFund[]}
         mfTransactions={(mfTransactions ?? []) as MFTransaction[]}
         sgbTransactions={(sgbTransactions ?? []) as SGBTransaction[]}
