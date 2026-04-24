@@ -967,6 +967,16 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { setCreating(false); return }
 
+    // Live check — cached props may be stale if a previous session created this FY
+    const { data: alreadyExists } = await sb.from('fiscal_years')
+      .select('*').eq('user_id', user.id).eq('label', label).maybeSingle()
+    if (alreadyExists) {
+      setCreating(false)
+      await revalidateFiscalYears()
+      onCreate(alreadyExists as FiscalYear)
+      return
+    }
+
     // Compute unallocated carryover (from stocks NOT copied into new plan)
     const allSymbols = sourceAllocs.map(a => a.symbol)
     const droppedSymbols = copyStocks ? [] : allSymbols
