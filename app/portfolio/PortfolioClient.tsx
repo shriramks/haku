@@ -171,13 +171,20 @@ function fmtGain(gain: number | null): string {
   return (gain >= 0 ? '+' : '') + formatINR(gain)
 }
 
+function noR(s: string): string { return s.replace('₹', '') }
+
+function fmtGainPct(gain: number | null, invested: number): string {
+  if (gain === null || invested <= 0) return ''
+  return `${gain >= 0 ? '+' : ''}${((gain / invested) * 100).toFixed(1)}%`
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
   allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
   sgbTransactions, ppfTransactions, ppfOverride,
 }: Props) {
-  const [openSections, setOpenSections] = useState(new Set(['equity', 'mf', 'sgb', 'ppf']))
+  const [openSections, setOpenSections] = useState(new Set<string>([]))
   const [typePickerOpen, setTypePickerOpen] = useState(false)
   const [addSheet, setAddSheet] = useState<'mf' | 'sgb' | 'ppf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
@@ -261,18 +268,16 @@ export default function PortfolioClient({
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
       </div>
 
-      {/* Compact summary: 2-row flex + pie */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b"
-           style={{ borderColor: 'var(--border-faint)' }}>
-        <div className="flex-1 flex flex-col gap-1.5">
-          <div className="flex justify-between">
-            <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
-            <SCell label="Invested" value={formatINRFine(totalInvested)} right />
-          </div>
-          <div className="flex justify-between pt-1.5 border-t" style={{ borderColor: 'var(--border-faint)' }}>
-            <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
-            <SCell label="XIRR p.a." value="—" right />
-          </div>
+      {/* Summary: 3-col grid — no justify-between stretch */}
+      <div className="grid px-4 py-3 border-b"
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
+        <div className="flex flex-col gap-3">
+          <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
+          <SCell label="Gain" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+        </div>
+        <div className="flex flex-col gap-3 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 14 }}>
+          <SCell label="Invested" value={formatINRFine(totalInvested)} />
+          <SCell label="XIRR p.a." value="—" />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -283,7 +288,7 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          gainAmt={equity.invested > 0 ? equity.currentValue - equity.invested : null}
+          invAmt={equity.invested > 0 ? equity.invested : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
@@ -292,26 +297,18 @@ export default function PortfolioClient({
           <>
             {stockHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Inv" c3="Current" c4="Return" />
+                <ColHeaders c1="Stock" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
                     meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} qty`}
-                    invested={formatINRFine(h.invested)}
-                    current={h.currentValue !== null ? formatINRFine(h.currentValue) : '—'}
-                    gain={fmtGain(h.gain)}
-                    xirr=""
+                    invested={noR(formatINRFine(h.invested))}
+                    current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
+                    gain={noR(fmtGain(h.gain))}
+                    xirr={fmtGainPct(h.gain, h.invested)}
                     positive={(h.gain ?? 0) > 0}
                   />
                 ))}
-                <Link href="/allocation"
-                      className="flex items-center justify-center border-t"
-                      style={{ minHeight: 40, borderColor: 'var(--divider)' }}>
-                  <span className="text-footnote font-semibold" style={{ color: 'var(--accent)' }}>
-                    View in Allocation
-                  </span>
-                  <ChevronRightIcon className="w-3 h-3 ml-1" style={{ color: 'var(--accent)' }} />
-                </Link>
               </>
             )}
             {stockHoldings.length === 0 && (
@@ -322,8 +319,8 @@ export default function PortfolioClient({
 
         {/* MUTUAL FUNDS */}
         <SectionHeader
-          id="mf" label="Mutual Funds"
-          gainAmt={mfInvested > 0 && !navsLoading ? mfCurrentValue - mfInvested : null}
+          id="mf" label="MF"
+          invAmt={mfInvested > 0 ? mfInvested : null}
           gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
@@ -332,14 +329,14 @@ export default function PortfolioClient({
           <>
             {mfHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Inv" c3="Current" c4="Return" />
+                <ColHeaders c1="Fund" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
                 {mfHoldings.map(h => (
                   <FundRow key={h.fund.id}
                     name={h.fund.scheme_name}
                     meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
-                    invested={formatINRFine(h.invested)}
-                    current={h.currentValue !== null ? formatINRFine(h.currentValue) : '—'}
-                    gain={fmtGain(h.gain)}
+                    invested={noR(formatINRFine(h.invested))}
+                    current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
+                    gain={noR(fmtGain(h.gain))}
                     xirr={fmtXirr(h.xirr)}
                     positive={(h.gain ?? 0) > 0}
                   />
@@ -354,8 +351,8 @@ export default function PortfolioClient({
 
         {/* SGBs */}
         <SectionHeader
-          id="sgb" label="SGBs"
-          gainAmt={sgbInvested > 0 && goldPrice !== null ? sgbCurrentValue - sgbInvested : null}
+          id="sgb" label="SGB"
+          invAmt={sgbInvested > 0 ? sgbInvested : null}
           gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
           open={openSections.has('sgb')}
           onToggle={() => toggleSection('sgb')}
@@ -364,14 +361,14 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Batch" c2="Inv" c3="Current" c4="Return" />
+                <ColHeaders c1="Batch" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
                     name={b.key}
                     meta={`${b.grams.toFixed(1)}g · ${b.maturityDate ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}`}
-                    invested={formatINRFine(b.invested)}
-                    current={b.currentValue !== null ? formatINRFine(b.currentValue) : '—'}
-                    gain={fmtGain(b.gain)}
+                    invested={noR(formatINRFine(b.invested))}
+                    current={b.currentValue !== null ? noR(formatINRFine(b.currentValue)) : '—'}
+                    gain={noR(fmtGain(b.gain))}
                     xirr={fmtXirr(b.xirr)}
                     positive={(b.gain ?? 0) > 0}
                   />
@@ -387,7 +384,7 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          gainAmt={ppf.totalDeposited > 0 ? ppf.currentBalance - ppf.totalDeposited : null}
+          invAmt={ppf.totalDeposited > 0 ? ppf.totalDeposited : null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
@@ -434,13 +431,13 @@ export default function PortfolioClient({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SCell({ label, value, right, positive, negative }: {
-  label: string; value: string; right?: boolean; positive?: boolean; negative?: boolean
+function SCell({ label, value, positive, negative }: {
+  label: string; value: string; positive?: boolean; negative?: boolean
 }) {
   return (
-    <div className={`flex flex-col gap-0.5 ${right ? 'items-end' : ''}`}>
+    <div className="flex flex-col gap-1">
       <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
-      <p className="text-title-2 font-bold tabnum"
+      <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
         {value}
       </p>
@@ -483,7 +480,7 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
 
   return (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-      <svg width="86" height="86" viewBox="0 0 90 90">
+      <svg width="104" height="104" viewBox="0 0 90 90">
         {total === 0
           ? <circle cx={cx} cy={cy} r={r} fill="var(--bg-tertiary)" />
           : paths.map(p => p.d
@@ -508,33 +505,36 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   )
 }
 
-function SectionHeader({ id, label, gainAmt, gainPct, open, onToggle }: {
-  id: string; label: string; gainAmt: number | null; gainPct: number | null; open: boolean; onToggle: () => void
+function SectionHeader({ id, label, invAmt, gainPct, open, onToggle }: {
+  id: string; label: string; invAmt: number | null; gainPct: number | null; open: boolean; onToggle: () => void
 }) {
-  const positive = gainAmt !== null && gainAmt >= 0
-  const negative = gainAmt !== null && gainAmt < 0
-  const gainColor = positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-faint)'
+  const positive = gainPct !== null && gainPct >= 0
+  const negative = gainPct !== null && gainPct < 0
   return (
     <button onClick={onToggle}
-            className="flex items-center w-full px-4"
-            style={{ minHeight: 44, paddingTop: 14, paddingBottom: 6 }}>
-      <span className="flex-1 text-left text-footnote font-bold uppercase"
-            style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{label}</span>
-      <div className="flex items-baseline gap-1.5 mr-2">
-        {gainAmt !== null && (
-          <span className="text-subheadline font-bold tabnum" style={{ color: gainColor }}>
-            {fmtGain(gainAmt)}
+            className="flex items-center w-full px-4 border-t"
+            style={{ minHeight: 52, background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
+      <span className="flex-1 text-left text-headline font-bold"
+            style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <div className="flex items-center gap-2 mr-2">
+        {invAmt !== null && (
+          <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+            {formatINRFine(invAmt)}
           </span>
         )}
         {gainPct !== null && (
-          <span className="text-footnote tabnum font-medium" style={{ color: gainColor, opacity: 0.75 }}>
+          <span className="text-footnote font-semibold tabnum px-1.5 py-0.5 rounded"
+                style={{
+                  color:       positive ? 'var(--c-positive)' : 'var(--c-negative)',
+                  background:  positive ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
+                }}>
             {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
           </span>
         )}
       </div>
       <ChevronRightIcon
-        className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-        style={{ color: 'var(--text-faint)' }} />
+        className={`w-4 h-4 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        style={{ color: 'var(--text-muted)' }} />
     </button>
   )
 }
@@ -543,8 +543,8 @@ const FUND_ROW_COLS = '1.4fr 0.9fr 0.9fr 1fr'
 
 function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4: string }) {
   return (
-    <div className="grid items-center px-4 py-1 border-t"
-         style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--divider)', gridTemplateColumns: FUND_ROW_COLS }}>
+    <div className="grid items-center px-4 py-1"
+         style={{ background: 'rgba(255,255,255,0.02)', gridTemplateColumns: FUND_ROW_COLS }}>
       <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
       <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
       <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
@@ -558,8 +558,8 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
   gain: string; xirr: string; positive: boolean
 }) {
   return (
-    <div className="grid items-center px-4 border-t"
-         style={{ minHeight: 52, borderColor: 'var(--divider)', gridTemplateColumns: FUND_ROW_COLS }}>
+    <div className="grid px-4 py-3"
+         style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
       <div className="min-w-0 pr-2">
         <p className="text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>{meta}</p>
