@@ -142,7 +142,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         <NewPlanSheet
           existingFYs={fiscalYears}
           onClose={() => setShowNewPlan(false)}
-          onCreate={() => { setShowNewPlan(false); router.refresh() }}
+          onCreate={(fy) => { setShowNewPlan(false); setSelectedFY(fy); setAllocations([]); router.refresh() }}
         />
       )}
     </div>
@@ -885,7 +885,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
 function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   existingFYs: FiscalYear[]
   onClose: () => void
-  onCreate: () => void
+  onCreate: (fy: FiscalYear) => void
 }) {
   const currentYear = new Date().getFullYear()
   const yearRange = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]
@@ -994,7 +994,8 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     }
 
     setCreating(false)
-    onCreate()
+    await revalidateFiscalYears()
+    onCreate(fy)
   }
 
   const totalCarryover = Object.values(carryoverBySymbol).reduce((s, v) => s + v, 0)
