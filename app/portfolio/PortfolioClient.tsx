@@ -68,7 +68,7 @@ function computeStockHoldings(
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
       return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal }]
     })
-    .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol))
 }
 
 function computeMFHoldings(
