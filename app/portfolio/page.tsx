@@ -30,7 +30,7 @@ export default async function PortfolioPage() {
     getBuyBands(),
     getFiscalYears(),
     svc.from('mf_funds').select('*').eq('user_id', userId).order('scheme_name'),
-    svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
+    svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }).order('trade_type', { ascending: true }),
     svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
     svc.from('ppf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
     svc.from('ppf_balance_override').select('*').eq('user_id', userId).limit(1),
