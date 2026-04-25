@@ -83,16 +83,21 @@ function computeMFHoldings(
   return funds.flatMap(fund => {
     const txns = byFund[fund.id] ?? []
     if (txns.length === 0) return []
-    let units = 0, invested = 0
+    const lots: { units: number; nav: number }[] = []
     for (const t of txns) {
       if (t.trade_type === 'buy') {
-        units    += t.units
-        invested += t.amount
+        lots.push({ units: t.units, nav: t.nav })
       } else {
-        units    -= t.units
-        invested -= t.amount
+        let toSell = t.units
+        while (toSell > 0.0001 && lots.length > 0) {
+          const lot = lots[0]
+          if (lot.units <= toSell) { toSell -= lot.units; lots.shift() }
+          else                     { lot.units -= toSell; toSell = 0  }
+        }
       }
     }
+    const units    = lots.reduce((s, l) => s + l.units, 0)
+    const invested = lots.reduce((s, l) => s + l.units * l.nav, 0)
     if (units < 0.001) return []
     const currentNav   = navs[fund.scheme_code] ?? null
     const currentValue = currentNav !== null ? units * currentNav : null
