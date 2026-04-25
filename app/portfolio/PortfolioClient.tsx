@@ -282,13 +282,17 @@ export default function PortfolioClient({
     return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent)
   }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
 
-  // Asset allocation for donut
-  const mfEquity  = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const mfDebt    = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  // Asset allocation for donut + section bars
+  const mfEquity      = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  const mfDebt        = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const totalForAlloc = equity.currentValue + mfEquity + mfDebt + sgbInvested + ppf.currentBalance
-  const eqPct  = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
+  const eqPct   = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
+
+  // Bar %s for section rows (% of total portfolio)
+  const pct = (v: number) => totalCurrent > 0 ? v / totalCurrent * 100 : 0
+  const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
 
   function handleRefresh() {
     setRefreshing(true)
@@ -356,6 +360,9 @@ export default function PortfolioClient({
           badge={equity.holdingsCount > 0 ? `${equity.holdingsCount} stocks` : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           currentValue={equity.currentValue > 0 ? equity.currentValue : null}
+          invested={equity.invested > 0 ? equity.invested : null}
+          barPct={pct(equity.currentValue)}
+          barColor="var(--c-equity)"
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
         />
@@ -389,6 +396,11 @@ export default function PortfolioClient({
           badge={mfHoldings.length > 0 ? `${mfHoldings.length} MFs` : null}
           gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
+          invested={mfInvested > 0 ? mfInvested : null}
+          barPct={pct(mfEquity)}
+          barColor="var(--c-equity)"
+          barPct2={pct(mfDebt)}
+          barColor2="var(--accent)"
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
         />
@@ -417,20 +429,17 @@ export default function PortfolioClient({
         )}
 
         {/* Gold */}
-        {(() => {
-          const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
-          const goldBadge = totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null
-          return (
-            <SectionHeader
-              id="sgb" label="Gold"
-              badge={goldBadge}
-              gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
-              currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
-              open={openSections.has('sgb')}
-              onToggle={() => toggleSection('sgb')}
-            />
-          )
-        })()}
+        <SectionHeader
+          id="sgb" label="Gold"
+          badge={totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null}
+          gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
+          currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
+          invested={sgbInvested > 0 ? sgbInvested : null}
+          barPct={pct(sgbCurrentValue)}
+          barColor="var(--c-gold)"
+          open={openSections.has('sgb')}
+          onToggle={() => toggleSection('sgb')}
+        />
         {openSections.has('sgb') && (
           <>
             {sgbBatches.length > 0 && (
@@ -461,6 +470,10 @@ export default function PortfolioClient({
           badge={null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
+          invested={ppf.totalDeposited > 0 ? ppf.totalDeposited : null}
+          barPct={pct(ppf.currentBalance)}
+          barColor="var(--accent)"
+          isPPF
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
         />
@@ -552,9 +565,9 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   const LETTERS = ['E', 'D', 'G']
   let offset = 0
   const slices = [
-    { pct: equity, color: 'var(--accent)',    darkLabel: false },
-    { pct: debt,   color: 'var(--c-warning)', darkLabel: false },
-    { pct: gold,   color: '#FFD60A',          darkLabel: true  },
+    { pct: equity, color: 'var(--c-equity)', darkLabel: false },
+    { pct: debt,   color: 'var(--accent)',   darkLabel: false },
+    { pct: gold,   color: 'var(--c-gold)',   darkLabel: true  },
   ].map((s, i) => {
     const d        = arcPath(offset, s.pct)
     const centroid = s.pct >= 10 ? sliceCentroid(offset, s.pct) : null
@@ -604,42 +617,72 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   )
 }
 
-function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle }: {
-  id: string; label: string; badge: string | null; gainPct: number | null; currentValue: number | null; open: boolean; onToggle: () => void
+function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barPct, barColor, barPct2, barColor2, isPPF, open, onToggle }: {
+  id: string; label: string; badge: string | null
+  gainPct: number | null; currentValue: number | null; invested: number | null
+  barPct: number; barColor: string; barPct2?: number; barColor2?: string
+  isPPF?: boolean; open: boolean; onToggle: () => void
 }) {
-  const hasData = gainPct !== null || currentValue !== null
   const positive = gainPct !== null && gainPct >= 0
+  const hasBar   = barPct > 0 || (barPct2 ?? 0) > 0
+  const totalPct = Math.round(barPct + (barPct2 ?? 0))
+
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4 border-t"
-            style={{ minHeight: 58, background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
+      {/* Left: label + badge below */}
+      <div className="flex flex-col justify-center py-2.5 flex-shrink-0" style={{ minWidth: 68 }}>
         <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
-        {badge != null && (
-          <span className="text-footnote font-semibold tabnum px-1.5 py-0.5 rounded"
-                style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
-            {badge}
-          </span>
+        {badge && (
+          <span className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>{badge}</span>
         )}
       </div>
-      <div className="flex items-baseline gap-1.5 mr-2 flex-shrink-0">
-        {gainPct !== null && (
-          <span className="text-footnote font-bold tabnum"
-                style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
-            {gainPct >= 0 ? '+' : ''}{trimPct(gainPct)}%
-          </span>
+
+      {/* Middle: bar + meta */}
+      <div className="flex flex-col flex-1 justify-center py-2.5 gap-1" style={{ paddingLeft: 12, paddingRight: 10 }}>
+        {hasBar && currentValue !== null && (
+          <>
+            <div className="w-full flex overflow-hidden" style={{ height: 5, borderRadius: 3, background: 'var(--border)' }}>
+              <div style={{ width: `${barPct}%`, background: barColor, borderRadius: barPct2 ? '3px 0 0 3px' : 3 }} />
+              {barPct2 != null && barPct2 > 0 && barColor2 && (
+                <>
+                  <div style={{ width: 2 }} />
+                  <div style={{ width: `${barPct2}%`, background: barColor2, borderRadius: '0 3px 3px 0' }} />
+                </>
+              )}
+            </div>
+            <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>{totalPct}%</span>
+              {invested !== null && ` · ${noR(formatINRFine(invested))} ${isPPF ? 'dep' : 'inv'}`}
+            </span>
+          </>
         )}
-        {currentValue !== null && (
-          <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-            {noR(formatINRFine(currentValue))}
-          </span>
-        )}
-        {!hasData && (
+      </div>
+
+      {/* Right: value on top, gain% below */}
+      <div className="flex flex-col items-end flex-shrink-0 py-2.5 gap-0.5">
+        {currentValue !== null ? (
+          <>
+            <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+              {noR(formatINRFine(currentValue))}
+            </span>
+            {gainPct !== null ? (
+              <span className="text-footnote font-bold tabnum"
+                    style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+                {positive ? '+' : ''}{trimPct(gainPct)}%
+              </span>
+            ) : (
+              <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>—</span>
+            )}
+          </>
+        ) : (
           <span className="text-headline font-bold" style={{ color: 'var(--text-faint)' }}>—</span>
         )}
       </div>
+
       <ChevronRightIcon
-        className={`w-4 h-4 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        className={`w-4 h-4 flex-shrink-0 ml-1.5 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         style={{ color: 'var(--text-muted)' }} />
     </button>
   )
