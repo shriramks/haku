@@ -181,9 +181,11 @@ function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride
   }
 }
 
-function assetClass(schemeType: string): 'equity' | 'debt' {
-  const t = schemeType.toLowerCase()
-  if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') || t.includes('overnight') || t.includes('duration')) return 'debt'
+function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
+  const t = `${fund.scheme_type} ${fund.scheme_name}`.toLowerCase()
+  if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') ||
+      t.includes('overnight') || t.includes('duration') || t.includes('arbitrage') ||
+      t.includes('gilt') || t.includes('money market') || t.includes('treasury')) return 'debt'
   return 'equity'
 }
 
@@ -292,8 +294,8 @@ export default function PortfolioClient({
   }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
 
   // Asset allocation for donut + section bars
-  const mfEquity      = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const mfDebt        = mfHoldings.filter(h => assetClass(h.fund.scheme_type) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  const mfEquity      = mfHoldings.filter(h => assetClass(h.fund) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  const mfDebt        = mfHoldings.filter(h => assetClass(h.fund) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const totalForAlloc = equity.currentValue + mfEquity + mfDebt + sgbInvested + ppf.currentBalance
   const eqPct   = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance) / totalForAlloc * 100) : 0

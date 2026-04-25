@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, Investability, BuyTranche } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from './types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -111,16 +111,6 @@ export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
   return _fetchBuyBands(userId)
 })
 
-export const getInvestability = cache(async (symbol?: string): Promise<Investability[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  const q = createSupabaseServiceClient()
-    .from('investability')
-    .select('id, symbol, assessed_at, sector_winds, sector_winds_note, circle_of_competence, circle_note, moat, moat_note, owner_earnings, owner_earnings_note, capital_efficiency, capital_efficiency_note, innovation_velocity, innovation_note, governance, governance_note, execution_track, execution_note, supply_chain_risk, supply_chain_note, regulatory_signal, regulatory_note, thesis_breaker, thesis_breaker_note, capital_discipline, capital_discipline_note, investable, notes')
-    .eq('user_id', userId)
-  const { data } = symbol ? await q.eq('symbol', symbol) : await q
-  return data ?? []
-})
 
 const _fetchBuyTranches = unstable_cache(
   async (userId: string, fyId: string): Promise<BuyTranche[]> => {

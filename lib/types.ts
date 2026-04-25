@@ -8,6 +8,7 @@ export interface FiscalYear {
   end_date: string
   total_budget_inr: number
   unallocated_carryover_inr: number
+  deploy_capital_inr: number
   created_at?: string
 }
 
@@ -59,39 +60,6 @@ export interface BuyBand {
   notes: string
 }
 
-export interface Investability {
-  id: string
-  user_id?: string
-  symbol: string
-  assessed_at: string
-  sector_winds: GateSignal
-  sector_winds_note: string
-  circle_of_competence: GateSignal
-  circle_note: string
-  moat: GateSignal
-  moat_note: string
-  owner_earnings: GateSignal
-  owner_earnings_note: string
-  capital_efficiency: GateSignal
-  capital_efficiency_note: string
-  innovation_velocity: GateSignal
-  innovation_note: string
-  governance: GateSignal
-  governance_note: string
-  execution_track: GateSignal
-  execution_note: string
-  supply_chain_risk: GateSignal
-  supply_chain_note: string
-  regulatory_signal: GateSignal
-  regulatory_note: string
-  thesis_breaker: GateSignal
-  thesis_breaker_note: string
-  capital_discipline: GateSignal
-  capital_discipline_note: string
-  investable: boolean
-  notes: string
-}
-
 export interface BuyTranche {
   id: string
   user_id?: string
@@ -105,20 +73,9 @@ export interface BuyTranche {
 
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
-export type GateSignal = 'pass' | 'caution' | 'fail'
-
 export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
-export type StockCategory =
-  | 'Nifty 50 Index'
-  | 'Nifty Next 50 Index'
-  | 'Commodity'
-  | 'Cap-Light Infra'
-  | 'Hospitals'
-  | 'FMCG'
-  | 'Tobacco Corp'
-
-export const ALL_CATEGORIES: StockCategory[] = [
+export const ALL_CATEGORIES = [
   'Nifty 50 Index',
   'Nifty Next 50 Index',
   'Commodity',
@@ -126,7 +83,9 @@ export const ALL_CATEGORIES: StockCategory[] = [
   'Hospitals',
   'FMCG',
   'Tobacco Corp',
-]
+] as const
+
+export type StockCategory = typeof ALL_CATEGORIES[number]
 
 /** Suggested category for well-known symbols — used as autocomplete hint only */
 export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
