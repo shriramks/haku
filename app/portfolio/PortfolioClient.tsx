@@ -542,7 +542,7 @@ export default function PortfolioClient({
       {/* Add sheets */}
       {addSheet === 'mf' && (
         <AddMFSheet
-          existingFunds={mfFunds}
+          existingFunds={mfHoldings.map(h => h.fund)}
           onClose={() => setAddSheet(null)}
         />
       )}
