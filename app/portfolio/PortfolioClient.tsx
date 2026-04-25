@@ -585,32 +585,19 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
               : null)
         }
         {total > 0 && slices.map(s => s.centroid && (
-          <g key={`lbl-${s.key}`}>
-            <text
-              x={s.centroid[0].toFixed(2)}
-              y={(s.centroid[1] - 5.5).toFixed(2)}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize="8"
-              fontWeight="900"
-              fill={s.darkLabel ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.75)'}
-              style={{ fontFamily: 'system-ui, -apple-system' }}
-            >
-              {s.letter}
-            </text>
-            <text
-              x={s.centroid[0].toFixed(2)}
-              y={(s.centroid[1] + 5).toFixed(2)}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize="9.5"
-              fontWeight="800"
-              fill={s.darkLabel ? 'rgba(0,0,0,0.70)' : 'rgba(255,255,255,0.95)'}
-              style={{ fontFamily: 'system-ui, -apple-system' }}
-            >
-              {Math.round(s.pct)}%
-            </text>
-          </g>
+          <text
+            key={`lbl-${s.key}`}
+            x={s.centroid[0].toFixed(2)}
+            y={s.centroid[1].toFixed(2)}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="9"
+            fontWeight="700"
+            fill={s.darkLabel ? 'rgba(0,0,0,0.68)' : 'rgba(255,255,255,0.90)'}
+            style={{ fontFamily: 'system-ui, -apple-system' }}
+          >
+            {Math.round(s.pct)}%
+          </text>
         ))}
       </svg>
     </div>
