@@ -89,9 +89,8 @@ function computeMFHoldings(
         units    += t.units
         invested += t.amount
       } else {
-        const avgNav = units > 0 ? invested / units : 0
         units    -= t.units
-        invested -= t.units * avgNav
+        invested -= t.amount
       }
     }
     if (units < 0.001) return []
