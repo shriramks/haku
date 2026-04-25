@@ -100,6 +100,30 @@ export async function addPPFTransaction(
   return { ok: true }
 }
 
+// ── EPF ───────────────────────────────────────────────────────────────────────
+
+export async function addEPFTransaction(
+  tradeDate: string,
+  tradeType: 'deposit' | 'interest',
+  employeeAmount: number,
+  employerAmount: number,
+  amount: number,
+  notes = '',
+) {
+  const userId = await getUserId()
+  if (!userId) return { error: 'Not authenticated' }
+
+  const sb = await createSupabaseServerClient()
+  const { error } = await sb.from('epf_transactions').insert({
+    user_id: userId, trade_date: tradeDate, trade_type: tradeType,
+    employee_amount: employeeAmount, employer_amount: employerAmount, amount, notes,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath('/portfolio')
+  return { ok: true }
+}
+
 export async function setPPFBalanceOverride(balance: number, asOfDate: string) {
   const userId = await getUserId()
   if (!userId) return { error: 'Not authenticated' }

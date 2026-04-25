@@ -39,8 +39,20 @@ export interface PPFTransaction {
   id: string
   user_id?: string
   trade_date: string
-  trade_type: 'deposit' | 'withdrawal'
+  trade_type: 'deposit' | 'withdrawal' | 'interest'
   amount: number
+  notes: string
+  created_at?: string
+}
+
+export interface EPFTransaction {
+  id: string
+  user_id?: string
+  trade_date: string
+  trade_type: 'deposit' | 'interest'
+  employee_amount: number
+  employer_amount: number
+  amount: number   // employee + employer for deposits; interest credited for interest rows
   notes: string
   created_at?: string
 }
@@ -94,6 +106,14 @@ export interface PPFSummary {
   xirr: number | null
 }
 
+export interface EPFSummary {
+  transactions: EPFTransaction[]
+  totalEmployeeDeposited: number
+  totalEmployerDeposited: number
+  computedBalance: number
+  xirr: number | null
+}
+
 // Passed from server to PortfolioClient
 export interface PortfolioProps {
   mfFunds: MFund[]
@@ -101,4 +121,5 @@ export interface PortfolioProps {
   sgbTransactions: SGBTransaction[]
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
+  epfTransactions: EPFTransaction[]
 }

@@ -188,13 +188,13 @@ describe('stockXirr', () => {
 
 describe('portfolioXirr', () => {
   it('returns null for zero investments with zero terminal value', () => {
-    expect(portfolioXirr([], [], [], [], 0, d('2024-01-01'))).toBeNull()
+    expect(portfolioXirr([], [], [], [], [], 0, d('2024-01-01'))).toBeNull()
   })
 
   it('matches stockXirr for a stock-only portfolio', () => {
     const stocks = [stockBuy('2023-01-01', 100000)]
     const asOf   = d('2024-01-01')
-    const pXirr  = portfolioXirr(stocks, [], [], [], 110000, asOf)
+    const pXirr  = portfolioXirr(stocks, [], [], [], [], 110000, asOf)
     const sXirr  = stockXirr(stocks, 110000, asOf)
     expect(pXirr).not.toBeNull()
     expect(pXirr!).toBeCloseTo(sXirr!, 6)
@@ -206,7 +206,7 @@ describe('portfolioXirr', () => {
     const stocks = [stockBuy('2023-01-01', 100000)]
     const mfs    = [{ trade_date: '2023-01-01', trade_type: 'buy' as const, amount: 100000 }]
     const asOf   = d('2024-01-01')
-    const result = portfolioXirr(stocks, mfs, [], [], 218000, asOf)
+    const result = portfolioXirr(stocks, mfs, [], [], [], 218000, asOf)
     expect(result).not.toBeNull()
     expect(result!).toBeCloseTo(0.09, 2)
   })
@@ -214,7 +214,7 @@ describe('portfolioXirr', () => {
   it('PPF deposit at 7.1% rate yields ~7.1% XIRR over one year', () => {
     const ppf    = [dep('2023-01-01', 50000)]
     const asOf   = d('2024-01-01')
-    const result = portfolioXirr([], [], [], ppf, 50000 * 1.071, asOf)
+    const result = portfolioXirr([], [], [], ppf, [], 50000 * 1.071, asOf)
     expect(result).not.toBeNull()
     expect(result!).toBeCloseTo(0.071, 3)
   })
@@ -222,13 +222,13 @@ describe('portfolioXirr', () => {
   it('gold purchase: buy negative, current value positive', () => {
     const sgb  = [{ trade_date: '2023-01-01', trade_type: 'buy' as const, amount: 80000 }]
     const asOf = d('2024-01-01')
-    const result = portfolioXirr([], [], sgb, [], 88000, asOf)
+    const result = portfolioXirr([], [], sgb, [], [], 88000, asOf)
     expect(result).not.toBeNull()
     expect(result!).toBeCloseTo(0.10, 2)
   })
 
   it('returns null when all cashflows are outflows (no sells and zero terminal)', () => {
     const stocks = [stockBuy('2023-01-01', 100000)]
-    expect(portfolioXirr(stocks, [], [], [], 0, d('2024-01-01'))).toBeNull()
+    expect(portfolioXirr(stocks, [], [], [], [], 0, d('2024-01-01'))).toBeNull()
   })
 })

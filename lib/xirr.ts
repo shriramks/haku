@@ -63,25 +63,63 @@ export function ppfXirr(
   transactions: Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentBalance: number
 ): number | null {
+  // Interest rows are not cash flows — they're already reflected in currentBalance
   const flows: Cashflow[] = [
-    ...transactions.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount : t.amount })),
+    ...transactions
+      .filter(t => t.trade_type !== 'interest')
+      .map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount : t.amount })),
     { date: new Date(), amount: currentBalance },
   ]
   if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
   return xirr(flows)
 }
 
-// Month-by-month PPF balance using the real RBI interest rule:
-//   - Deposits on or before the 5th earn interest for that month;
-//     deposits after the 5th earn from the next month.
-//   - Interest accrues monthly but is credited once a year on 31 March.
-//   - Accrued-but-not-yet-credited interest is included in the estimate.
+export function epfXirr(
+  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'employee_amount'>[],
+  currentBalance: number
+): number | null {
+  // Cost basis = employee contributions only; employer is excluded (it's free money)
+  const deposits = transactions.filter(t => t.trade_type === 'deposit' && t.employee_amount > 0)
+  if (deposits.length === 0) return null
+  const flows: Cashflow[] = [
+    ...deposits.map(t => ({ date: new Date(t.trade_date), amount: -t.employee_amount })),
+    { date: new Date(), amount: currentBalance },
+  ]
+  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
+  return xirr(flows)
+}
+
+export function computeEPFBalance(
+  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_type' | 'employee_amount' | 'employer_amount' | 'amount'>[]
+): number {
+  return transactions.reduce((sum, t) => {
+    if (t.trade_type === 'deposit') return sum + t.employee_amount + t.employer_amount
+    if (t.trade_type === 'interest') return sum + t.amount
+    return sum
+  }, 0)
+}
+
+// Compute PPF balance from stored transactions.
+// If 'interest' rows exist (imported from passbook), sum deposits + interest directly.
+// Otherwise fall back to month-by-month rate estimation using the RBI rule:
+//   - Deposits on or before the 5th earn interest for that month.
+//   - Interest accrues monthly, credited on 31 March each year.
 export function computePPFBalance(
   transactions: Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   asOfDate: Date = new Date()
 ): number {
   if (transactions.length === 0) return 0
 
+  if (transactions.some(t => t.trade_type === 'interest')) {
+    return transactions.reduce((sum, t) => {
+      if (t.trade_type === 'deposit')    return sum + t.amount
+      if (t.trade_type === 'withdrawal') return sum - t.amount
+      if (t.trade_type === 'interest')   return sum + t.amount
+      return sum
+    }, 0)
+  }
+
+  // Legacy rate-based fallback (no interest rows stored yet)
   const RATE = 0.071
   const sorted = [...transactions].sort((a, b) => a.trade_date.localeCompare(b.trade_date))
   const first  = new Date(sorted[0].trade_date)
@@ -89,11 +127,9 @@ export function computePPFBalance(
   let balance = 0
   let accrued = 0
   let y = first.getFullYear()
-  let m = first.getMonth() // 0-indexed
+  let m = first.getMonth()
 
   while (y < asOfDate.getFullYear() || (y === asOfDate.getFullYear() && m <= asOfDate.getMonth())) {
-    // Walk this month's transactions: update running balance and track early deposits
-    // (on/before 5th) that qualify for this month's interest.
     let interestBase = balance
     for (const t of sorted) {
       const d = new Date(t.trade_date)
@@ -103,12 +139,7 @@ export function computePPFBalance(
       if (d.getDate() <= 5) interestBase += delta
     }
     accrued += Math.max(0, interestBase) * (RATE / 12)
-
-    if (m === 2) { // March: credit the year's accumulated interest
-      balance += accrued
-      accrued = 0
-    }
-
+    if (m === 2) { balance += accrued; accrued = 0 }
     if (++m > 11) { m = 0; y++ }
   }
 
@@ -138,14 +169,21 @@ export function portfolioXirr(
   mfTxns:    Pick<import('./portfolio-types').MFTransaction,  'trade_date' | 'trade_type' | 'amount'>[],
   sgbTxns:   Pick<import('./portfolio-types').SGBTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   ppfTxns:   Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
+  epfTxns:   Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'employee_amount'>[],
   totalCurrentValue: number,
   asOfDate: Date = new Date()
 ): number | null {
   const flows: Cashflow[] = [
-    ...stockTxns.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy' ? -t.amount : t.amount })),
-    ...mfTxns.map(t   => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount : t.amount })),
-    ...sgbTxns.map(t  => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount : t.amount })),
-    ...ppfTxns.map(t  => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount : t.amount })),
+    ...stockTxns.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
+    ...mfTxns.map(t    => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
+    ...sgbTxns.map(t   => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
+    ...ppfTxns
+      .filter(t => t.trade_type !== 'interest')
+      .map(t             => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount          : t.amount })),
+    // EPF: only employee contributions count as cash outflows
+    ...epfTxns
+      .filter(t => t.trade_type === 'deposit' && t.employee_amount > 0)
+      .map(t             => ({ date: new Date(t.trade_date), amount: -t.employee_amount })),
     { date: asOfDate, amount: totalCurrentValue },
   ]
   if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null

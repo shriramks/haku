@@ -8,10 +8,10 @@ import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
 import { ChevronRightIcon, SearchIcon } from '@/components/icons'
 import UserMenu from '@/components/UserMenu'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
-import { mfXirr, sgbXirr, ppfXirr, computePPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
+import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction } from './actions'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, MFHolding, SGBBatch, EquitySummary, PPFSummary } from '@/lib/portfolio-types'
+import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from './actions'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, SGBBatch, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
 
 interface Props {
@@ -23,6 +23,7 @@ interface Props {
   sgbTransactions: SGBTransaction[]
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
+  epfTransactions: EPFTransaction[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -182,6 +183,23 @@ function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride
   }
 }
 
+function computeEPF(transactions: EPFTransaction[]): EPFSummary {
+  const totalEmployeeDeposited = transactions
+    .filter(t => t.trade_type === 'deposit')
+    .reduce((s, t) => s + t.employee_amount, 0)
+  const totalEmployerDeposited = transactions
+    .filter(t => t.trade_type === 'deposit')
+    .reduce((s, t) => s + t.employer_amount, 0)
+  const computedBalance = computeEPFBalance(transactions)
+  return {
+    transactions,
+    totalEmployeeDeposited,
+    totalEmployerDeposited,
+    computedBalance,
+    xirr: epfXirr(transactions, computedBalance),
+  }
+}
+
 function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
   const t = `${fund.scheme_type} ${fund.scheme_name}`.toLowerCase()
   if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') ||
@@ -207,6 +225,15 @@ function fmtGain(gain: number | null): string {
 
 function noR(s: string): string { return s.replace('₹', '') }
 
+// Returns "FY25" style label for a date string
+function fyLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const y = d.getFullYear()
+  const m = d.getMonth() // 0-indexed; March = 2
+  const fy = m <= 2 ? y : y + 1  // interest credited in March belongs to the FY ending that year
+  return `FY${String(fy).slice(2)}`
+}
+
 function fmtGainPct(gain: number | null, invested: number): string {
   if (gain === null || invested <= 0) return ''
   return `${gain >= 0 ? '+' : ''}${trimPct((gain / invested) * 100)}%`
@@ -221,12 +248,12 @@ function trimPct(v: number): string {
 
 export default function PortfolioClient({
   allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
-  sgbTransactions, ppfTransactions, ppfOverride,
+  sgbTransactions, ppfTransactions, ppfOverride, epfTransactions,
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>([]))
   const [typePickerOpen, setTypePickerOpen] = useState(false)
-  const [addSheet, setAddSheet] = useState<'mf' | 'gold' | 'ppf' | null>(null)
+  const [addSheet, setAddSheet] = useState<'mf' | 'gold' | 'ppf' | 'epf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -274,14 +301,15 @@ export default function PortfolioClient({
   const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
   const ppf           = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])
+  const epf           = useMemo(() => computeEPF(epfTransactions), [epfTransactions])
 
   // Summary numbers
   const mfInvested      = mfHoldings.reduce((s, h) => s + h.invested, 0)
   const mfCurrentValue  = mfHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const sgbInvested     = sgbBatches.reduce((s, b) => s + b.invested, 0)
   const sgbCurrentValue = sgbBatches.reduce((s, b) => s + (b.currentValue ?? b.invested), 0)
-  const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited
-  const totalCurrent    = equity.currentValue + mfCurrentValue + sgbCurrentValue + ppf.currentBalance
+  const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited + epf.totalEmployeeDeposited
+  const totalCurrent    = equity.currentValue + mfCurrentValue + sgbCurrentValue + ppf.currentBalance + epf.computedBalance
   const totalGain       = totalCurrent - totalInvested
 
   // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
@@ -291,8 +319,8 @@ export default function PortfolioClient({
     const equityTxns = latestYearSymbols.length > 0
       ? allTransactions.filter(t => latestYearSymbols.includes(t.symbol))
       : allTransactions
-    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent)
-  }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
+    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
+  }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
 
   // Section-level XIRR for MF and Gold headers
   const mfSectionXirr = useMemo(() => {
@@ -308,9 +336,9 @@ export default function PortfolioClient({
   // Asset allocation for donut + section bars
   const mfEquity      = mfHoldings.filter(h => assetClass(h.fund) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const mfDebt        = mfHoldings.filter(h => assetClass(h.fund) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const totalForAlloc = equity.currentValue + mfEquity + mfDebt + sgbCurrentValue + ppf.currentBalance
+  const totalForAlloc = equity.currentValue + mfEquity + mfDebt + sgbCurrentValue + ppf.currentBalance + epf.computedBalance
   const eqPct   = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
-  const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance) / totalForAlloc * 100) : 0
+  const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance + epf.computedBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
 
   // Bar %s for section rows (% of total portfolio)
@@ -332,7 +360,7 @@ export default function PortfolioClient({
     })
   }
 
-  function openAdd(type: 'mf' | 'gold' | 'ppf') {
+  function openAdd(type: 'mf' | 'gold' | 'ppf' | 'epf') {
     setTypePickerOpen(false)
     setTimeout(() => setAddSheet(type), 50)
   }
@@ -505,6 +533,23 @@ export default function PortfolioClient({
           <PPFRow ppf={ppf} />
         )}
 
+        {/* EPF */}
+        <SectionHeader
+          id="epf" label="EPF"
+          badge={null}
+          gainPct={epf.totalEmployeeDeposited > 0 ? ((epf.computedBalance - epf.totalEmployeeDeposited) / epf.totalEmployeeDeposited * 100) : null}
+          currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
+          invested={epf.totalEmployeeDeposited > 0 ? epf.totalEmployeeDeposited : null}
+          barPct={pct(epf.computedBalance)}
+          barColor="var(--accent)"
+          isPPF
+          open={openSections.has('epf')}
+          onToggle={() => toggleSection('epf')}
+        />
+        {openSections.has('epf') && (
+          <EPFRow epf={epf} />
+        )}
+
         {/* Single add button */}
         <div className="px-4 mt-5">
           <button
@@ -536,6 +581,9 @@ export default function PortfolioClient({
       )}
       {addSheet === 'ppf' && (
         <AddPPFSheet onClose={() => setAddSheet(null)} />
+      )}
+      {addSheet === 'epf' && (
+        <AddEPFSheet onClose={() => setAddSheet(null)} />
       )}
     </div>
   )
@@ -736,28 +784,81 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
 }
 
 function PPFRow({ ppf }: { ppf: PPFSummary }) {
-  const deposits = ppf.transactions
-    .filter(t => t.trade_type === 'deposit')
-    .sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+  const rows = [...ppf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
-  if (deposits.length === 0) {
-    return (
-      <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No deposits yet.</p>
-    )
+  if (rows.length === 0) {
+    return <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No deposits yet.</p>
   }
 
   return (
     <>
-      {deposits.map(t => (
-        <div key={t.id} className="flex items-center px-4 py-3">
-          <p className="flex-1 text-body tabnum" style={{ color: 'var(--text-2)' }}>
-            {new Date(t.trade_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </p>
-          <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-            {noR(formatINRFine(t.amount))}
-          </p>
-        </div>
-      ))}
+      {rows.map(t => {
+        const isInterest = t.trade_type === 'interest'
+        const label = isInterest
+          ? `Interest ${fyLabel(t.trade_date)}`
+          : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+        const amtColor = t.trade_type === 'withdrawal' ? 'var(--c-negative)' : 'var(--text-primary)'
+        return (
+          <div key={t.id} className="flex items-center px-4 py-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
+            <p className="flex-1 text-body tabnum"
+               style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
+              {label}
+            </p>
+            <p className="text-body tabnum"
+               style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
+              {t.trade_type === 'withdrawal' ? '−' : ''}{noR(formatINRFine(t.amount))}
+            </p>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+const EPF_COLS = '1.4fr 1fr 1fr 1.1fr'
+
+function EPFRow({ epf }: { epf: EPFSummary }) {
+  const rows = [...epf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+
+  if (rows.length === 0) {
+    return <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No transactions yet. Import from passbook.</p>
+  }
+
+  return (
+    <>
+      <div className="grid px-4 py-1"
+           style={{ gridTemplateColumns: EPF_COLS, background: 'rgba(255,255,255,0.02)' }}>
+        {['Month', 'Employee ₹', 'Employer ₹', 'Total ₹'].map((h, i) => (
+          <span key={h} className="text-footnote font-bold uppercase"
+                style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', textAlign: i > 0 ? 'right' : 'left' }}>
+            {h}
+          </span>
+        ))}
+      </div>
+      {rows.map(t => {
+        const isInterest = t.trade_type === 'interest'
+        const label = isInterest
+          ? `Interest ${fyLabel(t.trade_date)}`
+          : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+        const style: React.CSSProperties = {
+          fontStyle: isInterest ? 'italic' : 'normal',
+          fontWeight: isInterest ? 400 : 600,
+          color: 'var(--text-primary)',
+        }
+        return (
+          <div key={t.id} className="grid px-4 py-3"
+               style={{ gridTemplateColumns: EPF_COLS, borderTop: '1px solid var(--border-faint)', minHeight: 44, alignItems: 'center' }}>
+            <p className="text-body" style={{ ...style, color: 'var(--text-2)' }}>{label}</p>
+            <p className="text-body tabnum text-right" style={style}>
+              {isInterest ? '—' : noR(formatINRFine(t.employee_amount))}
+            </p>
+            <p className="text-body tabnum text-right" style={style}>
+              {isInterest ? '—' : noR(formatINRFine(t.employer_amount))}
+            </p>
+            <p className="text-body tabnum text-right" style={style}>{noR(formatINRFine(t.amount))}</p>
+          </div>
+        )
+      })}
     </>
   )
 }
@@ -766,7 +867,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
 
 function TypePickerSheet({ onClose, onSelect }: {
   onClose: () => void
-  onSelect: (type: 'mf' | 'gold' | 'ppf') => void
+  onSelect: (type: 'mf' | 'gold' | 'ppf' | 'epf') => void
 }) {
   const kh = useKeyboardHeight()
   useBodyScrollLock()
@@ -774,6 +875,7 @@ function TypePickerSheet({ onClose, onSelect }: {
     { id: 'mf'   as const, label: 'Mutual Fund', Icon: IconMF  },
     { id: 'gold' as const, label: 'Gold',         Icon: IconSGB },
     { id: 'ppf'  as const, label: 'PPF',          Icon: IconPPF },
+    { id: 'epf'  as const, label: 'EPF',          Icon: IconEPF },
   ]
   return (
     <>
@@ -1178,6 +1280,75 @@ function AddPPFSheet({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ── Add EPF Sheet ─────────────────────────────────────────────────────────────
+
+function AddEPFSheet({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
+  const kh     = useKeyboardHeight()
+  const [date, setDate]         = useState(todayISO())
+  const [employee, setEmployee] = useState('')
+  const [employer, setEmployer] = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState<string | null>(null)
+  const [done, setDone]         = useState(false)
+  useBodyScrollLock()
+
+  const empNum = parseFloat(employee) || 0
+  const erNum  = parseFloat(employer) || 0
+  const total  = empNum + erNum
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!employee) return
+    setLoading(true); setError(null)
+    const { error: err } = await addEPFTransaction(date, 'deposit', empNum, erNum, total)
+    setLoading(false)
+    if (err) { setError(err); return }
+    setDone(true)
+    setTimeout(() => { router.refresh(); onClose() }, 700)
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl flex flex-col overflow-hidden sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', maxHeight: '92dvh' }}>
+        <SheetHandle />
+        <SheetHeader title="EPF Deposit" onCancel={onClose} />
+
+        <div className="flex flex-col items-center py-3 flex-shrink-0">
+          {total > 0
+            ? <p className="tabnum font-bold" style={{ fontSize: 30, letterSpacing: -0.5, color: 'var(--accent)' }}>{formatINR(total)}</p>
+            : <p className="font-bold" style={{ fontSize: 34, letterSpacing: -0.5, color: 'var(--text-faint)' }}>₹ —</p>
+          }
+        </div>
+        <div className="flex-shrink-0 mx-4" style={{ height: 1, background: 'var(--border-faint)', marginBottom: 14 }} />
+
+        <form onSubmit={submit} className="overflow-y-auto flex-1 px-4 space-y-3"
+              style={{ paddingBottom: kh > 0 ? 8 : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+          <div>
+            <FieldLabel>Month</FieldLabel>
+            <DateInput value={date} onChange={setDate} />
+          </div>
+          <div>
+            <FieldLabel>Contributions ₹</FieldLabel>
+            <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
+              <TwoColCell label="Employee" value={employee} onChange={setEmployee} placeholder="2400" decimal={false} />
+              <TwoColCell label="Employer" value={employer} onChange={setEmployer} placeholder="1750" decimal={false} right />
+            </div>
+          </div>
+          {error && <p className="text-negative text-subheadline text-center">{error}</p>}
+          <button type="submit" disabled={loading || !employee}
+            className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
+            style={{ background: done ? 'var(--border)' : 'var(--accent)' }}>
+            {done ? '✓ Added' : loading ? '…' : 'Save Deposit'}
+          </button>
+        </form>
+      </div>
+    </>
+  )
+}
+
 // ── Shared sheet primitives ───────────────────────────────────────────────────
 
 function SheetHandle() {
@@ -1323,6 +1494,16 @@ function IconPPF() {
   return (
     <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11" />
+    </svg>
+  )
+}
+function IconEPF() {
+  return (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="7" width="20" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      <line x1="12" y1="12" x2="12" y2="16" strokeLinecap="round"/>
+      <line x1="10" y1="14" x2="14" y2="14" strokeLinecap="round"/>
     </svg>
   )
 }

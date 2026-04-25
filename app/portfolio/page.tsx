@@ -5,7 +5,7 @@ import { getTransactions, getBuyBands, getFiscalYears, getAllocations } from '@/
 import { getCurrentFY } from '@/lib/fy-utils'
 import PortfolioClient from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride } from '@/lib/portfolio-types'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from '@/lib/portfolio-types'
 
 export default async function PortfolioPage() {
   const sb = await createSupabaseServerClient()
@@ -24,6 +24,7 @@ export default async function PortfolioPage() {
     { data: sgbTransactions },
     { data: ppfTransactions },
     { data: ppfOverrideRows },
+    { data: epfTransactions },
   ] = await Promise.all([
     getTransactions(),
     getBuyBands(),
@@ -33,6 +34,7 @@ export default async function PortfolioPage() {
     svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
     svc.from('ppf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
     svc.from('ppf_balance_override').select('*').eq('user_id', userId).limit(1),
+    svc.from('epf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
   ])
 
   const currentFY = getCurrentFY(fiscalYears)
@@ -50,6 +52,7 @@ export default async function PortfolioPage() {
         sgbTransactions={(sgbTransactions ?? []) as SGBTransaction[]}
         ppfTransactions={(ppfTransactions ?? []) as PPFTransaction[]}
         ppfOverride={((ppfOverrideRows ?? [])[0] ?? null) as PPFBalanceOverride | null}
+        epfTransactions={(epfTransactions ?? []) as EPFTransaction[]}
       />
       <BottomNav />
     </>
