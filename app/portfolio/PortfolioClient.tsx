@@ -332,8 +332,6 @@ export default function PortfolioClient({
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance + epf.computedBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
 
-  // Bar %s for section rows (% of total portfolio)
-  const pct = (v: number) => totalCurrent > 0 ? v / totalCurrent * 100 : 0
   const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
 
   function handleRefresh() {
@@ -400,12 +398,9 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          badge={equity.holdingsCount > 0 ? `${equity.holdingsCount} stocks` : null}
+          badge={equity.invested > 0 ? `${noR(formatINRFine(equity.invested))} inv` : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           currentValue={equity.currentValue > 0 ? equity.currentValue : null}
-          invested={equity.invested > 0 ? equity.invested : null}
-          barPct={pct(equity.currentValue)}
-          barColor="var(--c-equity)"
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
         />
@@ -436,14 +431,9 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          badge={mfHoldings.length > 0 ? `${mfHoldings.length} MFs` : null}
+          badge={mfInvested > 0 ? `${noR(formatINRFine(mfInvested))} inv` : null}
           gainPct={mfSectionXirr !== null ? mfSectionXirr * 100 : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
-          invested={mfInvested > 0 ? mfInvested : null}
-          barPct={pct(mfEquity)}
-          barColor="var(--c-equity)"
-          barPct2={pct(mfDebt)}
-          barColor2="var(--accent)"
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
         />
@@ -477,9 +467,6 @@ export default function PortfolioClient({
           badge={totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null}
           gainPct={goldSectionXirr !== null ? goldSectionXirr * 100 : null}
           currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
-          invested={sgbInvested > 0 ? sgbInvested : null}
-          barPct={pct(sgbCurrentValue)}
-          barColor="var(--c-gold)"
           open={openSections.has('sgb')}
           onToggle={() => toggleSection('sgb')}
         />
@@ -510,13 +497,9 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          badge={null}
+          badge={ppf.totalDeposited > 0 ? `${noR(formatINRFine(ppf.totalDeposited))} dep` : null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
-          invested={ppf.totalDeposited > 0 ? ppf.totalDeposited : null}
-          barPct={pct(ppf.currentBalance)}
-          barColor="var(--accent)"
-          isPPF
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
         />
@@ -527,13 +510,9 @@ export default function PortfolioClient({
         {/* EPF */}
         <SectionHeader
           id="epf" label="EPF"
-          badge={null}
+          badge={epf.totalDeposited > 0 ? `${noR(formatINRFine(epf.totalDeposited))} dep` : null}
           gainPct={epf.totalDeposited > 0 ? ((epf.computedBalance - epf.totalDeposited) / epf.totalDeposited * 100) : null}
           currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
-          invested={epf.totalDeposited > 0 ? epf.totalDeposited : null}
-          barPct={pct(epf.computedBalance)}
-          barColor="var(--accent)"
-          isPPF
           open={openSections.has('epf')}
           onToggle={() => toggleSection('epf')}
         />
@@ -667,70 +646,43 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   )
 }
 
-function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barPct, barColor, barPct2, barColor2, isPPF, open, onToggle }: {
+function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle }: {
   id: string; label: string; badge: string | null
-  gainPct: number | null; currentValue: number | null; invested: number | null
-  barPct: number; barColor: string; barPct2?: number; barColor2?: string
-  isPPF?: boolean; open: boolean; onToggle: () => void
+  gainPct: number | null; currentValue: number | null
+  open: boolean; onToggle: () => void
 }) {
   const positive = gainPct !== null && gainPct >= 0
-  const hasBar   = barPct > 0 || (barPct2 ?? 0) > 0
-  const totalPct = Math.round(barPct + (barPct2 ?? 0))
 
   return (
     <button onClick={onToggle}
             className="flex items-center w-full px-4"
-            style={{ background: 'rgba(255,255,255,0.025)' }}>
-      {/* Left: label + badge below */}
-      <div className="flex flex-col justify-center py-3 flex-shrink-0" style={{ minWidth: 68 }}>
-        <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
-        {badge && (
-          <span className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>{badge}</span>
-        )}
-      </div>
-
-      {/* Middle: bar + meta */}
-      <div className="flex flex-col flex-1 justify-center py-3 gap-1" style={{ paddingLeft: 12, paddingRight: 10 }}>
-        {hasBar && currentValue !== null && (
-          <>
-            <div className="w-full flex overflow-hidden" style={{ height: 5, borderRadius: 3, background: 'var(--border)' }}>
-              <div style={{ width: `${barPct}%`, background: barColor, borderRadius: barPct2 ? '3px 0 0 3px' : 3 }} />
-              {barPct2 != null && barPct2 > 0 && barColor2 && (
-                <>
-                  <div style={{ width: 2 }} />
-                  <div style={{ width: `${barPct2}%`, background: barColor2, borderRadius: '0 3px 3px 0' }} />
-                </>
-              )}
-            </div>
-            <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-              <span>{totalPct}%</span>
-              {invested !== null && ` · ${noR(formatINRFine(invested))} ${isPPF ? 'dep' : 'inv'}`}
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Right: value on top, gain% below */}
-      <div className="flex flex-col items-end flex-shrink-0 py-3 gap-0.5">
-        {currentValue !== null ? (
-          <>
-            <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-              {noR(formatINRFine(currentValue))}
-            </span>
-            {gainPct !== null ? (
-              <span className="text-footnote font-bold tabnum"
+            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52 }}>
+      <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      {badge && (
+        <>
+          <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 15 }}>·</span>
+          <span className="text-subheadline tabnum flex-shrink-0" style={{ color: 'var(--text-faint)' }}>{badge}</span>
+        </>
+      )}
+      <div className="flex-1" />
+      {currentValue !== null ? (
+        <>
+          <span className="text-headline font-semibold tabnum flex-shrink-0" style={{ color: 'var(--text-2)' }}>
+            {noR(formatINRFine(currentValue))}
+          </span>
+          {gainPct !== null && (
+            <>
+              <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 13 }}>·</span>
+              <span className="text-subheadline font-bold tabnum flex-shrink-0"
                     style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
                 {positive ? '+' : ''}{trimPct(gainPct)}%
               </span>
-            ) : (
-              <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>—</span>
-            )}
-          </>
-        ) : (
-          <span className="text-headline font-bold" style={{ color: 'var(--text-faint)' }}>—</span>
-        )}
-      </div>
-
+            </>
+          )}
+        </>
+      ) : (
+        <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>—</span>
+      )}
       <ChevronRightIcon
         className={`w-4 h-4 flex-shrink-0 ml-1.5 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         style={{ color: 'var(--text-muted)' }} />
