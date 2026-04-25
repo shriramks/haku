@@ -159,10 +159,10 @@ function goldMeta(b: SGBBatch): string {
     const matDate = b.maturityDate
       ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
       : '—'
-    return `${b.grams.toFixed(1)}g · ${matDate}`
+    return `${trimZero(b.grams)}g · ${matDate}`
   }
-  if (b.goldType === 'etf') return `${b.grams.toFixed(1)} units`
-  return `${b.grams.toFixed(1)}g`
+  if (b.goldType === 'etf') return `${trimZero(b.grams)} units`
+  return `${trimZero(b.grams)}g`
 }
 
 function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
@@ -189,7 +189,12 @@ function assetClass(schemeType: string): 'equity' | 'debt' {
 
 function fmtXirr(v: number | null): string {
   if (v === null) return '—'
-  return `${(v * 100).toFixed(1)}% p.a.`
+  return `${trimZero(v * 100)}%`
+}
+
+function trimZero(n: number, dp = 1): string {
+  const s = n.toFixed(dp)
+  return s.includes('.') ? s.replace(/\.?0+$/, '') : s
 }
 
 function fmtGain(gain: number | null): string {
@@ -414,9 +419,7 @@ export default function PortfolioClient({
         {/* Gold */}
         {(() => {
           const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
-          const goldBadge = totalGoldGrams > 0
-            ? `${totalGoldGrams % 1 === 0 ? totalGoldGrams : totalGoldGrams.toFixed(1)}g`
-            : null
+          const goldBadge = totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null
           return (
             <SectionHeader
               id="sgb" label="Gold"
@@ -548,19 +551,19 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
 
   let offset = 0
   const slices = [
-    { pct: equity, color: 'var(--accent)',     letter: 'E', darkLabel: false },
-    { pct: debt,   color: 'var(--c-warning)',  letter: 'D', darkLabel: false },
-    { pct: gold,   color: '#FFD60A',           letter: 'G', darkLabel: true  },
+    { pct: equity, color: 'var(--accent)',    darkLabel: false },
+    { pct: debt,   color: 'var(--c-warning)', darkLabel: false },
+    { pct: gold,   color: '#FFD60A',          darkLabel: true  },
   ].map((s, i) => {
     const d        = arcPath(offset, s.pct)
-    const centroid = s.pct >= 8 ? sliceCentroid(offset, s.pct) : null
+    const centroid = s.pct >= 10 ? sliceCentroid(offset, s.pct) : null
     offset += s.pct
     return { ...s, d, centroid, key: i }
   })
 
   return (
     <div className="flex-shrink-0 flex items-center">
-      <svg width="112" height="112" viewBox="0 0 96 96">
+      <svg width="124" height="124" viewBox="0 0 96 96">
         {total === 0
           ? <circle cx={cx} cy={cy} r={r} fill="var(--bg-tertiary)" />
           : slices.map(s => s.d
@@ -574,12 +577,12 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
             y={s.centroid[1].toFixed(2)}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize="11"
+            fontSize="10"
             fontWeight="800"
-            fill={s.darkLabel ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.90)'}
+            fill={s.darkLabel ? 'rgba(0,0,0,0.70)' : 'rgba(255,255,255,0.92)'}
             style={{ fontFamily: 'system-ui, -apple-system' }}
           >
-            {s.letter}
+            {Math.round(s.pct)}%
           </text>
         ))}
       </svg>
@@ -613,12 +616,9 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
           </span>
         )}
         {currentValue !== null && (
-          <div className="flex items-baseline gap-0.5">
-            <span className="text-footnote font-medium" style={{ color: 'var(--text-muted)' }}>₹</span>
-            <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-              {noR(formatINRFine(currentValue))}
-            </span>
-          </div>
+          <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
+            {noR(formatINRFine(currentValue))}
+          </span>
         )}
         {!hasData && (
           <span className="text-headline font-bold" style={{ color: 'var(--text-faint)' }}>—</span>
@@ -686,7 +686,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
       <div className="flex-1">
         <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>PPF Account</p>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>
-          <span style={{ color: 'var(--text-faint)' }}>₹</span>{noR(formatINRFine(ppf.totalDeposited))} deposited · {ppf.override ? 'manual balance' : 'est. 7.1% p.a.'}
+          Deposited ₹ {noR(formatINRFine(ppf.totalDeposited))}
         </p>
       </div>
       {editing ? (
@@ -707,18 +707,12 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
       ) : (
         <>
           <div className="text-right mr-2">
-            <div className="flex items-baseline justify-end gap-0.5">
-              <span className="text-footnote font-medium" style={{ color: 'var(--text-muted)' }}>₹</span>
-              <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-                {noR(formatINRFine(ppf.currentBalance))}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-end gap-0.5 mt-0.5">
-              <span className="text-footnote" style={{ color: 'var(--c-positive)' }}>+₹</span>
-              <span className="text-footnote tabnum" style={{ color: 'var(--c-positive)' }}>
-                {noR(formatINRFine(ppf.currentBalance - ppf.totalDeposited))}
-              </span>
-            </div>
+            <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+              {noR(formatINRFine(ppf.currentBalance))}
+            </p>
+            <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--c-positive)' }}>
+              +{noR(formatINRFine(ppf.currentBalance - ppf.totalDeposited))}
+            </p>
           </div>
           <button onClick={() => setEditing(true)}
             className="flex items-center justify-center min-w-[44px] min-h-[44px]"
