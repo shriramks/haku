@@ -340,7 +340,7 @@ export default function PortfolioClient({
           <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
           <SCell label="Gain ₹" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
-        <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 14 }}>
+        <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 8 }}>
           <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
           <SCell label="XIRR p.a." value={fmtXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
@@ -549,6 +549,7 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
     return [cx + cr * Math.cos(rad), cy + cr * Math.sin(rad)]
   }
 
+  const LETTERS = ['E', 'D', 'G']
   let offset = 0
   const slices = [
     { pct: equity, color: 'var(--accent)',    darkLabel: false },
@@ -558,12 +559,12 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
     const d        = arcPath(offset, s.pct)
     const centroid = s.pct >= 10 ? sliceCentroid(offset, s.pct) : null
     offset += s.pct
-    return { ...s, d, centroid, key: i }
+    return { ...s, d, centroid, letter: LETTERS[i], key: i }
   })
 
   return (
     <div className="flex-shrink-0 flex items-center">
-      <svg width="124" height="124" viewBox="0 0 96 96">
+      <svg width="128" height="128" viewBox="0 0 96 96">
         {total === 0
           ? <circle cx={cx} cy={cy} r={r} fill="var(--bg-tertiary)" />
           : slices.map(s => s.d
@@ -571,19 +572,32 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
               : null)
         }
         {total > 0 && slices.map(s => s.centroid && (
-          <text
-            key={`lbl-${s.key}`}
-            x={s.centroid[0].toFixed(2)}
-            y={s.centroid[1].toFixed(2)}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize="10"
-            fontWeight="800"
-            fill={s.darkLabel ? 'rgba(0,0,0,0.70)' : 'rgba(255,255,255,0.92)'}
-            style={{ fontFamily: 'system-ui, -apple-system' }}
-          >
-            {Math.round(s.pct)}%
-          </text>
+          <g key={`lbl-${s.key}`}>
+            <text
+              x={s.centroid[0].toFixed(2)}
+              y={(s.centroid[1] - 5.5).toFixed(2)}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="8"
+              fontWeight="900"
+              fill={s.darkLabel ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.75)'}
+              style={{ fontFamily: 'system-ui, -apple-system' }}
+            >
+              {s.letter}
+            </text>
+            <text
+              x={s.centroid[0].toFixed(2)}
+              y={(s.centroid[1] + 5).toFixed(2)}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="9.5"
+              fontWeight="800"
+              fill={s.darkLabel ? 'rgba(0,0,0,0.70)' : 'rgba(255,255,255,0.95)'}
+              style={{ fontFamily: 'system-ui, -apple-system' }}
+            >
+              {Math.round(s.pct)}%
+            </text>
+          </g>
         ))}
       </svg>
     </div>
