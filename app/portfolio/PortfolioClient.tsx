@@ -640,10 +640,10 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barP
 
   return (
     <button onClick={onToggle}
-            className="flex items-center w-full px-4 border-t"
-            style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'var(--border-faint)' }}>
+            className="flex items-center w-full px-4"
+            style={{ background: 'rgba(255,255,255,0.025)' }}>
       {/* Left: label + badge below */}
-      <div className="flex flex-col justify-center py-2.5 flex-shrink-0" style={{ minWidth: 68 }}>
+      <div className="flex flex-col justify-center py-3 flex-shrink-0" style={{ minWidth: 68 }}>
         <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{label}</span>
         {badge && (
           <span className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>{badge}</span>
@@ -651,7 +651,7 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barP
       </div>
 
       {/* Middle: bar + meta */}
-      <div className="flex flex-col flex-1 justify-center py-2.5 gap-1" style={{ paddingLeft: 12, paddingRight: 10 }}>
+      <div className="flex flex-col flex-1 justify-center py-3 gap-1" style={{ paddingLeft: 12, paddingRight: 10 }}>
         {hasBar && currentValue !== null && (
           <>
             <div className="w-full flex overflow-hidden" style={{ height: 5, borderRadius: 3, background: 'var(--border)' }}>
@@ -672,7 +672,7 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barP
       </div>
 
       {/* Right: value on top, gain% below */}
-      <div className="flex flex-col items-end flex-shrink-0 py-2.5 gap-0.5">
+      <div className="flex flex-col items-end flex-shrink-0 py-3 gap-0.5">
         {currentValue !== null ? (
           <>
             <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
