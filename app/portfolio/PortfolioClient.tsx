@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
-import { ChevronRightIcon, PencilIcon, SearchIcon } from '@/components/icons'
+import { ChevronRightIcon, SearchIcon } from '@/components/icons'
+import UserMenu from '@/components/UserMenu'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, computePPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, setPPFBalanceOverride } from './actions'
+import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction } from './actions'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, MFHolding, SGBBatch, EquitySummary, PPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
 
@@ -293,6 +294,17 @@ export default function PortfolioClient({
     return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent)
   }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
 
+  // Section-level XIRR for MF and Gold headers
+  const mfSectionXirr = useMemo(() => {
+    if (navsLoading || mfCurrentValue === 0 || mfTransactions.length === 0) return null
+    return mfXirr(mfTransactions, mfCurrentValue)
+  }, [mfTransactions, mfCurrentValue, navsLoading])
+
+  const goldSectionXirr = useMemo(() => {
+    if (goldPrice === null || sgbCurrentValue === 0 || sgbTransactions.length === 0) return null
+    return sgbXirr(sgbTransactions, sgbCurrentValue)
+  }, [sgbTransactions, sgbCurrentValue, goldPrice])
+
   // Asset allocation for donut + section bars
   const mfEquity      = mfHoldings.filter(h => assetClass(h.fund) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const mfDebt        = mfHoldings.filter(h => assetClass(h.fund) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
@@ -346,6 +358,7 @@ export default function PortfolioClient({
             <path d="M3 3v5h5"/>
           </svg>
         </button>
+        <UserMenu />
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
@@ -405,7 +418,7 @@ export default function PortfolioClient({
         <SectionHeader
           id="mf" label="MF"
           badge={mfHoldings.length > 0 ? `${mfHoldings.length} MFs` : null}
-          gainPct={mfInvested > 0 && !navsLoading ? ((mfCurrentValue - mfInvested) / mfInvested * 100) : null}
+          gainPct={mfSectionXirr !== null ? mfSectionXirr * 100 : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
           invested={mfInvested > 0 ? mfInvested : null}
           barPct={pct(mfEquity)}
@@ -443,7 +456,7 @@ export default function PortfolioClient({
         <SectionHeader
           id="sgb" label="Gold"
           badge={totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null}
-          gainPct={sgbInvested > 0 && goldPrice !== null ? ((sgbCurrentValue - sgbInvested) / sgbInvested * 100) : null}
+          gainPct={goldSectionXirr !== null ? goldSectionXirr * 100 : null}
           currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
           invested={sgbInvested > 0 ? sgbInvested : null}
           barPct={pct(sgbCurrentValue)}
@@ -535,7 +548,7 @@ function SCell({ label, value, positive, negative }: {
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-footnote" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
+      <p className="text-subheadline" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
         {noR(value)}
@@ -651,7 +664,7 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, invested, barP
               )}
             </div>
             <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-2)' }}>{totalPct}%</span>
+              <span>{totalPct}%</span>
               {invested !== null && ` · ${noR(formatINRFine(invested))} ${isPPF ? 'dep' : 'inv'}`}
             </span>
           </>
@@ -723,60 +736,29 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
 }
 
 function PPFRow({ ppf }: { ppf: PPFSummary }) {
-  const router = useRouter()
-  const [editing, setEditing] = useState(false)
-  const [balStr, setBalStr]   = useState(ppf.currentBalance.toFixed(0))
-  const [saving, setSaving]   = useState(false)
+  const deposits = ppf.transactions
+    .filter(t => t.trade_type === 'deposit')
+    .sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
-  async function saveOverride() {
-    setSaving(true)
-    await setPPFBalanceOverride(parseFloat(balStr), todayISO())
-    setSaving(false)
-    setEditing(false)
-    router.refresh()
+  if (deposits.length === 0) {
+    return (
+      <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No deposits yet.</p>
+    )
   }
 
   return (
-    <div className="flex items-center px-4" style={{ minHeight: 52 }}>
-      <div className="flex-1">
-        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>PPF Account</p>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-faint)' }}>
-          Deposited ₹ {noR(formatINRFine(ppf.totalDeposited))}
-        </p>
-      </div>
-      {editing ? (
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            value={balStr}
-            onChange={e => setBalStr(e.target.value)}
-            className="tabnum font-bold text-body outline-none text-right rounded-xl px-2"
-            style={{ width: 100, height: 36, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-          />
-          <button onClick={saveOverride} disabled={saving}
-            className="text-accent text-body font-semibold min-h-[44px] px-2 disabled:opacity-50">
-            {saving ? '…' : 'Save'}
-          </button>
+    <>
+      {deposits.map(t => (
+        <div key={t.id} className="flex items-center px-4 py-3">
+          <p className="flex-1 text-body tabnum" style={{ color: 'var(--text-2)' }}>
+            {new Date(t.trade_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+          <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+            {noR(formatINRFine(t.amount))}
+          </p>
         </div>
-      ) : (
-        <>
-          <div className="text-right mr-2">
-            <p className="text-headline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-              {noR(formatINRFine(ppf.currentBalance))}
-            </p>
-            <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--c-positive)' }}>
-              +{noR(formatINRFine(ppf.currentBalance - ppf.totalDeposited))}
-            </p>
-          </div>
-          <button onClick={() => setEditing(true)}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px]"
-            style={{ color: 'var(--text-faint)' }}>
-            <PencilIcon className="w-4 h-4" />
-          </button>
-        </>
-      )}
-    </div>
+      ))}
+    </>
   )
 }
 
