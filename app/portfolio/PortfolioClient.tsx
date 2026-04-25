@@ -226,15 +226,24 @@ export default function PortfolioClient({
   const [addSheet, setAddSheet] = useState<'mf' | 'gold' | 'ppf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
-  const [goldPrice, setGoldPrice] = useState<number | null>(null)
+  const [goldPrice, setGoldPrice] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null
+    const v = localStorage.getItem('goldPricePerGram')
+    return v ? parseFloat(v) : null
+  })
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Live gold price from IBJA via our proxy
+  // Live gold price via Yahoo Finance proxy; persists last known price in localStorage
   useEffect(() => {
     fetch('/api/gold-price')
       .then(r => r.json())
-      .then(d => { if (d.pricePerGram) setGoldPrice(d.pricePerGram) })
+      .then(d => {
+        if (d.pricePerGram) {
+          setGoldPrice(d.pricePerGram)
+          localStorage.setItem('goldPricePerGram', String(d.pricePerGram))
+        }
+      })
       .catch(() => {})
   }, [refreshKey])
 
