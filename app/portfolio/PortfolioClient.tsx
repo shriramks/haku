@@ -184,20 +184,11 @@ function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride
 }
 
 function computeEPF(transactions: EPFTransaction[]): EPFSummary {
-  const totalEmployeeDeposited = transactions
+  const totalDeposited  = transactions
     .filter(t => t.trade_type === 'deposit')
-    .reduce((s, t) => s + t.employee_amount, 0)
-  const totalEmployerDeposited = transactions
-    .filter(t => t.trade_type === 'deposit')
-    .reduce((s, t) => s + t.employer_amount, 0)
+    .reduce((s, t) => s + t.amount, 0)
   const computedBalance = computeEPFBalance(transactions)
-  return {
-    transactions,
-    totalEmployeeDeposited,
-    totalEmployerDeposited,
-    computedBalance,
-    xirr: epfXirr(transactions, computedBalance),
-  }
+  return { transactions, totalDeposited, computedBalance, xirr: epfXirr(transactions, computedBalance) }
 }
 
 function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
@@ -308,7 +299,7 @@ export default function PortfolioClient({
   const mfCurrentValue  = mfHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const sgbInvested     = sgbBatches.reduce((s, b) => s + b.invested, 0)
   const sgbCurrentValue = sgbBatches.reduce((s, b) => s + (b.currentValue ?? b.invested), 0)
-  const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited + epf.totalEmployeeDeposited
+  const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited + epf.totalDeposited
   const totalCurrent    = equity.currentValue + mfCurrentValue + sgbCurrentValue + ppf.currentBalance + epf.computedBalance
   const totalGain       = totalCurrent - totalInvested
 
@@ -537,9 +528,9 @@ export default function PortfolioClient({
         <SectionHeader
           id="epf" label="EPF"
           badge={null}
-          gainPct={epf.totalEmployeeDeposited > 0 ? ((epf.computedBalance - epf.totalEmployeeDeposited) / epf.totalEmployeeDeposited * 100) : null}
+          gainPct={epf.totalDeposited > 0 ? ((epf.computedBalance - epf.totalDeposited) / epf.totalDeposited * 100) : null}
           currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
-          invested={epf.totalEmployeeDeposited > 0 ? epf.totalEmployeeDeposited : null}
+          invested={epf.totalDeposited > 0 ? epf.totalDeposited : null}
           barPct={pct(epf.computedBalance)}
           barColor="var(--accent)"
           isPPF
@@ -815,8 +806,6 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
   )
 }
 
-const EPF_COLS = '1.4fr 1fr 1fr 1.1fr'
-
 function EPFRow({ epf }: { epf: EPFSummary }) {
   const rows = [...epf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
@@ -826,36 +815,21 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
 
   return (
     <>
-      <div className="grid px-4 py-1"
-           style={{ gridTemplateColumns: EPF_COLS, background: 'rgba(255,255,255,0.02)' }}>
-        {['Month', 'Employee ₹', 'Employer ₹', 'Total ₹'].map((h, i) => (
-          <span key={h} className="text-footnote font-bold uppercase"
-                style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', textAlign: i > 0 ? 'right' : 'left' }}>
-            {h}
-          </span>
-        ))}
-      </div>
       {rows.map(t => {
         const isInterest = t.trade_type === 'interest'
         const label = isInterest
           ? `Interest ${fyLabel(t.trade_date)}`
           : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-        const style: React.CSSProperties = {
-          fontStyle: isInterest ? 'italic' : 'normal',
-          fontWeight: isInterest ? 400 : 600,
-          color: 'var(--text-primary)',
-        }
         return (
-          <div key={t.id} className="grid px-4 py-3"
-               style={{ gridTemplateColumns: EPF_COLS, borderTop: '1px solid var(--border-faint)', minHeight: 44, alignItems: 'center' }}>
-            <p className="text-body" style={{ ...style, color: 'var(--text-2)' }}>{label}</p>
-            <p className="text-body tabnum text-right" style={style}>
-              {isInterest ? '—' : noR(formatINRFine(t.employee_amount))}
+          <div key={t.id} className="flex items-center px-4 py-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
+            <p className="flex-1 text-body tabnum"
+               style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
+              {label}
             </p>
-            <p className="text-body tabnum text-right" style={style}>
-              {isInterest ? '—' : noR(formatINRFine(t.employer_amount))}
+            <p className="text-body tabnum"
+               style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: 'var(--text-primary)' }}>
+              {noR(formatINRFine(t.amount))}
             </p>
-            <p className="text-body tabnum text-right" style={style}>{noR(formatINRFine(t.amount))}</p>
           </div>
         )
       })}
@@ -1285,23 +1259,20 @@ function AddPPFSheet({ onClose }: { onClose: () => void }) {
 function AddEPFSheet({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const kh     = useKeyboardHeight()
-  const [date, setDate]         = useState(todayISO())
-  const [employee, setEmployee] = useState('')
-  const [employer, setEmployer] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const [done, setDone]         = useState(false)
+  const [date, setDate]     = useState(todayISO())
+  const [amount, setAmount] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+  const [done, setDone]     = useState(false)
   useBodyScrollLock()
 
-  const empNum = parseFloat(employee) || 0
-  const erNum  = parseFloat(employer) || 0
-  const total  = empNum + erNum
+  const amtNum = parseFloat(amount) || 0
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!employee) return
+    if (!amount) return
     setLoading(true); setError(null)
-    const { error: err } = await addEPFTransaction(date, 'deposit', empNum, erNum, total)
+    const { error: err } = await addEPFTransaction(date, 'deposit', amtNum)
     setLoading(false)
     if (err) { setError(err); return }
     setDone(true)
@@ -1317,8 +1288,8 @@ function AddEPFSheet({ onClose }: { onClose: () => void }) {
         <SheetHeader title="EPF Deposit" onCancel={onClose} />
 
         <div className="flex flex-col items-center py-3 flex-shrink-0">
-          {total > 0
-            ? <p className="tabnum font-bold" style={{ fontSize: 30, letterSpacing: -0.5, color: 'var(--accent)' }}>{formatINR(total)}</p>
+          {amtNum > 0
+            ? <p className="tabnum font-bold" style={{ fontSize: 30, letterSpacing: -0.5, color: 'var(--accent)' }}>{formatINR(amtNum)}</p>
             : <p className="font-bold" style={{ fontSize: 34, letterSpacing: -0.5, color: 'var(--text-faint)' }}>₹ —</p>
           }
         </div>
@@ -1331,14 +1302,14 @@ function AddEPFSheet({ onClose }: { onClose: () => void }) {
             <DateInput value={date} onChange={setDate} />
           </div>
           <div>
-            <FieldLabel>Contributions ₹</FieldLabel>
-            <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-              <TwoColCell label="Employee" value={employee} onChange={setEmployee} placeholder="2400" decimal={false} />
-              <TwoColCell label="Employer" value={employer} onChange={setEmployer} placeholder="1750" decimal={false} right />
-            </div>
+            <FieldLabel>Amount ₹</FieldLabel>
+            <input type="number" inputMode="numeric" placeholder="51550" value={amount}
+              onChange={e => setAmount(e.target.value)} required min="1"
+              className="w-full px-3 rounded-xl text-headline font-bold tabnum outline-none"
+              style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           </div>
           {error && <p className="text-negative text-subheadline text-center">{error}</p>}
-          <button type="submit" disabled={loading || !employee}
+          <button type="submit" disabled={loading || !amount}
             className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
             style={{ background: done ? 'var(--border)' : 'var(--accent)' }}>
             {done ? '✓ Added' : loading ? '…' : 'Save Deposit'}

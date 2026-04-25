@@ -50,9 +50,7 @@ export interface EPFTransaction {
   user_id?: string
   trade_date: string
   trade_type: 'deposit' | 'interest'
-  employee_amount: number
-  employer_amount: number
-  amount: number   // employee + employer for deposits; interest credited for interest rows
+  amount: number
   notes: string
   created_at?: string
 }
@@ -108,8 +106,7 @@ export interface PPFSummary {
 
 export interface EPFSummary {
   transactions: EPFTransaction[]
-  totalEmployeeDeposited: number
-  totalEmployerDeposited: number
+  totalDeposited: number
   computedBalance: number
   xirr: number | null
 }

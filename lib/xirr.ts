@@ -75,14 +75,13 @@ export function ppfXirr(
 }
 
 export function epfXirr(
-  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'employee_amount'>[],
+  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentBalance: number
 ): number | null {
-  // Cost basis = employee contributions only; employer is excluded (it's free money)
-  const deposits = transactions.filter(t => t.trade_type === 'deposit' && t.employee_amount > 0)
-  if (deposits.length === 0) return null
   const flows: Cashflow[] = [
-    ...deposits.map(t => ({ date: new Date(t.trade_date), amount: -t.employee_amount })),
+    ...transactions
+      .filter(t => t.trade_type === 'deposit')
+      .map(t => ({ date: new Date(t.trade_date), amount: -t.amount })),
     { date: new Date(), amount: currentBalance },
   ]
   if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
@@ -90,13 +89,9 @@ export function epfXirr(
 }
 
 export function computeEPFBalance(
-  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_type' | 'employee_amount' | 'employer_amount' | 'amount'>[]
+  transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_type' | 'amount'>[]
 ): number {
-  return transactions.reduce((sum, t) => {
-    if (t.trade_type === 'deposit') return sum + t.employee_amount + t.employer_amount
-    if (t.trade_type === 'interest') return sum + t.amount
-    return sum
-  }, 0)
+  return transactions.reduce((sum, t) => sum + t.amount, 0)
 }
 
 // Compute PPF balance from stored transactions.
@@ -169,7 +164,7 @@ export function portfolioXirr(
   mfTxns:    Pick<import('./portfolio-types').MFTransaction,  'trade_date' | 'trade_type' | 'amount'>[],
   sgbTxns:   Pick<import('./portfolio-types').SGBTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   ppfTxns:   Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
-  epfTxns:   Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'employee_amount'>[],
+  epfTxns:   Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   totalCurrentValue: number,
   asOfDate: Date = new Date()
 ): number | null {
@@ -180,10 +175,9 @@ export function portfolioXirr(
     ...ppfTxns
       .filter(t => t.trade_type !== 'interest')
       .map(t             => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount          : t.amount })),
-    // EPF: only employee contributions count as cash outflows
     ...epfTxns
-      .filter(t => t.trade_type === 'deposit' && t.employee_amount > 0)
-      .map(t             => ({ date: new Date(t.trade_date), amount: -t.employee_amount })),
+      .filter(t => t.trade_type === 'deposit')
+      .map(t             => ({ date: new Date(t.trade_date), amount: -t.amount })),
     { date: asOfDate, amount: totalCurrentValue },
   ]
   if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null

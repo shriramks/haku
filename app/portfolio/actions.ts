@@ -105,8 +105,6 @@ export async function addPPFTransaction(
 export async function addEPFTransaction(
   tradeDate: string,
   tradeType: 'deposit' | 'interest',
-  employeeAmount: number,
-  employerAmount: number,
   amount: number,
   notes = '',
 ) {
@@ -115,8 +113,7 @@ export async function addEPFTransaction(
 
   const sb = await createSupabaseServerClient()
   const { error } = await sb.from('epf_transactions').insert({
-    user_id: userId, trade_date: tradeDate, trade_type: tradeType,
-    employee_amount: employeeAmount, employer_amount: employerAmount, amount, notes,
+    user_id: userId, trade_date: tradeDate, trade_type: tradeType, amount, notes,
   })
 
   if (error) return { error: error.message }
