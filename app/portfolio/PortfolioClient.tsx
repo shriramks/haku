@@ -10,6 +10,7 @@ import UserMenu from '@/components/UserMenu'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
+import { computeMFLots } from '@/lib/mf-compute'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from './actions'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, SGBBatch, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
@@ -83,21 +84,7 @@ function computeMFHoldings(
   return funds.flatMap(fund => {
     const txns = byFund[fund.id] ?? []
     if (txns.length === 0) return []
-    const lots: { units: number; nav: number }[] = []
-    for (const t of txns) {
-      if (t.trade_type === 'buy') {
-        lots.push({ units: t.units, nav: t.nav })
-      } else {
-        let toSell = t.units
-        while (toSell > 0.0001 && lots.length > 0) {
-          const lot = lots[0]
-          if (lot.units <= toSell) { toSell -= lot.units; lots.shift() }
-          else                     { lot.units -= toSell; toSell = 0  }
-        }
-      }
-    }
-    const units    = lots.reduce((s, l) => s + l.units, 0)
-    const invested = lots.reduce((s, l) => s + l.units * l.nav, 0)
+    const { units, invested } = computeMFLots(txns)
     if (units < 0.001) return []
     const currentNav   = navs[fund.scheme_code] ?? null
     const currentValue = currentNav !== null ? units * currentNav : null
