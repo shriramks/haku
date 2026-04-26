@@ -339,10 +339,34 @@ function PlanTab({
           ) : (
             <div>
               {/* Section header */}
-              <p className="text-footnote font-bold uppercase px-4 pt-5 pb-2"
-                 style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
-                Target Allocations
-              </p>
+              <div className="flex items-center justify-between px-4 pt-5 pb-2">
+                <p className="text-footnote font-bold uppercase"
+                   style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+                  Target Allocations
+                </p>
+                {allocations.length > 0 && (() => {
+                  const over = totalPct > 100
+                  const exact = totalPct === 100
+                  const bg = over
+                    ? 'rgba(255,59,48,0.12)'
+                    : exact
+                    ? 'rgba(48,209,88,0.12)'
+                    : 'rgba(255,149,0,0.12)'
+                  const colorClass = over ? 'text-negative' : exact ? 'text-positive' : 'text-warning'
+                  const label = exact
+                    ? '100%'
+                    : over
+                    ? `${Math.round(totalPct)}% · over`
+                    : `${Math.round(totalPct)}% · ${Math.round(100 - totalPct)}% free`
+                  return (
+                    <span
+                      className={`text-footnote font-bold tabnum ${colorClass}`}
+                      style={{ background: bg, borderRadius: 20, padding: '2px 8px' }}>
+                      {label}
+                    </span>
+                  )
+                })()}
+              </div>
 
               <div className="divide-y divide-[color:var(--divider)]">
                 {[...allocations]
