@@ -1,14 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR, formatINRFull, formatPrice } from '@/lib/formatter'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
+import { StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 
 type PortfolioType = 'mf' | 'gold' | 'ppf' | 'epf'
 
-export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp, showTypePicker }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[]; showTypePicker?: boolean }) {
-  const router = useRouter()
+export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[] }) {
+  const router   = useRouter()
+  const pathname = usePathname()
   const [symbol, setSymbol]         = useState(initialSymbol ?? '')
   const [planSymbols, setPlanSymbols] = useState<string[]>(() => {
     if (planSymbolsProp && planSymbolsProp.length > 0) return planSymbolsProp
@@ -102,9 +104,14 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   function selectPortfolioType(t: PortfolioType) {
     setAssetPickerOpen(false)
     onClose()
-    setTimeout(() => {
-      document.dispatchEvent(new CustomEvent('portfolio-open-add', { detail: { type: t } }))
-    }, 50)
+    if (pathname === '/portfolio') {
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('portfolio-open-add', { detail: { type: t } }))
+      }, 50)
+    } else {
+      localStorage.setItem('portfolio_pending_add', t)
+      router.push('/portfolio')
+    }
   }
 
   return (
@@ -130,18 +137,14 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
         <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0">
           <button onClick={onClose} className="text-accent text-headline min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
           <p className="font-semibold text-headline">New Transaction</p>
-          {showTypePicker ? (
-            <button
-              type="button"
-              onClick={() => setAssetPickerOpen(true)}
-              className="flex items-center gap-1 text-subheadline font-semibold rounded-lg px-2 min-h-[44px]"
-              style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              Stocks
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-          ) : (
-            <div className="w-16" />
-          )}
+          <button
+            type="button"
+            onClick={() => setAssetPickerOpen(true)}
+            className="flex items-center gap-1 text-subheadline font-medium min-h-[44px] px-1"
+            style={{ color: 'var(--text-muted)' }}>
+            Stocks
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: 'var(--text-faint)' }}><path d="M6 9l6 6 6-6"/></svg>
+          </button>
         </div>
 
         {/* Asset type picker sheet */}
@@ -155,12 +158,12 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
               </div>
               <p className="px-5 pt-1 pb-3 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Asset type</p>
               {([
-                { id: 'stock', label: 'Stocks', icon: <StockIcon /> },
-                { id: 'mf',    label: 'Mutual Fund', icon: <MFIcon /> },
-                { id: 'gold',  label: 'Gold', icon: <GoldIcon /> },
-                { id: 'ppf',   label: 'PPF', icon: <PPFIcon /> },
-                { id: 'epf',   label: 'EPF', icon: <EPFIcon /> },
-              ] as const).map(({ id, label, icon }) => (
+                { id: 'stock', label: 'Stocks',       Icon: StockIcon },
+                { id: 'mf',    label: 'Mutual Fund',  Icon: MFIcon    },
+                { id: 'gold',  label: 'Gold',          Icon: GoldIcon  },
+                { id: 'ppf',   label: 'PPF',           Icon: PPFIcon   },
+                { id: 'epf',   label: 'EPF',           Icon: EPFIcon   },
+              ] as const).map(({ id, label, Icon }) => (
                 <button key={id}
                   type="button"
                   onClick={() => id === 'stock' ? setAssetPickerOpen(false) : selectPortfolioType(id)}
@@ -168,7 +171,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
                   style={{ minHeight: 56, borderColor: 'var(--divider)' }}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mr-4 flex-shrink-0"
                        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
-                    {icon}
+                    <Icon width="18" height="18" />
                   </div>
                   <span className="flex-1 text-left text-headline font-semibold">{label}</span>
                   {id === 'stock' && (
@@ -340,18 +343,3 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   )
 }
 
-function StockIcon() {
-  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16"/></svg>
-}
-function MFIcon() {
-  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path strokeLinecap="round" d="M3 9h18M9 21V9"/></svg>
-}
-function GoldIcon() {
-  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path strokeLinecap="round" d="M12 6v6l4 2"/></svg>
-}
-function PPFIcon() {
-  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-}
-function EPFIcon() {
-  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><circle cx="16" cy="12" r="2"/></svg>
-}

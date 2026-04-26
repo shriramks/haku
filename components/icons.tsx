@@ -1,4 +1,4 @@
-// Shared icons used across bands and stock-detail pages
+// Shared icons used across the app
 
 export function RefreshIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
@@ -89,6 +89,48 @@ export function PortfolioIcon({ className, ...props }: React.SVGProps<SVGSVGElem
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+// Asset-type icons — used in portfolio type picker and add-transaction modal
+export function StockIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l4-5 4 3 4-6 4 4" />
+    </svg>
+  )
+}
+export function MFIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l4-5 4 3 4-6 4 4" />
+    </svg>
+  )
+}
+export function GoldIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <ellipse cx="12" cy="8" rx="8" ry="3" />
+      <path strokeLinecap="round" d="M4 8v4c0 1.657 3.582 3 8 3s8-1.343 8-3V8" />
+      <path strokeLinecap="round" d="M4 12v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
+    </svg>
+  )
+}
+export function PPFIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11" />
+    </svg>
+  )
+}
+export function EPFIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <rect x="2" y="7" width="20" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      <line x1="12" y1="12" x2="12" y2="16" strokeLinecap="round"/>
+      <line x1="10" y1="14" x2="14" y2="14" strokeLinecap="round"/>
     </svg>
   )
 }

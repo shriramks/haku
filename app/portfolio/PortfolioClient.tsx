@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
-import { ChevronRightIcon, SearchIcon, RefreshIcon } from '@/components/icons'
+import { ChevronRightIcon, SearchIcon, RefreshIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import UserMenu from '@/components/UserMenu'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
@@ -325,6 +325,14 @@ export default function PortfolioClient({
   const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
 
   useEffect(() => {
+    const pending = localStorage.getItem('portfolio_pending_add') as 'mf' | 'gold' | 'ppf' | 'epf' | null
+    if (pending) {
+      localStorage.removeItem('portfolio_pending_add')
+      setAddSheet(pending)
+    }
+  }, [])
+
+  useEffect(() => {
     function handleOpenAdd(e: Event) {
       const type = (e as CustomEvent).detail?.type as 'mf' | 'gold' | 'ppf' | 'epf'
       if (type) setAddSheet(type)
@@ -348,9 +356,6 @@ export default function PortfolioClient({
     })
   }
 
-  function openAdd(type: 'mf' | 'gold' | 'ppf' | 'epf') {
-    setTimeout(() => setAddSheet(type), 50)
-  }
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
@@ -366,7 +371,7 @@ export default function PortfolioClient({
         </Link>
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
         <button onClick={handleRefresh} disabled={refreshing}
-                className="flex items-center gap-1.5 text-accent text-subheadline rounded-lg px-2.5 min-h-[44px] disabled:opacity-40"
+                className="flex items-center gap-1.5 text-accent text-subheadline rounded-lg px-2.5 min-h-[44px] disabled:opacity-40 mr-1.5"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
           <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Updating…' : 'Prices'}
@@ -777,10 +782,10 @@ function TypePickerSheet({ onClose, onSelect }: {
   const kh = useKeyboardHeight()
   useBodyScrollLock()
   const types = [
-    { id: 'mf'   as const, label: 'Mutual Fund', Icon: IconMF  },
-    { id: 'gold' as const, label: 'Gold',         Icon: IconSGB },
-    { id: 'ppf'  as const, label: 'PPF',          Icon: IconPPF },
-    { id: 'epf'  as const, label: 'EPF',          Icon: IconEPF },
+    { id: 'mf'   as const, label: 'Mutual Fund', Icon: MFIcon  },
+    { id: 'gold' as const, label: 'Gold',         Icon: GoldIcon },
+    { id: 'ppf'  as const, label: 'PPF',          Icon: PPFIcon },
+    { id: 'epf'  as const, label: 'EPF',          Icon: EPFIcon },
   ]
   return (
     <>
@@ -1374,38 +1379,3 @@ function useBodyScrollLock() {
   }, [])
 }
 
-// ── Type picker icons ─────────────────────────────────────────────────────────
-
-function IconMF() {
-  return (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l4-5 4 3 4-6 4 4" />
-    </svg>
-  )
-}
-function IconSGB() {
-  return (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <ellipse cx="12" cy="8" rx="8" ry="3" />
-      <path strokeLinecap="round" d="M4 8v4c0 1.657 3.582 3 8 3s8-1.343 8-3V8" />
-      <path strokeLinecap="round" d="M4 12v4c0 1.657 3.582 3 8 3s8-1.343 8-3v-4" />
-    </svg>
-  )
-}
-function IconPPF() {
-  return (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11" />
-    </svg>
-  )
-}
-function IconEPF() {
-  return (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="7" width="20" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-      <line x1="12" y1="12" x2="12" y2="16" strokeLinecap="round"/>
-      <line x1="10" y1="14" x2="14" y2="14" strokeLinecap="round"/>
-    </svg>
-  )
-}

@@ -120,7 +120,7 @@ export default function BottomNav() {
 
       </nav>
 
-      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} showTypePicker={path === '/portfolio'} />}
+      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} />}
     </>
   )
 }
