@@ -161,14 +161,7 @@ export async function POST(
   }
 
   const category = alloc.category as StockCategory
-  const isIndex     = category === 'Nifty 50 Index' || category === 'Nifty Next 50 Index'
-  const isCommodity = category === 'Commodity'
-
-  if (isCommodity) {
-    return NextResponse.json({
-      error: 'Bands cannot be generated for commodity ETFs — please set price targets manually.',
-    }, { status: 422 })
-  }
+  const isIndex = category === 'Nifty 50 Index' || category === 'Nifty Next 50 Index'
 
   // Call AI provider with search grounding (retry once on transient failure)
   let aiText: string

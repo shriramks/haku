@@ -21,13 +21,6 @@ describe('calculateBands — base multiples (quality=0, stress=0)', () => {
     expect(r.trimPrice).toBeCloseTo(2800)
   })
 
-  it('FMCG: buy 35–50×, trim 61×', () => {
-    const r = calculateBands({ category: 'FMCG', ...noAdj, eps: 40 })!
-    expect(r.buyLow).toBeCloseTo(1400)
-    expect(r.buyHigh).toBeCloseTo(2000)
-    expect(r.trimPrice).toBeCloseTo(2440)
-  })
-
   it('Tobacco Corp: buy 20–25×, trim 31×', () => {
     const r = calculateBands({ category: 'Tobacco Corp', ...noAdj, eps: 20 })!
     expect(r.buyLow).toBeCloseTo(400)
@@ -49,9 +42,6 @@ describe('calculateBands — base multiples (quality=0, stress=0)', () => {
     expect(r.trimPrice).toBeCloseTo(2500)
   })
 
-  it('Commodity → null (no PE table)', () => {
-    expect(calculateBands({ category: 'Commodity', ...noAdj, eps: 100 })).toBeNull()
-  })
 })
 
 describe('calculateBands — Quality adjustment (raises all multiples)', () => {
@@ -66,8 +56,8 @@ describe('calculateBands — Quality adjustment (raises all multiples)', () => {
   })
 
   it('quality=50 (max) raises all prices by 50%', () => {
-    const base = calculateBands({ category: 'FMCG', quality: 0, stress: 0, eps: 40 })!
-    const adj  = calculateBands({ category: 'FMCG', quality: 50, stress: 0, eps: 40 })!
+    const base = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
+    const adj  = calculateBands({ category: 'Cap-Light Infra', quality: 50, stress: 0, eps: 40 })!
     expect(adj.buyLow).toBeCloseTo(base.buyLow * 1.50)
     expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 1.50)
   })
@@ -110,14 +100,14 @@ describe('calculateBands — Combined quality + stress', () => {
   })
 
   it('quality and stress both at 0 is identical to noAdj', () => {
-    const a = calculateBands({ category: 'FMCG', quality: 0, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'FMCG', ...noAdj, eps: 40 })!
+    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
+    const b = calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: 40 })!
     expect(a.buyLow).toBeCloseTo(b.buyLow)
     expect(a.trimPrice).toBeCloseTo(b.trimPrice)
   })
 
   it('buyLow ≤ buyHigh for every category × quality × stress combo', () => {
-    const categories = ['Cap-Light Infra', 'Hospitals', 'FMCG', 'Tobacco Corp'] as const
+    const categories = ['Cap-Light Infra', 'Hospitals', 'Tobacco Corp'] as const
     const cases = [
       { quality: 0, stress: 0 }, { quality: 20, stress: 0 },
       { quality: 0, stress: 30 }, { quality: 15, stress: 20 },
@@ -133,39 +123,36 @@ describe('calculateBands — Combined quality + stress', () => {
 
 describe('calculateBands — input clamping', () => {
   it('quality above 50 is clamped to 50', () => {
-    const a = calculateBands({ category: 'FMCG', quality: 50, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'FMCG', quality: 99, stress: 0, eps: 40 })!
+    const a = calculateBands({ category: 'Cap-Light Infra', quality: 50, stress: 0, eps: 40 })!
+    const b = calculateBands({ category: 'Cap-Light Infra', quality: 99, stress: 0, eps: 40 })!
     expect(a.buyLow).toBeCloseTo(b.buyLow)
   })
 
   it('stress above 50 is clamped to 50', () => {
-    const a = calculateBands({ category: 'FMCG', quality: 0, stress: 50, eps: 40 })!
-    const b = calculateBands({ category: 'FMCG', quality: 0, stress: 99, eps: 40 })!
+    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 50, eps: 40 })!
+    const b = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 99, eps: 40 })!
     expect(a.buyLow).toBeCloseTo(b.buyLow)
   })
 
   it('negative quality treated as 0', () => {
-    const a = calculateBands({ category: 'FMCG', quality: 0, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'FMCG', quality: -10, stress: 0, eps: 40 })!
+    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
+    const b = calculateBands({ category: 'Cap-Light Infra', quality: -10, stress: 0, eps: 40 })!
     expect(a.buyLow).toBeCloseTo(b.buyLow)
   })
 })
 
 describe('calculateBands — null/missing eps', () => {
   it('eps missing → null', () => {
-    expect(calculateBands({ category: 'FMCG', ...noAdj })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj })).toBeNull()
   })
   it('eps null → null', () => {
-    expect(calculateBands({ category: 'FMCG', ...noAdj, eps: null })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: null })).toBeNull()
   })
   it('eps 0 → null', () => {
-    expect(calculateBands({ category: 'FMCG', ...noAdj, eps: 0 })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: 0 })).toBeNull()
   })
   it('eps negative → null', () => {
-    expect(calculateBands({ category: 'FMCG', ...noAdj, eps: -10 })).toBeNull()
-  })
-  it('unknown category → null', () => {
-    expect(calculateBands({ category: 'Commodity', ...noAdj, eps: 100 })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: -10 })).toBeNull()
   })
 })
 

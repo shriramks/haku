@@ -370,32 +370,32 @@ describe('computeStockRows — currentCost (FY-scoped)', () => {
 
 describe('computeStockRows — bandSignal uses live calculateBands, not stored DB values', () => {
   it('signal is buy when CMP is in fresh buy zone, even if stale stored buy_low says deep', () => {
-    // FMCG: fresh buyLow=350 (35×10), buyHigh=500 (50×10). CMP=400 → fresh: buy
+    // Tobacco Corp: fresh buyLow=200 (20×10), buyHigh=250 (25×10). CMP=220 → fresh: buy
     // Stored buy_low=600 (stale, old EPS) → stored signal would be: deep
-    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
-    const band  = mkBand('HINDUNILVR', {
-      eps: 10, manual_cmp: 400,
+    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
+    const band  = mkBand('ITC', {
+      eps: 10, manual_cmp: 220,
       buy_low: 600, buy_high: 700, mid_high: 800, trim_price: 810,  // stale
     })
     const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('buy')  // fresh: 350 ≤ 400 ≤ 500
+    expect(row.bandSignal).toBe('buy')  // fresh: 200 ≤ 220 ≤ 250
   })
 
   it('signal is deep when CMP is below fresh buy zone, even if stale stored values say buy', () => {
-    // FMCG: fresh buyLow=350. CMP=300 → fresh: deep
+    // Tobacco Corp: fresh buyLow=200. CMP=150 → fresh: deep
     // Stored buy_low=100 → stored signal would be: buy
-    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
-    const band  = mkBand('HINDUNILVR', {
-      eps: 10, manual_cmp: 300,
-      buy_low: 100, buy_high: 200, mid_high: 300, trim_price: 310,  // stale
+    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
+    const band  = mkBand('ITC', {
+      eps: 10, manual_cmp: 150,
+      buy_low: 100, buy_high: 130, mid_high: 160, trim_price: 170,  // stale
     })
     const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('deep')  // fresh: 300 < 350
+    expect(row.bandSignal).toBe('deep')  // fresh: 150 < 200
   })
 
   it('signal is unknown when no CMP', () => {
-    const alloc = { ...mkAlloc('HINDUNILVR', 10), category: 'FMCG' }
-    const band  = mkBand('HINDUNILVR', { eps: 10, manual_cmp: null })
+    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
+    const band  = mkBand('ITC', { eps: 10, manual_cmp: null })
     const [row] = computeStockRows([alloc], [], [band], totalBudget)
     expect(row.bandSignal).toBe('unknown')
   })

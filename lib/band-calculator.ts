@@ -4,7 +4,6 @@
 // Quality (0–50%): raises all PE multiples — use when you'd pay a premium vs. sector average.
 // Stress  (0–50%): lowers all PE multiples — use to discount earnings for a bad scenario.
 // Combined factor: (1 + quality/100) × (1 - stress/100) applied uniformly to all multiples.
-// Commodity: no PE table defined, always returns null.
 
 import type { StockCategory } from './types'
 
@@ -16,7 +15,6 @@ interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: numbe
 const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'FMCG':            { buyLow: 35, buyHigh: 50, midLow: 51, midHigh: 60, trim: 61 },
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
   'Nifty 50 Index':      { buyLow: 19, buyHigh: 21, midLow: 21, midHigh: 23, trim: 23 },
@@ -59,7 +57,7 @@ export function calculateBands(input: BandInput): BandResult | null {
   if (!eps || eps <= 0) return null
 
   const base = PE[input.category]
-  if (!base) return null  // Commodity or unknown
+  if (!base) return null  // unknown category
 
   const quality = Math.max(0, Math.min(50, input.quality ?? 0))
   const stress  = Math.max(0, Math.min(50, input.stress  ?? 0))

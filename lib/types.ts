@@ -78,10 +78,8 @@ export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 export const ALL_CATEGORIES = [
   'Nifty 50 Index',
   'Nifty Next 50 Index',
-  'Commodity',
   'Cap-Light Infra',
   'Hospitals',
-  'FMCG',
   'Tobacco Corp',
 ] as const
 
@@ -94,11 +92,7 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   NARAYANAHRU: 'Hospitals',
   NIFTYBEES:   'Nifty 50 Index',
   JUNIORBEES:  'Nifty Next 50 Index',
-  SETFGOLD:    'Commodity',
-  GOLDBEES:    'Commodity',
   ITC:         'Tobacco Corp',
-  HUL:         'FMCG',
-  NESTLEIND:   'FMCG',
 }
 
 // ── Computed row (dashboard) ─────────────────────────────────────────────────
