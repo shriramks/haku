@@ -202,7 +202,7 @@ function trimZero(n: number, dp = 1): string {
 
 function fmtGain(gain: number | null): string {
   if (gain === null) return '—'
-  return (gain >= 0 ? '+' : '') + formatINR(gain)
+  return (gain >= 0 ? '+' : '') + formatINRFine(gain)
 }
 
 function noR(s: string): string { return s.replace('₹', '') }

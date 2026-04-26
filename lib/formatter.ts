@@ -7,7 +7,7 @@ const K   = 1_000
 function compact(v: number): string {
   if (v >= 100)              return Math.round(v).toString()
   if (v === Math.floor(v))   return v.toString()
-  return v.toFixed(1)
+  return parseFloat(v.toFixed(1)).toString()
 }
 
 export function formatINR(amount: number): string {
