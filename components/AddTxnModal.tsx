@@ -5,7 +5,9 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR, formatINRFull, formatPrice } from '@/lib/formatter'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
-export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[] }) {
+type PortfolioType = 'mf' | 'gold' | 'ppf' | 'epf'
+
+export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planSymbolsProp, showTypePicker }: { onClose: () => void; initialSymbol?: string; planSymbols?: string[]; showTypePicker?: boolean }) {
   const router = useRouter()
   const [symbol, setSymbol]         = useState(initialSymbol ?? '')
   const [planSymbols, setPlanSymbols] = useState<string[]>(() => {
@@ -20,6 +22,7 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
   const [loading, setLoading]       = useState(false)
   const [error, setError]           = useState<string | null>(null)
   const [done, setDone]             = useState(false)
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false)
   const kh = useKeyboardHeight()
 
   useEffect(() => {
@@ -96,6 +99,14 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
 
   const signalColor = type === 'buy' ? '#34C759' : '#FF3B30'
 
+  function selectPortfolioType(t: PortfolioType) {
+    setAssetPickerOpen(false)
+    onClose()
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('portfolio-open-add', { detail: { type: t } }))
+    }, 50)
+  }
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
@@ -119,8 +130,55 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
         <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0">
           <button onClick={onClose} className="text-accent text-headline min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
           <p className="font-semibold text-headline">New Transaction</p>
-          <div className="w-16" />
+          {showTypePicker ? (
+            <button
+              type="button"
+              onClick={() => setAssetPickerOpen(true)}
+              className="flex items-center gap-1 text-subheadline font-semibold rounded-lg px-2 min-h-[44px]"
+              style={{ color: 'var(--text-2)', background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+              Stocks
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+          ) : (
+            <div className="w-16" />
+          )}
         </div>
+
+        {/* Asset type picker sheet */}
+        {assetPickerOpen && (
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setAssetPickerOpen(false)} />
+            <div className="fixed left-0 right-0 z-[60] animate-slide-up rounded-t-3xl"
+                 style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+              </div>
+              <p className="px-5 pt-1 pb-3 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Asset type</p>
+              {([
+                { id: 'stock', label: 'Stocks', icon: <StockIcon /> },
+                { id: 'mf',    label: 'Mutual Fund', icon: <MFIcon /> },
+                { id: 'gold',  label: 'Gold', icon: <GoldIcon /> },
+                { id: 'ppf',   label: 'PPF', icon: <PPFIcon /> },
+                { id: 'epf',   label: 'EPF', icon: <EPFIcon /> },
+              ] as const).map(({ id, label, icon }) => (
+                <button key={id}
+                  type="button"
+                  onClick={() => id === 'stock' ? setAssetPickerOpen(false) : selectPortfolioType(id)}
+                  className="flex items-center w-full px-5 border-t"
+                  style={{ minHeight: 56, borderColor: 'var(--divider)' }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center mr-4 flex-shrink-0"
+                       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
+                    {icon}
+                  </div>
+                  <span className="flex-1 text-left text-headline font-semibold">{label}</span>
+                  {id === 'stock' && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ color: 'var(--accent)' }}><path d="M5 13l4 4L19 7"/></svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Buy / Sell toggle — dominant, first */}
         <div className="px-4 mb-0 flex-shrink-0">
@@ -280,4 +338,20 @@ export default function AddTxnModal({ onClose, initialSymbol, planSymbols: planS
       </div>
     </>
   )
+}
+
+function StockIcon() {
+  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16"/></svg>
+}
+function MFIcon() {
+  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path strokeLinecap="round" d="M3 9h18M9 21V9"/></svg>
+}
+function GoldIcon() {
+  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path strokeLinecap="round" d="M12 6v6l4 2"/></svg>
+}
+function PPFIcon() {
+  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+}
+function EPFIcon() {
+  return <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><circle cx="16" cy="12" r="2"/></svg>
 }

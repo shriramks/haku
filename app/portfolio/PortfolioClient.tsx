@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, todayISO } from '@/lib/formatter'
-import { ChevronRightIcon, SearchIcon } from '@/components/icons'
+import { ChevronRightIcon, SearchIcon, RefreshIcon } from '@/components/icons'
 import UserMenu from '@/components/UserMenu'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
@@ -234,7 +234,6 @@ export default function PortfolioClient({
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>([]))
-  const [typePickerOpen, setTypePickerOpen] = useState(false)
   const [addSheet, setAddSheet] = useState<'mf' | 'gold' | 'ppf' | 'epf' | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
@@ -325,6 +324,15 @@ export default function PortfolioClient({
 
   const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
 
+  useEffect(() => {
+    function handleOpenAdd(e: Event) {
+      const type = (e as CustomEvent).detail?.type as 'mf' | 'gold' | 'ppf' | 'epf'
+      if (type) setAddSheet(type)
+    }
+    document.addEventListener('portfolio-open-add', handleOpenAdd)
+    return () => document.removeEventListener('portfolio-open-add', handleOpenAdd)
+  }, [])
+
   function handleRefresh() {
     setRefreshing(true)
     setRefreshKey(k => k + 1)
@@ -341,7 +349,6 @@ export default function PortfolioClient({
   }
 
   function openAdd(type: 'mf' | 'gold' | 'ppf' | 'epf') {
-    setTypePickerOpen(false)
     setTimeout(() => setAddSheet(type), 50)
   }
 
@@ -358,13 +365,11 @@ export default function PortfolioClient({
           </svg>
         </Link>
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
-        <button onClick={handleRefresh}
-                className="flex items-center justify-center min-w-[44px] min-h-[44px]"
-                style={{ color: 'var(--accent)' }}>
-          <svg className={refreshing ? 'animate-spin' : ''} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-          </svg>
+        <button onClick={handleRefresh} disabled={refreshing}
+                className="flex items-center gap-1.5 text-accent text-subheadline rounded-lg px-2.5 min-h-[44px] disabled:opacity-40"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+          <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Updating…' : 'Prices'}
         </button>
         <UserMenu />
       </div>
@@ -511,24 +516,7 @@ export default function PortfolioClient({
           <EPFRow epf={epf} />
         )}
 
-        {/* Single add button */}
-        <div className="px-4 mt-5">
-          <button
-            onClick={() => setTypePickerOpen(true)}
-            className="flex items-center justify-center gap-2 w-full rounded-xl text-accent font-semibold text-body"
-            style={{ minHeight: 48, background: 'rgba(10,132,255,0.10)', border: '1px solid var(--border)' }}>
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add transaction
-          </button>
-        </div>
       </div>
-
-      {/* Type picker sheet */}
-      {typePickerOpen && (
-        <TypePickerSheet onClose={() => setTypePickerOpen(false)} onSelect={openAdd} />
-      )}
 
       {/* Add sheets */}
       {addSheet === 'mf' && (
