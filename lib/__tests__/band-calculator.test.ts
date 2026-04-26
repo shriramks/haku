@@ -21,6 +21,13 @@ describe('calculateBands — base multiples (quality=0, stress=0)', () => {
     expect(r.trimPrice).toBeCloseTo(2800)
   })
 
+  it('Branded Pharma: buy 20–26×, trim 33×', () => {
+    const r = calculateBands({ category: 'Branded Pharma', ...noAdj, eps: 50 })!
+    expect(r.buyLow).toBeCloseTo(1000)
+    expect(r.buyHigh).toBeCloseTo(1300)
+    expect(r.trimPrice).toBeCloseTo(1650)
+  })
+
   it('Tobacco Corp: buy 20–25×, trim 31×', () => {
     const r = calculateBands({ category: 'Tobacco Corp', ...noAdj, eps: 20 })!
     expect(r.buyLow).toBeCloseTo(400)

@@ -15,6 +15,7 @@ interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: numbe
 const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
+  'Branded Pharma':  { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
   'Nifty 50 Index':      { buyLow: 19, buyHigh: 21, midLow: 21, midHigh: 23, trim: 23 },

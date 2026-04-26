@@ -80,6 +80,7 @@ export const ALL_CATEGORIES = [
   'Nifty Next 50 Index',
   'Cap-Light Infra',
   'Hospitals',
+  'Branded Pharma',
   'Tobacco Corp',
 ] as const
 
