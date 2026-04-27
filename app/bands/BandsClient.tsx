@@ -7,7 +7,7 @@ import type { StockRow, BuyBand, StockAllocation, StockCategory, FiscalYear } fr
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, ChevronRightIcon } from '@/components/icons'
-import { formatPrice } from '@/lib/formatter'
+import { formatPriceNum } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 
 // Mini 3-zone band bar for list rows (deep · buy · mid — no trim zone, matches BandBar)
@@ -186,7 +186,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
                 style={{ borderColor: 'var(--divider)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
                 {/* Ticker */}
-                <span className="font-bold text-headline flex-shrink-0" style={{ minWidth: 80 }}>{row.symbol}</span>
+                <span className="font-bold text-headline flex-shrink-0" style={{ width: 96 }}>{row.symbol}</span>
 
                 {/* Mini bar */}
                 <div className="flex-1 min-w-0">
@@ -204,7 +204,7 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
                 {/* CMP */}
                 {cmp != null ? (
                   <p className="text-headline font-bold tabnum flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
-                    {formatPrice(cmp)}
+                    {formatPriceNum(cmp)}
                   </p>
                 ) : (
                   <p className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>No CMP</p>
