@@ -16,7 +16,8 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
   const buyW   = pct(buyHigh) - pct(buyLow)
   const waitW  = pct(midLow)  - pct(buyHigh)   // > 0 when Bear compresses buyHigh below midLow
   const midW   = 100 - pct(midLow)
-  const cmpPct = cmp != null && cmp >= min && cmp <= max ? pct(cmp) : null
+  // Keep the marker pinned to the bar edge when CMP has moved into trim territory.
+  const cmpPct = cmp != null ? pct(cmp) : null
   const showWait = waitW > 1
 
   return (

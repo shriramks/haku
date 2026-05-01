@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import type { StockRow, BuyBand, FiscalYear } from '@/lib/types'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
-import { RefreshIcon, ChevronRightIcon } from '@/components/icons'
+import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { formatPriceNum } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 
@@ -64,6 +64,8 @@ export default function BandsClient({ rows, bands: initialBands, fiscalYears, se
     return init
   })
   const [refreshingAll, setRefreshingAll] = useState(false)
+  const [regeneratingAll, setRegeneratingAll] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   // Fetches CMP + 52W for the given symbols and persists to DB + local state.
   async function fetchAndSaveCmp(symbols: string[]) {
@@ -101,13 +103,62 @@ export default function BandsClient({ rows, bands: initialBands, fiscalYears, se
 
   async function refreshAllCMP() {
     setRefreshingAll(true)
+    setActionError('')
     try {
       await fetchAndSaveCmp(rows.map(r => r.symbol))
     } catch {
-      // silently fail
+      setActionError('Failed to refresh CMP for all stocks')
     } finally {
       setRefreshingAll(false)
     }
+  }
+
+  async function regenAllBands() {
+    setRegeneratingAll(true)
+    setActionError('')
+
+    const nextBands = new Map(bands.map(b => [b.symbol, b]))
+    const failed: string[] = []
+
+    for (const { symbol } of rows) {
+      try {
+        const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fyId, action: 'bands' }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json.band) {
+          failed.push(symbol)
+          continue
+        }
+        nextBands.set(symbol, json.band as BuyBand)
+      } catch {
+        failed.push(symbol)
+      }
+    }
+
+    setBands(prev => {
+      const merged = prev.map(b => nextBands.get(b.symbol) ?? b)
+      const knownSymbols = new Set(merged.map(b => b.symbol))
+      for (const { symbol } of rows) {
+        const nextBand = nextBands.get(symbol)
+        if (nextBand && !knownSymbols.has(symbol)) merged.push(nextBand)
+      }
+      return merged
+    })
+    await revalidateBuyBands()
+    router.refresh()
+
+    if (failed.length > 0) {
+      setActionError(
+        failed.length === 1
+          ? `Failed to regen bands for ${failed[0]}`
+          : `Failed to regen bands for ${failed.length} stocks`
+      )
+    }
+
+    setRegeneratingAll(false)
   }
 
   const activeRows    = useMemo(() => rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
@@ -139,14 +190,25 @@ export default function BandsClient({ rows, bands: initialBands, fiscalYears, se
       </div>
 
       {/* Refresh All CMP strip */}
-      <div className="flex items-center justify-end px-4 border-b"
-        style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
-        <button onClick={refreshAllCMP} disabled={refreshingAll}
-          className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
-          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
-          <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
-          {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
-        </button>
+      <div className="px-4 border-b"
+        style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-end gap-2" style={{ minHeight: 44 }}>
+          <button onClick={regenAllBands} disabled={regeneratingAll || refreshingAll}
+            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            <SparkleIcon className={`w-3.5 h-3.5 ${regeneratingAll ? 'animate-spin' : ''}`} />
+            {regeneratingAll ? 'Regenerating…' : 'Regen Bands'}
+          </button>
+          <button onClick={refreshAllCMP} disabled={refreshingAll || regeneratingAll}
+            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
+            {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
+          </button>
+        </div>
+        {actionError && (
+          <p className="pb-3 text-subheadline text-negative text-right">{actionError}</p>
+        )}
       </div>
 
       {/* Stock rows */}
