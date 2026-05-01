@@ -10,7 +10,6 @@ function mkAlloc(symbol: string, pct: number, fyId = FY25): StockAllocation {
     id: `alloc-${symbol}`, fy_id: fyId, user_id: 'u1',
     symbol, exchange: 'NSE',
     allocation_pct: pct, category: 'large',
-    quality: 0, stress: 0,
   }
 }
 
@@ -33,8 +32,9 @@ function mkTxn(
 function mkBand(symbol: string, overrides: Partial<BuyBand> = {}): BuyBand {
   return {
     id: `band-${symbol}`, symbol, anchor_type: 'PE',
+    pat_now: null, pat_3yr_ago: null, roce_3yr_avg: null, mcap: null, index_level: null, index_pe: null,
     eps: null, buy_low: null, buy_high: null, mid_low: null, mid_high: null, trim_price: null,
-    manual_cmp: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
+    manual_cmp: null, week_52_low: null, week_52_high: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
     ...overrides,
   }
 }
@@ -366,31 +366,27 @@ describe('computeStockRows — currentCost (FY-scoped)', () => {
   })
 })
 
-// ── computeStockRows — signal uses fresh computed bands ───────────────────────
+// ── computeStockRows — signal uses stored generated bands ────────────────────
 
-describe('computeStockRows — bandSignal uses live calculateBands, not stored DB values', () => {
-  it('signal is buy when CMP is in fresh buy zone, even if stale stored buy_low says deep', () => {
-    // Tobacco Corp: fresh buyLow=200 (20×10), buyHigh=250 (25×10). CMP=220 → fresh: buy
-    // Stored buy_low=600 (stale, old EPS) → stored signal would be: deep
+describe('computeStockRows — bandSignal uses stored generated bands', () => {
+  it('signal is buy when CMP is inside stored buy zone', () => {
     const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
     const band  = mkBand('ITC', {
       eps: 10, manual_cmp: 220,
-      buy_low: 600, buy_high: 700, mid_high: 800, trim_price: 810,  // stale
+      buy_low: 200, buy_high: 250, mid_high: 300, trim_price: 310,
     })
     const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('buy')  // fresh: 200 ≤ 220 ≤ 250
+    expect(row.bandSignal).toBe('buy')
   })
 
-  it('signal is deep when CMP is below fresh buy zone, even if stale stored values say buy', () => {
-    // Tobacco Corp: fresh buyLow=200. CMP=150 → fresh: deep
-    // Stored buy_low=100 → stored signal would be: buy
+  it('signal is deep when CMP is below stored buy zone', () => {
     const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
     const band  = mkBand('ITC', {
       eps: 10, manual_cmp: 150,
-      buy_low: 100, buy_high: 130, mid_high: 160, trim_price: 170,  // stale
+      buy_low: 200, buy_high: 250, mid_high: 300, trim_price: 310,
     })
     const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('deep')  // fresh: 150 < 200
+    expect(row.bandSignal).toBe('deep')
   })
 
   it('signal is unknown when no CMP', () => {

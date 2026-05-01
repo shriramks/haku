@@ -1,9 +1,9 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
-  getCurrentFY, getAIKeyStatus, getTransactionsBySymbol,
+  getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
 } from './data'
 import { computeCarryover, computeStockRows, seqCost } from './compute'
-import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow } from './types'
+import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability } from './types'
 
 export interface StockDetailProps {
   fy: FiscalYear | null
@@ -15,6 +15,7 @@ export interface StockDetailProps {
   allTimeCost: number
   hasKey: boolean
   aiProvider: 'gemini' | 'claude'
+  investability: Investability | null
 }
 
 /**
@@ -41,7 +42,7 @@ export async function fetchStockDetailProps(
   const [
     allocations, transactions, bands, tranches,
     prevAllocations, prevTransactions,
-    aiKeyStatus, symbolTxns,
+    aiKeyStatus, symbolTxns, investability,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -52,8 +53,9 @@ export async function fetchStockDetailProps(
         prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
         getAIKeyStatus(),
         getTransactionsBySymbol(symbol),
+        getInvestabilityForSymbol(symbol),
       ])
-    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }, []]
+    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }, [], null]
 
   const carryoverMap = prevFY
     ? computeCarryover(
@@ -86,5 +88,6 @@ export async function fetchStockDetailProps(
     allTimeCost: allTimePosition.cost,
     hasKey,
     aiProvider,
+    investability: (investability as Investability | null) ?? null,
   }
 }

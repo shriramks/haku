@@ -14,6 +14,9 @@ export default function UserMenu() {
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [savingKey, setSavingKey]       = useState(false)
   const [keyError, setKeyError]         = useState('')
+  const [riskFree, setRiskFree]         = useState('0.07')
+  const [savingRiskFree, setSavingRiskFree] = useState(false)
+  const [riskFreeError, setRiskFreeError]   = useState('')
   const ref    = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -28,6 +31,7 @@ export default function UserMenu() {
     fetch('/api/settings/gemini-key').then(r => r.json()).then(d => {
       setHasKey(d.hasKey ?? false)
       setAiProvider(d.provider ?? 'gemini')
+      setRiskFree(String(d.riskFree ?? 0.07))
     }).catch(() => {})
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -78,6 +82,27 @@ export default function UserMenu() {
     setHasKey(false)
     setShowKeyInput(false)
     setSavingKey(false)
+  }
+
+  async function saveRiskFree() {
+    setSavingRiskFree(true)
+    setRiskFreeError('')
+    try {
+      const res = await fetch('/api/settings/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riskFree: riskFree.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setRiskFreeError(json.error ?? 'Failed to save')
+      } else if (json.riskFree != null) {
+        setRiskFree(String(json.riskFree))
+      }
+    } catch {
+      setRiskFreeError('Network error')
+    }
+    setSavingRiskFree(false)
   }
 
   return (
@@ -171,6 +196,34 @@ export default function UserMenu() {
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+            <p className="text-footnote uppercase tracking-widest mb-2"
+               style={{ color: 'var(--text-muted)' }}>Valuation</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Risk-free</p>
+              <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>India 10Y yield</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.0001"
+                inputMode="decimal"
+                value={riskFree}
+                onChange={e => setRiskFree(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl text-subheadline outline-none"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              />
+              <button
+                onClick={saveRiskFree}
+                disabled={savingRiskFree || !riskFree.trim()}
+                className="min-h-[44px] px-4 rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
+                style={{ background: 'rgba(10,132,255,0.15)' }}>
+                {savingRiskFree ? '…' : 'Save'}
+              </button>
+            </div>
+            {riskFreeError && <p className="text-footnote text-negative mt-2">{riskFreeError}</p>}
           </div>
 
           {/* Portfolio */}

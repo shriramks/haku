@@ -1,5 +1,4 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, StockCategory, BandSignal } from './types'
-import { calculateBands } from './band-calculator'
+import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, BandSignal } from './types'
 
 export function getBandSignal(
   cmp: number | null,
@@ -164,19 +163,15 @@ export function computeStockRows(
       .filter(t => t.symbol === alloc.symbol)
     const { qty: allTimeQty, avgCost: allTimeAvg } = seqCost(allTxns)
 
-    const band   = bands.find(b => b.symbol === alloc.symbol) ?? null
-    const cmp    = band?.manual_cmp ?? null
-    const fresh  = band ? calculateBands({
-      category: alloc.category as StockCategory,
-      quality:  alloc.quality ?? 0,
-      stress:   alloc.stress  ?? 0,
-      eps:      band.eps,
-    }) : null
-    const _buyLow   = fresh?.buyLow   ?? band?.buy_low   ?? null
-    const _buyHigh  = fresh?.buyHigh  ?? band?.buy_high  ?? null
-    const _midHigh  = fresh?.midHigh  ?? band?.mid_high  ?? null
-    const _trim     = fresh?.trimPrice ?? band?.trim_price ?? null
-    const signal = getBandSignal(cmp, _buyLow, _buyHigh, _midHigh, _trim)
+    const band = bands.find(b => b.symbol === alloc.symbol) ?? null
+    const cmp  = band?.manual_cmp ?? null
+    const signal = getBandSignal(
+      cmp,
+      band?.buy_low ?? null,
+      band?.buy_high ?? null,
+      band?.mid_high ?? null,
+      band?.trim_price ?? null,
+    )
 
     const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
     const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)

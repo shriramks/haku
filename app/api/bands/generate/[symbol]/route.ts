@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTranchePrices } from '@/lib/band-calculator'
+import { calculateBands, computeGrowth, computeTranchePrices, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
 import { fetchCmp } from '@/lib/market-data'
 import { decrypt } from '@/lib/encrypt'
 import type { StockCategory } from '@/lib/types'
@@ -84,32 +84,41 @@ function extractJSON(text: string): Record<string, unknown> {
 }
 
 function stockPrompt(symbol: string): string {
-  return `Open https://www.screener.in/company/${symbol}/consolidated/ — the consolidated financials page for NSE:${symbol}.
+  return `Open https://www.screener.in/company/${symbol}/consolidated/ — consolidated financials for NSE:${symbol}.
 
-From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent period — prefer TTM if shown, else latest annual FY):
-- "EPS in Rs" row → EPS per share in ₹. This is rupees per share, NOT crores. Typical range for large/mid-caps: ₹5–₹300.
+From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent — prefer TTM if shown, else latest annual FY):
+- "EPS in Rs" row → EPS per share in ₹ (rupees per share, NOT crores). Typical range: ₹5–₹300 for large/mid-caps.
+- "Net Profit" row → PAT now in Cr (current period, same rightmost column)
+- "Net Profit" from 3 years prior (the column 3 years before the rightmost) → PAT 3yr ago in Cr
+From the Ratios section:
+- 3-year average ROCE % (or ROE % for financial/insurance companies)
+From the page header:
+- Market Capitalisation in Cr
 
-Self-validation before returning (do not include in output):
-- EPS below ₹2 for a large/mid-cap with significant profits almost always means a scale error — recheck.
+Self-validation (do not include in output):
+- EPS below ₹2 for a large/mid-cap almost always means a scale error — recheck.
+- PAT should be in Crores (e.g. 1,000–50,000 for mid/large-caps), not rupees.
 
 Return ONLY this JSON, no markdown, no explanation:
-{"eps":0,"asOf":""}
+{"eps":0,"patNow":0,"pat3yrAgo":0,"roce3yrAvg":0,"mcap":0,"asOf":""}
 
-asOf = the period label of the data used, e.g. "TTM Mar25" or "FY25"`
+asOf = the period label used, e.g. "TTM Mar25" or "FY25"`
 }
 
 function indexPrompt(symbol: string): string {
   return `Look up NSE:${symbol} and identify which index it tracks. Then find:
-1. The current trailing PE ratio of that index (last 12 months, NOT forward PE). If this is a commodity ETF (gold, silver, etc.) with no earnings, set indexPE to 0.
-2. Current market price per unit of NSE:${symbol} in ₹ — latest traded price, NOT the NAV
+1. Current index level (e.g. Nifty 50 at 22,500)
+2. Current trailing PE ratio of that index (last 12 months, NOT forward PE). If commodity ETF (gold, silver, etc.), set indexPE to 0.
 
-Sanity check: Trailing PE for Indian equity indices is normally 15–40. If indexPE is 0 it means this is a non-equity ETF.
+Sanity check: Trailing PE for Indian equity indices is normally 15–40.
 
 Return ONLY this JSON, no markdown, no explanation:
-{"indexPE":0,"etfPrice":0,"asOf":""}
+{"indexLevel":0,"indexPE":0,"asOf":""}
 
-asOf = brief description including index name and date, e.g. "Nifty Next 50 @ 28.4x PE | Mar 2025" or "Gold ETF — no PE | Mar 2025"`
+asOf = brief description, e.g. "Nifty Next 50 @ 28.4x PE, level 70,500 | Mar 2025"`
 }
+
+type GenerateAction = 'bands' | 'financials'
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
@@ -119,40 +128,34 @@ export async function POST(
 ) {
   const { symbol } = await params
   const upperSymbol = symbol.toUpperCase()
-  const body = await req.json().catch(() => ({})) as { fyId?: string }
+  const body = await req.json().catch(() => ({})) as { fyId?: string; action?: GenerateAction }
   const fyId = body.fyId ?? null
+  const action: GenerateAction = body.action === 'financials' ? 'financials' : 'bands'
 
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Determine AI provider and active key
-  const { data: userSettings } = await supabase
-    .from('user_settings')
-    .select('gemini_api_key, claude_api_key, ai_provider')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  const aiProvider = userSettings?.ai_provider ?? 'gemini'
-  const rawKey = aiProvider === 'claude'
-    ? userSettings?.claude_api_key
-    : userSettings?.gemini_api_key
-  const activeKey = rawKey ? await decrypt(rawKey) : null
-
-  if (!activeKey) return NextResponse.json({
-    error: aiProvider === 'claude'
-      ? 'No Claude API key configured. Add your key in Settings (profile icon).'
-      : 'No Gemini API key configured. Add your key in Settings (profile icon).',
-  }, { status: 500 })
-
-  // Fetch allocation for category + PE adjustment values
-  const { data: alloc } = await supabase
-    .from('stock_allocations')
-    .select('category, quality, stress')
-    .eq('user_id', user.id)
-    .eq('symbol', upperSymbol)
-    .limit(1)
-    .single()
+  const [{ data: userSettings }, { data: alloc }, { data: existingBand }] = await Promise.all([
+    supabase
+      .from('user_settings')
+      .select('gemini_api_key, claude_api_key, ai_provider, risk_free')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('stock_allocations')
+      .select('category')
+      .eq('user_id', user.id)
+      .eq('symbol', upperSymbol)
+      .limit(1)
+      .single(),
+    supabase
+      .from('buy_bands')
+      .select('id, eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at')
+      .eq('user_id', user.id)
+      .eq('symbol', upperSymbol)
+      .maybeSingle(),
+  ])
 
   if (!alloc?.category) {
     return NextResponse.json({
@@ -162,133 +165,223 @@ export async function POST(
 
   const category = alloc.category as StockCategory
   const isIndex = category === 'Nifty 50 Index' || category === 'Nifty Next 50 Index'
+  const riskFree = userSettings?.risk_free ?? 0.07
+  const ke = getCostOfEquity(riskFree)
+  const existingCmp = existingBand?.manual_cmp ?? null
 
-  // Call AI provider with search grounding (retry once on transient failure)
-  let aiText: string
-  const prompt = isIndex ? indexPrompt(upperSymbol)
-    : stockPrompt(upperSymbol)
-  const callAI = () => aiProvider === 'claude'
-    ? callClaude(prompt, activeKey)
-    : callGemini(prompt, activeKey)
-  const providerName = aiProvider === 'claude' ? 'Claude' : 'Gemini'
-  try {
-    aiText = await callAI()
-  } catch {
-    try {
-      // Retry once on transient network failure
-      aiText = await callAI()
-    } catch (e2: unknown) {
+  if (action === 'financials') {
+    const aiProvider = userSettings?.ai_provider ?? 'gemini'
+    const rawKey = aiProvider === 'claude'
+      ? userSettings?.claude_api_key
+      : userSettings?.gemini_api_key
+    const activeKey = rawKey ? await decrypt(rawKey) : null
+
+    if (!activeKey) {
       return NextResponse.json({
-        error: `${providerName} fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
+        error: aiProvider === 'claude'
+          ? 'No Claude API key configured. Add your key in Settings (profile icon).'
+          : 'No Gemini API key configured. Add your key in Settings (profile icon).',
+      }, { status: 500 })
+    }
+
+    let aiText: string
+    const prompt = isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol)
+    const callAI = () => aiProvider === 'claude'
+      ? callClaude(prompt, activeKey)
+      : callGemini(prompt, activeKey)
+    const providerName = aiProvider === 'claude' ? 'Claude' : 'Gemini'
+
+    try {
+      aiText = await callAI()
+    } catch {
+      try {
+        aiText = await callAI()
+      } catch (e2: unknown) {
+        return NextResponse.json({
+          error: `${providerName} fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
+        }, { status: 502 })
+      }
+    }
+
+    let parsed: Record<string, unknown>
+    try {
+      parsed = extractJSON(aiText)
+    } catch {
+      return NextResponse.json({
+        error: `Could not parse JSON from ${aiProvider === 'claude' ? 'Claude' : 'Gemini'} response`,
+        raw: aiText.slice(0, 600),
       }, { status: 502 })
     }
-  }
 
-  // Parse JSON from AI text response
-  let parsed: Record<string, unknown>
-  try {
-    parsed = extractJSON(aiText)
-  } catch {
-    return NextResponse.json({
-      error: `Could not parse JSON from ${aiProvider === 'claude' ? 'Claude' : 'Gemini'} response`,
-      raw: aiText.slice(0, 600),
-    }, { status: 502 })
-  }
+    let eps: number | null = null
+    let asOf = String(parsed.asOf ?? '')
+    let indexLevel: number | null = null
+    let indexPE: number | null = null
+    let patNow: number | null = null
+    let pat3yrAgo: number | null = null
+    let roce3yrAvg: number | null = null
+    let mcap: number | null = null
 
-  // Map parsed data to band inputs
-  let eps: number | null = null
-  let asOf = String(parsed.asOf ?? '')
+    if (isIndex) {
+      indexLevel = Number(parsed.indexLevel) || null
+      indexPE    = Number(parsed.indexPE) || null
 
-  if (isIndex) {
-    const indexPE  = Number(parsed.indexPE)  || null
-    const etfPrice = Number(parsed.etfPrice) || null
+      if (!indexLevel) {
+        return NextResponse.json({ error: 'Could not extract index level', raw: aiText.slice(0, 600) }, { status: 422 })
+      }
+      if (!indexPE) {
+        return NextResponse.json({
+          error: `${upperSymbol} appears to be a non-equity ETF (commodity/debt) — PE-based bands don't apply. Set price targets manually.`,
+          raw: aiText.slice(0, 600),
+        }, { status: 422 })
+      }
+      eps = deriveIndexEps(indexLevel, indexPE)
+    } else {
+      eps        = Number(parsed.eps) || null
+      patNow     = Number(parsed.patNow) || null
+      pat3yrAgo  = Number(parsed.pat3yrAgo) || null
+      roce3yrAvg = Number(parsed.roce3yrAvg) || null
+      mcap       = Number(parsed.mcap) || null
 
-    if (!etfPrice) {
-      return NextResponse.json({
-        error: 'Could not extract ETF price',
-        raw: aiText.slice(0, 600),
-      }, { status: 422 })
+      if (!eps) {
+        try {
+          const retryText = await callAI()
+          const retryParsed = extractJSON(retryText)
+          eps        = Number(retryParsed.eps) || eps
+          patNow     = Number(retryParsed.patNow) || patNow
+          pat3yrAgo  = Number(retryParsed.pat3yrAgo) || pat3yrAgo
+          roce3yrAvg = Number(retryParsed.roce3yrAvg) || roce3yrAvg
+          mcap       = Number(retryParsed.mcap) || mcap
+          if (retryParsed.asOf) asOf = String(retryParsed.asOf)
+          aiText = retryText
+        } catch {
+          // ignore retry failure
+        }
+      }
     }
 
-    if (!indexPE) {
-      return NextResponse.json({
-        error: `${upperSymbol} appears to be a non-equity ETF (commodity/debt) — PE-based bands don't apply. Set price targets manually.`,
-        raw: aiText.slice(0, 600),
-      }, { status: 422 })
-    }
-
-    eps  = etfPrice / indexPE
-    asOf = String(parsed.asOf ?? '')
-  } else {
-    eps = Number(parsed.eps) || null
-
-    // If eps is missing (AI search miss), retry once
     if (!eps) {
-      try {
-        const retryText = await callAI()
-        const retryParsed = extractJSON(retryText)
-        eps = Number(retryParsed.eps) || null
-        if (retryParsed.asOf) asOf = String(retryParsed.asOf)
-        aiText = retryText
-      } catch { /* ignore retry failure, fall through to band calc error */ }
+      return NextResponse.json({
+        error: `Not enough data to save financials for ${upperSymbol}. Got: EPS=${eps}`,
+        raw: aiText.slice(0, 600),
+      }, { status: 422 })
     }
+
+    const now = new Date().toISOString()
+    const payload: Record<string, unknown> = {
+      user_id: user.id,
+      symbol: upperSymbol,
+      anchor_type: 'PE',
+      eps,
+      manual_cmp: existingCmp,
+      notes: asOf,
+      last_updated_at: now,
+      generated_at: existingBand?.generated_at ?? now,
+    }
+
+    if (isIndex) {
+      payload.index_level = indexLevel
+      payload.index_pe = indexPE
+    } else {
+      payload.pat_now = patNow
+      payload.pat_3yr_ago = pat3yrAgo
+      payload.roce_3yr_avg = roce3yrAvg
+      payload.mcap = mcap
+    }
+
+    const { data: savedBand, error } = await supabase
+      .from('buy_bands')
+      .upsert(payload, { onConflict: 'user_id,symbol' })
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    revalidateTag('buy_bands', {})
+
+    return NextResponse.json({
+      symbol: upperSymbol,
+      category,
+      mode: action,
+      financials: isIndex
+        ? { eps, indexLevel, indexPE, asOf }
+        : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, g: computeGrowth(patNow, pat3yrAgo), ke, asOf },
+      band: savedBand,
+    })
   }
 
-  // Calculate bands
+  const eps = isIndex
+    ? deriveIndexEps(existingBand?.index_level ?? null, existingBand?.index_pe ?? null)
+    : (existingBand?.eps ?? null)
+  const patNow = existingBand?.pat_now ?? null
+  const pat3yrAgo = existingBand?.pat_3yr_ago ?? null
+  const roce3yrAvg = existingBand?.roce_3yr_avg ?? null
+  const mcap = existingBand?.mcap ?? null
+  const indexLevel = existingBand?.index_level ?? null
+  const indexPE = existingBand?.index_pe ?? null
+  const g = computeGrowth(patNow, pat3yrAgo)
+
+  if (!eps || (!isIndex && (patNow == null || pat3yrAgo == null || roce3yrAvg == null || mcap == null))) {
+    return NextResponse.json({
+      error: `No saved financials for ${upperSymbol}. Use Regen Financials first.`,
+    }, { status: 422 })
+  }
+
+  if (category === 'Hospitals' && existingCmp && eps && existingCmp / eps > 80) {
+    return NextResponse.json({
+      error: `PE unreliable (${Math.round(existingCmp / eps)}×) — EV/EBITDA override needed for ${upperSymbol}`,
+    }, { status: 422 })
+  }
+
   const result = calculateBands({
     category,
-    quality: alloc.quality ?? 0,
-    stress:  alloc.stress  ?? 0,
     eps,
+    g,
+    ke,
+    mcap,
+    roce3yrAvg,
   })
 
   if (!result) {
     return NextResponse.json({
-      error: `Not enough data to compute bands for ${upperSymbol}. Got: EPS=${eps}`,
-      raw: aiText.slice(0, 600),
+      error: `Not enough saved data to compute bands for ${upperSymbol}.`,
     }, { status: 422 })
   }
 
-  // Preserve existing CMP before overwriting
-  const { data: existingBand } = await supabase
-    .from('buy_bands')
-    .select('manual_cmp')
-    .eq('user_id', user.id)
-    .eq('symbol', upperSymbol)
-    .maybeSingle()
-  const existingCmp = existingBand?.manual_cmp ?? null
-
-  // Upsert — unique constraint (user_id, symbol) ensures exactly one row per stock
   const now = new Date().toISOString()
+  const payload: Record<string, unknown> = {
+    user_id: user.id,
+    symbol: upperSymbol,
+    anchor_type: 'PE',
+    eps,
+    pat_now: patNow,
+    pat_3yr_ago: pat3yrAgo,
+    roce_3yr_avg: roce3yrAvg,
+    mcap,
+    index_level: indexLevel,
+    index_pe: indexPE,
+    buy_low: result.buyLow,
+    buy_high: result.buyHigh,
+    mid_low: result.midLow,
+    mid_high: result.midHigh,
+    trim_price: result.trimPrice,
+    manual_cmp: existingCmp,
+    notes: existingBand?.notes ?? '',
+    last_updated_at: now,
+    generated_at: now,
+  }
+
   const { data: newBand, error: upsertError } = await supabase
     .from('buy_bands')
-    .upsert({
-      user_id:    user.id,
-      symbol:     upperSymbol,
-      anchor_type: 'PE',
-      eps,
-      buy_low:    result.buyLow,
-      buy_high:   result.buyHigh,
-      mid_low:    result.midLow,
-      mid_high:   result.midHigh,
-      trim_price: result.trimPrice,
-      manual_cmp: existingCmp,
-      notes:      `${result.anchorUsed} | ${asOf}`,
-      last_updated_at: now,
-      generated_at:    now,
-    }, { onConflict: 'user_id,symbol' })
+    .upsert(payload, { onConflict: 'user_id,symbol' })
     .select()
     .single()
 
-  if (upsertError) {
-    return NextResponse.json({ error: upsertError.message }, { status: 500 })
-  }
+  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 })
 
-  // ── Auto-generate tranches ─────────────────────────────────────────────────
   let generatedTranches: unknown[] = []
 
   if (fyId) {
-    // Compute remaining budget for this stock in this FY
     const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
       supabase.from('fiscal_years').select('total_budget_inr, unallocated_carryover_inr').eq('id', fyId).single(),
       supabase.from('stock_allocations')
@@ -307,10 +400,7 @@ export async function POST(
       (s: number, t: { trade_type: string; amount: number }) =>
         s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
     const remaining = Math.max(0, allocBudget - netSpent)
-
-    // Fetch live CMP so tranches are never placed above current market price
     const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
-
     const prices = computeTranchePrices(result.buyLow, result.buyHigh, liveCmp)
     const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
@@ -321,12 +411,12 @@ export async function POST(
       .eq('fy_id', fyId)
 
     const trancheRows = prices.map((price, i) => ({
-      user_id:    user.id,
-      symbol:     upperSymbol,
+      user_id: user.id,
+      symbol: upperSymbol,
       price,
-      qty:        amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
+      qty: amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
       sort_order: i + 1,
-      fy_id:      fyId,
+      fy_id: fyId,
     }))
 
     const { data: inserted } = await supabase
@@ -343,8 +433,11 @@ export async function POST(
   return NextResponse.json({
     symbol: upperSymbol,
     category,
-    financials: { eps, asOf },
-    band:     newBand,
+    mode: action,
+    financials: isIndex
+      ? { eps, indexLevel, indexPE, asOf: existingBand?.notes ?? '' }
+      : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, g, ke, asOf: existingBand?.notes ?? '' },
+    band: newBand,
     result,
     tranches: generatedTranches,
   })

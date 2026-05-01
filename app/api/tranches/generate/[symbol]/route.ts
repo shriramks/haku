@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeTranchePrices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
+import { computeTranchePrices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -18,14 +18,14 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Fetch allocation (category + qualifier flags) and current band (financials + CMP)
+  // Fetch allocation (category) and current band (stored computed values + CMP)
   const [{ data: fyAllocMeta }, { data: band, error: bandError }] = await Promise.all([
     supabase.from('stock_allocations')
-      .select('category, quality, stress')
+      .select('category')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
-      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, eps')
+      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
       .maybeSingle(),
   ])
@@ -33,50 +33,33 @@ export async function POST(
   if (bandError) return NextResponse.json({ error: `buy_bands query failed: ${bandError.message}` }, { status: 500 })
 
   // If current FY's allocation has no category, fall back to any FY for this symbol.
-  // Mirrors the band-generate route which queries without fy_id filter.
-  // Quality/stress adjustments from the current FY row take precedence when available.
   let alloc = fyAllocMeta
   if (!alloc?.category) {
     const { data: anyAlloc } = await supabase
       .from('stock_allocations')
-      .select('category, quality, stress')
+      .select('category')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
       .not('category', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-    if (anyAlloc?.category) {
-      // Use category from the historical row, but quarter flags from current FY if available
-      alloc = { ...anyAlloc, ...fyAllocMeta }
-    }
+    if (anyAlloc?.category) alloc = { ...anyAlloc, ...fyAllocMeta }
   }
 
-  // Recompute bands live from current allocation category + stored financials.
-  // This ensures tranches reflect any category change since the last band generation.
-  // Done before the guard so computed values (from EPS) satisfy the check even when
-  // buy_low / buy_high were never persisted to the DB.
-  const freshResult = (alloc?.category && band?.eps) ? calculateBands({
-    category: alloc.category as StockCategory,
-    quality: alloc?.quality ?? 0,
-    stress:  alloc?.stress  ?? 0,
-    eps:           band.eps,
-  }) : null
-
-  const buyLow  = freshResult?.buyLow  ?? band?.buy_low  ?? null
-  const buyHigh = freshResult?.buyHigh ?? band?.buy_high ?? null
-  const midLow  = freshResult?.midLow  ?? band?.mid_low  ?? band?.buy_high ?? null
-  const midHigh = freshResult?.midHigh ?? band?.mid_high ?? band?.buy_high ?? null
+  // Use stored band values — bands are only recomputed on Regen Bands.
+  const buyLow  = band?.buy_low  ?? null
+  const buyHigh = band?.buy_high ?? null
+  const midLow  = band?.mid_low  ?? band?.buy_high ?? null
+  const midHigh = band?.mid_high ?? band?.buy_high ?? null
 
   if (!buyLow || !buyHigh) {
     const why = !band
-      ? 'no buy_bands row found — generate bands first'
-      : !band.eps
-        ? 'EPS not set — open Financials and enter EPS'
-        : !alloc
-          ? `no stock_allocations row found for fy_id=${fyId}`
-          : !alloc.category
-            ? 'category not set on this FY\'s allocation row'
-            : `calculateBands returned null (category="${alloc.category}", eps=${band.eps})`
+      ? 'no buy_bands row found — run Regen Bands first'
+      : !alloc
+        ? `no stock_allocations row found for fy_id=${fyId}`
+        : !alloc.category
+          ? 'category not set on this allocation row'
+          : 'bands not set — run Regen Bands to compute'
     return NextResponse.json({
       error: `Cannot generate tranches for ${upperSymbol}: ${why}`,
     }, { status: 422 })

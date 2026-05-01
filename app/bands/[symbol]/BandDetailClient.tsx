@@ -2,12 +2,22 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands } from '@/lib/band-calculator'
-import { formatINRFull, formatINRFullNum, formatPrice, formatPriceNum, formatINR } from '@/lib/formatter'
-import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow } from '@/lib/types'
+import {
+  calculateBands,
+  computeGrowth,
+  deriveIndexEps,
+  getCostOfEquity,
+  getRoceThreshold,
+  getSizeModRangeLabel,
+  getSizeModValueLabel,
+  INDEX_CATEGORIES,
+  isBandStale,
+} from '@/lib/band-calculator'
+import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import TrancheSection from '@/components/TrancheSection'
-import { RefreshIcon, SparkleIcon, PencilIcon } from '@/components/icons'
+import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 
@@ -25,6 +35,7 @@ interface Props {
   backLabel: string
   initialHasKey: boolean
   initialAiProvider: 'gemini' | 'claude'
+  initialInvestability: Investability | null
 }
 
 export default function BandDetailClient({
@@ -32,10 +43,11 @@ export default function BandDetailClient({
   fyRow, allTimeQty, allTimeCost,
   tranches: initialTranches,
   fyId, fyLabel, backHref, backLabel, initialHasKey, initialAiProvider,
+  initialInvestability,
 }: Props) {
   const router = useRouter()
   const [band, setBand]               = useState(initialBand)
-  const [allocation, setAllocation]   = useState(initialAllocation)
+  const [allocation]                  = useState(initialAllocation)
   const [tranches, setTranches]       = useState(initialTranches)
   const [cmp, setCmp]                 = useState(initialBand?.manual_cmp ?? null)
   const [week52, setWeek52]           = useState<{ low: number | null; high: number | null }>({
@@ -44,6 +56,7 @@ export default function BandDetailClient({
   })
   const [refreshing, setRefreshing]         = useState(false)
   const [generating, setGenerating]         = useState(false)
+  const [refreshingFinancials, setRefreshingFinancials] = useState(false)
   const [genError, setGenError]             = useState('')
   const [generatingTranches, setGeneratingTranches] = useState(false)
   const [trancheGenError, setTrancheGenError]       = useState('')
@@ -52,6 +65,8 @@ export default function BandDetailClient({
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
   const [showFinancials, setShowFinancials] = useState(false)
   const [showTranches, setShowTranches]     = useState(false)
+  const [showInvestability, setShowInvestability] = useState(false)
+  const [investability, setInvestability]   = useState(initialInvestability)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,23 +74,16 @@ export default function BandDetailClient({
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  const computed = band ? calculateBands({
-    category: allocation?.category as StockCategory,
-    quality:  allocation?.quality ?? 0,
-    stress:   allocation?.stress  ?? 0,
-    eps:      band.eps,
-  }) : null
-
-  const buyLow    = computed?.buyLow    ?? band?.buy_low    ?? null
-  const buyHigh   = computed?.buyHigh   ?? band?.buy_high   ?? null
-  const midLow    = computed?.midLow    ?? band?.mid_low    ?? null
-  const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
-  const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
+  const buyLow    = band?.buy_low    ?? null
+  const buyHigh   = band?.buy_high   ?? null
+  const midLow    = band?.mid_low    ?? null
+  const midHigh   = band?.mid_high   ?? null
+  const trimPrice = band?.trim_price ?? null
   const hasBands  = buyLow != null && trimPrice != null
+  const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
 
   const fyRemaining = fyRow?.remaining ?? 0
 
-  // All-time current value (live — updates after CMP refresh)
   const allTimeCurrentValue = cmp != null && allTimeQty > 0
     ? Math.round(allTimeQty) * cmp
     : null
@@ -94,7 +102,6 @@ export default function BandDetailClient({
           manual_cmp: price,
           week_52_low: week52Low ?? null,
           week_52_high: week52High ?? null,
-          last_updated_at: new Date().toISOString(),
         }).eq('id', band.id)
         setBand(prev => prev ? { ...prev, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : prev)
         revalidateBuyBands()
@@ -115,15 +122,16 @@ export default function BandDetailClient({
     }
   }
 
-  async function generateBands() {
-    if (!hasKey) { setShowKeyPrompt(true); return }
-    setGenerating(true)
+  async function runBandAction(action: 'bands' | 'financials') {
+    if (action === 'financials' && !hasKey) { setShowKeyPrompt(true); return }
+    if (action === 'bands') setGenerating(true)
+    if (action === 'financials') setRefreshingFinancials(true)
     setGenError('')
     try {
       const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId }),
+        body: JSON.stringify({ fyId, action }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -131,37 +139,21 @@ export default function BandDetailClient({
       } else if (json.band) {
         setBand(json.band)
         setCmp(json.band.manual_cmp ?? cmp)
-        if (json.tranches?.length > 0) setTranches(json.tranches)
+        if (action === 'bands' && json.tranches?.length > 0) setTranches(json.tranches)
       }
     } catch {
       setGenError('Network error')
     }
-    setGenerating(false)
+    if (action === 'bands') setGenerating(false)
+    if (action === 'financials') setRefreshingFinancials(false)
   }
 
-  function applyQualityStress(quality: number, stress: number) {
-    if (!allocation) return
-    setAllocation(prev => prev ? { ...prev, quality, stress } : prev)
+  async function generateBands() {
+    await runBandAction('bands')
   }
 
-  async function persistQualityStress(quality: number, stress: number) {
-    if (!allocation) return
-    const sb = getSupabaseBrowser()
-    await sb.from('stock_allocations').update({ quality, stress }).eq('id', allocation.id)
-    if (band?.eps) {
-      const result = calculateBands({
-        category: allocation.category as StockCategory,
-        quality, stress, eps: band.eps,
-      })
-      if (result) {
-        await sb.from('buy_bands').update({
-          buy_low: result.buyLow, buy_high: result.buyHigh,
-          mid_low: result.midLow, mid_high: result.midHigh,
-          trim_price: result.trimPrice,
-          last_updated_at: new Date().toISOString(),
-        }).eq('symbol', symbol)
-      }
-    }
+  async function refreshFinancials() {
+    await runBandAction('financials')
   }
 
   async function generateTranches() {
@@ -284,17 +276,41 @@ export default function BandDetailClient({
         )}
       </div>
 
-      {/* ── PE Band Adjustments (Quality / Stress) ── */}
-      {allocation && (
-        <div style={{ marginTop: 10 }}>
-          <QualityStressControl
-            initialQuality={allocation.quality ?? 0}
-            initialStress={allocation.stress ?? 0}
-            onApply={applyQualityStress}
-            onPersist={persistQualityStress}
-          />
-        </div>
-      )}
+      {/* ── Investability row ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        <button
+          onClick={() => setShowInvestability(true)}
+          className="flex items-center justify-between w-full px-4"
+          style={{ minHeight: 44 }}>
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>Investability</span>
+          <div className="flex items-center gap-2">
+            {investability ? (
+              <span
+                className="tabnum text-subheadline font-semibold"
+                style={{
+                  color: investability.investable ? 'var(--positive)' : 'var(--warning)',
+                  background: investability.investable
+                    ? 'color-mix(in srgb, var(--positive) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--warning) 10%, transparent)',
+                  border: `1px solid ${investability.investable
+                    ? 'color-mix(in srgb, var(--positive) 20%, transparent)'
+                    : 'color-mix(in srgb, var(--warning) 20%, transparent)'}`,
+                  borderRadius: 999,
+                  minHeight: 28,
+                  padding: '0 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}>
+                {investability.total_score}/50 {investability.investable ? '✓' : ''}
+              </span>
+            ) : (
+              <span className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Not assessed</span>
+            )}
+            <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+          </div>
+        </button>
+      </div>
+
       {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
 
       {/* ── Allocation + Position ── */}
@@ -316,9 +332,18 @@ export default function BandDetailClient({
         <button
           onClick={() => setShowFinancials(true)}
           className="flex items-center justify-between w-full px-4"
-          style={{ minHeight: 44, borderBottom: '1px solid var(--border-faint)' }}>
+          style={{ minHeight: 44 }}>
           <span className="text-body" style={{ color: 'var(--text-2)' }}>Financials</span>
-          <span className="text-body text-accent">Edit ›</span>
+          <div className="flex items-center gap-2">
+            <span className="text-subheadline" style={{ color: 'var(--text-faint)' }}>
+              {staleBands
+                ? 'Bands need regen'
+                : INDEX_CATEGORIES.has(allocation?.category as StockCategory)
+                  ? '2 inputs + computation'
+                  : '4 inputs + computation'}
+            </span>
+            <span className="text-body text-accent">›</span>
+          </div>
         </button>
       </div>
 
@@ -346,10 +371,11 @@ export default function BandDetailClient({
           symbol={symbol}
           band={band}
           allocation={allocation}
-          fyId={fyId}
           generating={generating}
+          refreshingFinancials={refreshingFinancials}
           genError={genError}
-          onGenerate={generateBands}
+          onGenerateBands={generateBands}
+          onRefreshFinancials={refreshFinancials}
           onBandSaved={b => setBand(b)}
           onClose={() => setShowFinancials(false)}
         />
@@ -372,23 +398,20 @@ export default function BandDetailClient({
           onClose={() => setShowTranches(false)}
         />
       )}
+      {showInvestability && (
+        <InvestabilitySheet
+          symbol={symbol}
+          userId={userId}
+          initialInvestability={investability}
+          onClose={() => setShowInvestability(false)}
+          onSaved={inv => setInvestability(inv)}
+        />
+      )}
     </div>
   )
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function SectionHeader({ label, children }: { label: string; children?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-4"
-      style={{ minHeight: 36, borderBottom: '1px solid var(--border-faint)' }}>
-      <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
-        {label}
-      </span>
-      {children}
-    </div>
-  )
-}
 
 function DetailRow({ label, value, bold, muted, color, noRupee }: {
   label: string; value: string; bold?: boolean; muted?: boolean; color?: string; noRupee?: boolean
@@ -412,35 +435,66 @@ function DetailRow({ label, value, bold, muted, color, noRupee }: {
 
 // ── Financials Sheet ─────────────────────────────────────────────────────────
 
-function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError, onGenerate, onBandSaved, onClose }: {
+function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinancials, genError, onGenerateBands, onRefreshFinancials, onBandSaved, onClose }: {
   symbol: string
   band: BuyBand | null
   allocation: StockAllocation | null
-  fyId: string
   generating: boolean
+  refreshingFinancials: boolean
   genError: string
-  onGenerate: () => void
+  onGenerateBands: () => void
+  onRefreshFinancials: () => void
   onBandSaved: (b: BuyBand) => void
   onClose: () => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving]   = useState(false)
-  const [eps, setEps]         = useState(band?.eps?.toString() ?? '')
+  const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
+  const [saving, setSaving]         = useState(false)
+  const [eps, setEps]               = useState(band?.eps?.toString() ?? '')
+  const [patNow, setPatNow]         = useState(band?.pat_now?.toString() ?? '')
+  const [pat3yrAgo, setPat3yrAgo]   = useState(band?.pat_3yr_ago?.toString() ?? '')
+  const [roce3yrAvg, setRoce3yrAvg] = useState(band?.roce_3yr_avg?.toString() ?? '')
+  const [mcap, setMcap]             = useState(band?.mcap?.toString() ?? '')
+  const [indexLevel, setIndexLevel] = useState(band?.index_level?.toString() ?? '')
+  const [indexPe, setIndexPe]       = useState(band?.index_pe?.toString() ?? '')
+  const [riskFree, setRiskFree]     = useState(0.07)
   const kh = useKeyboardHeight()
 
-  // Sync inputs when band updates (e.g. after AI generation)
   useEffect(() => {
-    if (!editing) {
-      setEps(band?.eps?.toString() ?? '')
-    }
-  }, [band, editing])
+    getSupabaseBrowser()
+      .from('user_settings')
+      .select('risk_free')
+      .maybeSingle()
+      .then(({ data }) => { if (data?.risk_free != null) setRiskFree(data.risk_free) })
+  }, [])
+
+  useEffect(() => {
+    setEps(band?.eps?.toString() ?? '')
+    setPatNow(band?.pat_now?.toString() ?? '')
+    setPat3yrAgo(band?.pat_3yr_ago?.toString() ?? '')
+    setRoce3yrAvg(band?.roce_3yr_avg?.toString() ?? '')
+    setMcap(band?.mcap?.toString() ?? '')
+    setIndexLevel(band?.index_level?.toString() ?? '')
+    setIndexPe(band?.index_pe?.toString() ?? '')
+  }, [band])
 
   async function save() {
     setSaving(true)
     const sb = getSupabaseBrowser()
-    const fields = {
-      eps:             parseFloat(eps) || null,
+    const indexLevelVal = parseFloat(indexLevel) || null
+    const indexPeVal    = parseFloat(indexPe) || null
+    const derivedIndexEps = deriveIndexEps(indexLevelVal, indexPeVal)
+    const fields: Record<string, unknown> = {
+      eps: isIndex ? derivedIndexEps : (parseFloat(eps) || null),
       last_updated_at: new Date().toISOString(),
+    }
+    if (!isIndex) {
+      fields.pat_now      = parseFloat(patNow) || null
+      fields.pat_3yr_ago  = parseFloat(pat3yrAgo) || null
+      fields.roce_3yr_avg = parseFloat(roce3yrAvg) || null
+      fields.mcap         = parseFloat(mcap) || null
+    } else {
+      fields.index_level = parseFloat(indexLevel) || null
+      fields.index_pe    = parseFloat(indexPe) || null
     }
     let savedBand: BuyBand | null = null
     if (band) {
@@ -455,11 +509,40 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
         savedBand = data
       }
     }
-    if (savedBand) { onBandSaved(savedBand); setEditing(false) }
+    if (savedBand) onBandSaved(savedBand)
     setSaving(false)
   }
 
-  const hasData = !!band?.eps
+  const indexLevelVal = parseFloat(indexLevel) || null
+  const indexPeVal    = parseFloat(indexPe) || null
+  const derivedIndexEps = deriveIndexEps(indexLevelVal, indexPeVal)
+  const epsVal       = isIndex ? derivedIndexEps : (parseFloat(eps) || null)
+  const patNowVal    = parseFloat(patNow) || null
+  const pat3yrAgoVal = parseFloat(pat3yrAgo) || null
+  const roceVal      = parseFloat(roce3yrAvg) || null
+  const mcapVal      = parseFloat(mcap) || null
+  const g = computeGrowth(patNowVal, pat3yrAgoVal)
+  const ke = getCostOfEquity(riskFree)
+  const computationResult = (epsVal && allocation?.category)
+    ? calculateBands({
+        category: allocation.category as StockCategory,
+        eps: epsVal,
+        g,
+        ke,
+        mcap: mcapVal,
+        roce3yrAvg: roceVal,
+      })
+    : null
+
+  const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
+  const currentPath = computationResult?.path === 'A'
+    ? 'A - intrinsic PE vs midpoint'
+    : computationResult?.path === 'B'
+      ? 'B - size modifier path'
+      : 'Index - factor fixed at 1.00'
+  const roceThreshold = allocation?.category
+    ? getRoceThreshold(allocation.category as StockCategory)
+    : null
 
   return (
     <>
@@ -475,60 +558,79 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
         <div className="px-5 pt-4">
-          <button onClick={onGenerate} disabled={generating}
-            className="flex items-center gap-2 px-4 py-3 rounded-xl w-full mb-4 text-body font-medium disabled:opacity-40"
-            style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-            <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-            {generating ? 'Generating…' : 'Regen from AI'}
-          </button>
+          <div className="flex gap-2 mb-4">
+            <button onClick={onGenerateBands} disabled={generating}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl flex-1 text-body font-medium disabled:opacity-40"
+              style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+              <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
+              {generating ? 'Regenerating…' : 'Regen Bands'}
+            </button>
+            <button onClick={onRefreshFinancials} disabled={refreshingFinancials}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl flex-1 text-body font-medium disabled:opacity-40"
+              style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+              <RefreshIcon className={`w-4 h-4 ${refreshingFinancials ? 'animate-spin' : ''}`} />
+              {refreshingFinancials ? 'Refreshing…' : 'Regen Financials'}
+            </button>
+          </div>
           {genError && <p className="text-subheadline text-negative mb-3">{genError}</p>}
-          {editing ? (
-            <>
-              <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
-                {allocation?.category ? `${allocation.category} · ` : ''}PE
-              </p>
-              <div className="flex flex-col gap-1 mb-4">
-                <label className="text-subheadline" style={{ color: 'var(--text-muted)' }}>EPS (₹)</label>
-                <input type="number" inputMode="decimal" placeholder="e.g. 18" value={eps}
-                  onChange={e => setEps(e.target.value)}
-                  className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-              </div>
-              <button onClick={save} disabled={saving}
-                className="w-full mt-2 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"
-                style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button onClick={() => setEditing(false)}
-                className="w-full mt-2 py-3 rounded-xl text-body"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                Cancel
-              </button>
-            </>
-          ) : hasData ? (
-            <>
-              <div className="mb-4">
-                <FinItem k="EPS" v={`₹${band?.eps}`} />
-              </div>
-              <button onClick={() => setEditing(true)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                <PencilIcon className="w-4 h-4" />
-                Edit values
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-subheadline mb-4" style={{ color: 'var(--text-faint)' }}>
-                No data — tap Regen to auto-fill, or Edit to enter manually
-              </p>
-              <button onClick={() => setEditing(true)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl w-full text-body"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                <PencilIcon className="w-4 h-4" />
-                Enter manually
-              </button>
-            </>
+          {staleBands && (
+            <p className="text-subheadline mb-3" style={{ color: 'var(--warning)' }}>
+              Financials changed. Regen Bands to apply.
+            </p>
+          )}
+          <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
+            {allocation?.category ? `${allocation.category} · ` : ''}PE
+          </p>
+          <div className="flex flex-col gap-3 mb-4">
+            {!isIndex ? (
+              <>
+                <FinInput label="EPS (₹)" value={eps} onChange={setEps} placeholder="e.g. 18" />
+                <FinInput label="PAT Now (Cr)" value={patNow} onChange={setPatNow} placeholder="e.g. 5200" />
+                <FinInput label="PAT 3yr Ago (Cr)" value={pat3yrAgo} onChange={setPat3yrAgo} placeholder="e.g. 3800" />
+                <FinInput label="ROCE 3yr Avg (%)" value={roce3yrAvg} onChange={setRoce3yrAvg} placeholder="e.g. 36.8" />
+                <FinInput label="Mcap (Cr)" value={mcap} onChange={setMcap} placeholder="e.g. 18737" />
+              </>
+            ) : (
+              <>
+                <FinInput label="Index Level" value={indexLevel} onChange={setIndexLevel} placeholder="e.g. 22500" />
+                <FinInput label="Index PE" value={indexPe} onChange={setIndexPe} placeholder="e.g. 22" />
+                <FinReadOnly
+                  label="Implied EPS (₹)"
+                  value={derivedIndexEps != null ? derivedIndexEps.toFixed(2) : '—'}
+                />
+              </>
+            )}
+          </div>
+          <button onClick={save} disabled={saving}
+            className="w-full mt-1 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"
+            style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+
+          {computationResult && (
+            <div style={{ marginTop: 18, borderTop: '1px solid var(--border-faint)', paddingTop: 10 }}>
+              <p className="text-footnote font-semibold uppercase mb-2" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Computation</p>
+              <CompRow k="Category" v={allocation?.category ?? '—'} first />
+              <CompRow k="Path" v={currentPath ?? '—'} />
+              {!isIndex && <CompRow k="g (PAT CAGR)" v={g != null ? `${(g * 100).toFixed(1)}%` : '—'} />}
+              {!isIndex && <CompRow k="g Definition" v="3-year PAT CAGR" />}
+              <CompRow k="Risk-free Value" v={`${(riskFree * 100).toFixed(1)}%`} />
+              <CompRow k="Risk-free Definition" v="India 10Y bond yield" />
+              <CompRow k="Ke" v={`${(ke * 100).toFixed(1)}%`} />
+              <CompRow k="Ke Definition" v="Risk-free + 5.0% ERP" />
+              {!isIndex && <CompRow k="Factor Start" v={computationResult.path === 'B' ? '1.00' : 'Intrinsic PE / midpoint'} />}
+              {!isIndex && <CompRow k="Factor Logic" v={computationResult.path === 'A' ? 'Clamp intrinsic PE to 0.60-1.00' : 'Path B uses size modifier'} />}
+              {!isIndex && <CompRow k="Size Modifier" v={getSizeModRangeLabel(mcapVal)} />}
+              {!isIndex && <CompRow k="Factor After Size" v={computationResult.path === 'B' ? getSizeModValueLabel(mcapVal) : '—'} />}
+              {!isIndex && <CompRow k="ROCE Value" v={roceVal != null ? `${roceVal.toFixed(1)}%` : '—'} />}
+              {!isIndex && <CompRow k="ROCE Threshold" v={roceThreshold != null ? `${roceThreshold.toFixed(1)}%` : '—'} />}
+              {!isIndex && <CompRow k="ROCE Premium Present" v={computationResult.rocePremium ? 'Yes' : 'No'} />}
+              {!isIndex && <CompRow k="ROCE Premium Rule" v="ROCE > 2 × threshold" />}
+              {!isIndex && <CompRow k="Factor After ROCE" v={computationResult.factor.toFixed(3)} accent />}
+              <CompRow k="Factor" v={computationResult.factor.toFixed(3)} accent />
+              <CompRow k="Band Formula" v="PE multiple × factor × EPS" />
+              {!isIndex && <CompRow k="Hospital Guard" v="Stop if CMP / EPS > 80x" />}
+            </div>
           )}
         </div>
       </div>
@@ -536,11 +638,38 @@ function FinancialsSheet({ symbol, band, allocation, fyId, generating, genError,
   )
 }
 
-function FinItem({ k, v }: { k: string; v: string }) {
+function FinInput({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string
+}) {
   return (
     <div>
-      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{k}</p>
-      <p className="font-semibold tabnum text-body" style={{ color: 'var(--text-primary)' }}>{v}</p>
+      <label className="text-subheadline block mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
+      <input type="number" inputMode="decimal" placeholder={placeholder} value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+    </div>
+  )
+}
+
+function FinReadOnly({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <label className="text-subheadline block mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
+      <div
+        className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function CompRow({ k, v, accent, first }: { k: string; v: string; accent?: boolean; first?: boolean }) {
+  return (
+    <div className="flex items-center justify-between" style={{ minHeight: 44, borderTop: first ? 'none' : '1px solid var(--border-faint)' }}>
+      <span className="text-body" style={{ color: 'var(--text-2)' }}>{k}</span>
+      <span className="text-headline tabnum" style={{ color: accent ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
     </div>
   )
 }
@@ -600,114 +729,162 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
   )
 }
 
-// ── Quality / Stress Control ─────────────────────────────────────────────────
+// ── Investability Sheet ───────────────────────────────────────────────────────
 
-function QualityStressControl({
-  initialQuality,
-  initialStress,
-  onApply,
-  onPersist,
-}: {
-  initialQuality: number
-  initialStress: number
-  onApply: (quality: number, stress: number) => void
-  onPersist: (quality: number, stress: number) => Promise<void>
+type GateKey =
+  | 'g1_moat'
+  | 'g2_owner_earnings'
+  | 'g3_capital_efficiency'
+  | 'g4_innovation'
+  | 'g5_execution_track'
+  | 'g6_sector_winds'
+  | 'g7_governance'
+  | 'g8_supply_regulatory'
+  | 'g9_market_cap'
+  | 'g10_capital_discipline'
+
+type GateScores = Record<GateKey, number>
+
+const GATES: Array<{ key: GateKey; label: string; desc: string; hardVeto?: boolean }> = [
+  { key: 'g1_moat' as const,                label: 'Moat',                 desc: 'Durable competitive advantage (5–10y)' },
+  { key: 'g2_owner_earnings' as const,      label: 'Owner Earnings',       desc: 'FCF quality and trend' },
+  { key: 'g3_capital_efficiency' as const,  label: 'Capital Efficiency',   desc: 'ROCE / ROE vs sector threshold' },
+  { key: 'g4_innovation' as const,          label: 'Innovation',           desc: 'Adaptability, product evolution' },
+  { key: 'g5_execution_track' as const,     label: 'Execution Track',      desc: 'Through-cycle delivery' },
+  { key: 'g6_sector_winds' as const,        label: 'Sector Winds',         desc: 'Growth durability, margin quality' },
+  { key: 'g7_governance' as const,          label: 'Governance',           desc: 'Clean audits, allocation, no red flags', hardVeto: true },
+  { key: 'g8_supply_regulatory' as const,   label: 'Supply / Regulatory',  desc: 'Concentration, regulatory stability' },
+  { key: 'g9_market_cap' as const,          label: 'Market Cap',           desc: 'Re-rating ceiling, EPS growth headroom' },
+  { key: 'g10_capital_discipline' as const, label: 'Capital Discipline',   desc: 'Buybacks, dividends, acquisition quality' },
+]
+
+function emptyGates(): GateScores {
+  return {
+    g1_moat: 0, g2_owner_earnings: 0, g3_capital_efficiency: 0,
+    g4_innovation: 0, g5_execution_track: 0, g6_sector_winds: 0,
+    g7_governance: 0, g8_supply_regulatory: 0, g9_market_cap: 0,
+    g10_capital_discipline: 0,
+  }
+}
+
+function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onSaved }: {
+  symbol: string
+  userId: string | null
+  initialInvestability: Investability | null
+  onClose: () => void
+  onSaved: (inv: Investability) => void
 }) {
-  const [quality, setQuality] = useState(initialQuality)
-  const [stress, setStress]   = useState(initialStress)
+  const [gates, setGates] = useState<GateScores>(() => {
+    if (!initialInvestability) return emptyGates()
+    const { g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation,
+            g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory,
+            g9_market_cap, g10_capital_discipline } = initialInvestability
+    return { g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation,
+             g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory,
+             g9_market_cap, g10_capital_discipline }
+  })
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
-  function step(field: 'quality' | 'stress', dir: 1 | -1) {
-    const nextQuality = field === 'quality' ? Math.max(0, Math.min(50, quality + dir * 5)) : quality
-    const nextStress  = field === 'stress'  ? Math.max(0, Math.min(50, stress  + dir * 5)) : stress
-    setQuality(nextQuality)
-    setStress(nextStress)
-    onApply(nextQuality, nextStress)
+  const totalScore = Object.values(gates).reduce((s, v) => s + v, 0)
+  const isInvestable = totalScore >= 20 && gates.g7_governance > 0
+
+  function step(key: GateKey, dir: 1 | -1) {
+    const next = { ...gates, [key]: Math.max(0, Math.min(5, gates[key] + dir)) }
+    setGates(next)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => onPersist(nextQuality, nextStress), 800)
+    timerRef.current = setTimeout(() => persist(next), 800)
   }
 
-  const rowStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center',
-    padding: '0 16px', minHeight: 48,
+  async function persist(scores: GateScores) {
+    if (!userId) return
+    const total  = Object.values(scores).reduce((s, v) => s + v, 0)
+    const invest = total >= 20 && scores.g7_governance > 0
+    const { data } = await getSupabaseBrowser()
+      .from('investability')
+      .upsert({
+        user_id: userId,
+        symbol,
+        ...scores,
+        total_score: total,
+        investable: invest,
+        assessed_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,symbol' })
+      .select()
+      .single()
+    if (data) onSaved(data as Investability)
   }
 
   return (
-    <div style={{ background: 'var(--bg-primary)' }}>
-      <div className="flex items-center gap-2 px-4" style={{ paddingTop: 14, paddingBottom: 10 }}>
-        <span className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
-          PE Band Adjustments
-        </span>
-        <InfoPopover>
-          <p className="text-subheadline leading-relaxed mb-3" style={{ color: 'var(--text-2)' }}>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Quality ↑</span>
-            {' '}(0–50%): raises all band prices — use when you'd pay a premium vs. the sector average.
-          </p>
-          <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Stress ↓</span>
-            {' '}(0–50%): lowers all band prices — use to discount earnings in a realistic bad scenario.
-          </p>
-        </InfoPopover>
-      </div>
-
-      {/* Quality row */}
-      <div style={rowStyle}>
-        <div className="flex items-center gap-1.5 flex-1">
-          <span style={{ fontSize: 14, color: quality > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↑</span>
-          <span className="text-body" style={{ color: quality > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Quality</span>
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '90vh' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
-        <div className="flex-1 flex justify-center">
-          <span className="tabnum" style={{ fontSize: 17, fontWeight: 600, color: quality > 0 ? 'var(--text-primary)' : 'var(--text-faint)', transition: 'color 200ms', minWidth: 40, textAlign: 'center' }}>
-            {quality}%
-          </span>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-headline">Investability</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => step('quality', -1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>−</button>
-          <button onClick={() => step('quality', +1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>+</button>
-        </div>
-      </div>
-
-      {/* Stress row */}
-      <div style={rowStyle}>
-        <div className="flex items-center gap-1.5 flex-1">
-          <span style={{ fontSize: 14, color: stress > 0 ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)', transition: 'color 200ms', width: 14, textAlign: 'center' }}>↓</span>
-          <span className="text-body" style={{ color: stress > 0 ? 'var(--text-primary)' : 'var(--text-2)', transition: 'color 200ms' }}>Stress</span>
-        </div>
-        <div className="flex-1 flex justify-center">
-          <span className="tabnum" style={{ fontSize: 17, fontWeight: 600, color: stress > 0 ? 'var(--text-primary)' : 'var(--text-faint)', transition: 'color 200ms', minWidth: 40, textAlign: 'center' }}>
-            {stress}%
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => step('stress', -1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>−</button>
-          <button onClick={() => step('stress', +1)} style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>+</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InfoPopover({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--bg-secondary)', fontSize: 11, fontStyle: 'italic', fontWeight: 700, color: 'var(--text-muted)', cursor: 'pointer' }}>
-        i
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 rounded-2xl p-4"
-            style={{ bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)', width: 260, background: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,.4)' }}>
-            {children}
+        <div className="px-5 pt-4 pb-2">
+          <div className="flex items-center justify-between rounded-2xl px-4 py-3"
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+            <div>
+              <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
+              <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+                {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-faint)' }}>/50</span>
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
+              <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--positive)' : 'var(--negative)' }}>
+                {isInvestable ? 'Investable' : 'Not Investable'}
+              </p>
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        </div>
+        <p className="px-5 pb-2 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+          Scale of 0-5, with 5 being best in class
+        </p>
+
+        {/* Gate rows */}
+        {GATES.map(({ key, label, desc, hardVeto }) => (
+          <div key={key} style={{ borderTop: '1px solid var(--border-faint)' }}>
+            <div className="flex items-center justify-between px-5"
+              style={{ minHeight: 52 }}>
+              <div className="flex-1 min-w-0 pr-3">
+                <p className="text-body" style={{ color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-2)' }}>
+                  {label}
+                  {hardVeto && <span className="ml-1.5 text-footnote" style={{ color: 'var(--negative)' }}>hard veto</span>}
+                </p>
+                <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => step(key, -1)}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>
+                  −
+                </button>
+                <span className="tabnum font-semibold" style={{ fontSize: 17, minWidth: 28, textAlign: 'center', color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-faint)' }}>
+                  {gates[key]}
+                </span>
+                <button
+                  onClick={() => step(key, +1)}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--text-muted)', minHeight: 44, minWidth: 44 }}>
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        <p className="px-5 pt-4 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+          Save is debounced in the real screen. Verdict updates as you score the gates.
+        </p>
+      </div>
+    </>
   )
 }
 

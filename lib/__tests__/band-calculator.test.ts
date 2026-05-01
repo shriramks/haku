@@ -1,13 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { calculateBands, computeTranchePrices, trancheSuggestion, computeTrancheAmounts, stagedDeepCmp } from '../band-calculator'
+import {
+  calculateBands,
+  computeGrowth,
+  computeTranchePrices,
+  trancheSuggestion,
+  computeTrancheAmounts,
+  stagedDeepCmp,
+  deriveIndexEps,
+  getCostOfEquity,
+  getSizeMod,
+  isBandStale,
+} from '../band-calculator'
 
-// ── calculateBands ────────────────────────────────────────────────────────────
+// ── calculateBands — base multiples (no factor inputs → Path B, sizeMod=1, no ROCE → factor=1) ──
 
-const noAdj = { quality: 0, stress: 0 }
-
-describe('calculateBands — base multiples (quality=0, stress=0)', () => {
+describe('calculateBands — base multiples', () => {
   it('Cap-Light Infra: buy 28–35×, trim 45×', () => {
-    const r = calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: 100 })!
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100 })!
     expect(r.anchorUsed).toBe('PE')
     expect(r.buyLow).toBeCloseTo(2800)
     expect(r.buyHigh).toBeCloseTo(3500)
@@ -15,151 +24,339 @@ describe('calculateBands — base multiples (quality=0, stress=0)', () => {
   })
 
   it('Hospitals: buy 38–45×, trim 56×', () => {
-    const r = calculateBands({ category: 'Hospitals', ...noAdj, eps: 50 })!
+    const r = calculateBands({ category: 'Hospitals', eps: 50 })!
     expect(r.buyLow).toBeCloseTo(1900)
     expect(r.buyHigh).toBeCloseTo(2250)
     expect(r.trimPrice).toBeCloseTo(2800)
   })
 
   it('Branded Pharma: buy 20–26×, trim 33×', () => {
-    const r = calculateBands({ category: 'Branded Pharma', ...noAdj, eps: 50 })!
+    const r = calculateBands({ category: 'Branded Pharma', eps: 50 })!
     expect(r.buyLow).toBeCloseTo(1000)
     expect(r.buyHigh).toBeCloseTo(1300)
     expect(r.trimPrice).toBeCloseTo(1650)
   })
 
   it('Tobacco Corp: buy 20–25×, trim 31×', () => {
-    const r = calculateBands({ category: 'Tobacco Corp', ...noAdj, eps: 20 })!
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 20 })!
     expect(r.buyLow).toBeCloseTo(400)
     expect(r.buyHigh).toBeCloseTo(500)
     expect(r.trimPrice).toBeCloseTo(620)
   })
 
-  it('Nifty 50 Index: buy 19–21×, trim 23×', () => {
-    const r = calculateBands({ category: 'Nifty 50 Index', ...noAdj, eps: 100 })!
-    expect(r.buyLow).toBeCloseTo(1900)
-    expect(r.buyHigh).toBeCloseTo(2100)
-    expect(r.trimPrice).toBeCloseTo(2300)
+  it('factor=1 when no g/ke/mcap/roce provided', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100 })!
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.path).toBe('B')
+    expect(r.rocePremium).toBe(false)
   })
 
-  it('Nifty Next 50 Index: buy 18–20×, trim 25×', () => {
-    const r = calculateBands({ category: 'Nifty Next 50 Index', ...noAdj, eps: 100 })!
-    expect(r.buyLow).toBeCloseTo(1800)
-    expect(r.buyHigh).toBeCloseTo(2000)
-    expect(r.trimPrice).toBeCloseTo(2500)
-  })
-
-})
-
-describe('calculateBands — Quality adjustment (raises all multiples)', () => {
-  it('quality=10 raises all prices by 10%', () => {
-    const base = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 100 })!
-    const adj  = calculateBands({ category: 'Cap-Light Infra', quality: 10, stress: 0, eps: 100 })!
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * 1.10)
-    expect(adj.buyHigh).toBeCloseTo(base.buyHigh * 1.10)
-    expect(adj.midLow).toBeCloseTo(base.midLow * 1.10)
-    expect(adj.midHigh).toBeCloseTo(base.midHigh * 1.10)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 1.10)
-  })
-
-  it('quality=50 (max) raises all prices by 50%', () => {
-    const base = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
-    const adj  = calculateBands({ category: 'Cap-Light Infra', quality: 50, stress: 0, eps: 40 })!
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * 1.50)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 1.50)
-  })
-
-  it('quality applies to index categories too', () => {
-    const base = calculateBands({ category: 'Nifty 50 Index', quality: 0, stress: 0, eps: 100 })!
-    const adj  = calculateBands({ category: 'Nifty 50 Index', quality: 20, stress: 0, eps: 100 })!
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * 1.20)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 1.20)
-  })
-})
-
-describe('calculateBands — Stress adjustment (lowers all multiples)', () => {
-  it('stress=20 lowers all prices by 20%', () => {
-    const base = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 100 })!
-    const adj  = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 20, eps: 100 })!
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * 0.80)
-    expect(adj.buyHigh).toBeCloseTo(base.buyHigh * 0.80)
-    expect(adj.midLow).toBeCloseTo(base.midLow * 0.80)
-    expect(adj.midHigh).toBeCloseTo(base.midHigh * 0.80)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 0.80)
-  })
-
-  it('stress=50 (max) halves all prices', () => {
-    const base = calculateBands({ category: 'Hospitals', quality: 0, stress: 0, eps: 50 })!
-    const adj  = calculateBands({ category: 'Hospitals', quality: 0, stress: 50, eps: 50 })!
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * 0.50)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * 0.50)
-  })
-})
-
-describe('calculateBands — Combined quality + stress', () => {
-  it('quality=15, stress=20 → factor = 1.15 × 0.80 = 0.92', () => {
-    const base   = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 100 })!
-    const adj    = calculateBands({ category: 'Cap-Light Infra', quality: 15, stress: 20, eps: 100 })!
-    const factor = 1.15 * 0.80
-    expect(adj.buyLow).toBeCloseTo(base.buyLow * factor)
-    expect(adj.buyHigh).toBeCloseTo(base.buyHigh * factor)
-    expect(adj.trimPrice).toBeCloseTo(base.trimPrice * factor)
-  })
-
-  it('quality and stress both at 0 is identical to noAdj', () => {
-    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: 40 })!
-    expect(a.buyLow).toBeCloseTo(b.buyLow)
-    expect(a.trimPrice).toBeCloseTo(b.trimPrice)
-  })
-
-  it('buyLow ≤ buyHigh for every category × quality × stress combo', () => {
-    const categories = ['Cap-Light Infra', 'Hospitals', 'Tobacco Corp'] as const
-    const cases = [
-      { quality: 0, stress: 0 }, { quality: 20, stress: 0 },
-      { quality: 0, stress: 30 }, { quality: 15, stress: 20 },
-    ]
+  it('buyLow ≤ buyHigh for every stock category', () => {
+    const categories = ['Cap-Light Infra', 'Hospitals', 'Tobacco Corp', 'Branded Pharma'] as const
     for (const category of categories) {
-      for (const adj of cases) {
-        const r = calculateBands({ category, ...adj, eps: 50 })!
-        expect(r.buyLow).toBeLessThanOrEqual(r.buyHigh)
-      }
+      const r = calculateBands({ category, eps: 50 })!
+      expect(r.buyLow).toBeLessThanOrEqual(r.buyHigh)
     }
   })
 })
 
-describe('calculateBands — input clamping', () => {
-  it('quality above 50 is clamped to 50', () => {
-    const a = calculateBands({ category: 'Cap-Light Infra', quality: 50, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'Cap-Light Infra', quality: 99, stress: 0, eps: 40 })!
-    expect(a.buyLow).toBeCloseTo(b.buyLow)
+// ── calculateBands — index ETF bands (v9 PE thresholds) ──────────────────────
+
+describe('calculateBands — index ETF bands (v9 PE thresholds)', () => {
+  it('Nifty 50 Index: buy 18–20×, mid 20–22×, trim 24×', () => {
+    const r = calculateBands({ category: 'Nifty 50 Index', eps: 100 })!
+    expect(r.path).toBe('index')
+    expect(r.factor).toBe(1)
+    expect(r.buyLow).toBeCloseTo(1800)
+    expect(r.buyHigh).toBeCloseTo(2000)
+    expect(r.midLow).toBeCloseTo(2000)
+    expect(r.midHigh).toBeCloseTo(2200)
+    expect(r.trimPrice).toBeCloseTo(2400)
   })
 
-  it('stress above 50 is clamped to 50', () => {
-    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 50, eps: 40 })!
-    const b = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 99, eps: 40 })!
-    expect(a.buyLow).toBeCloseTo(b.buyLow)
+  it('Nifty Next 50 Index: buy 22–25×, mid 25–28×, trim 32×', () => {
+    const r = calculateBands({ category: 'Nifty Next 50 Index', eps: 100 })!
+    expect(r.path).toBe('index')
+    expect(r.factor).toBe(1)
+    expect(r.buyLow).toBeCloseTo(2200)
+    expect(r.buyHigh).toBeCloseTo(2500)
+    expect(r.midLow).toBeCloseTo(2500)
+    expect(r.midHigh).toBeCloseTo(2800)
+    expect(r.trimPrice).toBeCloseTo(3200)
   })
 
-  it('negative quality treated as 0', () => {
-    const a = calculateBands({ category: 'Cap-Light Infra', quality: 0, stress: 0, eps: 40 })!
-    const b = calculateBands({ category: 'Cap-Light Infra', quality: -10, stress: 0, eps: 40 })!
-    expect(a.buyLow).toBeCloseTo(b.buyLow)
+  it('index path ignores g/ke/mcap/roce inputs', () => {
+    const r = calculateBands({ category: 'Nifty 50 Index', eps: 100, g: 0.15, ke: 0.12, mcap: 10000 })!
+    expect(r.path).toBe('index')
+    expect(r.factor).toBe(1)
+    expect(r.buyLow).toBeCloseTo(1800)
   })
 })
 
+// ── getSizeMod ────────────────────────────────────────────────────────────────
+
+describe('getSizeMod', () => {
+  it('<50k → 1.00', () => expect(getSizeMod(49_999)).toBe(1.00))
+  it('=50k → 0.97', () => expect(getSizeMod(50_000)).toBe(0.97))
+  it('<1L → 0.97', () => expect(getSizeMod(99_999)).toBe(0.97))
+  it('=1L → 0.94', () => expect(getSizeMod(100_000)).toBe(0.94))
+  it('<2L → 0.94', () => expect(getSizeMod(199_999)).toBe(0.94))
+  it('=2L → 0.90', () => expect(getSizeMod(200_000)).toBe(0.90))
+  it('very large → 0.90', () => expect(getSizeMod(10_000_000)).toBe(0.90))
+})
+
+describe('shared helper functions', () => {
+  describe('computeGrowth', () => {
+    it('computes 3-year CAGR from PAT values', () => {
+      expect(computeGrowth(172.8, 100)).toBeCloseTo(0.2, 6)
+    })
+
+    it('returns null when current PAT is missing', () => {
+      expect(computeGrowth(null, 100)).toBeNull()
+    })
+
+    it('returns null when prior PAT is zero or negative', () => {
+      expect(computeGrowth(100, 0)).toBeNull()
+      expect(computeGrowth(100, -50)).toBeNull()
+    })
+  })
+
+  describe('deriveIndexEps', () => {
+    it('derives ETF EPS from index level and index PE', () => {
+      expect(deriveIndexEps(24_000, 24)).toBeCloseTo(10)
+    })
+
+    it('returns null when index PE is missing or invalid', () => {
+      expect(deriveIndexEps(24_000, null)).toBeNull()
+      expect(deriveIndexEps(24_000, 0)).toBeNull()
+    })
+  })
+
+  describe('getCostOfEquity', () => {
+    it('adds the default ERP to risk-free rate', () => {
+      expect(getCostOfEquity(0.07)).toBeCloseTo(0.12)
+    })
+  })
+
+  describe('isBandStale', () => {
+    it('returns true when financial inputs were updated after bands were generated', () => {
+      expect(isBandStale('2026-05-01T10:00:00.000Z', '2026-05-01T10:05:00.000Z')).toBe(true)
+    })
+
+    it('returns false when generated timestamp is newer or timestamps are missing', () => {
+      expect(isBandStale('2026-05-01T10:05:00.000Z', '2026-05-01T10:00:00.000Z')).toBe(false)
+      expect(isBandStale(null, '2026-05-01T10:00:00.000Z')).toBe(false)
+      expect(isBandStale('2026-05-01T10:00:00.000Z', null)).toBe(false)
+    })
+  })
+})
+
+// ── calculateBands — Path A (Damodaran stable-growth DDM) ───────────────────
+
+describe('calculateBands — Path A', () => {
+  it('uses Path A when Ke > g and Ke-g >= 0.02', () => {
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 20, g: 0.08, ke: 0.12 })!
+    expect(r.path).toBe('A')
+  })
+
+  it('ITC example: g=0.08, Ke=0.12 → PE_intrinsic=27, factor=clamp(27/22.5,0.60,1.00)=1.00', () => {
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 16.4, g: 0.08, ke: 0.12, roce3yrAvg: 36.8 })!
+    expect(r.path).toBe('A')
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.rocePremium).toBe(false)
+    expect(r.buyLow).toBeCloseTo(328)
+    expect(r.buyHigh).toBeCloseTo(410)
+  })
+
+  it('clamps factor to 0.60 minimum when PE_intrinsic << midpoint', () => {
+    // g=-0.01, Ke=0.12 → ke-g=0.13 → PE_intrinsic=0.99/0.13≈7.62, midpoint=22.5
+    // factor = clamp(7.62/22.5, 0.60, 1.00) = 0.60
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 20, g: -0.01, ke: 0.12 })!
+    expect(r.path).toBe('A')
+    expect(r.factor).toBeCloseTo(0.60)
+  })
+
+  it('clamps factor to 1.00 maximum when PE_intrinsic >> midpoint', () => {
+    // g=0.115, Ke=0.12 → ke-g=0.005 < 0.02 → Path B, not A
+    // so test with ke-g=0.03: g=0.09, ke=0.12 → PE_intrinsic=1.09/0.03≈36.3, midpoint=22.5
+    // factor = clamp(36.3/22.5, 0.60, 1.00) = 1.00
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 20, g: 0.09, ke: 0.12 })!
+    expect(r.path).toBe('A')
+    expect(r.factor).toBeCloseTo(1.00)
+  })
+
+  it('falls to Path B when Ke == g', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.12, ke: 0.12 })!
+    expect(r.path).toBe('B')
+  })
+
+  it('falls to Path B when Ke-g < 0.02', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.11, ke: 0.12 })!
+    expect(r.path).toBe('B')
+  })
+
+  it('falls to Path B when g > Ke', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12 })!
+    expect(r.path).toBe('B')
+  })
+
+  it('falls to Path B when ke is null', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.08 })!
+    expect(r.path).toBe('B')
+  })
+})
+
+// ── calculateBands — Path B (empirical) ─────────────────────────────────────
+
+describe('calculateBands — Path B', () => {
+  it('uses Path B when g > Ke', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12 })!
+    expect(r.path).toBe('B')
+  })
+
+  it('applies sizeMod from mcap (mcap=18737 < 50k → sizeMod=1.00)', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12, mcap: 18737 })!
+    expect(r.path).toBe('B')
+    // No ROCE → factor = min(1.00, 1.00) = 1.00
+    expect(r.factor).toBeCloseTo(1.00)
+  })
+
+  it('applies sizeMod for large-cap (mcap=250000 ≥ 2L → sizeMod=0.90)', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12, mcap: 250_000 })!
+    expect(r.path).toBe('B')
+    expect(r.factor).toBeCloseTo(0.90)
+    expect(r.buyLow).toBeCloseTo(2800 * 0.90)
+  })
+
+  it('defaults sizeMod to 1.00 when mcap is null', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12 })!
+    expect(r.factor).toBeCloseTo(1.00)
+  })
+})
+
+// ── calculateBands — ROCE premium ────────────────────────────────────────────
+
+describe('calculateBands — ROCE premium', () => {
+  it('Cap-Light threshold=22% → premium when ROCE > 44%', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12, mcap: 18737, roce3yrAvg: 44.1 })!
+    expect(r.rocePremium).toBe(true)
+    expect(r.factor).toBeCloseTo(1.15)
+  })
+
+  it('no premium when ROCE ≤ 44% (Cap-Light)', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12, mcap: 18737, roce3yrAvg: 43.9 })!
+    expect(r.rocePremium).toBe(false)
+    expect(r.factor).toBeCloseTo(1.00)
+  })
+
+  it('Tobacco Corp threshold=20% → premium when ROCE > 40%', () => {
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 20, g: 0.15, ke: 0.12, roce3yrAvg: 40.1 })!
+    expect(r.rocePremium).toBe(true)
+    expect(r.factor).toBeCloseTo(1.15)
+  })
+
+  it('Hospitals threshold=16% → premium when ROCE > 32%', () => {
+    const r = calculateBands({ category: 'Hospitals', eps: 50, g: 0.20, ke: 0.12, roce3yrAvg: 32.1 })!
+    expect(r.rocePremium).toBe(true)
+  })
+
+  it('Branded Pharma threshold=18% → premium when ROCE > 36%', () => {
+    const r = calculateBands({ category: 'Branded Pharma', eps: 50, g: 0.20, ke: 0.12, roce3yrAvg: 36.1 })!
+    expect(r.rocePremium).toBe(true)
+  })
+
+  it('ROCE premium caps factor at 1.15', () => {
+    // Path B sizeMod=1.00, ROCE premium → min(1.00*1.15, 1.15)=1.15
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12, roce3yrAvg: 50 })!
+    expect(r.factor).toBeCloseTo(1.15)
+  })
+
+  it('ROCE premium on Path A when ROCE qualifies', () => {
+    // ITC: Path A factor=1.00, ROCE=36.8 vs 40 threshold — no premium
+    // Use ROCE=41 > 40 to trigger premium
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 16.4, g: 0.08, ke: 0.12, roce3yrAvg: 41 })!
+    expect(r.path).toBe('A')
+    expect(r.rocePremium).toBe(true)
+    expect(r.factor).toBeCloseTo(1.15)
+  })
+
+  it('no premium when roce3yrAvg is null', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 100, g: 0.15, ke: 0.12 })!
+    expect(r.rocePremium).toBe(false)
+  })
+})
+
+// ── calculateBands — worked examples (Ke=0.12, risk_free=0.07) ───────────────
+
+describe('calculateBands — worked examples', () => {
+  it('ITC (Tobacco Corp): Path A, factor=1.00, no ROCE premium', () => {
+    const r = calculateBands({ category: 'Tobacco Corp', eps: 16.4, g: 0.08, ke: 0.12, roce3yrAvg: 36.8 })!
+    expect(r.path).toBe('A')
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.rocePremium).toBe(false)
+    expect(r.buyLow).toBeCloseTo(328)
+    expect(r.buyHigh).toBeCloseTo(410)
+    expect(r.midLow).toBeCloseTo(426.4, 0)
+    expect(r.midHigh).toBeCloseTo(492, 0)
+    expect(r.trimPrice).toBeCloseTo(508.4, 0)
+  })
+
+  it('CAMS (Cap-Light Infra): Path B, sizeMod=1.00, ROCE premium → factor=1.15', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 18.1, g: 0.15, ke: 0.12, mcap: 18_737, roce3yrAvg: 54.8 })!
+    expect(r.path).toBe('B')
+    expect(r.factor).toBeCloseTo(1.15)
+    expect(r.rocePremium).toBe(true)
+    expect(r.buyLow).toBeCloseTo(582.82, 2)
+    expect(r.buyHigh).toBeCloseTo(728.525, 3)
+    expect(r.midLow).toBeCloseTo(749.34, 2)
+    expect(r.midHigh).toBeCloseTo(915.86, 2)
+    expect(r.trimPrice).toBeCloseTo(936.675, 3)
+  })
+
+  it('IEX (Cap-Light Infra): Path B, sizeMod=1.00, no ROCE premium → factor=1.00', () => {
+    const r = calculateBands({ category: 'Cap-Light Infra', eps: 5.53, g: 0.14, ke: 0.12, mcap: 11_185 })!
+    expect(r.path).toBe('B')
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.rocePremium).toBe(false)
+    expect(r.buyLow).toBeCloseTo(154.84, 0)
+    expect(r.buyHigh).toBeCloseTo(193.55, 0)
+  })
+
+  it('NH (Hospitals): Path B, sizeMod=1.00, ROCE=20.8% < 32% → no premium', () => {
+    const r = calculateBands({ category: 'Hospitals', eps: 39.5, g: 0.21, ke: 0.12, mcap: 36_137, roce3yrAvg: 20.8 })!
+    expect(r.path).toBe('B')
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.rocePremium).toBe(false)
+    expect(r.buyLow).toBeCloseTo(1501)
+    expect(r.buyHigh).toBeCloseTo(1777.5, 0)
+  })
+
+  it('Caplin Point (Branded Pharma): Path B, sizeMod=1.00, no ROCE premium → factor=1.00', () => {
+    const r = calculateBands({ category: 'Branded Pharma', eps: 80, g: 0.20, ke: 0.12, mcap: 13_070 })!
+    expect(r.path).toBe('B')
+    expect(r.factor).toBeCloseTo(1.00)
+    expect(r.buyLow).toBeCloseTo(1600)
+    expect(r.buyHigh).toBeCloseTo(2080)
+    expect(r.midLow).toBeCloseTo(2160)
+    expect(r.midHigh).toBeCloseTo(2560)
+    expect(r.trimPrice).toBeCloseTo(2640)
+  })
+})
+
+// ── calculateBands — null/missing eps ────────────────────────────────────────
+
 describe('calculateBands — null/missing eps', () => {
   it('eps missing → null', () => {
-    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra' })).toBeNull()
   })
   it('eps null → null', () => {
-    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: null })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', eps: null })).toBeNull()
   })
   it('eps 0 → null', () => {
-    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: 0 })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', eps: 0 })).toBeNull()
   })
   it('eps negative → null', () => {
-    expect(calculateBands({ category: 'Cap-Light Infra', ...noAdj, eps: -10 })).toBeNull()
+    expect(calculateBands({ category: 'Cap-Light Infra', eps: -10 })).toBeNull()
   })
 })
 
@@ -320,14 +517,11 @@ describe('computeTranchePrices', () => {
   })
 
   it('stress-compressed buyHigh: 52wkLow above shrunken zone falls back to buyLow floor', () => {
-    // stress adjustment shrinks zone; 52wkLow ends up above buyHigh → must fall back to buyLow
-    // Normal: buyLow=700, buyHigh=850. Stress compressed: buyLow=630, buyHigh=765.
-    // 52wkLow=800, CMP=900 (above zone). floor=max(800,630)=800 > ceiling=765 → fallback to buyLow
     const prices = computeTranchePrices(630, 765, 900, 3, 800)
     expect(prices.length).toBeGreaterThan(1)
     prices.forEach(p => {
       expect(p).toBeGreaterThanOrEqual(630)
-      expect(p).toBeLessThanOrEqual(775) // 765 rounds to 770 at ₹10 snap
+      expect(p).toBeLessThanOrEqual(775)
     })
   })
 })

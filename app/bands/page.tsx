@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY } from '@/lib/data'
+import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY, getInvestability } from '@/lib/data'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
@@ -25,6 +25,9 @@ export default async function BandsPage({
       ])
     : [[], [], [], [], []]
 
+  const symbols = allocations.map((a: { symbol: string }) => a.symbol)
+  const investabilities = await getInvestability(symbols)
+
   const carryoverMap = prevFY
     ? computeCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id, allocations).adjustments
     : undefined
@@ -37,10 +40,10 @@ export default async function BandsPage({
       <BandsClient
         rows={sorted}
         bands={bands}
-        allocations={allocations}
         fyId={fy?.id ?? ''}
         fiscalYears={fiscalYears}
         selectedFY={fy ?? null}
+        investabilities={investabilities}
       />
       <BottomNav />
     </>

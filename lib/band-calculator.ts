@@ -1,9 +1,6 @@
-// TypeScript port of BandCalculator.swift
-// Implements AI Investment Playbook (Part B) — PE anchor only.
-//
-// Quality (0–50%): raises all PE multiples — use when you'd pay a premium vs. sector average.
-// Stress  (0–50%): lowers all PE multiples — use to discount earnings for a bad scenario.
-// Combined factor: (1 + quality/100) × (1 - stress/100) applied uniformly to all multiples.
+// AI Investment Playbook v9 — band computation.
+// Part B: DDM-factor PE bands for individual stocks.
+// Part C: Index ETF PE bands — factor always 1, different PE thresholds.
 
 import type { StockCategory } from './types'
 
@@ -11,19 +8,82 @@ import type { StockCategory } from './types'
 
 interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: number; trim: number }
 
-// Base PE multiples
 const PE: Partial<Record<StockCategory, Mult>> = {
   'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
   'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
   'Branded Pharma':  { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
-  // Index ETFs: eps = etfPrice / indexPE (computed in generate route)
-  'Nifty 50 Index':      { buyLow: 19, buyHigh: 21, midLow: 21, midHigh: 23, trim: 23 },
-  'Nifty Next 50 Index': { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 24, trim: 25 },
+  // Index ETFs (v9): eps = indexLevel / indexPE / 100
+  'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
+  'Nifty Next 50 Index': { buyLow: 22, buyHigh: 25, midLow: 25, midHigh: 28, trim: 32 },
 }
 
 export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
 
+// ── Factor computation constants ──────────────────────────────────────────────
+
+const CATEGORY_MIDPOINT_PE: Partial<Record<StockCategory, number>> = {
+  'Tobacco Corp':    22.5,
+  'Cap-Light Infra': 31.5,
+  'Hospitals':       41.5,
+  'Branded Pharma':  23.0,
+}
+
+const ROCE_THRESHOLDS: Partial<Record<StockCategory, number>> = {
+  'Cap-Light Infra': 22,
+  'Tobacco Corp':    20,
+  'Hospitals':       16,
+  'Branded Pharma':  18,
+}
+
+export const DEFAULT_ERP = 0.05
+
+export function getSizeMod(mcap: number): number {
+  if (mcap < 50_000)  return 1.00
+  if (mcap < 100_000) return 0.97
+  if (mcap < 200_000) return 0.94
+  return 0.90
+}
+
+export function getSizeModValueLabel(mcap: number | null): string {
+  return mcap == null ? '1.00' : getSizeMod(mcap).toFixed(2)
+}
+
+export function getSizeModRangeLabel(mcap: number | null): string {
+  if (mcap == null) return '—'
+  const sizeMod = getSizeMod(mcap)
+  if (sizeMod === 1.00) return '1.00 (< 50k Cr)'
+  if (sizeMod === 0.97) return '0.97 (< 1L Cr)'
+  if (sizeMod === 0.94) return '0.94 (< 2L Cr)'
+  return '0.90 (>= 2L Cr)'
+}
+
+export function getRoceThreshold(category: StockCategory): number | null {
+  return ROCE_THRESHOLDS[category] ?? null
+}
+
+export function computeGrowth(patNow: number | null, pat3yrAgo: number | null): number | null {
+  return (patNow && pat3yrAgo && pat3yrAgo > 0)
+    ? Math.pow(patNow / pat3yrAgo, 1 / 3) - 1
+    : null
+}
+
+export function deriveIndexEps(indexLevel: number | null, indexPE: number | null): number | null {
+  return (indexLevel != null && indexPE != null && indexPE > 0)
+    ? indexLevel / indexPE / 100
+    : null
+}
+
+export function getCostOfEquity(riskFree: number): number {
+  return riskFree + DEFAULT_ERP
+}
+
+export function isBandStale(
+  generatedAt: string | null | undefined,
+  lastUpdatedAt: string | null | undefined,
+): boolean {
+  return !!(generatedAt && lastUpdatedAt && lastUpdatedAt > generatedAt)
+}
 
 // ── Tranche price constants ───────────────────────────────────────────────────
 
@@ -37,11 +97,12 @@ const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to
 
 export interface BandInput {
   category: StockCategory
-  /** 0–50 integer. Raises all PE multiples: factor = (1 + quality/100). Default 0. */
-  quality: number
-  /** 0–50 integer. Lowers all PE multiples: factor = (1 - stress/100). Default 0. */
-  stress: number
   eps?: number | null
+  // Stock-only inputs — ignored for index categories
+  g?: number | null           // PAT 3yr CAGR: (patNow / pat3yrAgo)^(1/3) - 1
+  ke?: number | null          // Cost of equity: risk_free + 0.05
+  mcap?: number | null        // Market cap in Cr
+  roce3yrAvg?: number | null  // 3yr avg ROCE %
 }
 
 export interface BandResult {
@@ -51,6 +112,9 @@ export interface BandResult {
   midLow: number
   midHigh: number
   trimPrice: number
+  factor: number
+  path: 'A' | 'B' | 'index'
+  rocePremium: boolean
 }
 
 export function calculateBands(input: BandInput): BandResult | null {
@@ -58,11 +122,52 @@ export function calculateBands(input: BandInput): BandResult | null {
   if (!eps || eps <= 0) return null
 
   const base = PE[input.category]
-  if (!base) return null  // unknown category
+  if (!base) return null
 
-  const quality = Math.max(0, Math.min(50, input.quality ?? 0))
-  const stress  = Math.max(0, Math.min(50, input.stress  ?? 0))
-  const factor  = (1 + quality / 100) * (1 - stress / 100)
+  if (INDEX_CATEGORIES.has(input.category)) {
+    return {
+      anchorUsed: 'PE',
+      buyLow:    base.buyLow  * eps,
+      buyHigh:   base.buyHigh * eps,
+      midLow:    base.midLow  * eps,
+      midHigh:   base.midHigh * eps,
+      trimPrice: base.trim    * eps,
+      factor: 1,
+      path: 'index',
+      rocePremium: false,
+    }
+  }
+
+  // Part B: DDM factor for stocks
+  const { g = null, ke = null, mcap = null, roce3yrAvg = null } = input
+  const midpointPE = CATEGORY_MIDPOINT_PE[input.category] ?? null
+
+  let factor: number
+  let path: 'A' | 'B'
+
+  if (
+    ke !== null && g !== null && isFinite(g) &&
+    ke > g && (ke - g) >= 0.02 && midpointPE !== null
+  ) {
+    // Path A: Damodaran stable-growth DDM
+    const peIntrinsic = (1 + g) / (ke - g)
+    factor = Math.max(0.60, Math.min(1.00, peIntrinsic / midpointPE))
+    path = 'A'
+  } else {
+    // Path B: empirical — high compounder or near-singularity
+    factor = mcap !== null ? getSizeMod(mcap) : 1.00
+    path = 'B'
+  }
+
+  // ROCE premium (both paths)
+  const roceThreshold = getRoceThreshold(input.category)
+  let rocePremium = false
+  if (roce3yrAvg !== null && roceThreshold !== null && roce3yrAvg > 2 * roceThreshold) {
+    factor = Math.min(factor * 1.15, 1.15)
+    rocePremium = true
+  } else {
+    factor = Math.min(factor, 1.00)
+  }
 
   return {
     anchorUsed: 'PE',
@@ -71,6 +176,9 @@ export function calculateBands(input: BandInput): BandResult | null {
     midLow:    base.midLow  * factor * eps,
     midHigh:   base.midHigh * factor * eps,
     trimPrice: base.trim    * factor * eps,
+    factor,
+    path,
+    rocePremium,
   }
 }
 
@@ -155,8 +263,8 @@ export function computeTranchePrices(
   // Floor is the higher of 52-week low and buyLow — never price below either.
   // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
   //   entry), so use buyLow as floor so tranches spread across the buy zone.
-  // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. quality/stress
-  //   shifts buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
+  // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. a narrow
+  //   buy zone leaves buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
   //   the entire buy zone and is not a useful pricing floor in that case.
   const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
   const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)

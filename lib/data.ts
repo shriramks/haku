@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability } from './types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -46,7 +46,7 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, quality, stress')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category')
     .eq('user_id', userId)
     .eq('fy_id', fyId)
     .order('allocation_pct', { ascending: false })
@@ -85,7 +85,7 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category, quality, stress')
+    .select('id, fy_id, symbol, exchange, allocation_pct, category')
     .eq('user_id', userId)
     .eq('symbol', symbol)
     .order('fy_id', { ascending: true })
@@ -96,7 +96,7 @@ const _fetchBuyBands = unstable_cache(
   async (userId: string): Promise<BuyBand[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_bands')
-      .select('id, symbol, anchor_type, eps, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, week_52_low, week_52_high, last_updated_at, generated_at, is_current, notes')
+      .select('id, symbol, anchor_type, eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, index_level, index_pe, buy_low, buy_high, mid_low, mid_high, trim_price, manual_cmp, week_52_low, week_52_high, last_updated_at, generated_at, is_current, notes')
       .eq('user_id', userId)
       .order('generated_at', { ascending: false })
     return data ?? []
@@ -145,4 +145,29 @@ export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean; provide
   const provider = (data?.ai_provider ?? 'gemini') as 'gemini' | 'claude'
   const hasKey = provider === 'claude' ? !!(data?.claude_api_key) : !!(data?.gemini_api_key)
   return { hasKey, provider }
+})
+
+export const getInvestability = cache(async (
+  symbols: string[]
+): Promise<Pick<Investability, 'symbol' | 'investable' | 'total_score'>[]> => {
+  const userId = await getUserId()
+  if (!userId || symbols.length === 0) return []
+  const { data } = await createSupabaseServiceClient()
+    .from('investability')
+    .select('symbol, investable, total_score')
+    .eq('user_id', userId)
+    .in('symbol', symbols)
+  return data ?? []
+})
+
+export const getInvestabilityForSymbol = cache(async (symbol: string): Promise<Investability | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+  const { data } = await createSupabaseServiceClient()
+    .from('investability')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('symbol', symbol)
+    .maybeSingle()
+  return data ?? null
 })

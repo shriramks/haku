@@ -51,7 +51,7 @@ function makeQueryMock() {
   mock.eq = (col: string, val: string) => { eqCalls.push([col, val]); return mock }
   mock.maybeSingle = vi.fn().mockResolvedValue({ data: null })
   // Make the mock thenable so await works on query chains
-  mock.then = (resolve: (v: { data: [] }) => void) => Promise.resolve({ data: [] }).then(resolve)
+  mock.then = (resolve: (v: { data: never[] }) => void) => Promise.resolve({ data: [] as never[] }).then(resolve)
   mock._eqCalls = eqCalls
   return mock
 }

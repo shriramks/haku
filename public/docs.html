@@ -228,22 +228,16 @@
     <p>The <strong>Buy Bands</strong> tab shows valuation zones for each stock — price ranges where the stock is cheap, fairly valued, or expensive based on your playbook rules.</p>
 
     <h3 id="ai-bands">AI band generation</h3>
-    <p>Tap <strong>Generate All Bands</strong> at the top (or <strong>Regenerate</strong> inside any expanded stock card).</p>
-    <p>If you have not added a Gemini API key yet, a sheet slides up asking you to add one before continuing. Once saved, generation proceeds immediately — you only need to do this once.</p>
+    <p>Tap a stock row to open its detail screen, then open <strong>Financials</strong>.</p>
+    <p>If you have not added an AI key yet, add one from <strong>Settings</strong> first. The same menu also lets you set the global risk-free rate used in valuation.</p>
     <p>The generation process:</p>
     <ol>
-      <li>Fetches EPS, operating profit, borrowings, cash, and shares from Screener.in (consolidated view)</li>
-      <li>Applies your stock's category-specific PE or EV/EBITDA multiple ranges</li>
-      <li>Computes Buy / Mid / Trim price zones and saves them</li>
-      <li>Auto-generates up to 5 buy tranches for the current FY</li>
+      <li><strong>Regen Financials</strong> fetches and stores raw valuation inputs</li>
+      <li><strong>Regen Bands</strong> computes Buy / Mid / Trim price zones from the saved inputs</li>
+      <li>Running <strong>Regen Bands</strong> also refreshes FY buy tranches</li>
     </ol>
-    <p>For Index/ETF stocks it fetches the current Nifty PE and ETF price instead, and derives an implied EPS to run through the same band logic.</p>
-    <p><strong>Two qualifier toggles</strong> adjust the bands after generation:</p>
-    <ul>
-      <li><strong>2 Weak Quarters</strong> — recent results have been soft; tightens all band prices by 10% (more conservative)</li>
-      <li><strong>2 Strong Quarters</strong> — recent results are strong; applies premium multiples for eligible categories (Capital-light)</li>
-    </ul>
-    <p>These are stock-specific and saved per allocation.</p>
+    <p>For stock categories it stores EPS, PAT now, PAT 3 years ago, 3-year average ROCE, and market cap. For index ETFs it stores index level and index PE, then derives ETF EPS as <code>index level / index PE / 100</code>.</p>
+    <p>If you edit financial inputs manually, the current bands stay visible but the app marks them as <strong>Bands need regen</strong> until you run <strong>Regen Bands</strong>.</p>
 
     <h3 id="band-bar">Reading the band bar</h3>
     <pre>|  BUY (green)  |  MID (orange)  |  TRIM (red)  |
@@ -263,15 +257,16 @@
 
     <h3 id="tranches">Tranches</h3>
     <p>Tranches let you plan <em>how</em> you want to buy within the Buy zone — breaking a position into multiple orders at different price points.</p>
-    <p><strong>AI-generated tranches</strong> are created automatically when you generate bands. Up to 5 tranches are placed within the Buy zone:</p>
+    <p><strong>AI-generated tranches</strong> are created automatically when you run <strong>Regen Bands</strong>. Up to 5 tranches are placed within the Buy zone:</p>
     <ul>
       <li>Prices are distributed toward the lower end of the zone (more tranches near the floor, fewer near the ceiling)</li>
       <li>When CMP is within the Buy zone, the top tranche starts a few steps below CMP</li>
       <li>When CMP is above the Buy zone, tranches are spread across the full Buy zone as target limit orders</li>
       <li>Qty per tranche is auto-calculated from your remaining budget for the stock in the current FY</li>
     </ul>
-    <p>Generating bands again replaces all existing tranches for that stock and FY.</p>
-    <p>You can also add tranches manually. In an expanded stock card, scroll to <strong>Tranches</strong> and tap <strong>+ Add</strong>. Tap the circle next to a tranche to mark it as <strong>allocated</strong> (bought).</p>
+    <p>Running <strong>Regen Bands</strong> again replaces all existing tranches for that stock and FY.</p>
+    <p>You can also add tranches manually. In an expanded stock card, scroll to <strong>Tranches</strong> and tap <strong>+ Add</strong>.</p>
+    <p>Tranches are planning levels only. Actual deployment is tracked from real buy/sell transactions, not by marking tranches as filled.</p>
     <p>Tranches are scoped to your fiscal year — they don't carry over to the next year.</p>
   </div>
 

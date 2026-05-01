@@ -7,8 +7,8 @@ export interface FiscalYear {
   start_date: string   // "YYYY-MM-DD"
   end_date: string
   total_budget_inr: number
-  unallocated_carryover_inr: number
-  deploy_capital_inr: number
+  unallocated_carryover_inr: number | null
+  deploy_capital_inr: number | null
   created_at?: string
 }
 
@@ -20,8 +20,6 @@ export interface StockAllocation {
   exchange: string
   allocation_pct: number
   category: string
-  quality: number
-  stress: number
 }
 
 export interface Transaction {
@@ -46,6 +44,12 @@ export interface BuyBand {
   symbol: string
   anchor_type: 'PE'
   eps: number | null
+  pat_now: number | null
+  pat_3yr_ago: number | null
+  roce_3yr_avg: number | null
+  mcap: number | null
+  index_level: number | null
+  index_pe: number | null
   buy_low: number | null
   buy_high: number | null
   mid_low: number | null
@@ -57,6 +61,26 @@ export interface BuyBand {
   last_updated_at: string
   generated_at: string
   is_current: boolean
+  notes: string
+}
+
+export interface Investability {
+  id: string
+  user_id?: string
+  symbol: string
+  assessed_at: string
+  g1_moat: number
+  g2_owner_earnings: number
+  g3_capital_efficiency: number
+  g4_innovation: number
+  g5_execution_track: number
+  g6_sector_winds: number
+  g7_governance: number
+  g8_supply_regulatory: number
+  g9_market_cap: number
+  g10_capital_discipline: number
+  total_score: number
+  investable: boolean
   notes: string
 }
 

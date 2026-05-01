@@ -2,171 +2,126 @@
 
 ## Stack
 
-- **Next.js 16** — App Router, Turbopack, Server + Client Components
+- **Next.js 16** — App Router, Server + Client Components
 - **TypeScript**, **Tailwind CSS 3**
 - **Supabase** — auth + PostgreSQL with Row Level Security per user
-- **Yahoo Finance** (free, no API key) — live NSE prices + financial data
-- Mobile-first PWA — iOS safe-area support, OS-based light/dark theme, installable
+- **Yahoo Finance** — live CMP + 52-week range
+- **Gemini / Claude** — optional user-provided AI key for financial data refresh
 
 ---
 
-## Database Schema
+## Core Tables
 
 | Table | Purpose |
 |---|---|
-| `fiscal_years` | One row per FY plan (Apr–Mar cycle, e.g. FY26 = Apr 2025–Mar 2026) |
-| `stock_allocations` | User-defined stock list + % per FY, with weak/strong quarter flags |
-| `transactions` | Manual buy/sell log; `amount` is a generated column (`qty × price`) |
-| `buy_bands` | Valuation band inputs + computed price ranges (versioned with `is_current`) |
-| `buy_tranches` | Planned buy orders per stock, scoped to a FY via `fy_id` |
-| `user_settings` | One row per user — stores optional Gemini API key |
-| `investability` | 12-gate qualitative checklist per stock |
+| `fiscal_years` | FY plans and budgets |
+| `stock_allocations` | FY-scoped stock list with allocation % and category |
+| `transactions` | Real buy/sell log; source of truth for deployment |
+| `buy_bands` | Stored valuation inputs, generated bands, CMP, 52-week range |
+| `buy_tranches` | FY-scoped planned buy levels |
+| `user_settings` | AI provider/key plus `risk_free` |
+| `investability` | 10-gate qualitative scorecard |
 
-All tables use Row Level Security — users see only their own rows.
-
----
-
-## Band Calculator
-
-`lib/band-calculator.ts` — implements the Playbook (Part B: Price-Band Decision).
-
-**Anchors:**
-- **PE** — `EPS × multiple range` (FMCG, Electricals, Market Infra, Defence, Retail, Auto OEM)
-- **EV/EBITDA** — `(multiple × EBITDA − net_debt) / shares` (Defence, Retail, Auto OEM, Hospitals ramp, Pharma, Asset-heavy)
-- **PB** — `BVPS × multiple range` (Asset-heavy Infra fallback)
-- **P/EV** — `embedded_value / shares × multiple` (Insurance; falls back to PE if EV unavailable)
-
-**Modifiers:**
-- Two Weak Quarters → tighten all band prices by 10%
-- Two Strong Quarters → apply premium multiples for eligible categories (Capital-light Market Infra/Services: PE 32–48 vs normal 28–45)
-- Hospital Ramp Phase → use EV/EBITDA instead of PE
-- Stricter-of-two-anchors where multiple apply
+`buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
 ---
 
-## AI Band Generation
+## Valuation Model
 
-`app/api/bands/generate/[symbol]/route.ts` — POST endpoint called per stock.
+`lib/band-calculator.ts` implements the v9 playbook.
 
-Uses **Gemini 2.5 Flash** with Google Search grounding to fetch live financial data and compute buy bands automatically.
+Supported categories:
 
-**Flow:**
-1. Resolves the Gemini API key (user's personal key from `user_settings` takes priority; falls back to `GEMINI_API_KEY` env var)
-2. Reads `stock_allocations` for the stock's category and qualifier flags
-3. Sends a grounded prompt to Gemini to fetch from Screener.in: EPS, operating profit, borrowings, cash, shares outstanding
-4. For Index/ETF: fetches Nifty PE + ETF price instead, derives implied EPS
-5. Parses JSON from Gemini response, computes `netDebt = borrowings − cash`
-6. Runs `calculateBands()` with the financial inputs and allocation flags
-7. Saves to `buy_bands`: marks existing `is_current=true` rows to `false`, inserts new with `is_current=true`
+- `Cap-Light Infra`
+- `Hospitals`
+- `Branded Pharma`
+- `Tobacco Corp`
+- `Nifty 50 Index`
+- `Nifty Next 50 Index`
 
-**Insurance note:** P/EV requires embedded value which Gemini cannot reliably find. Falls back to PE using FMCG multiples as a proxy.
+Stock bands are PE-based with a factor computed from:
+
+- `g` from 3-year PAT CAGR
+- `Ke = risk_free + 5%`
+- Path A intrinsic PE clamp, or Path B size modifier
+- optional ROCE premium
+
+Index ETF bands are also PE-based, but `factor = 1.00` and `eps` is derived from:
+
+- `index_level / index_pe / 100`
 
 ---
 
-## User API Key Security
+## Financial Refresh Flow
 
-Users can optionally supply their own Gemini API key (for their own quota). Here is how it is kept secure:
+`app/api/bands/generate/[symbol]/route.ts` serves two actions:
 
-| Concern | Mitigation |
-|---|---|
-| Key leakage to other users | `user_settings` has RLS: `auth.uid() = user_id` on all operations |
-| Key exposed to client JS | The `GET /api/settings/gemini-key` endpoint returns only `{ hasKey: boolean }` — never the raw key |
-| Key in transit | Sent over HTTPS from browser → Next.js API route → Supabase |
-| Key at rest | Stored in Supabase Postgres, encrypted at rest by the hosting layer |
-| Key in API responses | The generate route reads the key server-side only; it never appears in the JSON response |
+1. `financials`
+2. `bands`
 
-The server-side `GEMINI_API_KEY` env var acts as a shared fallback (useful for self-hosted deployments where all users share one key).
+### `financials`
+
+- Reads allocation category
+- Uses the selected AI provider to fetch raw inputs
+- Stores the raw inputs in `buy_bands`
+- Leaves existing band prices untouched
+- Updates `last_updated_at`, which marks the row as stale until regeneration
+
+Stored inputs:
+
+- Stocks: `eps`, `pat_now`, `pat_3yr_ago`, `roce_3yr_avg`, `mcap`
+- Index ETFs: `index_level`, `index_pe`, derived `eps`
+
+### `bands`
+
+- Reads the stored financial inputs from `buy_bands`
+- Recomputes `buy_low`, `buy_high`, `mid_low`, `mid_high`, `trim_price`
+- Updates `generated_at`
+- Regenerates FY tranches for the selected stock
+
+Band signals and tranche generation use the stored generated values, not a fresh in-memory recomputation from allocations.
+
+---
+
+## Stale-State Rules
+
+Bands are considered stale when:
+
+- financial inputs were edited manually
+- financials were refreshed from AI
+- global `risk_free` changed for non-index stocks
+
+The stale UI is intentionally light:
+
+- the stock detail row shows `Bands need regen`
+- the financials sheet shows a single warning until `Regen Bands` is run
+
+Changing `risk_free` marks non-index `buy_bands.last_updated_at` forward so the user is prompted to regenerate without silently changing stored bands.
 
 ---
 
 ## Key File Map
 
-```
+```text
 app/
   api/
-    cmp/[symbol]/route.ts              — Yahoo Finance CMP proxy (60s cache)
-    bands/generate/[symbol]/route.ts   — AI band generation (Gemini or Claude, POST)
-    tranches/generate/[symbol]/route.ts — AI tranche generation (POST)
-    settings/gemini-key/route.ts       — GET hasKey, POST save/clear AI key
-  allocation/                          — Allocation screen
-  bands/                               — Buy Bands screen (FY-scoped tranches)
-  transactions/                        — Transactions screen
-  plan/                                — FY Plan management
-  stocks/[symbol]/                     — Stock detail (drill-down from Allocation/Bands)
-  add/                                 — Add transaction (FAB target)
+    bands/generate/[symbol]/route.ts    valuation + financial refresh
+    tranches/generate/[symbol]/route.ts tranche regeneration from stored bands
+    settings/gemini-key/route.ts        AI key + risk_free settings
+  bands/
+    BandsClient.tsx                     bands list
+    [symbol]/BandDetailClient.tsx       stock detail, financials, tranches, investability
 
 lib/
-  band-calculator.ts                   — Band math (PE / EV-EBITDA / PB / P_EV)
-  compute.ts                           — seqCost (sequential avg-cost), computeStockRows,
-                                         computeCarryover, getBandSignal
-  data.ts                              — Server-side Supabase fetchers (React cache +
-                                         unstable_cache); re-exports getCurrentFY
-  fy-utils.ts                          — getCurrentFY (pure, testable — no server deps)
-  types.ts                             — All TS types
-  formatter.ts                         — formatINR, formatPrice, formatPct, formatDate
-  supabase-server.ts                   — Server Component Supabase client
-  supabase-browser.ts                  — Browser Supabase singleton
-
-components/
-  BottomNav.tsx                        — 5-tab fixed bottom nav
-  BandBar.tsx                          — Visual price band bar with CMP pin
-  SignalBadge.tsx                      — Deep/Buy/Hold/Trim badge
-  TrancheSection.tsx                   — Tranche list + add/generate UI
-  CmpBadge.tsx                         — CMP display with signal colour
-  QuartersToggle.tsx                   — Bear/Normal/Bull toggle
+  band-calculator.ts                    v9 band math
+  compute.ts                            dashboard row computation + band signals
+  data.ts                               cached Supabase fetchers
+  fetchStockDetailProps.ts              server-side stock detail loader
+  types.ts                              DB and UI types
 
 supabase/
-  schema.sql                           — Initial schema
-  migration-v2.sql through v7          — Incremental migrations
-  fix-tranches-fy.sql                  — One-time fix if tranches ended up in wrong FY
+  schema.sql                            canonical schema
+  migrations/                           incremental DB changes
+  seed.sql                              sample FY/allocations
+  seed-bands.sql                        optional sample PE-only buy bands
 ```
-
----
-
-## Setup
-
-### Prerequisites
-
-- Node.js 20+
-- A [Supabase](https://supabase.com) project
-
-### 1. Supabase
-
-Create a new project. Run the SQL files in order via SQL Editor:
-
-```
-supabase/schema.sql        — tables, RLS policies, indexes
-supabase/migration-v2.sql  — buy_bands versioning + playbook table
-supabase/migration-v3.sql  — two_strong_quarters column
-supabase/seed.sql          — FY + allocations (replace YOUR_USER_UUID)
-supabase/seed-bands.sql    — buy band values
-```
-
-### 2. Environment
-
-Create `.env.local` in the project root:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-```
-
-### 3. Run locally
-
-```bash
-npm install
-npm run dev   # http://localhost:3000
-```
-
-### 4. Deploy
-
-```bash
-npx vercel
-```
-
-Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel environment settings.
-
-### Install as iPhone App (PWA)
-
-1. Open in Safari → Share → **Add to Home Screen**
-2. Tap the icon — already logged in, full-screen

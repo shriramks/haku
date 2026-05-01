@@ -2,8 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { calculateBands } from '@/lib/band-calculator'
-import type { StockRow, BuyBand, StockAllocation, StockCategory, FiscalYear } from '@/lib/types'
+import type { StockRow, BuyBand, FiscalYear } from '@/lib/types'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, ChevronRightIcon } from '@/components/icons'
@@ -47,13 +46,13 @@ function MiniBar({ buyLow, buyHigh, midHigh, cmp }: {
 interface Props {
   rows: StockRow[]
   bands: BuyBand[]
-  allocations: StockAllocation[]
   fyId: string
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
+  investabilities: { symbol: string; investable: boolean; total_score: number }[]
 }
 
-export default function BandsClient({ rows, bands: initialBands, allocations, fiscalYears, selectedFY }: Props) {
+export default function BandsClient({ rows, bands: initialBands, fiscalYears, selectedFY, investabilities }: Props) {
   const router = useRouter()
   const [bands, setBands] = useState(initialBands)
   const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>(() => {
@@ -85,14 +84,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
     }
 
     // One DB update per symbol combining both price and week52 fields
-    const now = new Date().toISOString()
     const prices = data.prices as Record<string, number> | undefined
     const week52 = data.week52 as Record<string, { low: number | null; high: number | null }> | undefined
     const allSymbols = new Set([...Object.keys(prices ?? {}), ...Object.keys(week52 ?? {})])
     await Promise.all(
       Array.from(allSymbols).map(sym => {
         const patch: Record<string, unknown> = {}
-        if (prices?.[sym] != null)                                  { patch.manual_cmp = prices[sym]; patch.last_updated_at = now }
+        if (prices?.[sym] != null)                                  { patch.manual_cmp = prices[sym] }
         if (week52?.[sym]?.low != null || week52?.[sym]?.high != null) { patch.week_52_low = week52![sym].low; patch.week_52_high = week52![sym].high }
         if (Object.keys(patch).length === 0) return Promise.resolve()
         return sb.from('buy_bands').update(patch).eq('symbol', sym)
@@ -111,20 +109,6 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
       setRefreshingAll(false)
     }
   }
-
-  const computedBandsMap = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof calculateBands>>()
-    for (const band of bands) {
-      const alloc = allocations.find(a => a.symbol === band.symbol)
-      if (alloc) map.set(band.symbol, calculateBands({
-        category: alloc.category as StockCategory,
-        quality:  alloc.quality  ?? 0,
-        stress:   alloc.stress   ?? 0,
-        eps:      band.eps,
-      }))
-    }
-    return map
-  }, [bands, allocations])
 
   const activeRows    = useMemo(() => rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
   const completedRows = useMemo(() => rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
@@ -170,13 +154,13 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
         {[...activeRows, ...completedRows].map((row) => {
           const band      = bands.find(b => b.symbol === row.symbol)
           const isDone    = row.remaining <= 0
-          const computed  = computedBandsMap.get(row.symbol)
-          const buyLow    = computed?.buyLow    ?? band?.buy_low    ?? null
-          const buyHigh   = computed?.buyHigh   ?? band?.buy_high   ?? null
-          const midHigh   = computed?.midHigh   ?? band?.mid_high   ?? null
-          const trimPrice = computed?.trimPrice ?? band?.trim_price ?? null
+          const buyLow    = band?.buy_low    ?? null
+          const buyHigh   = band?.buy_high   ?? null
+          const midHigh   = band?.mid_high   ?? null
+          const trimPrice = band?.trim_price ?? null
           const cmp       = band?.manual_cmp ?? null
           const hasBands  = buyLow != null && trimPrice != null
+          const inv       = investabilities.find(i => i.symbol === row.symbol)
 
           return (
             <div key={row.symbol}>
@@ -185,8 +169,15 @@ export default function BandsClient({ rows, bands: initialBands, allocations, fi
                 className="w-full flex items-center gap-3 px-4 border-b text-left"
                 style={{ borderColor: 'var(--divider)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
-                {/* Ticker */}
-                <span className="font-bold text-headline flex-shrink-0" style={{ width: 96 }}>{row.symbol}</span>
+                {/* Ticker + investability score */}
+                <div className="flex-shrink-0" style={{ width: 96 }}>
+                  <p className="font-bold text-headline">{row.symbol}</p>
+                  {inv && (
+                    <p style={{ fontSize: 11, lineHeight: 1.4, color: inv.investable ? 'var(--positive)' : 'var(--text-faint)' }}>
+                      {inv.total_score}/50{inv.investable ? ' ✓' : ''}
+                    </p>
+                  )}
+                </div>
 
                 {/* Mini bar */}
                 <div className="flex-1 min-w-0">

@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS fiscal_years (
     start_date       DATE NOT NULL,
     end_date         DATE NOT NULL,
     total_budget_inr NUMERIC(14,2) NOT NULL DEFAULT 0,
+    unallocated_carryover_inr NUMERIC(14,2) DEFAULT 0,
+    deploy_capital_inr NUMERIC(14,2) DEFAULT 0,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, label)
 );
@@ -50,6 +52,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     price       NUMERIC(12,4) NOT NULL,
     amount      NUMERIC(16,4) GENERATED ALWAYS AS (quantity * price) STORED,
     fy_id       UUID REFERENCES fiscal_years(id) ON DELETE SET NULL,
+    advance_fy_id UUID REFERENCES fiscal_years(id) ON DELETE SET NULL,
     notes       TEXT NOT NULL DEFAULT '',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -60,14 +63,15 @@ CREATE TABLE IF NOT EXISTS buy_bands (
     user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     symbol          TEXT NOT NULL,
     anchor_type     TEXT NOT NULL DEFAULT 'PE'
-                        CHECK (anchor_type IN ('PE', 'PB', 'EV_EBITDA', 'P_EV')),
+                        CHECK (anchor_type IN ('PE')),
     -- Raw financial inputs
     eps             NUMERIC(10,2),
-    bvps            NUMERIC(10,2),
-    ebitda          NUMERIC(14,2),
-    net_debt        NUMERIC(14,2),
-    shares          NUMERIC(10,2),
-    embedded_value  NUMERIC(14,2),
+    pat_now         NUMERIC(14,2),
+    pat_3yr_ago     NUMERIC(14,2),
+    roce_3yr_avg    NUMERIC(7,2),
+    mcap            NUMERIC(14,2),
+    index_level     NUMERIC(10,2),
+    index_pe        NUMERIC(6,2),
     -- Computed band prices (₹)
     buy_low         NUMERIC(10,2),
     buy_high        NUMERIC(10,2),
@@ -76,42 +80,32 @@ CREATE TABLE IF NOT EXISTS buy_bands (
     trim_price      NUMERIC(10,2),
     -- Current market price (manual entry)
     manual_cmp      NUMERIC(10,2),
+    week_52_low     NUMERIC(10,2),
+    week_52_high    NUMERIC(10,2),
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    generated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    is_current      BOOLEAN NOT NULL DEFAULT true,
     notes           TEXT NOT NULL DEFAULT '',
     UNIQUE (user_id, symbol)
 );
 
--- Investability assessment (12-gate checklist per stock)
+-- Investability assessment (10-gate scorecard per stock)
 CREATE TABLE IF NOT EXISTS investability (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id                 UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     symbol                  TEXT NOT NULL,
     assessed_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- 12 gates
-    sector_winds            TEXT NOT NULL DEFAULT 'caution' CHECK (sector_winds IN ('pass','caution','fail')),
-    sector_winds_note       TEXT NOT NULL DEFAULT '',
-    circle_of_competence    TEXT NOT NULL DEFAULT 'caution' CHECK (circle_of_competence IN ('pass','caution','fail')),
-    circle_note             TEXT NOT NULL DEFAULT '',
-    moat                    TEXT NOT NULL DEFAULT 'caution' CHECK (moat IN ('pass','caution','fail')),
-    moat_note               TEXT NOT NULL DEFAULT '',
-    owner_earnings          TEXT NOT NULL DEFAULT 'caution' CHECK (owner_earnings IN ('pass','caution','fail')),
-    owner_earnings_note     TEXT NOT NULL DEFAULT '',
-    capital_efficiency      TEXT NOT NULL DEFAULT 'caution' CHECK (capital_efficiency IN ('pass','caution','fail')),
-    capital_efficiency_note TEXT NOT NULL DEFAULT '',
-    innovation_velocity     TEXT NOT NULL DEFAULT 'caution' CHECK (innovation_velocity IN ('pass','caution','fail')),
-    innovation_note         TEXT NOT NULL DEFAULT '',
-    governance              TEXT NOT NULL DEFAULT 'caution' CHECK (governance IN ('pass','caution','fail')),
-    governance_note         TEXT NOT NULL DEFAULT '',
-    execution_track         TEXT NOT NULL DEFAULT 'caution' CHECK (execution_track IN ('pass','caution','fail')),
-    execution_note          TEXT NOT NULL DEFAULT '',
-    supply_chain_risk       TEXT NOT NULL DEFAULT 'caution' CHECK (supply_chain_risk IN ('pass','caution','fail')),
-    supply_chain_note       TEXT NOT NULL DEFAULT '',
-    regulatory_signal       TEXT NOT NULL DEFAULT 'caution' CHECK (regulatory_signal IN ('pass','caution','fail')),
-    regulatory_note         TEXT NOT NULL DEFAULT '',
-    thesis_breaker          TEXT NOT NULL DEFAULT 'caution' CHECK (thesis_breaker IN ('pass','caution','fail')),
-    thesis_breaker_note     TEXT NOT NULL DEFAULT '',
-    capital_discipline      TEXT NOT NULL DEFAULT 'caution' CHECK (capital_discipline IN ('pass','caution','fail')),
-    capital_discipline_note TEXT NOT NULL DEFAULT '',
+    g1_moat                 INTEGER NOT NULL DEFAULT 0,
+    g2_owner_earnings       INTEGER NOT NULL DEFAULT 0,
+    g3_capital_efficiency   INTEGER NOT NULL DEFAULT 0,
+    g4_innovation           INTEGER NOT NULL DEFAULT 0,
+    g5_execution_track      INTEGER NOT NULL DEFAULT 0,
+    g6_sector_winds         INTEGER NOT NULL DEFAULT 0,
+    g7_governance           INTEGER NOT NULL DEFAULT 0,
+    g8_supply_regulatory    INTEGER NOT NULL DEFAULT 0,
+    g9_market_cap           INTEGER NOT NULL DEFAULT 0,
+    g10_capital_discipline  INTEGER NOT NULL DEFAULT 0,
+    total_score             INTEGER NOT NULL DEFAULT 0,
     investable              BOOLEAN NOT NULL DEFAULT false,
     notes                   TEXT NOT NULL DEFAULT '',
     UNIQUE (user_id, symbol)
@@ -124,9 +118,19 @@ CREATE TABLE IF NOT EXISTS buy_tranches (
     symbol      TEXT NOT NULL,
     qty         NUMERIC(12,4) NOT NULL,
     price       NUMERIC(12,4) NOT NULL,
-    allocated   BOOLEAN NOT NULL DEFAULT false,
+    fy_id       UUID REFERENCES fiscal_years(id) ON DELETE CASCADE,
     sort_order  INT NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id                 UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    gemini_api_key          TEXT,
+    claude_api_key          TEXT,
+    ai_provider             TEXT NOT NULL DEFAULT 'gemini',
+    risk_free               NUMERIC(6,4) NOT NULL DEFAULT 0.07,
+    risk_free_updated_at    TIMESTAMPTZ,
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ══════════════════════════════════════════════════════════════
@@ -139,6 +143,7 @@ ALTER TABLE transactions      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE buy_bands         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investability     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE buy_tranches      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings     ENABLE ROW LEVEL SECURITY;
 
 -- fiscal_years
 CREATE POLICY "Users see own fiscal years"
@@ -176,6 +181,11 @@ CREATE POLICY "Users see own tranches"
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users see own settings"
+    ON user_settings FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
 -- ══════════════════════════════════════════════════════════════
 -- INDEXES
 -- ══════════════════════════════════════════════════════════════
@@ -189,3 +199,4 @@ CREATE INDEX IF NOT EXISTS idx_buy_bands_user     ON buy_bands(user_id);
 CREATE INDEX IF NOT EXISTS idx_investability_user ON investability(user_id);
 CREATE INDEX IF NOT EXISTS idx_tranches_user      ON buy_tranches(user_id);
 CREATE INDEX IF NOT EXISTS idx_tranches_symbol    ON buy_tranches(user_id, symbol);
+CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);

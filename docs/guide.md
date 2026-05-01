@@ -79,23 +79,28 @@ The **Buy Bands** tab shows valuation zones for each stock — price ranges wher
 
 ### AI band generation
 
-Tap **Generate All Bands** at the top (or **Regenerate** inside any expanded stock card).
+Tap a stock row to open its detail screen, then open **Financials**.
 
-If you have not added a Gemini API key yet, a sheet slides up asking you to add one before continuing. Once saved, generation proceeds immediately — you only need to do this once.
+If you have not added an AI key yet, add one from **Settings** first. The app also lets you set the global **risk-free** rate used in valuation (`Ke = risk_free + 5%`).
 
-The generation process:
-1. Fetches EPS, operating profit, borrowings, cash, and shares from Screener.in (consolidated view)
-2. Applies your stock's category-specific PE or EV/EBITDA multiple ranges
-3. Computes Buy / Mid / Trim price zones and saves them
-4. Auto-generates up to 5 buy tranches for the current FY (see [Tranches](#tranches) below)
+The v9 workflow is split into two actions:
+1. **Regen Financials** — fetches and stores raw inputs
+2. **Regen Bands** — computes Buy / Mid / Trim zones from the saved inputs and refreshes FY tranches
 
-For Index/ETF stocks it fetches the current Nifty PE and ETF price instead, and derives an implied EPS to run through the same band logic.
+For stock categories, **Regen Financials** stores:
+- EPS
+- PAT now
+- PAT 3 years ago
+- 3-year average ROCE
+- Market cap
 
-**Two qualifier toggles** adjust the bands after generation:
-- **2 Weak Quarters** — recent results have been soft; tightens all band prices by 10% (more conservative)
-- **2 Strong Quarters** — recent results are strong; applies premium multiples for eligible categories (Capital-light)
+For index ETFs, **Regen Financials** stores:
+- Index level
+- Index trailing PE
 
-These are stock-specific and saved per allocation.
+ETF `EPS` is not edited directly. It is derived as `index_level / index_pe / 100`.
+
+Manual edits are allowed in the Financials sheet. When you change financial inputs, the existing band values stay visible but the app marks them as stale with **Bands need regen** until you run **Regen Bands** again.
 
 ### Reading the band bar
 
@@ -117,19 +122,19 @@ The white vertical line shows the current market price (CMP). Tap **Refresh CMP*
 
 Tranches let you plan *how* you want to buy within the Buy zone — breaking a position into multiple orders at different price points.
 
-**AI-generated tranches** are created automatically when you generate bands. Up to 5 tranches are placed within the Buy zone:
+**AI-generated tranches** are created automatically when you run **Regen Bands**. Up to 5 tranches are placed within the Buy zone:
 - Prices are distributed toward the lower end of the zone (more tranches near the floor, fewer near the ceiling)
 - When CMP is within the Buy zone, the top tranche starts a few steps below CMP — no point planning a buy above current price when you could act now
 - When CMP is above the Buy zone (e.g. a stock like DMART that rarely dips into value territory), tranches are spread across the full Buy zone as target limit orders
 - Qty per tranche is auto-calculated from your remaining budget for the stock in the current FY
 
-Generating bands again replaces all existing tranches for that stock and FY.
+Running **Regen Bands** again replaces all existing tranches for that stock and FY.
 
 You can also add tranches manually. In an expanded stock card, scroll to **Tranches** and tap **+ Add**:
 - **Qty** — number of shares
 - **Price ₹** — your target price
 
-Added tranches show a pending total. Tap the circle to mark a tranche as **allocated** (bought). The stock header shows a "N to buy" badge when there are open tranches.
+Tranches are planning levels only. Actual deployment is tracked from real buy/sell transactions, not by marking tranches as filled.
 
 Tranches are scoped to your fiscal year — they don't carry over to the next year.
 
