@@ -52,7 +52,7 @@ interface Props {
   investabilities: { symbol: string; investable: boolean; total_score: number }[]
 }
 
-export default function BandsClient({ rows, bands: initialBands, fiscalYears, selectedFY, investabilities }: Props) {
+export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYears, selectedFY, investabilities }: Props) {
   const router = useRouter()
   const [bands, setBands] = useState(initialBands)
   const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>(() => {
