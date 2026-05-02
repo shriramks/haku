@@ -957,6 +957,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
   const [rationale, setRationale] = useState<Record<string, string>>(
     initialInvestability?.rationale ?? {}
   )
+  const [expandedGates, setExpandedGates] = useState<Set<GateKey>>(new Set())
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1034,21 +1035,18 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           <p className="font-semibold text-headline">Investability</p>
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
-        <div className="px-5 pt-4 pb-2">
-          <div className="flex items-center justify-between rounded-2xl px-4 py-3"
-            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-            <div>
-              <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
-              <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-faint)' }}>/50</span>
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
-              <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--positive)' : 'var(--negative)' }}>
-                {isInvestable ? 'Investable' : 'Not Investable'}
-              </p>
-            </div>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-faint)' }}>
+          <div>
+            <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
+            <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+              {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-faint)' }}>/50</span>
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
+            <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--positive)' : 'var(--negative)' }}>
+              {isInvestable ? 'Investable' : 'Not Investable'}
+            </p>
           </div>
         </div>
         <p className="px-5 pb-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
@@ -1097,39 +1095,60 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
         </p>
 
         {/* Gate rows */}
-        {GATES.map(({ key, label, desc, hardVeto }) => (
-          <div key={key} style={{ borderTop: '1px solid var(--border-faint)' }}>
-            <div className="flex items-center justify-between px-5"
-              style={{ minHeight: 56 }}>
-              <div className="flex-1 min-w-0 pr-3">
-                <p className="text-body" style={{ color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-2)' }}>
-                  {label}
-                  {hardVeto && <span className="ml-1.5 text-footnote" style={{ color: 'var(--negative)' }}>hard veto</span>}
+        {GATES.map(({ key, label, desc, hardVeto }) => {
+          const isExpanded = expandedGates.has(key)
+          const hasRationale = !!rationale[key]
+          const toggleExpand = () => {
+            if (!hasRationale) return
+            setExpandedGates(prev => {
+              const next = new Set(prev)
+              next.has(key) ? next.delete(key) : next.add(key)
+              return next
+            })
+          }
+          return (
+            <div key={key} style={{ borderTop: '1px solid var(--border-faint)' }}>
+              <div className="flex items-center justify-between px-5" style={{ minHeight: 56 }}>
+                <button
+                  onClick={toggleExpand}
+                  disabled={!hasRationale}
+                  className="flex-1 min-w-0 pr-3 text-left"
+                  style={{ minHeight: 44 }}>
+                  <p className="text-body" style={{ color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {label}
+                    {hardVeto && <span className="text-footnote" style={{ color: 'var(--negative)' }}>hard veto</span>}
+                    {hasRationale && (
+                      <span className="text-footnote" style={{ color: isExpanded ? 'var(--accent)' : 'var(--text-faint)', transition: 'transform 0.18s, color 0.15s', display: 'inline-block', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>›</span>
+                    )}
+                  </p>
+                  {!hasRationale && (
+                    <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => step(key, -1)}
+                    style={{ width: 44, height: 44, borderRadius: 12, background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', border: '1px solid color-mix(in srgb, var(--accent) 20%, var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--accent)', minHeight: 44, minWidth: 44 }}>
+                    −
+                  </button>
+                  <span className="tabnum font-semibold text-headline" style={{ minWidth: 28, textAlign: 'center', color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-faint)' }}>
+                    {gates[key]}
+                  </span>
+                  <button
+                    onClick={() => step(key, +1)}
+                    style={{ width: 44, height: 44, borderRadius: 12, background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', border: '1px solid color-mix(in srgb, var(--accent) 20%, var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--accent)', minHeight: 44, minWidth: 44 }}>
+                    +
+                  </button>
+                </div>
+              </div>
+              {isExpanded && hasRationale && (
+                <p className="text-subheadline px-5 pb-3" style={{ color: 'var(--text-faint)' }}>
+                  {rationale[key]}
                 </p>
-                {rationale[key] ? (
-                  <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{rationale[key]}</p>
-                ) : (
-                  <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => step(key, -1)}
-                  style={{ width: 44, height: 44, borderRadius: 12, background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', border: '1px solid color-mix(in srgb, var(--accent) 20%, var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--accent)', minHeight: 44, minWidth: 44 }}>
-                  −
-                </button>
-                <span className="tabnum font-semibold" style={{ fontSize: 17, minWidth: 28, textAlign: 'center', color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-faint)' }}>
-                  {gates[key]}
-                </span>
-                <button
-                  onClick={() => step(key, +1)}
-                  style={{ width: 44, height: 44, borderRadius: 12, background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', border: '1px solid color-mix(in srgb, var(--accent) 20%, var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--accent)', minHeight: 44, minWidth: 44 }}>
-                  +
-                </button>
-              </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )
