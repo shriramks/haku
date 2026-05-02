@@ -674,7 +674,12 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick 
     <div className="grid px-4 py-3"
          style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
       <div className="min-w-0 pr-2">
-        <p className="text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
+        <div className="flex items-start gap-1">
+          <p className="min-w-0 flex-1 text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
+          {onClick && (
+            <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
+          )}
+        </div>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{current}</p>
@@ -729,8 +734,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
           </p>
         </div>
 
-        <div className="mx-5 mt-2 overflow-hidden rounded-2xl border"
-             style={{ borderColor: 'var(--border-faint)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="mt-3 border-t" style={{ borderColor: 'var(--divider)' }}>
           <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
           <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
           <DetailRow
@@ -754,8 +758,8 @@ function DetailRow({ label, value, valueColor, last }: {
   label: string; value: string; valueColor?: string; last?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3"
-         style={{ minHeight: 52, borderBottom: last ? 'none' : '1px solid var(--border-faint)' }}>
+    <div className="flex items-center justify-between px-5 py-3"
+         style={{ minHeight: 52, borderBottom: last ? 'none' : '1px solid var(--divider)' }}>
       <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
       <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
         {value}
