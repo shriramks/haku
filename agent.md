@@ -7,7 +7,7 @@
 - **Diagnose bugs from code only.** If an error message maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
 - **Never override ignore rules.** Never use `git add -f`, never stage ignored files, and never commit anything excluded by `.gitignore` or `.git/info/exclude`.
 - Create an HTML mockup in `mockups/` and get approval before writing component code. Static HTML + inline CSS is sufficient — no JS needed; just show layout and hierarchy. Check `docs/product.md` for IA priority and `docs/design.md` for tokens. `mockups/` is gitignored — never commit files from it.
-- `npm run build` before committing non-trivial changes; `npm test` after touching anything in `lib/`.
+- `npm run build` before committing non-trivial changes (`build` already runs `vitest run` first, so no need to run `npm test` separately).
 - Schema changes: push code first, then hand over migration SQL — never the reverse (live app will crash on the dropped columns until code lands).
 
 ## UI rules
@@ -33,7 +33,7 @@
 | Loss / sell / trim | `text-negative` |
 | CTA / links / interactive | `text-accent` |
 | Hold / caution | `text-warning` |
-| Deep value zone | `text-deep` |
+| Deep value zone | `text-signal-deep` |
 
 New token: add CSS var to `app/globals.css`, then reference in `tailwind.config.ts`.
 
@@ -48,6 +48,11 @@ New token: add CSS var to `app/globals.css`, then reference in `tailwind.config.
 - Page padding: `px-4` only — never `px-3` or `px-5`
 - List rows: `py-3` (gives 44px tap target with headline text)
 - Check `components/icons.tsx` before adding SVGs inline
+
+## Asset types
+
+- **Stocks** — buy bands, tranches, investability scorecard; computed via `lib/band-calculator.ts` and `lib/compute.ts`
+- **Mutual Funds (MF)** — portfolio-only asset type; no bands or tranches; computed via `lib/mf-compute.ts`; handled in `app/portfolio/`
 
 ## Data / caching
 
