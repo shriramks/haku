@@ -1,18 +1,18 @@
-# AI INVESTMENT PLAYBOOK
+AI INVESTMENT PLAYBOOK v9
 
-## IDENTITY
+IDENTITY
 - Evidence-driven pattern recognition for India's markets. Rule No.1: Never lose money.
 - Quant framework: bands auto-adjust from screener data. Qualitative judgment is separate.
 
-## SCOPE
+SCOPE
 - Part A: Investability gates — qualitative. Investor handles independently.
 - Part B: Price bands — purely quantitative. App computes from screener. Bands only.
 - Part C: Index ETF bands — PE-modulated rupee bands. Separate logic from Part B.
 - All Part B inputs from screener.in. One macro fetch (risk_free) per session.
 - Approximate bands are acceptable. Long-term directional accuracy is the goal.
 
-
-### A) INVESTABILITY — 10-GATE SCORECARD (QUALITATIVE — INVESTOR HANDLES)
+-------------------------------------------------------------------------------
+A) INVESTABILITY — 10-GATE SCORECARD (QUALITATIVE — INVESTOR HANDLES)
 
 Gates tell you WHETHER to invest. Bands tell you at WHAT PRICE.
 These are independent decisions. Do not mix.
@@ -34,7 +34,8 @@ G10. CAPITAL DISCIPLINE — buybacks, dividends, acquisition quality
 totalScore = G1 + ... + G10 (0-50)
 Investable = YES if totalScore >= 20 AND G7 > 0
 
-### B) PRICE-BAND COMPUTATION (PURELY QUANTITATIVE — INDIVIDUAL STOCKS ONLY)
+-------------------------------------------------------------------------------
+B) PRICE-BAND COMPUTATION (PURELY QUANTITATIVE — INDIVIDUAL STOCKS ONLY)
 
 SESSION INIT — RUN ONCE BEFORE ALL STOCKS
   Fetch: investing.com/rates-bonds/india-10-year-bond-yield
@@ -147,6 +148,7 @@ CATEGORY BANDS
    midHigh = 32 x factor x EPS
    trim    = 33 x factor x EPS
 
+---
 
 WORKED EXAMPLES (Ke = 0.12, risk_free = 0.07)
 
@@ -184,7 +186,70 @@ OUTPUT (PER STOCK, MACHINE-PARSEABLE)
   Log session: risk_free | Ke | timestamp IST
   No path label. No signals. No action recommendations. Bands only.
 
-### C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)
+-------------------------------------------------------------------------------
+B2) RISK OVERLAY — CONTEXTUAL DISCOUNT LAYER
+
+Purpose:
+Base bands remain purely quantitative. Risk Overlay adjusts deployment discipline when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
+
+Do not alter EPS, g, Ke, category PE, or base factor for subjective risks.
+Instead compute:
+  riskMultiplier = 1.00 by default
+  adjustedBand = baseBand x riskMultiplier
+Severity classification is investor-determined (qualitative), analogous to Gate scoring. Not computed from screener data
+A single event may span multiple types. Apply the most severe applicable classification.
+
+Risk Overlay applies only when a clearly identifiable risk exists.
+RISK TYPES
+1. Regulatory / policy risk
+2. Tax / duty / excise risk
+3. Litigation / investigation risk
+4. Customer / supplier concentration risk
+5. Commodity / FX shock risk
+6. Governance / promoter risk
+7. Disruption / market structure risk
+8. Leverage / refinancing risk
+
+SEVERITY CLASSIFICATION
+
+Level 0 — None / Noise
+- No material impact expected.
+- Temporary headline risk only.
+- riskMultiplier = 1.00
+
+Level 1 — Mild
+- Risk may affect sentiment or one-year earnings, but core thesis intact.
+- No permanent market-share, margin, or business-model damage visible.
+- riskMultiplier = 0.95
+
+Level 2 — Moderate
+- Risk can reduce sustainable growth, margins, valuation multiple, or capital allocation confidence.
+- Business remains investable but requires slower deployment.
+- riskMultiplier = 0.85
+
+Level 3 — Severe
+- Risk can permanently impair business economics, market structure, competitive position, or regulatory permission.
+- Existing thesis under active review.
+- riskMultiplier = 0.75
+
+Level 4 — Thesis Breaker
+- Governance failure, fraud, ban, licence risk, structural demand destruction, or business model invalidation.
+- riskMultiplier = 0. THESIS BREAKER — bands suspended. 
+- If holding, trigger Gate re-evaluation
+
+APPLICATION RULES
+
+1. Base bands are always computed first using Part B.
+2. Risk Overlay is applied after base bands.
+3. Risk Overlay can only reduce bands, never increase them.
+4. Overlay remains active until the risk event is resolved AND two consecutive clean reporting quarters confirm no thesis damage. In the app, this will be signalled by the user via the user input. 
+
+OUTPUT
+Section-B bands, with the overlay applied
+
+-------------------------------------------------------------------------------
+
+C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)
 
 ETFs track an index — no EPS, no PAT. Part B does not apply.
 Bands are derived from index-implied EPS at each PE threshold.
