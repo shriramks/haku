@@ -324,13 +324,13 @@ export default function BandDetailClient({
               <span
                 className="tabnum text-subheadline font-semibold"
                 style={{
-                  color: investability.investable ? 'var(--positive)' : 'var(--warning)',
+                  color: investability.investable ? 'var(--c-positive)' : 'var(--c-warning)',
                   background: investability.investable
-                    ? 'color-mix(in srgb, var(--positive) 10%, transparent)'
-                    : 'color-mix(in srgb, var(--warning) 10%, transparent)',
+                    ? 'color-mix(in srgb, var(--c-positive) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--c-warning) 10%, transparent)',
                   border: `1px solid ${investability.investable
-                    ? 'color-mix(in srgb, var(--positive) 20%, transparent)'
-                    : 'color-mix(in srgb, var(--warning) 20%, transparent)'}`,
+                    ? 'color-mix(in srgb, var(--c-positive) 20%, transparent)'
+                    : 'color-mix(in srgb, var(--c-warning) 20%, transparent)'}`,
                   borderRadius: 999,
                   minHeight: 28,
                   padding: '0 10px',
@@ -394,7 +394,7 @@ export default function BandDetailClient({
           style={{ minHeight: 44 }}>
           <span className="text-body" style={{ color: 'var(--text-2)' }}>Band Computation</span>
           <div className="flex items-center gap-2">
-            <span className="text-subheadline" style={{ color: staleBands ? 'var(--warning)' : 'var(--text-faint)' }}>
+            <span className="text-subheadline" style={{ color: staleBands ? 'var(--c-warning)' : 'var(--text-faint)' }}>
               {staleBands ? 'Bands need regen' : 'Path, factor, formula'}
             </span>
             <span className="text-body text-accent">›</span>
@@ -548,10 +548,10 @@ function RiskOverlaySheet({ band, onClose, onSaved }: {
             onKeyDown={e => { if (e.key === 'Enter') save() }}
             autoFocus
             className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--warning)' : 'var(--border)'}` }}
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--c-warning)' : 'var(--border)'}` }}
           />
           {showWarning && (
-            <p className="text-subheadline mt-1.5" style={{ color: 'var(--warning)' }}>
+            <p className="text-subheadline mt-1.5" style={{ color: 'var(--c-warning)' }}>
               Enter a value between 0 and 1. Leave blank to clear overlay.
             </p>
           )}
@@ -727,7 +727,7 @@ function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinan
             </div>
             {genError && <p className="text-subheadline text-negative mb-3">{genError}</p>}
             {staleBands && (
-              <p className="text-subheadline mb-3" style={{ color: 'var(--warning)' }}>
+              <p className="text-subheadline mb-3" style={{ color: 'var(--c-warning)' }}>
                 Financials changed. Regen Bands to apply.
               </p>
             )}
@@ -762,7 +762,7 @@ function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinan
             {saveFeedback && (
               <p
                 className="text-subheadline mt-3 text-center"
-                style={{ color: saveFeedback.tone === 'positive' ? 'var(--positive)' : 'var(--negative)' }}>
+                style={{ color: saveFeedback.tone === 'positive' ? 'var(--c-positive)' : 'var(--c-negative)' }}>
                 {saveFeedback.message}
               </p>
             )}
@@ -929,7 +929,7 @@ function BandComputationSheet({ band, allocation, onClose }: {
         </div>
         <div className="px-5 pt-4">
           {staleBands && (
-            <p className="text-subheadline mb-3" style={{ color: 'var(--warning)' }}>
+            <p className="text-subheadline mb-3" style={{ color: 'var(--c-warning)' }}>
               Financials changed. Regen Bands to apply.
             </p>
           )}
@@ -1171,17 +1171,17 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           <div>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
             <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-              {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-faint)' }}>/50</span>
+              {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-muted)' }}>/50</span>
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
-            <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--positive)' : 'var(--negative)' }}>
+            <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--c-positive)' : 'var(--c-negative)' }}>
               {isInvestable ? 'Investable' : 'Not Investable'}
             </p>
           </div>
         </div>
-        <p className="px-5 pb-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+        <p className="px-5 pb-3 text-subheadline" style={{ color: 'var(--text-muted)' }}>
           Scale of 0-5, with 5 being best in class.
         </p>
 
@@ -1209,17 +1209,17 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                 {generating ? 'Analysing with Gemini…' : (Object.keys(rationale).length > 0 ? 'Regenerate' : 'Generate with AI')}
               </p>
               {!generating && (
-                <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>
+                <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>
                   {Object.keys(rationale).length > 0 ? 'AI-scored · tap to refresh' : 'Gemini scores all 10 gates'}
                 </p>
               )}
             </div>
           </div>
-          <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+          <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
         </button>
 
         {genError && (
-          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--negative)' }}>{genError}</p>
+          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--c-negative)' }}>{genError}</p>
         )}
 
         <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14 }}>
@@ -1244,17 +1244,22 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                 <button
                   onClick={toggleExpand}
                   disabled={!hasRationale}
-                  className="flex-1 min-w-0 pr-3 text-left"
+                  className="flex-1 min-w-0 pr-3 text-left disabled:opacity-100"
                   style={{ minHeight: 44 }}>
-                  <p className="text-body" style={{ color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {label}
-                    {hardVeto && <span className="text-footnote" style={{ color: 'var(--negative)' }}>hard veto</span>}
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-body" style={{ color: 'var(--text-primary)' }}>
+                      {label}
+                    </p>
+                    {hardVeto && <span className="text-footnote" style={{ color: 'var(--c-negative)' }}>hard veto</span>}
                     {hasRationale && (
-                      <span className="text-footnote" style={{ color: isExpanded ? 'var(--accent)' : 'var(--text-faint)', transition: 'transform 0.18s, color 0.15s', display: 'inline-block', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>›</span>
+                      <ChevronRightIcon
+                        className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        style={{ color: isExpanded ? 'var(--accent)' : 'var(--text-muted)' }}
+                      />
                     )}
-                  </p>
+                  </div>
                   {!hasRationale && (
-                    <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
+                    <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>{desc}</p>
                   )}
                 </button>
                 <div className="flex items-center gap-2">
@@ -1263,7 +1268,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                     style={{ width: 44, height: 44, borderRadius: 12, background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary))', border: '1px solid color-mix(in srgb, var(--accent) 20%, var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300, color: 'var(--accent)', minHeight: 44, minWidth: 44 }}>
                     −
                   </button>
-                  <span className="tabnum font-semibold text-headline" style={{ minWidth: 28, textAlign: 'center', color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-faint)' }}>
+                  <span className="tabnum font-semibold text-headline" style={{ minWidth: 28, textAlign: 'center', color: gates[key] > 0 ? 'var(--text-primary)' : 'var(--text-2)' }}>
                     {gates[key]}
                   </span>
                   <button
@@ -1274,7 +1279,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                 </div>
               </div>
               {isExpanded && hasRationale && (
-                <p className="text-subheadline px-5 pb-3" style={{ color: 'var(--text-faint)' }}>
+                <p className="text-subheadline px-5 pb-3" style={{ color: 'var(--text-2)', lineHeight: 1.55 }}>
                   {rationale[key]}
                 </p>
               )}
