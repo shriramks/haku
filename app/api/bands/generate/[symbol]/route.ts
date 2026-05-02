@@ -151,7 +151,7 @@ export async function POST(
       .single(),
     supabase
       .from('buy_bands')
-      .select('id, eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at')
+      .select('id, eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at, risk_multiplier')
       .eq('user_id', user.id)
       .eq('symbol', upperSymbol)
       .maybeSingle(),
@@ -401,7 +401,8 @@ export async function POST(
         s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
     const remaining = Math.max(0, allocBudget - netSpent)
     const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
-    const prices = computeTranchePrices(result.buyLow, result.buyHigh, liveCmp)
+    const rm = existingBand?.risk_multiplier ?? 1
+    const prices = computeTranchePrices(result.buyLow * rm, result.buyHigh * rm, liveCmp)
     const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
 
     await supabase.from('buy_tranches')

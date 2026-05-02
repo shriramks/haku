@@ -62,6 +62,7 @@ export interface BuyBand {
   generated_at: string
   is_current: boolean
   notes: string
+  risk_multiplier?: number | null
 }
 
 export interface Investability {

@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS buy_bands (
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     is_current      BOOLEAN NOT NULL DEFAULT true,
     notes           TEXT NOT NULL DEFAULT '',
+    risk_multiplier NUMERIC(5,4),
     UNIQUE (user_id, symbol)
 );
 

@@ -69,6 +69,9 @@ export default function BandDetailClient({
   const [showComputation, setShowComputation] = useState(false)
   const [showInvestability, setShowInvestability] = useState(false)
   const [investability, setInvestability]   = useState(initialInvestability)
+  const [editingRisk, setEditingRisk]       = useState(false)
+  const [riskInput, setRiskInput]           = useState('')
+  const [savingRisk, setSavingRisk]         = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -82,6 +85,14 @@ export default function BandDetailClient({
   const midHigh   = band?.mid_high   ?? null
   const trimPrice = band?.trim_price ?? null
   const hasBands  = buyLow != null && trimPrice != null
+
+  const riskMultiplier = band?.risk_multiplier ?? null
+  const hasOverlay = riskMultiplier != null && riskMultiplier !== 1
+  const adjBuyLow    = hasBands && hasOverlay ? buyLow!    * riskMultiplier! : buyLow
+  const adjBuyHigh   = hasBands && hasOverlay ? buyHigh!   * riskMultiplier! : buyHigh
+  const adjMidLow    = hasBands && hasOverlay ? midLow!    * riskMultiplier! : midLow
+  const adjMidHigh   = hasBands && hasOverlay ? midHigh!   * riskMultiplier! : midHigh
+  const adjTrimPrice = hasBands && hasOverlay ? trimPrice! * riskMultiplier! : trimPrice
   const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
 
   const fyRemaining = fyRow?.remaining ?? 0
@@ -183,6 +194,19 @@ export default function BandDetailClient({
     setGeneratingTranches(false)
   }
 
+  async function saveRiskMultiplier() {
+    setSavingRisk(true)
+    const val = parseFloat(riskInput.trim())
+    const multiplier = (Number.isFinite(val) && val > 0 && val < 1) ? val : null
+    if (band) {
+      const { data } = await getSupabaseBrowser()
+        .from('buy_bands').update({ risk_multiplier: multiplier }).eq('id', band.id).select().single()
+      if (data) setBand(data)
+    }
+    setEditingRisk(false)
+    setSavingRisk(false)
+  }
+
   async function addTranche(qty: number, price: number) {
     if (!userId) return
     const { data } = await getSupabaseBrowser().from('buy_tranches').insert({
@@ -247,13 +271,15 @@ export default function BandDetailClient({
 
       {/* ── Band bar ── */}
       <div style={{ background: 'var(--bg-primary)', padding: '14px 16px 0' }}>
-        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', marginBottom: 10 }}>Buy Band</p>
+        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', marginBottom: 10 }}>
+          Buy Band{hasOverlay && <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>×{riskMultiplier}</span>}
+        </p>
         {hasBands ? (
           <>
             <BandBar
-              buyLow={buyLow!} buyHigh={buyHigh!}
-              midLow={midLow!} midHigh={midHigh!}
-              trimPrice={trimPrice!} cmp={cmp}
+              buyLow={adjBuyLow!} buyHigh={adjBuyHigh!}
+              midLow={adjMidLow!} midHigh={adjMidHigh!}
+              trimPrice={adjTrimPrice!} cmp={cmp}
             />
             {/* ── 52W Low | CMP | 52W High ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
@@ -277,6 +303,49 @@ export default function BandDetailClient({
           <div className="h-7 rounded-lg flex items-center px-3 mb-4" style={{ background: 'var(--bg-tertiary)' }}>
             <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands yet — set financials to generate</p>
           </div>
+        )}
+      </div>
+
+      {/* ── Risk Overlay row ── */}
+      <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+        {editingRisk ? (
+          <div className="flex items-center justify-between px-4" style={{ minHeight: 44, gap: 8 }}>
+            <span className="text-body" style={{ color: 'var(--text-2)' }}>Risk Overlay</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" step="0.01" inputMode="decimal"
+                placeholder="e.g. 0.85"
+                value={riskInput}
+                onChange={e => setRiskInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveRiskMultiplier(); if (e.key === 'Escape') setEditingRisk(false) }}
+                autoFocus
+                className="tabnum"
+                style={{ width: 80, padding: '4px 8px', background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: 8, fontSize: 15, color: 'var(--text-primary)', textAlign: 'right', outline: 'none' }}
+              />
+              <button onClick={saveRiskMultiplier} disabled={savingRisk}
+                className="text-accent disabled:opacity-40"
+                style={{ fontSize: 15, fontWeight: 600, background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.20)', borderRadius: 8, padding: '4px 12px', minHeight: 32 }}>
+                {savingRisk ? '…' : 'Save'}
+              </button>
+              <button onClick={() => setEditingRisk(false)}
+                className="text-body" style={{ color: 'var(--text-faint)', minHeight: 32, padding: '0 4px' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setRiskInput(riskMultiplier != null ? String(riskMultiplier) : ''); setEditingRisk(true) }}
+            className="flex items-center justify-between w-full px-4"
+            style={{ minHeight: 44 }}>
+            <span className="text-body" style={{ color: 'var(--text-2)' }}>Risk Overlay</span>
+            <div className="flex items-center gap-2">
+              <span className="text-body tabnum" style={{ color: hasOverlay ? 'var(--text-2)' : 'var(--text-faint)' }}>
+                {hasOverlay ? String(riskMultiplier) : 'None'}
+              </span>
+              <span className="text-body text-accent">›</span>
+            </div>
+          </button>
         )}
       </div>
 
