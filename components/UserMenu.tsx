@@ -3,11 +3,14 @@ import type { ReactNode } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { ChevronRightIcon } from '@/components/icons'
 
 interface MenuAction {
   label: string
   icon: ReactNode
   onClick: () => void
+  hint?: string
+  trailing?: ReactNode
 }
 
 interface MenuSection {
@@ -103,29 +106,36 @@ export default function UserMenu({ extraSections = [] }: Props) {
     if (items.length === 0) return null
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           {title}
         </p>
-        <div
-          className={items.length > 1 ? 'rounded-2xl overflow-hidden divide-y divide-[color:var(--border-faint)]' : ''}
-          style={items.length > 1 ? { border: '1px solid var(--border)' } : undefined}>
+        <div style={{ borderTop: '1px solid var(--divider)' }}>
           {items.map(item => (
             <button
               key={item.label}
               onClick={() => runMenuAction(item.onClick)}
-              className="flex items-center gap-3 w-full rounded-xl text-body font-medium text-left"
+              className="flex items-center gap-3 w-full text-left tap-row"
               style={{
                 minHeight: 44,
-                padding: '0 12px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-2)',
-                border: items.length > 1 ? undefined : '1px solid var(--border)',
+                padding: '12px 16px',
+                background: 'transparent',
+                color: 'var(--text-primary)',
+                borderBottom: '1px solid var(--divider)',
               }}>
               <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-accent">
                 {item.icon}
               </span>
-              {item.label}
+              <div className="min-w-0 flex-1">
+                <p className="text-body font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
+                {item.hint && (
+                  <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.hint}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {item.trailing}
+                <ChevronRightIcon className="w-3.5 h-3.5" style={{ color: 'var(--text-faint)' }} />
+              </div>
             </button>
           ))}
         </div>
@@ -155,66 +165,59 @@ export default function UserMenu({ extraSections = [] }: Props) {
 
           <div className="space-y-5">
             <div className="space-y-2">
-              <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-                AI Settings
-              </p>
-              <div className="rounded-2xl p-3" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Gemini API Key</p>
-                  <span
-                    className={`text-footnote px-1.5 py-0.5 rounded-md ${hasKey ? 'text-positive' : ''}`}
-                    style={hasKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
-                    {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
-                  </span>
-                </div>
-                <p className="text-footnote mb-2 text-center text-positive">★ Used for band generation and investability checks</p>
+              {renderMenuSection('AI Settings', [
+                {
+                  label: 'Gemini API Key',
+                  hint: 'Used for band generation and investability checks',
+                  icon: <SparkIcon className="w-5 h-5" />,
+                  trailing: (
+                    <span className="text-subheadline"
+                          style={{ color: hasKey === null ? 'var(--text-faint)' : hasKey ? 'var(--c-positive)' : 'var(--text-muted)' }}>
+                      {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
+                    </span>
+                  ),
+                  onClick: () => setShowKeyInput(v => !v),
+                },
+              ])}
 
-                {!showKeyInput ? (
-                  <button
-                    onClick={() => setShowKeyInput(true)}
-                    className="w-full py-2 rounded-xl text-subheadline text-accent"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                    {hasKey ? 'Update Key' : 'Add Key'}
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="password"
-                      placeholder="AIzaSy…"
-                      value={keyInput}
-                      onChange={e => setKeyInput(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl text-subheadline outline-none"
-                      style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                      autoFocus
-                    />
-                    {keyError && <p className="text-footnote text-negative">{keyError}</p>}
-                    <div className="flex gap-2">
+              {showKeyInput && (
+                <div className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--divider)' }}>
+                  <input
+                    type="password"
+                    placeholder="AIzaSy…"
+                    value={keyInput}
+                    onChange={e => setKeyInput(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                    autoFocus
+                  />
+                  {keyError && <p className="text-footnote text-negative">{keyError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
+                      className="flex-1 min-h-[44px] rounded-xl text-subheadline"
+                      style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                      Cancel
+                    </button>
+                    {hasKey && (
                       <button
-                        onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                        className="flex-1 min-h-[44px] rounded-xl text-subheadline"
-                        style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-                        Cancel
+                        onClick={clearKey}
+                        disabled={savingKey}
+                        className="flex-1 min-h-[44px] rounded-xl text-subheadline text-negative disabled:opacity-40"
+                        style={{ background: 'rgba(255,59,48,0.10)' }}>
+                        Clear
                       </button>
-                      {hasKey && (
-                        <button
-                          onClick={clearKey}
-                          disabled={savingKey}
-                          className="flex-1 min-h-[44px] rounded-xl text-subheadline text-negative disabled:opacity-40"
-                          style={{ background: 'rgba(255,59,48,0.10)' }}>
-                          Clear
-                        </button>
-                      )}
-                      <button
-                        onClick={saveKey}
-                        disabled={savingKey || !keyInput.trim()}
-                        className="flex-1 min-h-[44px] rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
-                        style={{ background: 'rgba(10,132,255,0.15)' }}>
-                        {savingKey ? '…' : 'Save'}
-                      </button>
-                    </div>
+                    )}
+                    <button
+                      onClick={saveKey}
+                      disabled={savingKey || !keyInput.trim()}
+                      className="flex-1 min-h-[44px] rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
+                      style={{ background: 'var(--bg-tertiary)' }}>
+                      {savingKey ? '…' : hasKey ? 'Update' : 'Save'}
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {extraSections.map(section => (
@@ -277,6 +280,14 @@ function PlanMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  )
+}
+
+function SparkIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" />
     </svg>
   )
 }

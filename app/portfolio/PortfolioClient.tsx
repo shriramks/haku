@@ -734,7 +734,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
           </p>
         </div>
 
-        <div className="mt-3 border-t" style={{ borderColor: 'var(--divider)' }}>
+        <div className="mt-4 px-5 pt-4" style={{ borderTop: '1px solid var(--divider)' }}>
           <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
           <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
           <DetailRow
@@ -754,12 +754,11 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
   )
 }
 
-function DetailRow({ label, value, valueColor, last }: {
+function DetailRow({ label, value, valueColor, last: _last }: {
   label: string; value: string; valueColor?: string; last?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3"
-         style={{ minHeight: 52, borderBottom: last ? 'none' : '1px solid var(--divider)' }}>
+    <div className="flex items-center justify-between py-3" style={{ minHeight: 52 }}>
       <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
       <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
         {value}
