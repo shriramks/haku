@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINR, formatINRFull, formatPrice } from '@/lib/formatter'
@@ -52,12 +52,10 @@ export default function AddTxnModal({
   // ── MF ─────────────────────────────────────────────────────────────────────
   const [mfFund, setMFFund]             = useState<{ code: string; name: string; schemeType: string } | null>(null)
   const [mfQuery, setMFQuery]           = useState('')
-  const [mfResults, setMFResults]       = useState<{ schemeCode: number; schemeName: string }[]>([])
-  const [mfSearching, setMFSearching]   = useState(false)
-  const [existingFunds, setExistingFunds] = useState<{ id: string; scheme_code: string; scheme_name: string; scheme_type: string }[]>([])
+  const [activeFunds, setActiveFunds]   = useState<{ id: string; scheme_code: string; scheme_name: string; scheme_type: string }[]>([])
+  const [mfFundsLoaded, setMFFundsLoaded] = useState(false)
   const [mfUnits, setMFUnits]           = useState('')
   const [mfNav, setMFNav]               = useState('')
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Gold ───────────────────────────────────────────────────────────────────
   const [goldType, setGoldType]   = useState<GoldType>('sgb')
@@ -95,28 +93,34 @@ export default function AddTxnModal({
     loadSymbols()
   }, [planSymbolsProp])
 
-  // ── Existing MF funds (fetched on mount for instant display when switching) ─
+  // ── Existing MF holdings (non-zero only) ───────────────────────────────────
   useEffect(() => {
     async function loadFunds() {
       const sb = getSupabaseBrowser()
-      const { data } = await sb.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').order('scheme_name')
-      if (data) setExistingFunds(data)
+      const [{ data: funds }, { data: txns }] = await Promise.all([
+        sb.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').order('scheme_name'),
+        sb.from('mf_transactions').select('fund_id, trade_type, units'),
+      ])
+
+      if (!funds || !txns) { setMFFundsLoaded(true); return }
+
+      const unitsByFund = new Map<string, number>()
+      for (const txn of txns) {
+        const signedUnits = txn.trade_type === 'buy' ? txn.units : -txn.units
+        unitsByFund.set(txn.fund_id, (unitsByFund.get(txn.fund_id) ?? 0) + signedUnits)
+      }
+
+      setActiveFunds(funds.filter(f => (unitsByFund.get(f.id) ?? 0) > 0.0001))
+      setMFFundsLoaded(true)
     }
     loadFunds()
   }, [])
 
-  // ── MF fund search ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (mfQuery.length < 2) { setMFResults([]); return }
-    setMFSearching(true)
-    clearTimeout(debounceRef.current ?? undefined)
-    debounceRef.current = setTimeout(() => {
-      fetch(`https://api.mfapi.in/mf/search?q=${encodeURIComponent(mfQuery)}`)
-        .then(r => r.json())
-        .then(d => { setMFResults((d as { schemeCode: number; schemeName: string }[]).slice(0, 6)); setMFSearching(false) })
-        .catch(() => setMFSearching(false))
-    }, 300)
-  }, [mfQuery])
+  const mfResults = mfQuery.trim().length === 0
+    ? []
+    : activeFunds
+        .filter(f => f.scheme_name.toLowerCase().includes(mfQuery.trim().toLowerCase()))
+        .slice(0, 8)
 
   // ── Derived amounts ────────────────────────────────────────────────────────
   const stockAmount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
@@ -424,40 +428,34 @@ export default function AddTxnModal({
                   <FieldLabel>Fund</FieldLabel>
                   {mfFund ? (
                     <div className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: 'var(--bg-tertiary)' }}>
-                      <p className="flex-1 text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{mfFund.name}</p>
-                      <button type="button" onClick={() => setMFFund(null)}
-                        className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>Change</button>
-                    </div>
+                        <p className="flex-1 text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{mfFund.name}</p>
+                        <button type="button" onClick={() => setMFFund(null)}
+                          className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>Change</button>
+                      </div>
                   ) : (
                     <>
-                      {existingFunds.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {existingFunds.map(f => (
-                            <button key={f.id} type="button"
-                              onClick={() => { setMFFund({ code: f.scheme_code, name: f.scheme_name, schemeType: f.scheme_type }); setMFQuery('') }}
-                              className="px-3 py-2 rounded-xl text-body font-medium"
-                              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-                              {f.scheme_name.split(' ').slice(0, 3).join(' ')}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                       <div className="relative">
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-faint)' }} />
-                        <input type="text" placeholder="Search fund name…" value={mfQuery}
+                        <input type="text" placeholder="Search current MF holdings…" value={mfQuery}
                           onChange={e => setMFQuery(e.target.value)}
                           className="w-full pl-9 pr-3 rounded-xl text-body outline-none"
                           style={{ height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                       </div>
-                      {mfSearching && <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>Searching…</p>}
+                      {!mfFundsLoaded ? (
+                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>Loading holdings…</p>
+                      ) : activeFunds.length === 0 ? (
+                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>No non-zero mutual fund holdings found.</p>
+                      ) : mfQuery.trim().length > 0 && mfResults.length === 0 ? (
+                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>No matching current holdings.</p>
+                      ) : null}
                       {mfResults.length > 0 && (
                         <div className="mt-1 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-                          {mfResults.map(r => (
-                            <button key={r.schemeCode} type="button"
-                              onClick={() => { setMFFund({ code: String(r.schemeCode), name: r.schemeName, schemeType: '' }); setMFQuery(''); setMFResults([]) }}
+                          {mfResults.map(f => (
+                            <button key={f.id} type="button"
+                              onClick={() => { setMFFund({ code: f.scheme_code, name: f.scheme_name, schemeType: f.scheme_type }); setMFQuery('') }}
                               className="flex items-center w-full px-3 py-3 text-left border-t first:border-t-0 text-subheadline"
                               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderColor: 'var(--divider)' }}>
-                              {r.schemeName}
+                              {f.scheme_name}
                             </button>
                           ))}
                         </div>
