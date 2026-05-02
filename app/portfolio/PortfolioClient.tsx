@@ -388,7 +388,7 @@ export default function PortfolioClient({
           <>
             {stockHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
+                <ColHeaders c1="Stock" c2="Curr ₹" c3="Inv ₹" c4="Return" />
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
@@ -421,7 +421,7 @@ export default function PortfolioClient({
           <>
             {mfHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
+                <ColHeaders c1="Fund" c2="Curr ₹" c3="Inv ₹" c4="Return" />
                 {mfHoldings.map(h => (
                   <FundRow key={h.fund.id}
                     name={h.fund.scheme_name}
@@ -454,7 +454,7 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Gold" c2="Inv ₹" c3="Curr ₹" c4="Return ₹" />
+                <ColHeaders c1="Gold" c2="Curr ₹" c3="Inv ₹" c4="Return" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
                     name={goldDisplayName(b)}
@@ -658,8 +658,8 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
         <p className="text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
-      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{invested}</p>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{current}</p>
+      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{invested}</p>
       <div className="text-right">
         <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>{gain}</p>
