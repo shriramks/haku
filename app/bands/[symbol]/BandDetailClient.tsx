@@ -954,6 +954,11 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
              g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory,
              g9_market_cap, g10_capital_discipline }
   })
+  const [rationale, setRationale] = useState<Record<string, string>>(
+    initialInvestability?.rationale ?? {}
+  )
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -967,10 +972,10 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
     const next = { ...gates, [key]: Math.max(0, Math.min(5, gates[key] + dir)) }
     setGates(next)
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => persist(next), 800)
+    timerRef.current = setTimeout(() => persist(next, rationale), 800)
   }
 
-  async function persist(scores: GateScores) {
+  async function persist(scores: GateScores, rat: Record<string, string>) {
     if (!userId) return
     const total  = Object.values(scores).reduce((s, v) => s + v, 0)
     const invest = total >= 20 && scores.g7_governance > 0
@@ -982,11 +987,38 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
         ...scores,
         total_score: total,
         investable: invest,
+        rationale: rat,
         assessed_at: new Date().toISOString(),
       }, { onConflict: 'user_id,symbol' })
       .select()
       .single()
     if (data) onSaved(data as Investability)
+  }
+
+  async function generate() {
+    setGenerating(true)
+    setGenError(null)
+    try {
+      const res = await fetch(`/api/investability/generate/${symbol}`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        setGenError(json.error ?? 'Generation failed')
+        return
+      }
+      const inv = json.investability as Investability
+      const { g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation,
+              g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory,
+              g9_market_cap, g10_capital_discipline } = inv
+      setGates({ g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation,
+                 g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory,
+                 g9_market_cap, g10_capital_discipline })
+      setRationale(inv.rationale ?? {})
+      onSaved(inv)
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   return (
@@ -998,10 +1030,19 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
+          <button
+            onClick={generate}
+            disabled={generating}
+            className="text-accent text-headline w-14"
+            style={{ minHeight: 44, opacity: generating ? 0.5 : 1 }}>
+            {generating ? '…' : 'Generate'}
+          </button>
           <p className="font-semibold text-headline">Investability</p>
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
+        {genError && (
+          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--negative)' }}>{genError}</p>
+        )}
         <div className="px-5 pt-4 pb-2">
           <div className="flex items-center justify-between rounded-2xl px-4 py-3"
             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
@@ -1036,7 +1077,11 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                   {label}
                   {hardVeto && <span className="ml-1.5 text-footnote" style={{ color: 'var(--negative)' }}>hard veto</span>}
                 </p>
-                <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
+                {rationale[key] ? (
+                  <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{rationale[key]}</p>
+                ) : (
+                  <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>{desc}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button

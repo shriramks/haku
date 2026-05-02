@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS investability (
     total_score             INTEGER NOT NULL DEFAULT 0,
     investable              BOOLEAN NOT NULL DEFAULT false,
     notes                   TEXT NOT NULL DEFAULT '',
+    rationale               JSONB NOT NULL DEFAULT '{}',
     UNIQUE (user_id, symbol)
 );
 

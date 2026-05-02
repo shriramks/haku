@@ -82,6 +82,7 @@ export interface Investability {
   total_score: number
   investable: boolean
   notes: string
+  rationale: Record<string, string>
 }
 
 export interface BuyTranche {
