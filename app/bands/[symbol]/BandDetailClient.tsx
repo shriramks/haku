@@ -349,19 +349,29 @@ export default function BandDetailClient({
 
       {genError && <p className="px-4 pt-2 text-subheadline text-negative">{genError}</p>}
 
-      {/* ── Allocation + Position ── */}
+      {/* ── Allocation ── */}
       <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
         <p className="text-footnote font-semibold uppercase px-4" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14, paddingBottom: 10 }}>Allocation</p>
         <DetailRow label="Remaining Allocation" value={formatINRFullNum(fyRemaining)} bold />
         <DetailRow label={`Invested ${fyLabel}`} value={formatINRFullNum(fyRow?.spent ?? 0)} />
         <DetailRow label="Invested Total" value={formatINRFullNum(allTimeCost)} />
-        {allTimeCurrentValue != null && (
-          <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
-        )}
-        {allTimeQty > 0 && (
-          <DetailRow label="Shares Held" value={String(allTimeQty)} noRupee />
-        )}
       </div>
+
+      {/* ── Investment ── */}
+      {(allTimeQty > 0 || allTimeCurrentValue != null) && (
+        <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
+          <p className="text-footnote font-semibold uppercase px-4" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14, paddingBottom: 10 }}>Investment</p>
+          {allTimeCurrentValue != null && (
+            <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
+          )}
+          {allTimeQty > 0 && (
+            <DetailRow label="Shares Held" value={String(allTimeQty)} noRupee />
+          )}
+          {allTimeQty > 0 && allTimeCost > 0 && (
+            <DetailRow label="Avg Price" value={formatPriceNum(allTimeCost / allTimeQty)} />
+          )}
+        </div>
+      )}
 
       {/* ── Financials row → sheet ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
