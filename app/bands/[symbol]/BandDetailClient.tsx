@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import {
+  DEFAULT_ERP,
   calculateBands,
   computeGrowth,
   deriveIndexEps,
@@ -772,9 +773,11 @@ function BandComputationSheet({ band, allocation, onClose }: {
                 {!isIndex && <CompRow k="g (PAT CAGR)" v={g != null ? `${(g * 100).toFixed(1)}%` : '—'} />}
                 {!isIndex && <CompRow k="g Definition" v="3-year PAT CAGR" />}
                 <CompRow k="Risk-free Value" v={`${(riskFree * 100).toFixed(1)}%`} />
-                <CompRow k="Risk-free Definition" v="India 10Y bond yield" />
-                <CompRow k="Ke" v={`${(ke * 100).toFixed(1)}%`} />
-                <CompRow k="Ke Definition" v="Risk-free + 5.0% ERP" />
+                <CompRow k="Risk-free Definition" v="India 10Y government bond yield" />
+                <CompRow k="ERP Value" v={`${(DEFAULT_ERP * 100).toFixed(1)}%`} />
+                <CompRow k="ERP Definition" v="Equity risk premium" />
+                <CompRow k="Ke (Cost of Equity)" v={`${(ke * 100).toFixed(1)}%`} />
+                <CompRow k="Ke Definition" v="Cost of equity = Risk-free + ERP" />
                 {!isIndex && <CompRow k="Factor Start" v={computationResult.path === 'B' ? '1.00' : 'Intrinsic PE / midpoint'} />}
                 {!isIndex && <CompRow k="Factor Logic" v={computationResult.path === 'A' ? 'Clamp intrinsic PE to 0.60-1.00' : 'Path B uses size modifier'} />}
                 {!isIndex && <CompRow k="Size Modifier" v={getSizeModRangeLabel(mcapVal)} />}
