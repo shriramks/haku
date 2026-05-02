@@ -602,41 +602,37 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
 
   return (
     <button onClick={onToggle}
-            className="flex items-center w-full px-4"
-            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52 }}>
-      <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
-      {badge && (
-        <>
-          <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 15 }}>·</span>
-          <span className="text-subheadline tabnum flex-shrink-0" style={{ color: 'var(--text-faint)' }}>{badge}</span>
-        </>
-      )}
-      <div className="flex-1" />
-      {currentValue !== null ? (
-        <>
-          <span className="text-headline font-semibold tabnum flex-shrink-0" style={{ color: 'var(--text-2)' }}>
-            {noR(formatINRFine(currentValue))}
-          </span>
-          {gainPct !== null && (
-            <>
-              <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 13 }}>·</span>
-              <span className="text-subheadline font-bold tabnum flex-shrink-0"
-                    style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
-                {positive ? '+' : ''}{trimPct(gainPct)}%
-              </span>
-            </>
-          )}
-        </>
+            className="grid w-full items-center gap-x-3 px-4"
+            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, gridTemplateColumns: SECTION_HEADER_COLS }}>
+      <div className="flex min-w-0 items-baseline">
+        <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
+        {badge && (
+          <>
+            <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 15 }}>·</span>
+            <span className="text-subheadline tabnum truncate" style={{ color: 'var(--text-faint)' }}>{badge}</span>
+          </>
+        )}
+      </div>
+      <span className="text-headline font-semibold tabnum text-right"
+            style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
+        {currentValue !== null ? noR(formatINRFine(currentValue)) : '—'}
+      </span>
+      {gainPct !== null ? (
+        <span className="text-subheadline font-bold tabnum text-right"
+              style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+          {positive ? '+' : ''}{trimPct(gainPct)}%
+        </span>
       ) : (
-        <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-faint)' }}>—</span>
+        <span />
       )}
       <ChevronRightIcon
-        className={`w-4 h-4 flex-shrink-0 ml-1.5 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        className={`w-4 h-4 transition-transform duration-150 justify-self-end ${open ? 'rotate-90' : ''}`}
         style={{ color: 'var(--text-muted)' }} />
     </button>
   )
 }
 
+const SECTION_HEADER_COLS = 'minmax(0,1fr) 7.5ch 6.5ch 1rem'
 const FUND_ROW_COLS = '1.4fr 0.9fr 0.9fr 1fr'
 
 function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4: string }) {
@@ -735,5 +731,4 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
     </>
   )
 }
-
 
