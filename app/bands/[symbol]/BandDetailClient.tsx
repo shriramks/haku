@@ -314,21 +314,6 @@ export default function BandDetailClient({
                 }}>
                 {investability.total_score}/50 {investability.investable ? '✓' : ''}
               </span>
-            ) : (
-              <span
-                className="text-subheadline font-medium"
-                style={{
-                  color: 'var(--accent)',
-                  background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)',
-                  borderRadius: 12,
-                  minHeight: 44,
-                  padding: '0 14px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}>
-                Assess
-              </span>
             )}
             <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
           </div>
@@ -1035,7 +1020,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           </div>
         </div>
         <p className="px-5 pb-2 text-subheadline" style={{ color: 'var(--text-faint)' }}>
-          Scale of 0-5, with 5 being best in class. Scores autosave as you adjust them.
+          Scale of 0-5, with 5 being best in class.
         </p>
         <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
           Gates
