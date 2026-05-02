@@ -8,7 +8,6 @@ tsconfig.tsbuildinfo
 supabase/migrations/
 supabase/seed*.sql
 .claude/
-docs/mocks/
 mockups/
 CLAUDE.md
 

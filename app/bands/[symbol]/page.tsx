@@ -12,7 +12,7 @@ export default async function BandDetailPage({
   const { symbol } = await params
   const { fy: fyParam } = await searchParams
 
-  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, aiProvider, investability } =
+  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, investability } =
     await fetchStockDetailProps(symbol, fyParam, true)
 
   const fyLabel = fy?.label
@@ -33,7 +33,6 @@ export default async function BandDetailPage({
         backHref={backHref}
         backLabel="Bands"
         initialHasKey={hasKey}
-        initialAiProvider={aiProvider}
         initialInvestability={investability}
       />
       <BottomNav />

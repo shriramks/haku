@@ -35,7 +35,6 @@ interface Props {
   backHref: string
   backLabel: string
   initialHasKey: boolean
-  initialAiProvider: 'gemini' | 'claude'
   initialInvestability: Investability | null
 }
 
@@ -43,7 +42,7 @@ export default function BandDetailClient({
   symbol, band: initialBand, allocation: initialAllocation,
   fyRow, allTimeQty, allTimeCost,
   tranches: initialTranches,
-  fyId, fyLabel, backHref, backLabel, initialHasKey, initialAiProvider,
+  fyId, fyLabel, backHref, backLabel, initialHasKey,
   initialInvestability,
 }: Props) {
   const router = useRouter()
@@ -62,7 +61,6 @@ export default function BandDetailClient({
   const [generatingTranches, setGeneratingTranches] = useState(false)
   const [trancheGenError, setTrancheGenError]       = useState('')
   const [hasKey, setHasKey]                 = useState(initialHasKey)
-  const [aiProvider, setAiProvider]         = useState(initialAiProvider)
   const [showKeyPrompt, setShowKeyPrompt]   = useState(false)
   const [showFinancials, setShowFinancials] = useState(false)
   const [showTranches, setShowTranches]     = useState(false)
@@ -416,13 +414,12 @@ export default function BandDetailClient({
       </div>
 
       {/* ── Sheets ── */}
-      {showKeyPrompt && (
-        <KeyPromptSheet
-          initialProvider={aiProvider}
-          onClose={() => setShowKeyPrompt(false)}
-          onSaved={(provider) => { setHasKey(true); setAiProvider(provider) }}
-        />
-      )}
+        {showKeyPrompt && (
+          <KeyPromptSheet
+            onClose={() => setShowKeyPrompt(false)}
+            onSaved={() => setHasKey(true)}
+          />
+        )}
       {showFinancials && (
         <FinancialsSheet
           symbol={symbol}
@@ -1291,12 +1288,10 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
 
 // ── AI Key Prompt Sheet ──────────────────────────────────────────────────────
 
-function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
-  initialProvider: 'gemini' | 'claude'
+function KeyPromptSheet({ onClose, onSaved }: {
   onClose: () => void
-  onSaved: (provider: 'gemini' | 'claude') => void
+  onSaved: () => void
 }) {
-  const [provider, setProvider] = useState<'gemini' | 'claude'>(initialProvider)
   const [key, setKey]           = useState('')
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
@@ -1308,20 +1303,17 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
       const res = await fetch('/api/settings/gemini-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: key.trim(), provider }),
+        body: JSON.stringify({ key: key.trim() }),
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error ?? 'Failed to save'); setSaving(false); return }
-      onSaved(provider)
+      onSaved()
       onClose()
     } catch {
       setError('Network error')
     }
     setSaving(false)
   }
-
-  const placeholder = provider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'
-  const keyLink     = provider === 'claude' ? 'console.anthropic.com' : 'aistudio.google.com'
 
   return (
     <>
@@ -1341,24 +1333,11 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
           </button>
         </div>
         <div className="px-5 pt-4 space-y-4">
-          <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-            {(['gemini', 'claude'] as const).map(p => (
-              <button key={p} type="button" onClick={() => { setProvider(p); setKey(''); setError('') }}
-                className="flex-1 py-3 text-body font-medium transition-colors"
-                style={provider === p
-                  ? { background: '#0A84FF', color: '#fff' }
-                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                {p === 'gemini' ? 'Google Gemini' : 'Claude'}
-              </button>
-            ))}
-          </div>
-          {provider === 'gemini' && (
-            <p className="text-subheadline text-center text-positive">
-              ★ Recommended — best accuracy for live financial data
-            </p>
-          )}
+          <p className="text-subheadline text-center text-positive">
+            ★ Gemini is used for live financial data and band generation
+          </p>
           <input
-            type="password" placeholder={placeholder} value={key}
+            type="password" placeholder="AIzaSy…" value={key}
             onChange={e => setKey(e.target.value)}
             className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
@@ -1374,7 +1353,7 @@ function KeyPromptSheet({ initialProvider, onClose, onSaved }: {
             </p>
           </div>
           <p className="text-subheadline text-center" style={{ color: 'var(--text-muted)' }}>
-            Get a key at <span className="text-accent">{keyLink}</span>
+            Get a key at <span className="text-accent">aistudio.google.com</span>
           </p>
         </div>
       </div>

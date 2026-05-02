@@ -54,28 +54,6 @@ async function callGemini(prompt: string, key: string): Promise<string> {
   throw new Error(`Gemini fetch failed: ${lastErr.message}`)
 }
 
-async function callClaude(prompt: string, key: string): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-beta': 'web-search-2025-03-05',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-  if (!res.ok) throw new Error(`Claude ${res.status}: ${await res.text()}`)
-  const data = await res.json()
-  const textBlock = data.content?.find((b: { type: string }) => b.type === 'text')
-  return textBlock?.text ?? ''
-}
-
 function extractJSON(text: string): Record<string, unknown> {
   const start = text.indexOf('{')
   const end   = text.lastIndexOf('}')
@@ -139,7 +117,7 @@ export async function POST(
   const [{ data: userSettings }, { data: alloc }, { data: existingBand }] = await Promise.all([
     supabase
       .from('user_settings')
-      .select('gemini_api_key, claude_api_key, ai_provider, risk_free')
+      .select('gemini_api_key, risk_free')
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase
@@ -170,26 +148,18 @@ export async function POST(
   const existingCmp = existingBand?.manual_cmp ?? null
 
   if (action === 'financials') {
-    const aiProvider = userSettings?.ai_provider ?? 'gemini'
-    const rawKey = aiProvider === 'claude'
-      ? userSettings?.claude_api_key
-      : userSettings?.gemini_api_key
+    const rawKey = userSettings?.gemini_api_key
     const activeKey = rawKey ? await decrypt(rawKey) : null
 
     if (!activeKey) {
       return NextResponse.json({
-        error: aiProvider === 'claude'
-          ? 'No Claude API key configured. Add your key in Settings (profile icon).'
-          : 'No Gemini API key configured. Add your key in Settings (profile icon).',
+        error: 'No Gemini API key configured. Add your key in Settings (profile icon).',
       }, { status: 500 })
     }
 
     let aiText: string
     const prompt = isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol)
-    const callAI = () => aiProvider === 'claude'
-      ? callClaude(prompt, activeKey)
-      : callGemini(prompt, activeKey)
-    const providerName = aiProvider === 'claude' ? 'Claude' : 'Gemini'
+    const callAI = () => callGemini(prompt, activeKey)
 
     try {
       aiText = await callAI()
@@ -198,7 +168,7 @@ export async function POST(
         aiText = await callAI()
       } catch (e2: unknown) {
         return NextResponse.json({
-          error: `${providerName} fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
+          error: `Gemini fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
         }, { status: 502 })
       }
     }
@@ -208,7 +178,7 @@ export async function POST(
       parsed = extractJSON(aiText)
     } catch {
       return NextResponse.json({
-        error: `Could not parse JSON from ${aiProvider === 'claude' ? 'Claude' : 'Gemini'} response`,
+        error: 'Could not parse JSON from Gemini response',
         raw: aiText.slice(0, 600),
       }, { status: 502 })
     }

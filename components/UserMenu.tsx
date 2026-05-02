@@ -9,14 +9,10 @@ export default function UserMenu() {
   const [open, setOpen]             = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [hasKey, setHasKey]             = useState<boolean | null>(null)
-  const [aiProvider, setAiProvider]     = useState<'gemini' | 'claude'>('gemini')
   const [keyInput, setKeyInput]         = useState('')
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [savingKey, setSavingKey]       = useState(false)
   const [keyError, setKeyError]         = useState('')
-  const [riskFree, setRiskFree]         = useState('0.07')
-  const [savingRiskFree, setSavingRiskFree] = useState(false)
-  const [riskFreeError, setRiskFreeError]   = useState('')
   const ref    = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -30,8 +26,6 @@ export default function UserMenu() {
     if (!open) return
     fetch('/api/settings/gemini-key').then(r => r.json()).then(d => {
       setHasKey(d.hasKey ?? false)
-      setAiProvider(d.provider ?? 'gemini')
-      setRiskFree(String(d.riskFree ?? 0.07))
     }).catch(() => {})
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -56,7 +50,7 @@ export default function UserMenu() {
       const res = await fetch('/api/settings/gemini-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: keyInput.trim(), provider: aiProvider }),
+        body: JSON.stringify({ key: keyInput.trim() }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -77,32 +71,11 @@ export default function UserMenu() {
     await fetch('/api/settings/gemini-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: '', provider: aiProvider }),
+      body: JSON.stringify({ key: '' }),
     })
     setHasKey(false)
     setShowKeyInput(false)
     setSavingKey(false)
-  }
-
-  async function saveRiskFree() {
-    setSavingRiskFree(true)
-    setRiskFreeError('')
-    try {
-      const res = await fetch('/api/settings/gemini-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ riskFree: riskFree.trim() }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setRiskFreeError(json.error ?? 'Failed to save')
-      } else if (json.riskFree != null) {
-        setRiskFree(String(json.riskFree))
-      }
-    } catch {
-      setRiskFreeError('Network error')
-    }
-    setSavingRiskFree(false)
   }
 
   return (
@@ -130,31 +103,14 @@ export default function UserMenu() {
             <p className="text-footnote uppercase tracking-widest mb-2"
                style={{ color: 'var(--text-muted)' }}>AI Settings</p>
 
-            {/* Provider toggle */}
-            <div className="flex rounded-xl overflow-hidden border mb-2" style={{ borderColor: 'var(--border)' }}>
-              {(['gemini', 'claude'] as const).map(p => (
-                <button key={p} onClick={() => { setAiProvider(p); setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                  className="flex-1 py-2 text-subheadline font-medium transition-colors"
-                  style={aiProvider === p
-                    ? { background: '#0A84FF', color: '#fff' }
-                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                  {p === 'gemini' ? 'Gemini' : 'Claude'}
-                </button>
-              ))}
-            </div>
-            {aiProvider === 'gemini' && (
-              <p className="text-footnote mb-2 text-center text-positive">★ Recommended for band generation</p>
-            )}
-
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>
-                {aiProvider === 'gemini' ? 'Gemini' : 'Claude'} API Key
-              </p>
+              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Gemini API Key</p>
               <span className={`text-footnote px-1.5 py-0.5 rounded-md ${hasKey ? 'text-positive' : ''}`}
                     style={hasKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
                 {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
               </span>
             </div>
+            <p className="text-footnote mb-2 text-center text-positive">★ Used for band generation and investability checks</p>
 
             {!showKeyInput ? (
               <button
@@ -167,7 +123,7 @@ export default function UserMenu() {
               <div className="space-y-2">
                 <input
                   type="password"
-                  placeholder={aiProvider === 'claude' ? 'sk-ant-…' : 'AIzaSy…'}
+                  placeholder="AIzaSy…"
                   value={keyInput}
                   onChange={e => setKeyInput(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl text-subheadline outline-none"
@@ -200,36 +156,9 @@ export default function UserMenu() {
 
           <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
             <p className="text-footnote uppercase tracking-widest mb-2"
-               style={{ color: 'var(--text-muted)' }}>Valuation</p>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Risk-free</p>
-              <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>India 10Y yield</span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="0.0001"
-                inputMode="decimal"
-                value={riskFree}
-                onChange={e => setRiskFree(e.target.value)}
-                className="flex-1 px-3 py-2 rounded-xl text-subheadline outline-none"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-              />
-              <button
-                onClick={saveRiskFree}
-                disabled={savingRiskFree || !riskFree.trim()}
-                className="min-h-[44px] px-4 rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
-                style={{ background: 'rgba(10,132,255,0.15)' }}>
-                {savingRiskFree ? '…' : 'Save'}
-              </button>
-            </div>
-            {riskFreeError && <p className="text-footnote text-negative mt-2">{riskFreeError}</p>}
-          </div>
-
-          {/* Portfolio */}
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+               style={{ color: 'var(--text-muted)' }}>Navigation</p>
             <Link
-              href="/portfolio"
+              href="/plan"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
               style={{
@@ -242,32 +171,9 @@ export default function UserMenu() {
                 alignItems: 'center',
                 textDecoration: 'none',
               }}>
-              <PortfolioMenuIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
-              Portfolio
+              <PlanMenuIcon className="w-5 h-5 flex-shrink-0 text-accent" />
+              Plan
             </Link>
-          </div>
-
-          {/* Data */}
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <p className="text-footnote uppercase tracking-widest mb-2"
-               style={{ color: 'var(--text-muted)' }}>Data</p>
-            <a
-              href="/import"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
-              style={{
-                minHeight: 44,
-                padding: '0 12px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-2)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-              }}>
-              <UploadIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
-              Import from Zerodha CSV
-            </a>
           </div>
 
           <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
@@ -285,7 +191,7 @@ export default function UserMenu() {
                 border: '1px solid var(--border)',
                 textDecoration: 'none',
               }}>
-              <BookIcon className="w-5 h-5 flex-shrink-0 text-[#0A84FF]" />
+              <BookIcon className="w-5 h-5 flex-shrink-0 text-accent" />
               Docs
             </a>
           </div>
@@ -322,20 +228,11 @@ function BookIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function PortfolioMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+function PlanMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
-        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-    </svg>
-  )
-}
-
-function UploadIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   )
 }

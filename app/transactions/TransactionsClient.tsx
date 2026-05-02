@@ -235,6 +235,14 @@ export default function TransactionsClient({
         {/* Filter row */}
         <div className="flex items-center gap-2 px-4 pt-2 pb-3 overflow-x-auto"
              style={{ scrollbarWidth: 'none' }}>
+          <a
+            href="/import"
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+            style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)', textDecoration: 'none' }}>
+            <ImportIcon className="w-3.5 h-3.5" />
+            Import
+          </a>
+
           <button
             onClick={() => setFilterOpen(true)}
             className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
@@ -325,6 +333,15 @@ export default function TransactionsClient({
       {stockSheet}
       {dateSheet}
     </div>
+  )
+}
+
+function ImportIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v10m0 0l-4-4m4 4l4-4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1" />
+    </svg>
   )
 }
 

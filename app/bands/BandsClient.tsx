@@ -66,6 +66,10 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
   const [refreshingAll, setRefreshingAll] = useState(false)
   const [regeneratingAll, setRegeneratingAll] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [showYieldSheet, setShowYieldSheet] = useState(false)
+  const [riskFree, setRiskFree] = useState('0.07')
+  const [savingRiskFree, setSavingRiskFree] = useState(false)
+  const [riskFreeError, setRiskFreeError] = useState('')
 
   // Fetches CMP + 52W for the given symbols and persists to DB + local state.
   async function fetchAndSaveCmp(symbols: string[]) {
@@ -161,6 +165,40 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     setRegeneratingAll(false)
   }
 
+  async function openYieldSheet() {
+    setShowYieldSheet(true)
+    setRiskFreeError('')
+    try {
+      const res = await fetch('/api/settings/gemini-key')
+      const json = await res.json()
+      if (json.riskFree != null) setRiskFree(String(json.riskFree))
+    } catch {
+      // keep current value
+    }
+  }
+
+  async function saveRiskFree() {
+    setSavingRiskFree(true)
+    setRiskFreeError('')
+    try {
+      const res = await fetch('/api/settings/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riskFree: riskFree.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setRiskFreeError(json.error ?? 'Failed to save')
+      } else {
+        if (json.riskFree != null) setRiskFree(String(json.riskFree))
+        setShowYieldSheet(false)
+      }
+    } catch {
+      setRiskFreeError('Network error')
+    }
+    setSavingRiskFree(false)
+  }
+
   const activeRows    = useMemo(() => rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
   const completedRows = useMemo(() => rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
 
@@ -193,17 +231,23 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
       <div className="px-4 border-b"
         style={{ borderColor: 'var(--border-faint)' }}>
         <div className="flex items-center justify-end gap-2" style={{ minHeight: 44 }}>
-          <button onClick={regenAllBands} disabled={regeneratingAll || refreshingAll}
-            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
-            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
-            <SparkleIcon className={`w-3.5 h-3.5 ${regeneratingAll ? 'animate-spin' : ''}`} />
-            {regeneratingAll ? 'Regenerating…' : 'Regen Bands'}
-          </button>
           <button onClick={refreshAllCMP} disabled={refreshingAll || regeneratingAll}
             className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
             style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
             <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
-            {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
+            {refreshingAll ? 'Refreshing…' : 'CMP'}
+          </button>
+          <button onClick={regenAllBands} disabled={regeneratingAll || refreshingAll}
+            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            <SparkleIcon className={`w-3.5 h-3.5 ${regeneratingAll ? 'animate-spin' : ''}`} />
+            {regeneratingAll ? 'Regenerating…' : 'Bands'}
+          </button>
+          <button onClick={openYieldSheet} disabled={refreshingAll || regeneratingAll}
+            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            <YieldIcon className="w-3.5 h-3.5" />
+            10Y Yield
           </button>
         </div>
         {actionError && (
@@ -263,6 +307,60 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
           )
         })}
       </div>
+
+      {showYieldSheet && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowYieldSheet(false)} />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+            </div>
+            <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <button onClick={() => setShowYieldSheet(false)} className="text-accent text-headline" style={{ minHeight: 44 }}>
+                Cancel
+              </button>
+              <p className="font-semibold text-headline">Set 10Y Yield</p>
+              <button
+                onClick={saveRiskFree}
+                disabled={savingRiskFree || !riskFree.trim()}
+                className="text-accent text-headline font-semibold disabled:opacity-40"
+                style={{ minHeight: 44 }}>
+                {savingRiskFree ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            <div className="px-5 pt-4">
+              <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+                India 10Y yield
+              </p>
+              <input
+                type="number"
+                step="0.0001"
+                inputMode="decimal"
+                value={riskFree}
+                onChange={e => setRiskFree(e.target.value)}
+                className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                autoFocus
+              />
+              <p className="text-subheadline mt-2" style={{ color: 'var(--text-muted)' }}>
+                Enter as a decimal, for example `0.07` for 7%.
+              </p>
+              {riskFreeError && <p className="text-subheadline text-negative mt-2">{riskFreeError}</p>}
+            </div>
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function YieldIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 17l5-10 5 10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v10" />
+    </svg>
   )
 }

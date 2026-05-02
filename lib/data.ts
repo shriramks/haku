@@ -134,17 +134,15 @@ export const getBuyTranches = cache(async (fyId: string): Promise<BuyTranche[]> 
 })
 
 
-export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean; provider: 'gemini' | 'claude' }> => {
+export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean }> => {
   const userId = await getUserId()
-  if (!userId) return { hasKey: false, provider: 'gemini' }
+  if (!userId) return { hasKey: false }
   const { data } = await createSupabaseServiceClient()
     .from('user_settings')
-    .select('gemini_api_key, claude_api_key, ai_provider')
+    .select('gemini_api_key')
     .eq('user_id', userId)
     .maybeSingle()
-  const provider = (data?.ai_provider ?? 'gemini') as 'gemini' | 'claude'
-  const hasKey = provider === 'claude' ? !!(data?.claude_api_key) : !!(data?.gemini_api_key)
-  return { hasKey, provider }
+  return { hasKey: !!data?.gemini_api_key }
 })
 
 export const getInvestability = cache(async (

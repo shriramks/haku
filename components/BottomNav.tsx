@@ -4,12 +4,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { PortfolioIcon } from './icons'
 
 const TABS = [
   { href: '/allocation',   label: 'Allocation',   Icon: AllocationIcon },
   { href: '/bands',        label: 'Bands',        Icon: BandsIcon      },
+  { href: '/portfolio',    label: 'Portfolio',    Icon: PortfolioIcon  },
   { href: '/transactions', label: 'Transactions', Icon: TxnsIcon       },
-  { href: '/plan',         label: 'Plan',         Icon: PlanIcon       },
 ] as const
 
 const pillStyle: React.CSSProperties = {
@@ -72,7 +73,6 @@ export default function BottomNav() {
     return storedFY ? `${base}?fy=${encodeURIComponent(storedFY)}` : base
   }
 
-  const pulsePlan  = onboarding === 'plan'
   const pulseBands = onboarding === 'bands'
 
   return (
@@ -85,7 +85,7 @@ export default function BottomNav() {
         <div className="flex items-center justify-around flex-1 p-2" style={pillStyle}>
           {TABS.map(({ href, label, Icon }) => {
             const active   = path === href || path.startsWith(href + '/')
-            const showPulse = (href === '/bands' && pulseBands) || (href === '/plan' && pulsePlan)
+            const showPulse = href === '/bands' && pulseBands
             return (
               <Link key={href} href={tabHref(href)}
                 className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-colors relative"
@@ -173,15 +173,6 @@ function TxnsIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       {/* Bottom: left-pointing arrow */}
       <line x1="21" y1="16" x2="5" y2="16" />
       <polyline points="9,12 5,16 9,20" />
-    </svg>
-  )
-}
-
-function PlanIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   )
 }

@@ -14,7 +14,6 @@ export interface StockDetailProps {
   allTimeQty: number
   allTimeCost: number
   hasKey: boolean
-  aiProvider: 'gemini' | 'claude'
   investability: Investability | null
 }
 
@@ -55,7 +54,7 @@ export async function fetchStockDetailProps(
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
       ])
-    : [[], [], [], [], [], [], { hasKey: false, provider: 'gemini' as const }, [], null]
+    : [[], [], [], [], [], [], { hasKey: false }, [], null]
 
   const carryoverMap = prevFY
     ? computeCarryover(
@@ -75,8 +74,7 @@ export async function fetchStockDetailProps(
   const stockTranches = (tranches as BuyTranche[])
     .filter(t => t.symbol === symbol)
     .sort((a, b) => b.price - a.price)
-  const { hasKey, provider: aiProvider } =
-    aiKeyStatus as { hasKey: boolean; provider: 'gemini' | 'claude' }
+  const { hasKey } = aiKeyStatus as { hasKey: boolean }
 
   return {
     fy,
@@ -87,7 +85,6 @@ export async function fetchStockDetailProps(
     allTimeQty: allTimePosition.qty,
     allTimeCost: allTimePosition.cost,
     hasKey,
-    aiProvider,
     investability: (investability as Investability | null) ?? null,
   }
 }
