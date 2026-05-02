@@ -686,9 +686,12 @@ function FinReadOnly({ label, value }: { label: string; value: string }) {
 
 function CompRow({ k, v, faint, first }: { k: string; v: string; faint?: boolean; first?: boolean }) {
   return (
-    <div className="flex items-center justify-between" style={{ minHeight: 44, borderTop: first ? 'none' : '1px solid var(--border-faint)' }}>
-      <span style={{ fontSize: faint ? 13 : 15, color: faint ? 'var(--text-faint)' : 'var(--text-2)' }}>{k}</span>
-      <span className="tabnum" style={{ fontSize: faint ? 13 : 15, color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
+    <div className="flex items-center justify-between" style={{
+      minHeight: faint ? 32 : 44,
+      borderTop: (first || faint) ? 'none' : '1px solid var(--border-faint)',
+    }}>
+      <span style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-2)' }}>{k}</span>
+      <span className="tabnum" style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
     </div>
   )
 }
@@ -711,19 +714,28 @@ function MarketCapRuleModal({ mcap, onClose }: { mcap: number | null; onClose: (
   ]
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/60" onClick={onClose} />
-      <div className="fixed inset-x-8 top-1/2 z-[60] rounded-2xl p-5" style={{ background: 'var(--bg-secondary)', transform: 'translateY(-50%)' }}>
-        <p className="text-headline font-semibold text-center mb-1">Market Cap Rule</p>
-        {brackets.map((b, i) => {
-          const active = b.value === applied
-          return (
-            <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
-              <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
-              <span className="text-body tabnum" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
-            </div>
-          )
-        })}
-        <button onClick={onClose} className="w-full mt-2 text-accent text-body" style={{ minHeight: 44 }}>Done</button>
+      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-[60] animate-slide-up rounded-t-3xl px-5"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="w-14" />
+          <p className="font-semibold text-headline">Market Cap Rule</p>
+          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+        </div>
+        <div className="pt-2">
+          {brackets.map((b, i) => {
+            const active = b.value === applied
+            return (
+              <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
+                <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
+                <span className="text-body tabnum" style={{ color: active ? 'var(--accent)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </>
   )
@@ -733,11 +745,12 @@ function MarketCapRuleRow({ mcap }: { mcap: number | null }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button className="flex items-center justify-between w-full" style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }} onClick={() => setOpen(true)}>
+      <button className="flex items-center justify-between w-full" onClick={() => setOpen(true)}
+              style={{ minHeight: 32, borderTop: 'none' }}>
         <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>Market Cap Rule</span>
-        <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span className="tabnum" style={{ fontSize: 13, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 2 }}>
           {getSizeModValueLabel(mcap)}
-          <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>›</span>
+          <span style={{ fontSize: 13 }}>›</span>
         </span>
       </button>
       {open && <MarketCapRuleModal mcap={mcap} onClose={() => setOpen(false)} />}
