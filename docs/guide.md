@@ -77,11 +77,17 @@ Stocks are sorted with the most under-deployed at the top, so you can see at a g
 
 The **Buy Bands** tab shows valuation zones for each stock — price ranges where the stock is cheap, fairly valued, or expensive based on your playbook rules.
 
+At the top of the screen, the primary action row is reserved for the two operational actions only:
+- **Refresh CMP**
+- **Regen Bands**
+
+The global valuation input **Set 10Y Yield** lives under the settings icon in the **Valuation** section rather than in the primary action row.
+
 ### AI band generation
 
 Tap a stock row to open its detail screen, then open **Financials**.
 
-If you have not added an AI key yet, add one from **Settings** first. The app also lets you set the global **risk-free** rate used in valuation (`Ke = risk_free + 5%`).
+If you have not added an AI key yet, add one from **Settings** first. The app also lets you set the global **risk-free** rate used in valuation (`Ke = risk_free + 5%`) from **Settings → Valuation → Set 10Y Yield**.
 
 The v9 workflow is split into two actions:
 1. **Regen Financials** — fetches and stores raw inputs
@@ -185,6 +191,8 @@ The previous plan stays accessible via the FY selector in the Plan and Buy Bands
 
 Tap the **profile icon** (top right on any screen) to open the account menu.
 
+The settings menu is grouped into sections. Only sections with multiple items use internal dividers; the menu should not show a horizontal rule after every section.
+
 ### Gemini API key
 
 Required for AI band generation. The first time you tap Generate Bands without a key, a sheet slides up asking you to add one.
@@ -200,3 +208,7 @@ Paste it into the prompt and tap **Save**. Generation will proceed immediately.
 **Security:** your key is saved to your private account in the database. It is only accessible via your login, never visible to other users, and is only ever used server-side when calling Gemini — it never appears in your browser after saving. See [architecture.md](architecture.md#user-api-key-security) for the full security model.
 
 To update or remove the key later, tap the profile icon → **AI Settings**.
+
+### Valuation
+
+The global 10Y yield used for valuation is available from the Buy Bands screen via the profile icon → **Valuation** → **Set 10Y Yield**.

@@ -84,6 +84,15 @@ export function CheckIcon({ className, ...props }: React.SVGProps<SVGSVGElement>
   )
 }
 
+export function YieldIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 17l5-10 5 10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v10" />
+    </svg>
+  )
+}
+
 export function PortfolioIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>

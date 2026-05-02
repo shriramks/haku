@@ -232,6 +232,21 @@ Rules for DetailRow:
 - Groups are separated by a full-width sep line (--divider), not by background colour.
 - Group header (SectionDivider) labels the group above its first row.
 
+### SettingsMenu
+```
+[Section label]
+[One or more menu items]
+
+Menu item: min 44px height, rounded-xl if standalone
+Grouped items: single bordered group with internal dividers only between items
+Section spacing: vertical gap only; no horizontal rule after every section
+```
+
+Rules for SettingsMenu:
+- Global but non-primary actions may live here when they should not compete with a screen's main CTA row.
+- If a section has one item, render it as a standalone card/button without an extra divider.
+- If a section has multiple items, use one shared group container with internal dividers.
+
 ### ValueLabel (inline pair — e.g. band range labels below the bar)
 ```
 [subheadline value, colour-coded]

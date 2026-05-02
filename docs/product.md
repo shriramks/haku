@@ -170,12 +170,13 @@ Open app
 
 **Priority order:**
 1. FY selector
-2. Per-stock rows (expanded view) — each card shows:
+2. Primary action row — operational actions only (`Refresh CMP`, `Regen Bands`); global valuation settings such as `Set 10Y Yield` belong under the settings icon, not in this row
+3. Per-stock rows (expanded view) — each card shows:
    - Primary: Stock symbol + signal badge + CMP
    - Key visual: Band bar with CMP position
    - Secondary: Band ranges (Deep / Buy / Mid / Trim prices)
    - Action: Tranches — Generate / Add / list
-3. Scenario toggle (Bear / Normal / Bull) — affects band calculations
+4. Scenario toggle (Bear / Normal / Bull) — affects band calculations
 
 **What is NOT here:** Allocation amounts, P&L.
 

@@ -151,7 +151,7 @@ components/
   BottomNav.tsx                         fixed bottom navigation
   FYPicker.tsx                          fiscal year selector
   TrancheSection.tsx                    tranche list + add/generate actions
-  UserMenu.tsx                          settings menu, Gemini key, Plan entry
+  UserMenu.tsx                          settings menu, Gemini key, plan entry, screen-scoped settings actions
   icons.tsx                             all SVG icons — check here before adding inline SVGs
 
 supabase/

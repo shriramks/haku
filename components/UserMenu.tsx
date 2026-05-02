@@ -1,20 +1,35 @@
 'use client'
+import type { ReactNode } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 
-export default function UserMenu() {
-  const [email, setEmail]           = useState<string | null>(null)
-  const [open, setOpen]             = useState(false)
-  const [signingOut, setSigningOut] = useState(false)
+interface MenuAction {
+  label: string
+  icon: ReactNode
+  onClick: () => void
+}
+
+interface MenuSection {
+  title: string
+  items: MenuAction[]
+}
+
+interface Props {
+  extraSections?: MenuSection[]
+}
+
+export default function UserMenu({ extraSections = [] }: Props) {
+  const [email, setEmail]               = useState<string | null>(null)
+  const [open, setOpen]                 = useState(false)
+  const [signingOut, setSigningOut]     = useState(false)
   const [hasKey, setHasKey]             = useState<boolean | null>(null)
   const [keyInput, setKeyInput]         = useState('')
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [savingKey, setSavingKey]       = useState(false)
   const [keyError, setKeyError]         = useState('')
-  const ref    = useRef<HTMLDivElement>(null)
-  const router = useRouter()
+  const ref                             = useRef<HTMLDivElement>(null)
+  const router                          = useRouter()
 
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(({ data }) => {
@@ -78,6 +93,46 @@ export default function UserMenu() {
     setSavingKey(false)
   }
 
+  function runMenuAction(action: () => void) {
+    setOpen(false)
+    setShowKeyInput(false)
+    action()
+  }
+
+  function renderMenuSection(title: string, items: MenuAction[]) {
+    if (items.length === 0) return null
+
+    return (
+      <div className="space-y-2">
+        <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+          {title}
+        </p>
+        <div
+          className={items.length > 1 ? 'rounded-2xl overflow-hidden divide-y divide-[color:var(--border-faint)]' : ''}
+          style={items.length > 1 ? { border: '1px solid var(--border)' } : undefined}>
+          {items.map(item => (
+            <button
+              key={item.label}
+              onClick={() => runMenuAction(item.onClick)}
+              className="flex items-center gap-3 w-full rounded-xl text-body font-medium text-left"
+              style={{
+                minHeight: 44,
+                padding: '0 12px',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-2)',
+                border: items.length > 1 ? undefined : '1px solid var(--border)',
+              }}>
+              <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-accent">
+                {item.icon}
+              </span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -91,118 +146,107 @@ export default function UserMenu() {
         <div
           className="absolute right-0 top-10 w-72 rounded-2xl p-4 z-50 shadow-xl"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <p className="text-footnote uppercase tracking-widest mb-1"
-             style={{ color: 'var(--text-muted)' }}>Account</p>
-          <p className="text-body font-medium truncate mb-4"
-             style={{ color: 'var(--text-primary)' }}>
+          <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+            Account
+          </p>
+          <p className="text-body font-medium truncate mb-4" style={{ color: 'var(--text-primary)' }}>
             {email ?? '…'}
           </p>
 
-          {/* AI Settings */}
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <p className="text-footnote uppercase tracking-widest mb-2"
-               style={{ color: 'var(--text-muted)' }}>AI Settings</p>
-
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Gemini API Key</p>
-              <span className={`text-footnote px-1.5 py-0.5 rounded-md ${hasKey ? 'text-positive' : ''}`}
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                AI Settings
+              </p>
+              <div className="rounded-2xl p-3" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Gemini API Key</p>
+                  <span
+                    className={`text-footnote px-1.5 py-0.5 rounded-md ${hasKey ? 'text-positive' : ''}`}
                     style={hasKey ? { background: 'rgba(52,199,89,0.12)' } : { color: 'var(--text-faint)' }}>
-                {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
-              </span>
-            </div>
-            <p className="text-footnote mb-2 text-center text-positive">★ Used for band generation and investability checks</p>
-
-            {!showKeyInput ? (
-              <button
-                onClick={() => setShowKeyInput(true)}
-                className="w-full py-2 rounded-xl text-subheadline text-accent"
-                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                {hasKey ? 'Update Key' : 'Add Key'}
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <input
-                  type="password"
-                  placeholder="AIzaSy…"
-                  value={keyInput}
-                  onChange={e => setKeyInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-subheadline outline-none"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                  autoFocus
-                />
-                {keyError && <p className="text-footnote text-negative">{keyError}</p>}
-                <div className="flex gap-2">
-                  <button onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
-                    className="flex-1 min-h-[44px] rounded-xl text-subheadline"
-                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                    Cancel
-                  </button>
-                  {hasKey && (
-                    <button onClick={clearKey} disabled={savingKey}
-                      className="flex-1 min-h-[44px] rounded-xl text-subheadline text-negative disabled:opacity-40"
-                      style={{ background: 'rgba(255,59,48,0.10)' }}>
-                      Clear
-                    </button>
-                  )}
-                  <button onClick={saveKey} disabled={savingKey || !keyInput.trim()}
-                    className="flex-1 min-h-[44px] rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
-                    style={{ background: 'rgba(10,132,255,0.15)' }}>
-                    {savingKey ? '…' : 'Save'}
-                  </button>
+                    {hasKey === null ? '…' : hasKey ? 'Set' : 'Not set'}
+                  </span>
                 </div>
+                <p className="text-footnote mb-2 text-center text-positive">★ Used for band generation and investability checks</p>
+
+                {!showKeyInput ? (
+                  <button
+                    onClick={() => setShowKeyInput(true)}
+                    className="w-full py-2 rounded-xl text-subheadline text-accent"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    {hasKey ? 'Update Key' : 'Add Key'}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="password"
+                      placeholder="AIzaSy…"
+                      value={keyInput}
+                      onChange={e => setKeyInput(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl text-subheadline outline-none"
+                      style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                      autoFocus
+                    />
+                    {keyError && <p className="text-footnote text-negative">{keyError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowKeyInput(false); setKeyInput(''); setKeyError('') }}
+                        className="flex-1 min-h-[44px] rounded-xl text-subheadline"
+                        style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                        Cancel
+                      </button>
+                      {hasKey && (
+                        <button
+                          onClick={clearKey}
+                          disabled={savingKey}
+                          className="flex-1 min-h-[44px] rounded-xl text-subheadline text-negative disabled:opacity-40"
+                          style={{ background: 'rgba(255,59,48,0.10)' }}>
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        onClick={saveKey}
+                        disabled={savingKey || !keyInput.trim()}
+                        className="flex-1 min-h-[44px] rounded-xl text-subheadline font-semibold text-accent disabled:opacity-40"
+                        style={{ background: 'rgba(10,132,255,0.15)' }}>
+                        {savingKey ? '…' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <p className="text-footnote uppercase tracking-widest mb-2"
-               style={{ color: 'var(--text-muted)' }}>Navigation</p>
-            <Link
-              href="/plan"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
-              style={{
-                minHeight: 44,
-                padding: '0 12px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-2)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-              }}>
-              <PlanMenuIcon className="w-5 h-5 flex-shrink-0 text-accent" />
-              Plan
-            </Link>
-          </div>
+            {extraSections.map(section => (
+              <div key={section.title}>
+                {renderMenuSection(section.title, section.items)}
+              </div>
+            ))}
 
-          <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-            <a
-              href="/docs.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 w-full rounded-xl text-body font-medium"
-              style={{
-                minHeight: 44,
-                padding: '0 12px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-2)',
-                border: '1px solid var(--border)',
-                textDecoration: 'none',
-              }}>
-              <BookIcon className="w-5 h-5 flex-shrink-0 text-accent" />
-              Docs
-            </a>
-          </div>
+            {renderMenuSection('Navigation', [
+              {
+                label: 'Plan',
+                icon: <PlanMenuIcon className="w-5 h-5" />,
+                onClick: () => router.push('/plan'),
+              },
+            ])}
 
-          <button
-            onClick={signOut}
-            disabled={signingOut}
-            className="w-full py-2.5 rounded-xl text-body font-semibold text-negative disabled:opacity-40"
-            style={{ background: 'rgba(255,59,48,0.10)' }}>
-            {signingOut ? 'Signing out…' : 'Sign Out'}
-          </button>
+            {renderMenuSection('Resources', [
+              {
+                label: 'Docs',
+                icon: <BookIcon className="w-5 h-5" />,
+                onClick: () => window.open('/docs.html', '_blank', 'noopener,noreferrer'),
+              },
+            ])}
+
+            <button
+              onClick={signOut}
+              disabled={signingOut}
+              className="w-full py-2.5 rounded-xl text-body font-semibold text-negative disabled:opacity-40"
+              style={{ background: 'rgba(255,59,48,0.10)' }}>
+              {signingOut ? 'Signing out…' : 'Sign Out'}
+            </button>
+          </div>
         </div>
       )}
     </div>
