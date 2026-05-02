@@ -242,6 +242,17 @@ function PlanTab({
     setShowAddStock(false)
   }
 
+  async function renameAllocSymbol(alloc: StockAllocation, newSymbol: string) {
+    const sb = getSupabaseBrowser()
+    await sb.from('stock_allocations').update({ symbol: newSymbol }).eq('id', alloc.id)
+    await Promise.all([
+      sb.from('buy_bands').update({ symbol: newSymbol }).eq('symbol', alloc.symbol),
+      sb.from('buy_tranches').update({ symbol: newSymbol }).eq('symbol', alloc.symbol),
+    ])
+    onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, symbol: newSymbol } : a))
+    setEditingAlloc(prev => prev?.id === alloc.id ? { ...prev, symbol: newSymbol } : prev)
+  }
+
   async function clearAllStocks() {
     if (!selectedFY) return
     await getSupabaseBrowser().from('stock_allocations').delete().eq('fy_id', selectedFY.id)
@@ -494,6 +505,7 @@ function PlanTab({
           onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
           onCategoryChange={async (cat) => { await updateAllocCategory(editingAlloc, cat); setEditingAlloc({ ...editingAlloc, category: cat }) }}
           onRemove={async () => { await removeAlloc(editingAlloc.id); setEditingAlloc(null) }}
+          onRename={async (newSym) => { await renameAllocSymbol(editingAlloc, newSym) }}
         />
       )}
     </div>
@@ -612,7 +624,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
 
 // ── Stock edit sheet ──────────────────────────────────────────────────────────
 
-function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCategoryChange, onRemove }: {
+function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCategoryChange, onRemove, onRename }: {
   alloc: StockAllocation
   totalBudget: number
   totalPct: number
@@ -620,11 +632,15 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
   onSave: (pct: number) => Promise<void>
   onCategoryChange: (cat: StockCategory) => Promise<void>
   onRemove: () => Promise<void>
+  onRename: (newSymbol: string) => Promise<void>
 }) {
   const [pct, setPct] = useState(alloc.allocation_pct)
   const [saving, setSaving] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [newSymbol, setNewSymbol] = useState(alloc.symbol)
+  const [renameSaving, setRenameSaving] = useState(false)
 
   const freeWithoutThis   = 100 - totalPct + alloc.allocation_pct
   const sliderMax         = Math.min(100, alloc.allocation_pct + freeWithoutThis)
@@ -644,6 +660,15 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
     setRemoving(true)
     await onRemove()
     setRemoving(false)
+  }
+
+  async function handleRename() {
+    const sym = newSymbol.trim().toUpperCase()
+    if (!sym || sym === alloc.symbol) { setRenaming(false); return }
+    setRenameSaving(true)
+    await onRename(sym)
+    setRenameSaving(false)
+    setRenaming(false)
   }
 
   return (
@@ -737,6 +762,42 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
+
+        {/* Rename Ticker */}
+        {renaming ? (
+          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+            <p className="text-body" style={{ color: 'var(--text-2)' }}>New Ticker</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newSymbol}
+                onChange={e => setNewSymbol(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') { setRenaming(false); setNewSymbol(alloc.symbol) } }}
+                autoFocus
+                className="text-body font-semibold text-right outline-none uppercase"
+                style={{ color: 'var(--text-primary)', width: 100, border: '1px solid var(--accent)', borderRadius: 8, padding: '4px 8px', background: 'var(--bg-tertiary)' }}
+              />
+              <button onClick={handleRename}
+                disabled={renameSaving || !newSymbol.trim() || newSymbol.trim().toUpperCase() === alloc.symbol}
+                className="text-accent text-subheadline font-semibold disabled:opacity-40"
+                style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.20)', borderRadius: 8, padding: '4px 12px', minHeight: 32 }}>
+                {renameSaving ? '…' : 'Save'}
+              </button>
+              <button onClick={() => { setRenaming(false); setNewSymbol(alloc.symbol) }}
+                className="text-subheadline" style={{ color: 'var(--text-faint)', padding: '0 4px' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setNewSymbol(alloc.symbol); setRenaming(true) }}
+            className="flex items-center justify-between w-full px-5 py-4 border-b"
+            style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
+            <p className="text-body" style={{ color: 'var(--text-2)' }}>Rename Ticker</p>
+            <span className="text-body text-accent">›</span>
+          </button>
+        )}
 
         {/* Remove */}
         <div className="px-5 pt-4">

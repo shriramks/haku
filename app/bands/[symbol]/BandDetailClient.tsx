@@ -69,9 +69,7 @@ export default function BandDetailClient({
   const [showComputation, setShowComputation] = useState(false)
   const [showInvestability, setShowInvestability] = useState(false)
   const [investability, setInvestability]   = useState(initialInvestability)
-  const [editingRisk, setEditingRisk]       = useState(false)
-  const [riskInput, setRiskInput]           = useState('')
-  const [savingRisk, setSavingRisk]         = useState(false)
+  const [showRiskModal, setShowRiskModal]   = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -194,19 +192,6 @@ export default function BandDetailClient({
     setGeneratingTranches(false)
   }
 
-  async function saveRiskMultiplier() {
-    setSavingRisk(true)
-    const val = parseFloat(riskInput.trim())
-    const multiplier = (Number.isFinite(val) && val > 0 && val < 1) ? val : null
-    if (band) {
-      const { data } = await getSupabaseBrowser()
-        .from('buy_bands').update({ risk_multiplier: multiplier }).eq('id', band.id).select().single()
-      if (data) setBand(data)
-    }
-    setEditingRisk(false)
-    setSavingRisk(false)
-  }
-
   async function addTranche(qty: number, price: number) {
     if (!userId) return
     const { data } = await getSupabaseBrowser().from('buy_tranches').insert({
@@ -308,45 +293,18 @@ export default function BandDetailClient({
 
       {/* ── Risk Overlay row ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
-        {editingRisk ? (
-          <div className="flex items-center justify-between px-4" style={{ minHeight: 44, gap: 8 }}>
-            <span className="text-body" style={{ color: 'var(--text-2)' }}>Risk Overlay</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="number" step="0.01" inputMode="decimal"
-                placeholder="e.g. 0.85"
-                value={riskInput}
-                onChange={e => setRiskInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveRiskMultiplier(); if (e.key === 'Escape') setEditingRisk(false) }}
-                autoFocus
-                className="tabnum"
-                style={{ width: 80, padding: '4px 8px', background: 'var(--bg-tertiary)', border: '1px solid var(--accent)', borderRadius: 8, fontSize: 15, color: 'var(--text-primary)', textAlign: 'right', outline: 'none' }}
-              />
-              <button onClick={saveRiskMultiplier} disabled={savingRisk}
-                className="text-accent disabled:opacity-40"
-                style={{ fontSize: 15, fontWeight: 600, background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.20)', borderRadius: 8, padding: '4px 12px', minHeight: 32 }}>
-                {savingRisk ? '…' : 'Save'}
-              </button>
-              <button onClick={() => setEditingRisk(false)}
-                className="text-body" style={{ color: 'var(--text-faint)', minHeight: 32, padding: '0 4px' }}>
-                Cancel
-              </button>
-            </div>
+        <button
+          onClick={() => setShowRiskModal(true)}
+          className="flex items-center justify-between w-full px-4"
+          style={{ minHeight: 44 }}>
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>Risk Overlay</span>
+          <div className="flex items-center gap-2">
+            <span className="text-body tabnum" style={{ color: hasOverlay ? 'var(--text-2)' : 'var(--text-faint)' }}>
+              {hasOverlay ? String(riskMultiplier) : 'None'}
+            </span>
+            <span className="text-body text-accent">›</span>
           </div>
-        ) : (
-          <button
-            onClick={() => { setRiskInput(riskMultiplier != null ? String(riskMultiplier) : ''); setEditingRisk(true) }}
-            className="flex items-center justify-between w-full px-4"
-            style={{ minHeight: 44 }}>
-            <span className="text-body" style={{ color: 'var(--text-2)' }}>Risk Overlay</span>
-            <div className="flex items-center gap-2">
-              <span className="text-body tabnum" style={{ color: hasOverlay ? 'var(--text-2)' : 'var(--text-faint)' }}>
-                {hasOverlay ? String(riskMultiplier) : 'None'}
-              </span>
-              <span className="text-body text-accent">›</span>
-            </div>
-          </button>
-        )}
+        </button>
       </div>
 
       {/* ── Investability row ── */}
@@ -503,11 +461,109 @@ export default function BandDetailClient({
           onSaved={inv => setInvestability(inv)}
         />
       )}
+      {showRiskModal && (
+        <RiskOverlaySheet
+          band={band}
+          onClose={() => setShowRiskModal(false)}
+          onSaved={b => setBand(b)}
+        />
+      )}
     </div>
   )
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function RiskOverlaySheet({ band, onClose, onSaved }: {
+  band: BuyBand | null
+  onClose: () => void
+  onSaved: (b: BuyBand) => void
+}) {
+  const [value, setValue] = useState(band?.risk_multiplier != null ? String(band.risk_multiplier) : '')
+  const [saving, setSaving] = useState(false)
+
+  const parsed = parseFloat(value.trim())
+  const isValid = Number.isFinite(parsed) && parsed > 0 && parsed < 1
+  const showWarning = value.trim() !== '' && !isValid
+
+  async function save() {
+    if (!band) return
+    setSaving(true)
+    const multiplier = isValid ? parsed : null
+    const { data } = await getSupabaseBrowser()
+      .from('buy_bands').update({ risk_multiplier: multiplier }).eq('id', band.id).select().single()
+    if (data) onSaved(data)
+    setSaving(false)
+    onClose()
+  }
+
+  async function removeOverlay() {
+    if (!band) return
+    setSaving(true)
+    const { data } = await getSupabaseBrowser()
+      .from('buy_bands').update({ risk_multiplier: null }).eq('id', band.id).select().single()
+    if (data) onSaved(data)
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline w-14" style={{ minHeight: 44 }}>Cancel</button>
+          <p className="font-semibold text-headline">Risk Overlay</p>
+          <button onClick={save} disabled={saving}
+            className="text-accent text-headline font-semibold w-14 text-right disabled:opacity-40"
+            style={{ minHeight: 44 }}>
+            {saving ? '…' : 'Save'}
+          </button>
+        </div>
+        <div className="px-5 pt-4 pb-3">
+          <p className="text-subheadline" style={{ color: 'var(--text-faint)', lineHeight: 1.55 }}>
+            Risk Overlay adjusts buy bands when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
+          </p>
+        </div>
+        <div className="px-5 pb-4">
+          <label className="text-subheadline block mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            Multiplier (0–1 · e.g. 0.85 = 15% discount)
+          </label>
+          <input
+            type="number" step="0.01" inputMode="decimal"
+            placeholder="e.g. 0.85"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save() }}
+            autoFocus
+            className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--warning)' : 'var(--border)'}` }}
+          />
+          {showWarning && (
+            <p className="text-subheadline mt-1.5" style={{ color: 'var(--warning)' }}>
+              Enter a value between 0 and 1. Leave blank to clear overlay.
+            </p>
+          )}
+        </div>
+        {band?.risk_multiplier != null && band.risk_multiplier !== 1 && (
+          <div className="px-5">
+            <button
+              onClick={removeOverlay}
+              disabled={saving}
+              className="w-full py-3 rounded-xl text-body font-medium text-negative disabled:opacity-40"
+              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+              Remove Overlay
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
 
 function DetailRow({ label, value, bold, muted, color, noRupee }: {
   label: string; value: string; bold?: boolean; muted?: boolean; color?: string; noRupee?: boolean

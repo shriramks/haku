@@ -222,7 +222,6 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
           const trimPrice = band?.trim_price ?? null
           const cmp       = band?.manual_cmp ?? null
           const hasBands  = buyLow != null && trimPrice != null
-          const inv       = investabilities.find(i => i.symbol === row.symbol)
 
           return (
             <div key={row.symbol}>
@@ -231,14 +230,9 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
                 className="w-full flex items-center gap-3 px-4 border-b text-left"
                 style={{ borderColor: 'var(--divider)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
-                {/* Ticker + investability score */}
-                <div className="flex-shrink-0" style={{ width: 96 }}>
-                  <p className="font-bold text-headline">{row.symbol}</p>
-                  {inv && (
-                    <p style={{ fontSize: 11, lineHeight: 1.4, color: inv.investable ? 'var(--positive)' : 'var(--text-faint)' }}>
-                      {inv.total_score}/50{inv.investable ? ' ✓' : ''}
-                    </p>
-                  )}
+                {/* Ticker */}
+                <div className="flex-shrink-0 overflow-hidden" style={{ width: 112 }}>
+                  <p className="font-bold text-headline truncate">{row.symbol}</p>
                 </div>
 
                 {/* Mini bar */}
