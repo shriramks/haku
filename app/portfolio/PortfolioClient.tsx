@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine } from '@/lib/formatter'
+import { formatINRFine, formatINRFull, formatPriceFine } from '@/lib/formatter'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import UserMenu from '@/components/UserMenu'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
@@ -202,6 +203,11 @@ function fmtGain(gain: number | null): string {
   return (gain >= 0 ? '+' : '') + formatINRFine(gain)
 }
 
+function fmtGainFull(gain: number | null): string {
+  if (gain === null) return '—'
+  return `${gain >= 0 ? '+' : ''}${formatINRFull(gain)}`
+}
+
 function noR(s: string): string { return s.replace('₹', '') }
 
 // Returns "FY25" style label for a date string
@@ -230,7 +236,9 @@ export default function PortfolioClient({
   sgbTransactions, ppfTransactions, ppfOverride, epfTransactions,
 }: Props) {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [openSections, setOpenSections] = useState(new Set<string>([]))
+  const [selectedMFHolding, setSelectedMFHolding] = useState<MFHolding | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -240,6 +248,8 @@ export default function PortfolioClient({
   })
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => setMounted(true), [])
 
   // Live gold price via Yahoo Finance proxy; persists last known price in localStorage
   useEffect(() => {
@@ -335,6 +345,13 @@ export default function PortfolioClient({
     })
   }
 
+  const mfDetailSheet = mounted && selectedMFHolding && createPortal(
+    <MFDetailSheet
+      holding={selectedMFHolding}
+      onClose={() => setSelectedMFHolding(null)}
+    />,
+    document.body
+  )
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
@@ -431,6 +448,7 @@ export default function PortfolioClient({
                     gain={noR(fmtGain(h.gain))}
                     xirr={fmtXirr(h.xirr)}
                     positive={(h.gain ?? 0) > 0}
+                    onClick={() => setSelectedMFHolding(h)}
                   />
                 ))}
               </>
@@ -502,6 +520,7 @@ export default function PortfolioClient({
 
       </div>
 
+      {mfDetailSheet}
     </div>
   )
 }
@@ -647,11 +666,11 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   )
 }
 
-function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
+function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick }: {
   name: string; meta: string; invested: string; current: string;
-  gain: string; xirr: string; positive: boolean
+  gain: string; xirr: string; positive: boolean; onClick?: () => void
 }) {
-  return (
+  const content = (
     <div className="grid px-4 py-3"
          style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
       <div className="min-w-0 pr-2">
@@ -665,6 +684,82 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive }: {
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>{gain}</p>
         {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
       </div>
+    </div>
+  )
+
+  if (!onClick) return content
+
+  return (
+    <button onClick={onClick} className="block w-full text-left tap-row">
+      {content}
+    </button>
+  )
+}
+
+function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () => void }) {
+  const currentReturnPositive = (holding.gain ?? 0) >= 0
+  const xirrPositive = (holding.xirr ?? 0) >= 0
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-[28px]"
+           style={{
+             background: 'var(--bg-secondary)',
+             paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)',
+           }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
+             style={{ borderColor: 'var(--border)' }}>
+          <div style={{ width: 60 }} />
+          <p className="font-semibold text-headline">Mutual Fund</p>
+          <button onClick={onClose} className="text-headline text-accent" style={{ width: 60, textAlign: 'right' }}>
+            Done
+          </button>
+        </div>
+
+        <div className="px-5 pt-4 pb-2">
+          <p className="text-title-2 font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+            {holding.fund.scheme_name}
+          </p>
+          <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
+            {holding.units.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} units
+          </p>
+        </div>
+
+        <div className="mx-5 mt-2 overflow-hidden rounded-2xl border"
+             style={{ borderColor: 'var(--border-faint)', background: 'rgba(255,255,255,0.02)' }}>
+          <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
+          <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
+          <DetailRow
+            label="Current Return"
+            value={fmtGainFull(holding.gain)}
+            valueColor={holding.gain === null ? 'var(--text-primary)' : currentReturnPositive ? 'var(--c-positive)' : 'var(--c-negative)'}
+          />
+          <DetailRow
+            label="XIRR p.a."
+            value={fmtXirr(holding.xirr)}
+            valueColor={holding.xirr === null ? 'var(--text-primary)' : xirrPositive ? 'var(--c-positive)' : 'var(--c-negative)'}
+          />
+          <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function DetailRow({ label, value, valueColor, last }: {
+  label: string; value: string; valueColor?: string; last?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3"
+         style={{ minHeight: 52, borderBottom: last ? 'none' : '1px solid var(--border-faint)' }}>
+      <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
+      <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
+        {value}
+      </p>
     </div>
   )
 }
@@ -731,4 +826,3 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
     </>
   )
 }
-
