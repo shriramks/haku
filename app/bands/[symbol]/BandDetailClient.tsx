@@ -295,7 +295,7 @@ export default function BandDetailClient({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {investability ? (
+            {investability && (
               <span
                 className="tabnum text-subheadline font-semibold"
                 style={{
