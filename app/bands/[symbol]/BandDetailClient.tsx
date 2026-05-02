@@ -9,7 +9,7 @@ import {
   deriveIndexEps,
   getCostOfEquity,
   getRoceThreshold,
-  getSizeModRangeLabel,
+  getSizeMod,
   getSizeModValueLabel,
   INDEX_CATEGORIES,
   isBandStale,
@@ -684,12 +684,64 @@ function FinReadOnly({ label, value }: { label: string; value: string }) {
   )
 }
 
-function CompRow({ k, v, accent, first }: { k: string; v: string; accent?: boolean; first?: boolean }) {
+function CompRow({ k, v, faint, first }: { k: string; v: string; faint?: boolean; first?: boolean }) {
   return (
     <div className="flex items-center justify-between" style={{ minHeight: 44, borderTop: first ? 'none' : '1px solid var(--border-faint)' }}>
-      <span className="text-body" style={{ color: 'var(--text-2)' }}>{k}</span>
-      <span className="text-headline tabnum" style={{ color: accent ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
+      <span style={{ fontSize: faint ? 13 : 15, color: faint ? 'var(--text-faint)' : 'var(--text-2)' }}>{k}</span>
+      <span className="tabnum" style={{ fontSize: faint ? 13 : 15, color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
     </div>
+  )
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="text-footnote" style={{ color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, paddingTop: 16, paddingBottom: 2 }}>
+      {label}
+    </p>
+  )
+}
+
+function MarketCapRuleModal({ mcap, onClose }: { mcap: number | null; onClose: () => void }) {
+  const applied = mcap != null ? getSizeMod(mcap) : null
+  const brackets = [
+    { label: '< 50k Cr',    value: 1.00 },
+    { label: '50k – 1L Cr', value: 0.97 },
+    { label: '1L – 2L Cr',  value: 0.94 },
+    { label: '≥ 2L Cr',     value: 0.90 },
+  ]
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/60" onClick={onClose} />
+      <div className="fixed inset-x-8 top-1/2 z-[60] rounded-2xl p-5" style={{ background: 'var(--bg-secondary)', transform: 'translateY(-50%)' }}>
+        <p className="text-headline font-semibold text-center mb-1">Market Cap Rule</p>
+        {brackets.map((b, i) => {
+          const active = b.value === applied
+          return (
+            <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
+              <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
+              <span className="text-body tabnum" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
+            </div>
+          )
+        })}
+        <button onClick={onClose} className="w-full mt-2 text-accent text-body" style={{ minHeight: 44 }}>Done</button>
+      </div>
+    </>
+  )
+}
+
+function MarketCapRuleRow({ mcap }: { mcap: number | null }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button className="flex items-center justify-between w-full" style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }} onClick={() => setOpen(true)}>
+        <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>Market Cap Rule</span>
+        <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 3 }}>
+          {getSizeModValueLabel(mcap)}
+          <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>›</span>
+        </span>
+      </button>
+      {open && <MarketCapRuleModal mcap={mcap} onClose={() => setOpen(false)} />}
+    </>
   )
 }
 
@@ -728,11 +780,6 @@ function BandComputationSheet({ band, allocation, onClose }: {
       })
     : null
 
-  const currentPath = computationResult?.path === 'A'
-    ? 'A - intrinsic PE vs midpoint'
-    : computationResult?.path === 'B'
-      ? 'B - size modifier path'
-      : 'Index - factor fixed at 1.00'
   const roceThreshold = allocation?.category
     ? getRoceThreshold(allocation.category as StockCategory)
     : null
@@ -764,32 +811,33 @@ function BandComputationSheet({ band, allocation, onClose }: {
             </div>
           ) : (
             <>
-              <p className="text-subheadline mb-3" style={{ color: 'var(--text-faint)' }}>
-                Read-only explanation of the current band calculation
-              </p>
-              <div style={{ borderTop: '1px solid var(--border-faint)' }}>
+              <div>
                 <CompRow k="Category" v={allocation?.category ?? '—'} first />
-                <CompRow k="Path" v={currentPath ?? '—'} />
-                {!isIndex && <CompRow k="g (PAT CAGR)" v={g != null ? `${(g * 100).toFixed(1)}%` : '—'} />}
-                {!isIndex && <CompRow k="g Definition" v="3-year PAT CAGR" />}
+
+                {!isIndex && <SectionLabel label="Growth" />}
+                {!isIndex && <CompRow k="g" v={g != null ? `${(g * 100).toFixed(1)}%` : '—'} />}
+                {!isIndex && <CompRow k="g Definition" v="3-year PAT CAGR" faint />}
+
+                <SectionLabel label="Cost of Equity" />
                 <CompRow k="Risk-free Value" v={`${(riskFree * 100).toFixed(1)}%`} />
-                <CompRow k="Risk-free Definition" v="India 10Y government bond yield" />
-                <CompRow k="ERP Value" v={`${(DEFAULT_ERP * 100).toFixed(1)}%`} />
-                <CompRow k="ERP Definition" v="Equity risk premium" />
+                <CompRow k="Risk-free Definition" v="India 10Y govt bond yield" faint />
+                <CompRow k="Equity Risk Premium" v={`${(DEFAULT_ERP * 100).toFixed(1)}% (fixed)`} />
                 <CompRow k="Ke (Cost of Equity)" v={`${(ke * 100).toFixed(1)}%`} />
-                <CompRow k="Ke Definition" v="Cost of equity = Risk-free + ERP" />
-                {!isIndex && <CompRow k="Factor Start" v={computationResult.path === 'B' ? '1.00' : 'Intrinsic PE / midpoint'} />}
-                {!isIndex && <CompRow k="Factor Logic" v={computationResult.path === 'A' ? 'Clamp intrinsic PE to 0.60-1.00' : 'Path B uses size modifier'} />}
-                {!isIndex && <CompRow k="Size Modifier" v={getSizeModRangeLabel(mcapVal)} />}
-                {!isIndex && <CompRow k="Factor After Size" v={computationResult.path === 'B' ? getSizeModValueLabel(mcapVal) : '—'} />}
-                {!isIndex && <CompRow k="ROCE Value" v={roceVal != null ? `${roceVal.toFixed(1)}%` : '—'} />}
-                {!isIndex && <CompRow k="ROCE Threshold" v={roceThreshold != null ? `${roceThreshold.toFixed(1)}%` : '—'} />}
-                {!isIndex && <CompRow k="ROCE Premium Present" v={computationResult.rocePremium ? 'Yes' : 'No'} />}
-                {!isIndex && <CompRow k="ROCE Premium Rule" v="ROCE > 2 × threshold" />}
-                {!isIndex && <CompRow k="Factor After ROCE" v={computationResult.factor.toFixed(3)} accent />}
-                <CompRow k="Factor" v={computationResult.factor.toFixed(3)} accent />
+                <CompRow k="Ke Definition" v="Risk-free + ERP" faint />
+
+                {!isIndex && <SectionLabel label="Factor" />}
+                {!isIndex && computationResult.path === 'B' && <CompRow k="Factor (base)" v="1.00" />}
+                {!isIndex && computationResult.path === 'B' && <MarketCapRuleRow mcap={mcapVal} />}
+                {!isIndex && computationResult.path === 'B' && <CompRow k="Factor after size" v={computationResult.factorBase.toFixed(3)} />}
+                {!isIndex && <CompRow k="ROCE Value" v={roceVal != null ? `${roceVal.toFixed(1)}%` : '—'} faint />}
+                {!isIndex && <CompRow k="ROCE Threshold" v={roceThreshold != null ? `${roceThreshold.toFixed(1)}%` : '—'} faint />}
+                {!isIndex && <CompRow k="ROCE Rule" v="ROCE > 2 × threshold" faint />}
+                {!isIndex && <CompRow k="ROCE Premium" v={computationResult.rocePremium ? 'Yes — factor boosted ×1.15' : 'No — factor unchanged'} faint />}
+                {!isIndex && <CompRow k="Final Factor" v={computationResult.factor.toFixed(3)} />}
+
+                <SectionLabel label="Output" />
                 <CompRow k="Band Formula" v="PE multiple × factor × EPS" />
-                {!isIndex && <CompRow k="Hospital Guard" v="Stop if CMP / EPS > 80x" />}
+                {allocation?.category === 'Hospitals' && <CompRow k="Hospital Guard" v="Stop if CMP / EPS > 80x" />}
               </div>
             </>
           )}

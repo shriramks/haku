@@ -112,6 +112,7 @@ export interface BandResult {
   midLow: number
   midHigh: number
   trimPrice: number
+  factorBase: number
   factor: number
   path: 'A' | 'B' | 'index'
   rocePremium: boolean
@@ -132,6 +133,7 @@ export function calculateBands(input: BandInput): BandResult | null {
       midLow:    base.midLow  * eps,
       midHigh:   base.midHigh * eps,
       trimPrice: base.trim    * eps,
+      factorBase: 1,
       factor: 1,
       path: 'index',
       rocePremium: false,
@@ -142,7 +144,7 @@ export function calculateBands(input: BandInput): BandResult | null {
   const { g = null, ke = null, mcap = null, roce3yrAvg = null } = input
   const midpointPE = CATEGORY_MIDPOINT_PE[input.category] ?? null
 
-  let factor: number
+  let factorBase: number
   let path: 'A' | 'B'
 
   if (
@@ -151,16 +153,17 @@ export function calculateBands(input: BandInput): BandResult | null {
   ) {
     // Path A: Damodaran stable-growth DDM
     const peIntrinsic = (1 + g) / (ke - g)
-    factor = Math.max(0.60, Math.min(1.00, peIntrinsic / midpointPE))
+    factorBase = Math.max(0.60, Math.min(1.00, peIntrinsic / midpointPE))
     path = 'A'
   } else {
     // Path B: empirical — high compounder or near-singularity
-    factor = mcap !== null ? getSizeMod(mcap) : 1.00
+    factorBase = mcap !== null ? getSizeMod(mcap) : 1.00
     path = 'B'
   }
 
   // ROCE premium (both paths)
   const roceThreshold = getRoceThreshold(input.category)
+  let factor = factorBase
   let rocePremium = false
   if (roce3yrAvg !== null && roceThreshold !== null && roce3yrAvg > 2 * roceThreshold) {
     factor = Math.min(factor * 1.15, 1.15)
@@ -176,6 +179,7 @@ export function calculateBands(input: BandInput): BandResult | null {
     midLow:    base.midLow  * factor * eps,
     midHigh:   base.midHigh * factor * eps,
     trimPrice: base.trim    * factor * eps,
+    factorBase,
     factor,
     path,
     rocePremium,
