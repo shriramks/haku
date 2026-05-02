@@ -312,7 +312,7 @@ export default function BandDetailClient({
                   display: 'inline-flex',
                   alignItems: 'center',
                 }}>
-                {investability.total_score}/50 {investability.investable ? '✓' : ''}
+                {investability.investable ? '✓ ' : ''}{investability.total_score}/50
               </span>
             )}
             <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
@@ -1030,19 +1030,10 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button
-            onClick={generate}
-            disabled={generating}
-            className="text-accent text-headline w-14"
-            style={{ minHeight: 44, opacity: generating ? 0.5 : 1 }}>
-            {generating ? '…' : 'Generate'}
-          </button>
+          <div className="w-14" />
           <p className="font-semibold text-headline">Investability</p>
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
         </div>
-        {genError && (
-          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--negative)' }}>{genError}</p>
-        )}
         <div className="px-5 pt-4 pb-2">
           <div className="flex items-center justify-between rounded-2xl px-4 py-3"
             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
@@ -1060,10 +1051,48 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
             </div>
           </div>
         </div>
-        <p className="px-5 pb-2 text-subheadline" style={{ color: 'var(--text-faint)' }}>
+        <p className="px-5 pb-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
           Scale of 0-5, with 5 being best in class.
         </p>
-        <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+
+        {/* Generate banner row */}
+        <button
+          onClick={generate}
+          disabled={generating}
+          className="flex items-center justify-between w-full px-5"
+          style={{
+            minHeight: 52,
+            background: generating
+              ? 'color-mix(in srgb, var(--accent) 4%, var(--bg-secondary))'
+              : 'color-mix(in srgb, var(--accent) 7%, var(--bg-secondary))',
+            borderTop: '1px solid color-mix(in srgb, var(--accent) 12%, var(--border))',
+            borderBottom: '1px solid color-mix(in srgb, var(--accent) 12%, var(--border))',
+            opacity: generating ? 0.7 : 1,
+          }}>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center rounded-lg text-accent"
+              style={{ width: 32, height: 32, background: 'color-mix(in srgb, var(--accent) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', fontSize: 15 }}>
+              {generating ? '…' : '✦'}
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <p className="text-body font-medium" style={{ color: 'var(--accent)' }}>
+                {generating ? 'Analysing with Gemini…' : (Object.keys(rationale).length > 0 ? 'Regenerate' : 'Generate with AI')}
+              </p>
+              {!generating && (
+                <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>
+                  {Object.keys(rationale).length > 0 ? 'AI-scored · tap to refresh' : 'Gemini scores all 10 gates'}
+                </p>
+              )}
+            </div>
+          </div>
+          <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+        </button>
+
+        {genError && (
+          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--negative)' }}>{genError}</p>
+        )}
+
+        <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14 }}>
           Gates
         </p>
 
