@@ -227,27 +227,27 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
         </div>
       </div>
 
-      {/* Refresh All CMP strip */}
+      {/* Global actions */}
       <div className="px-4 border-b"
         style={{ borderColor: 'var(--border-faint)' }}>
-        <div className="flex items-center justify-end gap-2" style={{ minHeight: 44 }}>
+        <div className="flex flex-wrap items-center justify-end gap-2 py-2">
           <button onClick={refreshAllCMP} disabled={refreshingAll || regeneratingAll}
-            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
-            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            className="flex items-center gap-1.5 whitespace-nowrap disabled:opacity-40 text-accent text-subheadline rounded-xl px-3 py-2"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 44 }}>
             <RefreshIcon className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
-            {refreshingAll ? 'Refreshing…' : 'CMP'}
+            {refreshingAll ? 'Refreshing…' : 'Refresh CMP'}
           </button>
           <button onClick={regenAllBands} disabled={regeneratingAll || refreshingAll}
-            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
-            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            className="flex items-center gap-1.5 whitespace-nowrap disabled:opacity-40 text-accent text-subheadline rounded-xl px-3 py-2"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 44 }}>
             <SparkleIcon className={`w-3.5 h-3.5 ${regeneratingAll ? 'animate-spin' : ''}`} />
-            {regeneratingAll ? 'Regenerating…' : 'Bands'}
+            {regeneratingAll ? 'Regenerating…' : 'Regen Bands'}
           </button>
           <button onClick={openYieldSheet} disabled={refreshingAll || regeneratingAll}
-            className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
-            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>
+            className="flex items-center gap-1.5 whitespace-nowrap disabled:opacity-40 text-accent text-subheadline rounded-xl px-3 py-2"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 44 }}>
             <YieldIcon className="w-3.5 h-3.5" />
-            10Y Yield
+            Set 10Y Yield
           </button>
         </div>
         {actionError && (
