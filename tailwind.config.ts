@@ -17,6 +17,8 @@ const config: Config = {
         negative: 'var(--c-negative)',
         accent:   'var(--accent)',
         warning:  'var(--c-warning)',
+        equity:   'var(--c-equity)',
+        gold:     'var(--c-gold)',
 
         signal: {
           buy:  'var(--signal-buy)',
