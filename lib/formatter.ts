@@ -93,6 +93,48 @@ export function shortMonthYear(dateStr: string): string {
   return d.toLocaleDateString('en-IN', { month: 'short' }) + " '" + String(d.getFullYear()).slice(2)
 }
 
+/** Strip trailing zeros after a fixed-precision format: 1.50 → "1.5", 1.00 → "1" */
+export function trimZero(n: number, dp = 1): string {
+  const s = n.toFixed(dp)
+  return s.includes('.') ? s.replace(/\.?0+$/, '') : s
+}
+
+/** XIRR as a compact percentage string, or "—" for null */
+export function formatXirr(v: number | null): string {
+  if (v === null) return '—'
+  return `${trimZero(v * 100)}%`
+}
+
+/** Gain formatted with sign using formatINRFine, or "—" for null */
+export function formatPnLFine(gain: number | null): string {
+  if (gain === null) return '—'
+  return (gain >= 0 ? '+' : '') + formatINRFine(gain)
+}
+
+/** Gain formatted with sign using formatINRFull, or "—" for null */
+export function formatPnLFull(gain: number | null): string {
+  if (gain === null) return '—'
+  return (gain >= 0 ? '+' : '') + formatINRFull(gain)
+}
+
+/** Gain as a percentage of invested, with sign. Empty string when gain is null or invested is 0 */
+export function formatGainPct(gain: number | null, invested: number): string {
+  if (gain === null || invested <= 0) return ''
+  return `${gain >= 0 ? '+' : ''}${trimPct((gain / invested) * 100)}%`
+}
+
+/** Percentage with trailing ".0" stripped: 12.0 → "12", 12.5 → "12.5" */
+export function trimPct(v: number): string {
+  const s = v.toFixed(1)
+  return s.endsWith('.0') ? String(Math.round(v)) : s
+}
+
+/** Gain color token: positive → --c-positive, negative → --c-negative, null → fallback */
+export function getGainColor(value: number | null, fallback = 'var(--text-primary)'): string {
+  if (value === null) return fallback
+  return value >= 0 ? 'var(--c-positive)' : 'var(--c-negative)'
+}
+
 /** Today as YYYY-MM-DD */
 export function todayISO(): string {
   return new Date().toISOString().split('T')[0]

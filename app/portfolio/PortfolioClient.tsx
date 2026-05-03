@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine, formatINRFull, formatPriceFine } from '@/lib/formatter'
+import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import UserMenu from '@/components/UserMenu'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
@@ -188,46 +188,7 @@ function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity
   return 'equity'
 }
 
-function fmtXirr(v: number | null): string {
-  if (v === null) return '—'
-  return `${trimZero(v * 100)}%`
-}
-
-function trimZero(n: number, dp = 1): string {
-  const s = n.toFixed(dp)
-  return s.includes('.') ? s.replace(/\.?0+$/, '') : s
-}
-
-function fmtGain(gain: number | null): string {
-  if (gain === null) return '—'
-  return (gain >= 0 ? '+' : '') + formatINRFine(gain)
-}
-
-function fmtGainFull(gain: number | null): string {
-  if (gain === null) return '—'
-  return `${gain >= 0 ? '+' : ''}${formatINRFull(gain)}`
-}
-
 function noR(s: string): string { return s.replace('₹', '') }
-
-// Returns "FY25" style label for a date string
-function fyLabel(dateStr: string): string {
-  const d = new Date(dateStr)
-  const y = d.getFullYear()
-  const m = d.getMonth() // 0-indexed; March = 2
-  const fy = m <= 2 ? y : y + 1  // interest credited in March belongs to the FY ending that year
-  return `FY${String(fy).slice(2)}`
-}
-
-function fmtGainPct(gain: number | null, invested: number): string {
-  if (gain === null || invested <= 0) return ''
-  return `${gain >= 0 ? '+' : ''}${trimPct((gain / invested) * 100)}%`
-}
-
-function trimPct(v: number): string {
-  const s = v.toFixed(1)
-  return s.endsWith('.0') ? String(Math.round(v)) : s
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -380,11 +341,11 @@ export default function PortfolioClient({
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
-          <SCell label="Gain ₹" value={fmtGain(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+          <SCell label="Gain ₹" value={formatPnLFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
         <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 8 }}>
           <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
-          <SCell label="XIRR p.a." value={fmtXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
+          <SCell label="XIRR p.a." value={formatXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -412,8 +373,8 @@ export default function PortfolioClient({
                     meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} shares`}
                     invested={noR(formatINRFine(h.invested))}
                     current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
-                    gain={noR(fmtGain(h.gain))}
-                    xirr={h.xirr !== null ? fmtXirr(h.xirr) : fmtGainPct(h.gain, h.invested)}
+                    gain={noR(formatPnLFine(h.gain))}
+                    xirr={h.xirr !== null ? formatXirr(h.xirr) : formatGainPct(h.gain, h.invested)}
                     positive={(h.gain ?? 0) > 0}
                   />
                 ))}
@@ -445,8 +406,8 @@ export default function PortfolioClient({
                     meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
                     invested={noR(formatINRFine(h.invested))}
                     current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
-                    gain={noR(fmtGain(h.gain))}
-                    xirr={fmtXirr(h.xirr)}
+                    gain={noR(formatPnLFine(h.gain))}
+                    xirr={formatXirr(h.xirr)}
                     positive={(h.gain ?? 0) > 0}
                     onClick={() => setSelectedMFHolding(h)}
                   />
@@ -479,8 +440,8 @@ export default function PortfolioClient({
                     meta={goldMeta(b)}
                     invested={noR(formatINRFine(b.invested))}
                     current={b.currentValue !== null ? noR(formatINRFine(b.currentValue)) : '—'}
-                    gain={noR(fmtGain(b.gain))}
-                    xirr={fmtXirr(b.xirr)}
+                    gain={noR(formatPnLFine(b.gain))}
+                    xirr={formatXirr(b.xirr)}
                     positive={(b.gain ?? 0) > 0}
                   />
                 ))}
@@ -702,13 +663,10 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick 
 }
 
 function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () => void }) {
-  const currentReturnPositive = (holding.gain ?? 0) >= 0
-  const xirrPositive = (holding.xirr ?? 0) >= 0
-
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-[28px]"
+      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-3xl"
            style={{
              background: 'var(--bg-secondary)',
              paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)',
@@ -739,13 +697,13 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
           <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
           <DetailRow
             label="Current Return"
-            value={fmtGainFull(holding.gain)}
-            valueColor={holding.gain === null ? 'var(--text-primary)' : currentReturnPositive ? 'var(--c-positive)' : 'var(--c-negative)'}
+            value={formatPnLFull(holding.gain)}
+            valueColor={getGainColor(holding.gain)}
           />
           <DetailRow
             label="XIRR p.a."
-            value={fmtXirr(holding.xirr)}
-            valueColor={holding.xirr === null ? 'var(--text-primary)' : xirrPositive ? 'var(--c-positive)' : 'var(--c-negative)'}
+            value={formatXirr(holding.xirr)}
+            valueColor={getGainColor(holding.xirr)}
           />
           <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
         </div>
