@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
+import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
@@ -382,7 +383,7 @@ export default function PortfolioClient({
               </>
             )}
             {stockHoldings.length === 0 && (
-              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No stock holdings yet.</p>
+              <EmptyState>No stock holdings yet.</EmptyState>
             )}
           </>
         )}
@@ -416,7 +417,7 @@ export default function PortfolioClient({
               </>
             )}
             {mfHoldings.length === 0 && (
-              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No mutual fund holdings yet.</p>
+              <EmptyState>No mutual fund holdings yet.</EmptyState>
             )}
           </>
         )}
@@ -449,7 +450,7 @@ export default function PortfolioClient({
               </>
             )}
             {sgbBatches.length === 0 && (
-              <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No gold holdings yet.</p>
+              <EmptyState>No gold holdings yet.</EmptyState>
             )}
           </>
         )}
@@ -720,7 +721,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
   const rows = [...ppf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
-    return <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No deposits yet.</p>
+    return <EmptyState>No deposits yet.</EmptyState>
   }
 
   return (
@@ -752,7 +753,7 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
   const rows = [...epf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
-    return <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>No transactions yet. Import from passbook.</p>
+    return <EmptyState>No transactions yet. Import from passbook.</EmptyState>
   }
 
   return (
