@@ -20,6 +20,21 @@ const config: Config = {
         equity:   'var(--c-equity)',
         gold:     'var(--c-gold)',
 
+        // Text hierarchy
+        primary: 'var(--text-primary)',
+        '2':      'var(--text-2)',
+        muted:   'var(--text-muted)',
+        faint:   'var(--text-faint)',
+
+        // Surfaces
+        secondary: 'var(--bg-secondary)',
+        tertiary:  'var(--bg-tertiary)',
+
+        // Borders
+        border:       'var(--border)',
+        'border-faint': 'var(--border-faint)',
+        divider:      'var(--divider)',
+
         signal: {
           buy:  'var(--signal-buy)',
           hold: 'var(--signal-hold)',
