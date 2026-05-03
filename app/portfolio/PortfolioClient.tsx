@@ -600,8 +600,7 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
         {currentValue !== null ? noR(formatINRFine(currentValue)) : '—'}
       </span>
       {gainPct !== null ? (
-        <span className="text-subheadline font-bold tabnum text-right"
-              style={{ color: positive ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+        <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
           {positive ? '+' : ''}{trimPct(gainPct)}%
         </span>
       ) : (

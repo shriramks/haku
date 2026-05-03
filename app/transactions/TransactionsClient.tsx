@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
 import BottomSheet from '@/components/BottomSheet'
+import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
@@ -107,21 +108,23 @@ export default function TransactionsClient({
   // ── Filter sheet ──
   const filterSheet = filterOpen && mounted && createPortal(
     <BottomSheet onClose={() => setFilterOpen(false)}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <button
-          onClick={resetFilters}
-          className="text-headline"
-          style={{ color: hasFilters ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
-          disabled={!hasFilters}>
-          Reset
-        </button>
-        <p className="font-semibold text-headline">Filter</p>
-        <button onClick={() => setFilterOpen(false)}
-          className="font-semibold text-headline text-accent"
-          style={{ width: 60, textAlign: 'right' }}>
-          Done
-        </button>
-      </div>
+      <SheetHeader
+        title="Filter"
+        left={
+          <button
+            onClick={resetFilters}
+            className="text-headline"
+            style={{ color: hasFilters ? '#FF3B30' : 'var(--text-muted)' }}
+            disabled={!hasFilters}>
+            Reset
+          </button>
+        }
+        right={
+          <button onClick={() => setFilterOpen(false)} className="font-semibold text-headline text-accent">
+            Done
+          </button>
+        }
+      />
 
       {/* Type */}
       <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
@@ -292,13 +295,13 @@ export default function TransactionsClient({
                 <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
                   {buyTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right" style={{ color: 'var(--c-positive)' }}>{formatINR(buyTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-positive">{formatINR(buyTotal)}</span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>bought</span>
                     </>
                   )}
                   {sellTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right" style={{ color: 'var(--c-negative)' }}>{formatINR(sellTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-negative">{formatINR(sellTotal)}</span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>sold</span>
                     </>
                   )}
@@ -353,16 +356,11 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
       <div className="flex justify-center pt-3 pb-1">
         <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
       </div>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
-           style={{ borderColor: 'var(--border)' }}>
-        <div style={{ width: 60 }} />
-        <p className="font-semibold text-headline">Stock</p>
-        <button onClick={onClose}
-          className="font-semibold text-headline text-accent"
-          style={{ width: 60, textAlign: 'right' }}>
-          Done
-        </button>
-      </div>
+      <SheetHeader
+        title="Stock"
+        left={null}
+        right={<button onClick={onClose} className="font-semibold text-headline text-accent">Done</button>}
+      />
       <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
@@ -454,22 +452,19 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
       <div className="flex justify-center pt-3 pb-1">
         <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
       </div>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
-           style={{ borderColor: 'var(--border)' }}>
-        <button
-          onClick={() => onApply(null)}
-          className="text-headline"
-          style={{ color: value ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
-          disabled={!value}>
-          Clear
-        </button>
-        <p className="font-semibold text-headline">Date</p>
-        <button onClick={apply}
-          className="font-semibold text-headline text-accent"
-          style={{ width: 60, textAlign: 'right' }}>
-          Done
-        </button>
-      </div>
+      <SheetHeader
+        title="Date"
+        left={
+          <button
+            onClick={() => onApply(null)}
+            className="text-headline"
+            style={{ color: value ? '#FF3B30' : 'var(--text-muted)' }}
+            disabled={!value}>
+            Clear
+          </button>
+        }
+        right={<button onClick={apply} className="font-semibold text-headline text-accent">Done</button>}
+      />
 
       {/* Rolling quick selects */}
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
@@ -747,8 +742,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <p className="font-bold tabnum text-headline"
-           style={{ color: isBuy ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+        <p className={`font-bold tabnum text-headline ${isBuy ? 'text-positive' : 'text-negative'}`}>
           {isBuy ? '+' : '−'}{formatINRFine(txn.amount)}
         </p>
         <button onClick={openEdit}

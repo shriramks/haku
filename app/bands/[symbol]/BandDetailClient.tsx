@@ -22,6 +22,7 @@ import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
+import SheetHeader from '@/components/SheetHeader'
 
 interface Props {
   symbol: string
@@ -517,15 +518,16 @@ function RiskOverlaySheet({ band, onClose, onSaved }: {
 
   return (
     <BottomSheet onClose={onClose}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <button onClick={onClose} className="text-accent text-headline w-14" style={{ minHeight: 44 }}>Cancel</button>
-        <p className="font-semibold text-headline">Risk Overlay</p>
-        <button onClick={save} disabled={saving}
-          className="text-accent text-headline font-semibold w-14 text-right disabled:opacity-40"
-          style={{ minHeight: 44 }}>
-          {saving ? '…' : 'Save'}
-        </button>
-      </div>
+      <SheetHeader
+        title="Risk Overlay"
+        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+        right={
+          <button onClick={save} disabled={saving}
+            className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>
+            {saving ? '…' : 'Save'}
+          </button>
+        }
+      />
       <div className="px-5 pt-4 pb-3">
         <p className="text-subheadline" style={{ color: 'var(--text-faint)', lineHeight: 1.55 }}>
           Risk Overlay adjusts buy bands when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
@@ -754,9 +756,7 @@ function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinan
               {saving ? 'Saving…' : 'Save'}
             </button>
             {saveFeedback && (
-              <p
-                className="text-subheadline mt-3 text-center"
-                style={{ color: saveFeedback.tone === 'positive' ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+              <p className={`text-subheadline mt-3 text-center ${saveFeedback.tone === 'positive' ? 'text-positive' : 'text-negative'}`}>
                 {saveFeedback.message}
               </p>
             )}
@@ -825,11 +825,11 @@ function MarketCapRuleModal({ mcap, onClose }: { mcap: number | null; onClose: (
   ]
   return (
     <BottomSheet onClose={onClose} zIndex={60}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-14" />
-        <p className="font-semibold text-headline">Market Cap Rule</p>
-        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-      </div>
+      <SheetHeader
+        title="Market Cap Rule"
+        left={null}
+        right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
+      />
       <div className="px-5 pt-2">
         {brackets.map((b, i) => {
           const active = b.value === applied
@@ -903,11 +903,11 @@ function BandComputationSheet({ band, allocation, onClose }: {
 
   return (
     <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[85vh]">
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-14" />
-        <p className="font-semibold text-headline">Band Computation</p>
-        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-      </div>
+      <SheetHeader
+        title="Band Computation"
+        left={null}
+        right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
+      />
         <div className="px-5 pt-4">
           {staleBands && (
             <p className="text-subheadline mb-3" style={{ color: 'var(--c-warning)' }}>
@@ -978,11 +978,11 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
 }) {
   return (
     <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[85vh]">
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-14" />
-        <p className="font-semibold text-headline">Buy Levels</p>
-        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-      </div>
+      <SheetHeader
+        title="Buy Levels"
+        left={null}
+        right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
+      />
         {genError && (
           <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
         )}
@@ -1129,11 +1129,11 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
 
   return (
     <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[90vh]">
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="w-14" />
-        <p className="font-semibold text-headline">Investability</p>
-        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-      </div>
+      <SheetHeader
+        title="Investability"
+        left={null}
+        right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
+      />
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-faint)' }}>
           <div>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
@@ -1143,7 +1143,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
           </div>
           <div style={{ textAlign: 'right' }}>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
-            <p className="text-title-2 font-bold" style={{ color: isInvestable ? 'var(--c-positive)' : 'var(--c-negative)' }}>
+            <p className={`text-title-2 font-bold ${isInvestable ? 'text-positive' : 'text-negative'}`}>
               {isInvestable ? 'Investable' : 'Not Investable'}
             </p>
           </div>
@@ -1186,7 +1186,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
         </button>
 
         {genError && (
-          <p className="px-5 pt-3 text-subheadline" style={{ color: 'var(--c-negative)' }}>{genError}</p>
+          <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
         )}
 
         <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14 }}>
@@ -1217,7 +1217,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                     <p className="text-body" style={{ color: 'var(--text-primary)' }}>
                       {label}
                     </p>
-                    {hardVeto && <span className="text-footnote" style={{ color: 'var(--c-negative)' }}>hard veto</span>}
+                    {hardVeto && <span className="text-footnote text-negative">hard veto</span>}
                     {hasRationale && (
                       <ChevronRightIcon
                         className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -1288,15 +1288,16 @@ function KeyPromptSheet({ onClose, onSaved }: {
 
   return (
     <BottomSheet onClose={onClose}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-        <p className="font-semibold text-headline">AI API Key</p>
-        <button onClick={save} disabled={saving || !key.trim()}
-          className="text-accent text-headline font-semibold disabled:opacity-40"
-          style={{ minHeight: 44 }}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      <SheetHeader
+        title="AI API Key"
+        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+        right={
+          <button onClick={save} disabled={saving || !key.trim()}
+            className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        }
+      />
       <div className="px-5 pt-4 space-y-4">
         <p className="text-subheadline text-center text-positive">
           ★ Gemini is used for live financial data and band generation
