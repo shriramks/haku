@@ -12,6 +12,7 @@ import { getStockName } from '@/lib/stock-names'
 import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
+import SheetHeader from '@/components/SheetHeader'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -674,20 +675,18 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
 
   return (
     <BottomSheet onClose={onClose}>
-      <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-        <div>
-          <p className="font-semibold text-headline text-center">{alloc.symbol}</p>
-          {getStockName(alloc.symbol) && (
-            <p className="text-footnote text-center" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
-          )}
-        </div>
-        <button onClick={handleSave} disabled={saving}
-          className="text-accent text-headline font-semibold disabled:opacity-40"
-          style={{ minHeight: 44 }}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
+      <SheetHeader
+        title={
+          <div>
+            <p>{alloc.symbol}</p>
+            {getStockName(alloc.symbol) && (
+              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
+            )}
+          </div>
+        }
+        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+        right={<button onClick={handleSave} disabled={saving} className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>{saving ? 'Saving…' : 'Save'}</button>}
+      />
 
         {/* % stepper → slider → plan context */}
         <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
@@ -1091,16 +1090,11 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
   return (
     <BottomSheet onClose={onClose} className="overflow-hidden">
-      <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b"
-           style={{ borderColor: 'var(--border)' }}>
-        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-        <p className="font-semibold text-headline">New Plan</p>
-        <button onClick={create} disabled={creating}
-          className="text-accent text-headline font-semibold disabled:opacity-40"
-          style={{ minHeight: 44 }}>
-          {creating ? 'Creating…' : 'Create'}
-        </button>
-      </div>
+      <SheetHeader
+        title="New Plan"
+        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+        right={<button onClick={create} disabled={creating} className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>{creating ? 'Creating…' : 'Create'}</button>}
+      />
 
         <div className="px-5 pt-4 space-y-4">
           {error && (
