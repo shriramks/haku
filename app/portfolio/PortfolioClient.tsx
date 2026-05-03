@@ -339,13 +339,13 @@ export default function PortfolioClient({
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
-      <div className="grid px-4 py-2"
-           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0' }}>
+      <div className="grid px-4 py-2 border-b"
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
           <SCell label="Gain ₹" value={formatPnLFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
-        <div className="flex flex-col gap-2 border-l pl-4" style={{ borderColor: 'var(--border-faint)', marginLeft: 8 }}>
+        <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
           <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
           <SCell label="XIRR p.a." value={formatXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
@@ -732,7 +732,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
           : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
         const amtColor = t.trade_type === 'withdrawal' ? 'var(--c-negative)' : 'var(--text-primary)'
         return (
-          <div key={t.id} className="flex items-center px-4 py-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
+          <div key={t.id} className="flex items-center px-4 py-3">
             <p className="flex-1 text-body tabnum"
                style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
               {label}
@@ -763,7 +763,7 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
           ? `Interest ${fyLabel(t.trade_date)}`
           : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
         return (
-          <div key={t.id} className="flex items-center px-4 py-3" style={{ borderTop: '1px solid var(--border-faint)' }}>
+          <div key={t.id} className="flex items-center px-4 py-3">
             <p className="flex-1 text-body tabnum"
                style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
               {label}

@@ -307,7 +307,7 @@ export default function TransactionsClient({
                   )}
                 </div>
               </div>
-              <div className="divide-y divide-[color:var(--divider)]">
+              <div>
                 {items.map(txn => (
                   <TxnRow
                     key={txn.id}

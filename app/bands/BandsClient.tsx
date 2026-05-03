@@ -243,8 +243,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
       </div>
 
       {/* Global actions */}
-      <div className="px-4 border-b"
-        style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4">
         <div className="flex items-center justify-end gap-2 py-2">
           <button onClick={refreshAllCMP} disabled={refreshingAll || regeneratingAll}
             className="flex items-center gap-1.5 whitespace-nowrap disabled:opacity-40 text-accent text-subheadline rounded-xl px-3 py-2"
@@ -280,8 +279,8 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
             <div key={row.symbol}>
               <button
                 onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
-                className="w-full flex items-center gap-3 px-4 border-b text-left"
-                style={{ borderColor: 'var(--divider)', minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
+                className="w-full flex items-center gap-3 px-4 text-left"
+                style={{ minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
 
                 {/* Ticker */}
                 <div className="flex-shrink-0 overflow-hidden" style={{ width: 112 }}>

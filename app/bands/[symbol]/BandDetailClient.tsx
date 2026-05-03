@@ -267,7 +267,7 @@ export default function BandDetailClient({
               trimPrice={adjTrimPrice!} cmp={cmp}
             />
             {/* ── 52W Low | CMP | 52W High ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', borderTop: '1px solid var(--border-faint)', marginTop: 8, gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', marginTop: 8, gap: 8 }}>
               <div>
                 <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
                 <p className="text-title-2 font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
@@ -799,7 +799,6 @@ function CompRow({ k, v, faint, first }: { k: string; v: string; faint?: boolean
   return (
     <div className="flex items-center justify-between" style={{
       minHeight: faint ? 32 : 44,
-      borderTop: (first || faint) ? 'none' : '1px solid var(--border-faint)',
     }}>
       <span style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-2)' }}>{k}</span>
       <span className="tabnum" style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
@@ -834,7 +833,7 @@ function MarketCapRuleModal({ mcap, onClose }: { mcap: number | null; onClose: (
         {brackets.map((b, i) => {
           const active = b.value === applied
           return (
-            <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
+            <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44 }}>
               <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
               <span className="text-body tabnum" style={{ color: active ? 'var(--accent)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
             </div>
@@ -1134,7 +1133,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
         left={null}
         right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
       />
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <div>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
             <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
@@ -1162,8 +1161,6 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
             background: generating
               ? 'color-mix(in srgb, var(--accent) 4%, var(--bg-secondary))'
               : 'color-mix(in srgb, var(--accent) 7%, var(--bg-secondary))',
-            borderTop: '1px solid color-mix(in srgb, var(--accent) 12%, var(--border))',
-            borderBottom: '1px solid color-mix(in srgb, var(--accent) 12%, var(--border))',
             opacity: generating ? 0.7 : 1,
           }}>
           <div className="flex items-center gap-3">
@@ -1206,7 +1203,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
             })
           }
           return (
-            <div key={key} style={{ borderTop: '1px solid var(--border-faint)' }}>
+            <div key={key}>
               <div className="flex items-center justify-between px-5" style={{ minHeight: 56 }}>
                 <button
                   onClick={toggleExpand}
