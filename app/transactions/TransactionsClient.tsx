@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINR, formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
+import BottomSheet from '@/components/BottomSheet'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
@@ -105,76 +106,67 @@ export default function TransactionsClient({
 
   // ── Filter sheet ──
   const filterSheet = filterOpen && mounted && createPortal(
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
-           onClick={() => setFilterOpen(false)} />
-      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-[28px]"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button
-            onClick={resetFilters}
-            className="text-headline"
-            style={{ color: hasFilters ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
-            disabled={!hasFilters}>
-            Reset
-          </button>
-          <p className="font-semibold text-headline">Filter</p>
-          <button onClick={() => setFilterOpen(false)}
-            className="font-semibold text-headline text-accent"
-            style={{ width: 60, textAlign: 'right' }}>
-            Done
-          </button>
-        </div>
-
-        {/* Type */}
-        <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-          <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Type</p>
-          <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-            {(['all', 'buy', 'sell'] as const).map(t => (
-              <button key={t} onClick={() => setTypeFilter(t)}
-                className="flex-1 py-2.5 text-body font-medium transition-colors"
-                style={typeFilter === t
-                  ? { background: 'var(--accent)', color: '#fff' }
-                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stock picker row */}
-        {!filterSymbol && (
-          <button
-            onClick={() => setStockSheetOpen(true)}
-            className="w-full flex items-center justify-between px-5 border-b"
-            style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
-            <span className="text-body">Stock</span>
-            <span className="flex items-center gap-1.5 text-body"
-                  style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : 'var(--accent)' }}>
-              {symbolFilter === 'all' ? 'Any' : symbolFilter}
-              <ChevronRightIcon className="w-4 h-4 opacity-40" />
-            </span>
-          </button>
-        )}
-
-        {/* Date picker row */}
+    <BottomSheet onClose={() => setFilterOpen(false)}>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
         <button
-          onClick={() => setDateSheetOpen(true)}
+          onClick={resetFilters}
+          className="text-headline"
+          style={{ color: hasFilters ? '#FF3B30' : 'var(--text-muted)', width: 60 }}
+          disabled={!hasFilters}>
+          Reset
+        </button>
+        <p className="font-semibold text-headline">Filter</p>
+        <button onClick={() => setFilterOpen(false)}
+          className="font-semibold text-headline text-accent"
+          style={{ width: 60, textAlign: 'right' }}>
+          Done
+        </button>
+      </div>
+
+      {/* Type */}
+      <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Type</p>
+        <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+          {(['all', 'buy', 'sell'] as const).map(t => (
+            <button key={t} onClick={() => setTypeFilter(t)}
+              className="flex-1 py-2.5 text-body font-medium transition-colors"
+              style={typeFilter === t
+                ? { background: 'var(--accent)', color: '#fff' }
+                : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+              {t === 'all' ? 'All' : t === 'buy' ? 'Buys' : 'Sells'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stock picker row */}
+      {!filterSymbol && (
+        <button
+          onClick={() => setStockSheetOpen(true)}
           className="w-full flex items-center justify-between px-5 border-b"
           style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
-          <span className="text-body">Date</span>
+          <span className="text-body">Stock</span>
           <span className="flex items-center gap-1.5 text-body"
-                style={{ color: dateFilter ? 'var(--accent)' : 'var(--text-muted)' }}>
-            {dateFilter?.label ?? 'Any time'}
+                style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : 'var(--accent)' }}>
+            {symbolFilter === 'all' ? 'Any' : symbolFilter}
             <ChevronRightIcon className="w-4 h-4 opacity-40" />
           </span>
         </button>
+      )}
 
-      </div>
-    </>,
+      {/* Date picker row */}
+      <button
+        onClick={() => setDateSheetOpen(true)}
+        className="w-full flex items-center justify-between px-5 border-b"
+        style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+        <span className="text-body">Date</span>
+        <span className="flex items-center gap-1.5 text-body"
+              style={{ color: dateFilter ? 'var(--accent)' : 'var(--text-muted)' }}>
+          {dateFilter?.label ?? 'Any time'}
+          <ChevronRightIcon className="w-4 h-4 opacity-40" />
+        </span>
+      </button>
+    </BottomSheet>,
     document.body
   )
 

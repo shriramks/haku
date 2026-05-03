@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
+import BottomSheet from '@/components/BottomSheet'
 import UserMenu from '@/components/UserMenu'
 import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
@@ -664,51 +665,41 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick 
 
 function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () => void }) {
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[200] rounded-t-3xl"
-           style={{
-             background: 'var(--bg-secondary)',
-             paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)',
-           }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
-             style={{ borderColor: 'var(--border)' }}>
-          <div style={{ width: 60 }} />
-          <p className="font-semibold text-headline">Mutual Fund</p>
-          <button onClick={onClose} className="text-headline text-accent" style={{ width: 60, textAlign: 'right' }}>
-            Done
-          </button>
-        </div>
-
-        <div className="px-5 pt-4 pb-2">
-          <p className="text-title-2 font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
-            {holding.fund.scheme_name}
-          </p>
-          <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
-            {holding.units.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} units
-          </p>
-        </div>
-
-        <div className="mt-4 px-5 pt-4" style={{ borderTop: '1px solid var(--divider)' }}>
-          <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
-          <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
-          <DetailRow
-            label="Current Return"
-            value={formatPnLFull(holding.gain)}
-            valueColor={getGainColor(holding.gain)}
-          />
-          <DetailRow
-            label="XIRR p.a."
-            value={formatXirr(holding.xirr)}
-            valueColor={getGainColor(holding.xirr)}
-          />
-          <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
-        </div>
+    <BottomSheet onClose={onClose}>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
+           style={{ borderColor: 'var(--border)' }}>
+        <div style={{ width: 60 }} />
+        <p className="font-semibold text-headline">Mutual Fund</p>
+        <button onClick={onClose} className="text-headline text-accent" style={{ width: 60, textAlign: 'right' }}>
+          Done
+        </button>
       </div>
-    </>
+
+      <div className="px-5 pt-4 pb-2">
+        <p className="text-title-2 font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+          {holding.fund.scheme_name}
+        </p>
+        <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
+          {holding.units.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} units
+        </p>
+      </div>
+
+      <div className="mt-4 px-5 pt-4" style={{ borderTop: '1px solid var(--divider)' }}>
+        <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
+        <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
+        <DetailRow
+          label="Current Return"
+          value={formatPnLFull(holding.gain)}
+          valueColor={getGainColor(holding.gain)}
+        />
+        <DetailRow
+          label="XIRR p.a."
+          value={formatXirr(holding.xirr)}
+          valueColor={getGainColor(holding.xirr)}
+        />
+        <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
+      </div>
+    </BottomSheet>
   )
 }
 

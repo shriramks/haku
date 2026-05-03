@@ -21,6 +21,7 @@ import TrancheSection from '@/components/TrancheSection'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
+import BottomSheet from '@/components/BottomSheet'
 
 interface Props {
   symbol: string
@@ -515,60 +516,53 @@ function RiskOverlaySheet({ band, onClose, onSaved }: {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline w-14" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline">Risk Overlay</p>
-          <button onClick={save} disabled={saving}
-            className="text-accent text-headline font-semibold w-14 text-right disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {saving ? '…' : 'Save'}
-          </button>
-        </div>
-        <div className="px-5 pt-4 pb-3">
-          <p className="text-subheadline" style={{ color: 'var(--text-faint)', lineHeight: 1.55 }}>
-            Risk Overlay adjusts buy bands when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
+    <BottomSheet onClose={onClose}>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <button onClick={onClose} className="text-accent text-headline w-14" style={{ minHeight: 44 }}>Cancel</button>
+        <p className="font-semibold text-headline">Risk Overlay</p>
+        <button onClick={save} disabled={saving}
+          className="text-accent text-headline font-semibold w-14 text-right disabled:opacity-40"
+          style={{ minHeight: 44 }}>
+          {saving ? '…' : 'Save'}
+        </button>
+      </div>
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-subheadline" style={{ color: 'var(--text-faint)', lineHeight: 1.55 }}>
+          Risk Overlay adjusts buy bands when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
+        </p>
+      </div>
+      <div className="px-5 pb-4">
+        <label className="text-subheadline block mb-1.5" style={{ color: 'var(--text-muted)' }}>
+          Multiplier (0–1 · e.g. 0.85 = 15% discount)
+        </label>
+        <input
+          type="number" step="0.01" inputMode="decimal"
+          placeholder="e.g. 0.85"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save() }}
+          autoFocus
+          className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--c-warning)' : 'var(--border)'}` }}
+        />
+        {showWarning && (
+          <p className="text-subheadline mt-1.5" style={{ color: 'var(--c-warning)' }}>
+            Enter a value between 0 and 1. Leave blank to clear overlay.
           </p>
-        </div>
-        <div className="px-5 pb-4">
-          <label className="text-subheadline block mb-1.5" style={{ color: 'var(--text-muted)' }}>
-            Multiplier (0–1 · e.g. 0.85 = 15% discount)
-          </label>
-          <input
-            type="number" step="0.01" inputMode="decimal"
-            placeholder="e.g. 0.85"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save() }}
-            autoFocus
-            className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--c-warning)' : 'var(--border)'}` }}
-          />
-          {showWarning && (
-            <p className="text-subheadline mt-1.5" style={{ color: 'var(--c-warning)' }}>
-              Enter a value between 0 and 1. Leave blank to clear overlay.
-            </p>
-          )}
-        </div>
-        {band?.risk_multiplier != null && band.risk_multiplier !== 1 && (
-          <div className="px-5">
-            <button
-              onClick={removeOverlay}
-              disabled={saving}
-              className="w-full py-3 rounded-xl text-body font-medium text-negative disabled:opacity-40"
-              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
-              Remove Overlay
-            </button>
-          </div>
         )}
       </div>
-    </>
+      {band?.risk_multiplier != null && band.risk_multiplier !== 1 && (
+        <div className="px-5">
+          <button
+            onClick={removeOverlay}
+            disabled={saving}
+            className="w-full py-3 rounded-xl text-body font-medium text-negative disabled:opacity-40"
+            style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+            Remove Overlay
+          </button>
+        </div>
+      )}
+    </BottomSheet>
   )
 }
 
@@ -830,31 +824,24 @@ function MarketCapRuleModal({ mcap, onClose }: { mcap: number | null; onClose: (
     { label: '≥ 2L Cr',     value: 0.90 },
   ]
   return (
-    <>
-      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[60] animate-slide-up rounded-t-3xl px-5"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="font-semibold text-headline">Market Cap Rule</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-        </div>
-        <div className="pt-2">
-          {brackets.map((b, i) => {
-            const active = b.value === applied
-            return (
-              <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
-                <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
-                <span className="text-body tabnum" style={{ color: active ? 'var(--accent)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
-              </div>
-            )
-          })}
-        </div>
+    <BottomSheet onClose={onClose} zIndex={60}>
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="w-14" />
+        <p className="font-semibold text-headline">Market Cap Rule</p>
+        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
       </div>
-    </>
+      <div className="px-5 pt-2">
+        {brackets.map((b, i) => {
+          const active = b.value === applied
+          return (
+            <div key={b.value} className="flex items-center justify-between" style={{ minHeight: 44, borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)' }}>
+              <span className="text-body" style={{ color: active ? 'var(--text-primary)' : 'var(--text-faint)' }}>{b.label}</span>
+              <span className="text-body tabnum" style={{ color: active ? 'var(--accent)' : 'var(--text-faint)', fontWeight: active ? 600 : 400 }}>{b.value.toFixed(2)}</span>
+            </div>
+          )
+        })}
+      </div>
+    </BottomSheet>
   )
 }
 
@@ -915,18 +902,12 @@ function BandComputationSheet({ band, allocation, onClose }: {
     : null
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="font-semibold text-headline">Band Computation</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-        </div>
+    <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[85vh]">
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="w-14" />
+        <p className="font-semibold text-headline">Band Computation</p>
+        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+      </div>
         <div className="px-5 pt-4">
           {staleBands && (
             <p className="text-subheadline mb-3" style={{ color: 'var(--c-warning)' }}>
@@ -972,8 +953,7 @@ function BandComputationSheet({ band, allocation, onClose }: {
             </>
           )}
         </div>
-      </div>
-    </>
+    </BottomSheet>
   )
 }
 
@@ -997,18 +977,12 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
   onClose: () => void
 }) {
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '85vh' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="font-semibold text-headline">Buy Levels</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-        </div>
+    <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[85vh]">
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="w-14" />
+        <p className="font-semibold text-headline">Buy Levels</p>
+        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+      </div>
         {genError && (
           <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
         )}
@@ -1027,8 +1001,7 @@ function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, gen
           generating={generating}
           hideHeader
         />
-      </div>
-    </>
+    </BottomSheet>
   )
 }
 
@@ -1155,18 +1128,12 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-y-auto"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)', maxHeight: '90vh' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="w-14" />
-          <p className="font-semibold text-headline">Investability</p>
-          <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
-        </div>
+    <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[90vh]">
+      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="w-14" />
+        <p className="font-semibold text-headline">Investability</p>
+        <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>
+      </div>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-faint)' }}>
           <div>
             <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
@@ -1286,8 +1253,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
             </div>
           )
         })}
-      </div>
-    </>
+    </BottomSheet>
   )
 }
 
@@ -1321,47 +1287,40 @@ function KeyPromptSheet({ onClose, onSaved }: {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline">AI API Key</p>
-          <button onClick={save} disabled={saving || !key.trim()}
-            className="text-accent text-headline font-semibold disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-        <div className="px-5 pt-4 space-y-4">
-          <p className="text-subheadline text-center text-positive">
-            ★ Gemini is used for live financial data and band generation
-          </p>
-          <input
-            type="password" placeholder="AIzaSy…" value={key}
-            onChange={e => setKey(e.target.value)}
-            className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            autoFocus
-          />
-          {error && <p className="text-negative text-subheadline">{error}</p>}
-          <div className="rounded-2xl p-3.5"
-               style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
-            <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
-              <span className="font-semibold text-accent">Stored securely.</span>{' '}
-              Your API key lives in your database and is locked to your login via row-level security.
-              Band generation runs entirely on the server — your browser never sees the key again after you save it.
-            </p>
-          </div>
-          <p className="text-subheadline text-center" style={{ color: 'var(--text-muted)' }}>
-            Get a key at <span className="text-accent">aistudio.google.com</span>
-          </p>
-        </div>
+    <BottomSheet onClose={onClose}>
+      <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+        <p className="font-semibold text-headline">AI API Key</p>
+        <button onClick={save} disabled={saving || !key.trim()}
+          className="text-accent text-headline font-semibold disabled:opacity-40"
+          style={{ minHeight: 44 }}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
-    </>
+      <div className="px-5 pt-4 space-y-4">
+        <p className="text-subheadline text-center text-positive">
+          ★ Gemini is used for live financial data and band generation
+        </p>
+        <input
+          type="password" placeholder="AIzaSy…" value={key}
+          onChange={e => setKey(e.target.value)}
+          className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          autoFocus
+        />
+        {error && <p className="text-negative text-subheadline">{error}</p>}
+        <div className="rounded-2xl p-3.5"
+             style={{ background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.18)' }}>
+          <p className="text-subheadline leading-relaxed" style={{ color: 'var(--text-2)' }}>
+            <span className="font-semibold text-accent">Stored securely.</span>{' '}
+            Your API key lives in your database and is locked to your login via row-level security.
+            Band generation runs entirely on the server — your browser never sees the key again after you save it.
+          </p>
+        </div>
+        <p className="text-subheadline text-center" style={{ color: 'var(--text-muted)' }}>
+          Get a key at <span className="text-accent">aistudio.google.com</span>
+        </p>
+      </div>
+    </BottomSheet>
   )
 }

@@ -11,6 +11,7 @@ import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
+import BottomSheet from '@/components/BottomSheet'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -672,27 +673,21 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+    <BottomSheet onClose={onClose}>
+      <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+        <div>
+          <p className="font-semibold text-headline text-center">{alloc.symbol}</p>
+          {getStockName(alloc.symbol) && (
+            <p className="text-footnote text-center" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
+          )}
         </div>
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <div>
-            <p className="font-semibold text-headline text-center">{alloc.symbol}</p>
-            {getStockName(alloc.symbol) && (
-              <p className="text-footnote text-center" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
-            )}
-          </div>
-          <button onClick={handleSave} disabled={saving}
-            className="text-accent text-headline font-semibold disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        <button onClick={handleSave} disabled={saving}
+          className="text-accent text-headline font-semibold disabled:opacity-40"
+          style={{ minHeight: 44 }}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
 
         {/* % stepper → slider → plan context */}
         <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
@@ -821,8 +816,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             </button>
           )}
         </div>
-      </div>
-    </>
+    </BottomSheet>
   )
 }
 
@@ -1096,25 +1090,17 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
   const totalCarryover = Object.values(carryoverBySymbol).reduce((s, v) => s + v, 0)
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl overflow-hidden"
-           style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b"
-             style={{ borderColor: 'var(--border)' }}>
-          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline">New Plan</p>
-          <button onClick={create} disabled={creating}
-            className="text-accent text-headline font-semibold disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {creating ? 'Creating…' : 'Create'}
-          </button>
-        </div>
+    <BottomSheet onClose={onClose} className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b"
+           style={{ borderColor: 'var(--border)' }}>
+        <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+        <p className="font-semibold text-headline">New Plan</p>
+        <button onClick={create} disabled={creating}
+          className="text-accent text-headline font-semibold disabled:opacity-40"
+          style={{ minHeight: 44 }}>
+          {creating ? 'Creating…' : 'Create'}
+        </button>
+      </div>
 
         <div className="px-5 pt-4 space-y-4">
           {error && (
@@ -1197,8 +1183,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
             </div>
           )}
         </div>
-      </div>
-    </>
+    </BottomSheet>
   )
 }
 

@@ -6,6 +6,7 @@ import type { StockRow, BuyBand, FiscalYear } from '@/lib/types'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon, YieldIcon } from '@/components/icons'
+import BottomSheet from '@/components/BottomSheet'
 import { formatPriceNum } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 
@@ -316,48 +317,40 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
       </div>
 
       {showYieldSheet && (
-        <>
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowYieldSheet(false)} />
-          <div
-            className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
-            style={{ background: 'var(--bg-secondary)', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-            </div>
-            <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-              <button onClick={() => setShowYieldSheet(false)} className="text-accent text-headline" style={{ minHeight: 44 }}>
-                Cancel
-              </button>
-              <p className="font-semibold text-headline">Set 10Y Yield</p>
-              <button
-                onClick={saveRiskFree}
-                disabled={savingRiskFree || !riskFree.trim()}
-                className="text-accent text-headline font-semibold disabled:opacity-40"
-                style={{ minHeight: 44 }}>
-                {savingRiskFree ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-            <div className="px-5 pt-4">
-              <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-                India 10Y yield
-              </p>
-              <input
-                type="number"
-                step="0.0001"
-                inputMode="decimal"
-                value={riskFree}
-                onChange={e => setRiskFree(e.target.value)}
-                className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                autoFocus
-              />
-              <p className="text-subheadline mt-2" style={{ color: 'var(--text-muted)' }}>
-                Enter as a decimal, for example `0.07` for 7%.
-              </p>
-              {riskFreeError && <p className="text-subheadline text-negative mt-2">{riskFreeError}</p>}
-            </div>
+        <BottomSheet onClose={() => setShowYieldSheet(false)}>
+          <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+            <button onClick={() => setShowYieldSheet(false)} className="text-accent text-headline" style={{ minHeight: 44 }}>
+              Cancel
+            </button>
+            <p className="font-semibold text-headline">Set 10Y Yield</p>
+            <button
+              onClick={saveRiskFree}
+              disabled={savingRiskFree || !riskFree.trim()}
+              className="text-accent text-headline font-semibold disabled:opacity-40"
+              style={{ minHeight: 44 }}>
+              {savingRiskFree ? 'Saving…' : 'Save'}
+            </button>
           </div>
-        </>
+          <div className="px-5 pt-4">
+            <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+              India 10Y yield
+            </p>
+            <input
+              type="number"
+              step="0.0001"
+              inputMode="decimal"
+              value={riskFree}
+              onChange={e => setRiskFree(e.target.value)}
+              className="w-full px-4 py-3.5 rounded-2xl text-headline outline-none"
+              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              autoFocus
+            />
+            <p className="text-subheadline mt-2" style={{ color: 'var(--text-muted)' }}>
+              Enter as a decimal, for example `0.07` for 7%.
+            </p>
+            {riskFreeError && <p className="text-subheadline text-negative mt-2">{riskFreeError}</p>}
+          </div>
+        </BottomSheet>
       )}
     </div>
   )
