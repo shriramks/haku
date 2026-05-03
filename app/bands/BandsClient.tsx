@@ -7,6 +7,7 @@ import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon, YieldIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
+import SheetHeader from '@/components/SheetHeader'
 import { formatPriceNum } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 
@@ -318,19 +319,16 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
 
       {showYieldSheet && (
         <BottomSheet onClose={() => setShowYieldSheet(false)}>
-          <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-            <button onClick={() => setShowYieldSheet(false)} className="text-accent text-headline" style={{ minHeight: 44 }}>
-              Cancel
-            </button>
-            <p className="font-semibold text-headline">Set 10Y Yield</p>
-            <button
-              onClick={saveRiskFree}
-              disabled={savingRiskFree || !riskFree.trim()}
-              className="text-accent text-headline font-semibold disabled:opacity-40"
-              style={{ minHeight: 44 }}>
-              {savingRiskFree ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          <SheetHeader
+            title="Set 10Y Yield"
+            left={<button onClick={() => setShowYieldSheet(false)} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+            right={
+              <button onClick={saveRiskFree} disabled={savingRiskFree || !riskFree.trim()}
+                className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>
+                {savingRiskFree ? 'Saving…' : 'Save'}
+              </button>
+            }
+          />
           <div className="px-5 pt-4">
             <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
               India 10Y yield

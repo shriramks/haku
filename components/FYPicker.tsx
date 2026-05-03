@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { FiscalYear } from '@/lib/types'
 import BottomSheet from '@/components/BottomSheet'
+import SheetHeader from '@/components/SheetHeader'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -21,11 +22,10 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
 
   const sheet = open && mounted && createPortal(
     <BottomSheet onClose={() => setOpen(false)}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
-           style={{ borderColor: 'var(--border)' }}>
-        <p className="font-semibold text-headline">Fiscal Year</p>
-        <button onClick={() => setOpen(false)} className="text-headline text-accent">Done</button>
-      </div>
+      <SheetHeader
+        title="Fiscal Year"
+        right={<button onClick={() => setOpen(false)} className="text-headline text-accent">Done</button>}
+      />
       <div className="py-1">
         {fiscalYears.map(fy => {
           const active = fy.id === selectedFY?.id
