@@ -238,8 +238,8 @@ export default function BandDetailClient({
       </div>
 
       {/* ── CMP / Regen strip ── */}
-      <div className="flex items-center justify-between border-b px-4 gap-2"
-        style={{ borderColor: 'var(--border-faint)', minHeight: 40, background: 'var(--bg-primary)' }}>
+      <div className="flex items-center justify-between px-4 gap-2"
+        style={{ minHeight: 40, background: 'var(--bg-primary)' }}>
         <button onClick={generateBands} disabled={generating}
           className="flex items-center gap-1.5 disabled:opacity-40 text-accent text-subheadline rounded-lg px-2.5 py-1.5"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', minHeight: 32 }}>

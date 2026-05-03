@@ -339,8 +339,8 @@ export default function PortfolioClient({
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
-      <div className="grid px-4 py-2 border-b"
-           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
+      <div className="grid px-4 py-2"
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0' }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
           <SCell label="Gain ₹" value={formatPnLFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
@@ -684,7 +684,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
         </p>
       </div>
 
-      <div className="mt-4 px-5 pt-4" style={{ borderTop: '1px solid var(--divider)' }}>
+      <div className="mt-4 px-5 pt-4">
         <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
         <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
         <DetailRow

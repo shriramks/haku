@@ -110,8 +110,8 @@ export default function UserMenu({ extraSections = [] }: Props) {
         <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           {title}
         </p>
-        <div style={{ borderTop: '1px solid var(--divider)' }}>
-          {items.map(item => (
+        <div>
+          {items.map((item, i) => (
             <button
               key={item.label}
               onClick={() => runMenuAction(item.onClick)}
@@ -121,7 +121,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
                 padding: '12px 16px',
                 background: 'transparent',
                 color: 'var(--text-primary)',
-                borderBottom: '1px solid var(--divider)',
+                borderBottom: i < items.length - 1 ? '1px solid var(--divider)' : undefined,
               }}>
               <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-accent">
                 {item.icon}
@@ -181,7 +181,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
               ])}
 
               {showKeyInput && (
-                <div className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--divider)' }}>
+                <div className="space-y-3 pt-3">
                   <input
                     type="password"
                     placeholder="AIzaSy…"
