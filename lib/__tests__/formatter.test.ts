@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fyLabel, formatINR, formatINRFine, formatPriceFine } from '../formatter'
+import { fyLabel, formatINRFine, formatPriceFine } from '../formatter'
 
 const THIN = ' '
 

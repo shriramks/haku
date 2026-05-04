@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR } from '@/lib/formatter'
+import { formatINRFine } from '@/lib/formatter'
 import { parseCsv, type ParsedRow } from '@/lib/csv-parser'
 import BottomNav from '@/components/BottomNav'
 
@@ -158,7 +158,7 @@ export default function ImportPage() {
               )}
               {sellRows.length > 0 && (
                 <p className="text-subheadline text-warning">
-                  {sellRows.length} sells · {formatINR(sellTotal)} total proceeds
+                  {sellRows.length} sells · {formatINRFine(sellTotal)} total proceeds
                 </p>
               )}
             </div>
@@ -172,7 +172,7 @@ export default function ImportPage() {
                 <p className="text-body font-medium">Redeploy sell proceeds</p>
                 <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {redeploy
-                    ? `Adds ${formatINR(sellTotal)} to respective FY budgets`
+                    ? `Adds ${formatINRFine(sellTotal)} to respective FY budgets`
                     : "Proceeds stay within each stock's allocation"}
                 </p>
               </div>
@@ -244,7 +244,7 @@ export default function ImportPage() {
                         </td>
                         <td className="px-3 py-2 tabnum" style={{ color: 'var(--text-2)' }}>{r.quantity}</td>
                         <td className="px-3 py-2 tabnum" style={{ color: 'var(--text-2)' }}>{r.price}</td>
-                        <td className="px-3 py-2 tabnum">{formatINR(r.amount)}</td>
+                        <td className="px-3 py-2 tabnum">{formatINRFine(r.amount)}</td>
                       </tr>
                     ))}
                     {validRows.length > 20 && (

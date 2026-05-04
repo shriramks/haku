@@ -4,8 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, getGainColor, fyLabel } from '@/lib/formatter'
-import { HeroAmt, AmtText, PctText } from '@/components/NumDisplay'
+import { formatINRFine, formatINRFull, formatPriceFine, trimZero, trimPct, formatXirr, formatPnLFull, formatGainPct, getGainColor, fyLabel } from '@/lib/formatter'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
@@ -342,12 +341,12 @@ export default function PortfolioClient({
       <div className="grid px-4 py-2 border-b"
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
-          <SCell label="Current Value" value={<HeroAmt value={totalCurrent} />} />
-          <SCell label="Gain" value={<HeroAmt value={totalGain} />} positive={totalGain > 0} negative={totalGain < 0} />
+          <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
+          <SCell label="Gain" value={formatINRFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
-          <SCell label="Invested" value={<HeroAmt value={totalInvested} />} />
-          <SCell label="XIRR p.a." value={overallXirr !== null ? <PctText value={overallXirr * 100} /> : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
+          <SCell label="Invested" value={formatINRFine(totalInvested)} />
+          <SCell label="XIRR p.a." value={overallXirr !== null ? `${trimPct(Math.abs(overallXirr * 100))}%` : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -488,7 +487,7 @@ export default function PortfolioClient({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SCell({ label, value, positive, negative }: {
-  label: string; value: React.ReactNode; positive?: boolean; negative?: boolean
+  label: string; value: string; positive?: boolean; negative?: boolean
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -594,11 +593,11 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
       </div>
       <span className="text-headline font-semibold tabnum text-right"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
-        {currentValue !== null ? <AmtText value={currentValue} /> : '—'}
+        {currentValue !== null ? formatINRFine(currentValue) : '—'}
       </span>
       {gainPct !== null ? (
         <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
-          <PctText value={gainPct} />
+          {`${trimPct(Math.abs(gainPct))}%`}
         </span>
       ) : (
         <span />
@@ -625,12 +624,6 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   )
 }
 
-function pctStr(str: string): React.ReactNode {
-  const idx = str.lastIndexOf('%')
-  if (idx < 0) return str
-  return <>{str.slice(0, idx)}<span className="text-[0.6em] leading-none">%</span>{str.slice(idx + 1)}</>
-}
-
 function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
   name: string; meta: string; invested: number; current: number | null
   gain: number | null; xirr: string; onClick?: () => void
@@ -649,17 +642,17 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        {current !== null ? <AmtText value={current} /> : '—'}
+        {current !== null ? formatINRFine(current) : '—'}
       </p>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        <AmtText value={invested} />
+        {formatINRFine(invested)}
       </p>
       <div className="text-right">
         <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
-          {gain !== null ? <AmtText value={Math.abs(gain)} /> : '—'}
+          {gain !== null ? formatINRFine(Math.abs(gain)) : '—'}
         </p>
-        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{pctStr(xirr)}</p>}
+        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
       </div>
     </div>
   )
@@ -704,7 +697,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
         />
         <DetailRow
           label="XIRR p.a."
-          value={holding.xirr !== null ? <PctText value={holding.xirr * 100} /> : '—'}
+          value={holding.xirr !== null ? `${trimPct(Math.abs(holding.xirr * 100))}%` : '—'}
           valueColor={getGainColor(holding.xirr)}
         />
         <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
@@ -714,7 +707,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
 }
 
 function DetailRow({ label, value, valueColor, last: _last }: {
-  label: string; value: React.ReactNode; valueColor?: string; last?: boolean
+  label: string; value: string; valueColor?: string; last?: boolean
 }) {
   return (
     <div className="flex items-center justify-between py-3" style={{ minHeight: 52 }}>
@@ -749,7 +742,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
-              <AmtText value={t.amount} />
+              {formatINRFine(t.amount)}
             </p>
           </div>
         )
@@ -780,7 +773,7 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: 'var(--text-primary)' }}>
-              <AmtText value={t.amount} />
+              {formatINRFine(t.amount)}
             </p>
           </div>
         )

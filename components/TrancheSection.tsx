@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { formatINR, formatPrice } from '@/lib/formatter'
+import { formatINRFine, formatPrice } from '@/lib/formatter'
 import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
@@ -33,14 +33,14 @@ export default function TrancheSection({
           <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Buy levels</p>
           {plannedTotal > 0 && (
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
-              {formatINR(remaining - plannedTotal)} available after planned tranches
+              {formatINRFine(remaining - plannedTotal)} available after planned tranches
             </p>
           )}
         </div>
       )}
       {hideHeader && plannedTotal > 0 && (
         <p className="px-4 mb-3 text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
-          {symbol} · {formatINR(remaining - plannedTotal)} remaining after tranches
+          {symbol} · {formatINRFine(remaining - plannedTotal)} remaining after tranches
         </p>
       )}
       {/* Actions — tinted accent buttons (less heavy than solid fill) */}
@@ -150,7 +150,7 @@ function TrancheRow({ tranche, cmp, onEdit }: {
       </div>
       {/* Amount */}
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-        {formatINR(amount)}
+        {formatINRFine(amount)}
       </p>
       {/* Edit — 44pt tap target */}
       <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
@@ -200,7 +200,7 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
 
       {overBudget && (
         <p className="text-subheadline mb-2 tabnum" style={{ color: '#FF3B30' }}>
-          Exceeds by {formatINR(amount - maxAmount)}
+          Exceeds by {formatINRFine(amount - maxAmount)}
         </p>
       )}
 

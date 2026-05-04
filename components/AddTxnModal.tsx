@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { todayISO, formatINR, formatINRFull, formatPrice } from '@/lib/formatter'
+import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/formatter'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from '@/app/portfolio/actions'
@@ -399,7 +399,7 @@ export default function AddTxnModal({
                     <div className="flex-1 mr-3">
                       <p className="text-body font-medium">Redeploy proceeds</p>
                       <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {redeploy ? `Adds ${formatINR(stockAmount)} to this year's budget` : "Proceeds stay in this stock's allocation"}
+                        {redeploy ? `Adds ${formatINRFine(stockAmount)} to this year's budget` : "Proceeds stay in this stock's allocation"}
                       </p>
                     </div>
                     <button type="button" onClick={() => setRedeploy(r => !r)}

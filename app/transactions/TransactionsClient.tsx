@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
+import { formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
@@ -295,13 +295,13 @@ export default function TransactionsClient({
                 <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
                   {buyTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-positive">{formatINR(buyTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-positive">{formatINRFine(buyTotal)}</span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>bought</span>
                     </>
                   )}
                   {sellTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-negative">{formatINR(sellTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-negative">{formatINRFine(sellTotal)}</span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>sold</span>
                     </>
                   )}
@@ -606,7 +606,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
             </span>
           </div>
           <span className="font-bold tabnum text-body" style={{ color: 'var(--text-2)' }}>
-            {editAmount > 0 ? formatINR(editAmount) : formatINR(txn.amount)}
+            {editAmount > 0 ? formatINRFine(editAmount) : formatINRFine(txn.amount)}
           </span>
         </div>
 

@@ -1,4 +1,4 @@
-// Indian currency formatting: 1.2 L, 24 L, 2.4 Cr (no ₹ — hero screens use HeroAmt component)
+// Indian currency compact formatting: "1.32 L", "2.4 Cr", "8.4 K" (thin space before unit)
 
 const CR  = 1_00_00_000
 const LAC = 1_00_000
@@ -6,32 +6,8 @@ const K   = 1_000
 
 const THIN = ' '
 
-function compact(v: number): string {
-  if (v >= 100)              return Math.round(v).toString()
-  if (v === Math.floor(v))   return v.toString()
-  return parseFloat(v.toFixed(1)).toString()
-}
-
-export function formatINR(amount: number): string {
-  const abs  = Math.abs(amount)
-  const sign = amount < 0 ? '-' : ''
-
-  if (abs >= CR)  return `${sign}${compact(abs / CR)}${THIN}Cr`
-  if (abs >= LAC) return `${sign}${compact(abs / LAC)}${THIN}L`
-  if (abs >= K)   return `${sign}${compact(abs / K)}${THIN}K`
-  return `${sign}${Math.round(abs)}`
-}
-
-export function formatPnL(amount: number): string {
-  return formatINR(Math.abs(amount))
-}
-
-export function formatPct(pct: number, decimals = 1): string {
-  return `${pct.toFixed(decimals)}%`
-}
-
 /** Compact Indian amount with up to 2 decimal places; trailing zeros stripped.
- * 132_000 → "1.32 L", 130_000 → "1.3 L", 100_000 → "1 L", 8_400 → "8,400" */
+ * 132_000 → "1.32 L", 130_000 → "1.3 L", 100_000 → "1 L", 8_400 → "8.4 K" */
 export function formatINRFine(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '-' : ''
@@ -102,19 +78,19 @@ export function formatXirr(v: number | null): string {
   return `${trimZero(v * 100)}%`
 }
 
-/** Gain formatted using formatINRFine (absolute), or "—" for null */
+/** Absolute gain as compact amount, or "—" for null */
 export function formatPnLFine(gain: number | null): string {
   if (gain === null) return '—'
   return formatINRFine(Math.abs(gain))
 }
 
-/** Gain formatted using formatINRFull (absolute), or "—" for null */
+/** Absolute gain as full Indian-locale amount, or "—" for null */
 export function formatPnLFull(gain: number | null): string {
   if (gain === null) return '—'
   return formatINRFull(Math.abs(gain))
 }
 
-/** Gain as a percentage of invested (absolute). Empty string when gain is null or invested is 0 */
+/** Absolute gain as a percentage of invested. Empty string when gain is null or invested is 0 */
 export function formatGainPct(gain: number | null, invested: number): string {
   if (gain === null || invested <= 0) return ''
   return `${trimPct(Math.abs((gain / invested) * 100))}%`

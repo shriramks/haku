@@ -4,8 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatINRFull } from '@/lib/formatter'
-import { HeroAmt } from '@/components/NumDisplay'
+import { formatINRFine, formatINRFull } from '@/lib/formatter'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -287,7 +286,7 @@ function PlanTab({
                     {prevFY.label} carryover available
                   </p>
                   <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {formatINR(carryoverAmt)} undeployed · add to {selectedFY.label} budget?
+                    {formatINRFine(carryoverAmt)} undeployed · add to {selectedFY.label} budget?
                   </p>
                 </div>
               </div>
@@ -323,7 +322,7 @@ function PlanTab({
               <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
               <div className="flex items-center px-3 py-1.5 rounded-xl"
                    style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <span className="text-title-2 font-bold tabnum"><HeroAmt value={effectiveBudget} /></span>
+                <span className="text-title-2 font-bold tabnum">{formatINRFine(effectiveBudget)}</span>
               </div>
             </button>
             {unallocCarryover > 0 && (
@@ -331,7 +330,7 @@ function PlanTab({
                    style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
                 <span className="text-body" style={{ color: 'var(--text-2)' }}>Carryover</span>
                 <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                  <HeroAmt value={unallocCarryover} />
+                  {formatINRFine(unallocCarryover)}
                 </span>
               </div>
             )}
@@ -716,7 +715,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           </div>
           {/* Stock INR amount */}
           <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
-            {formatINR((pct / 100) * totalBudget)} allocated
+            {formatINRFine((pct / 100) * totalBudget)} allocated
           </p>
           {/* Slider */}
           <div className="mt-4 px-1">
@@ -739,7 +738,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
               {Math.round(planAllocatedPct)}% allocated
             </p>
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-              {formatINR(planAllocatedInr)} of {formatINR(totalBudget)}
+              {formatINRFine(planAllocatedInr)} of {formatINRFine(totalBudget)}
             </p>
           </div>
         </div>
@@ -914,7 +913,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             </button>
           </div>
           <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
-            {formatINR((pct / 100) * totalBudget)} allocated
+            {formatINRFine((pct / 100) * totalBudget)} allocated
           </p>
           <div className="mt-4 px-1">
             <input
@@ -935,7 +934,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
               {Math.round(planAllocatedPct)}% allocated
             </p>
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-              {formatINR(planAllocatedInr)} of {formatINR(totalBudget)}
+              {formatINRFine(planAllocatedInr)} of {formatINRFine(totalBudget)}
             </p>
           </div>
         </div>
@@ -1144,8 +1143,8 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                 <p className="text-body">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
                 <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                   Allocation %s and categories are copied
-                  {copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} net carryover carried in`}
-                  {!copyStocks && totalCarryover !== 0 && ` · ${formatINR(Math.abs(totalCarryover))} carryover goes to unallocated`}
+                  {copyStocks && totalCarryover !== 0 && ` · ${formatINRFine(Math.abs(totalCarryover))} net carryover carried in`}
+                  {!copyStocks && totalCarryover !== 0 && ` · ${formatINRFine(Math.abs(totalCarryover))} carryover goes to unallocated`}
                 </p>
               </div>
             </label>
@@ -1164,14 +1163,14 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                   <div key={sym} className="flex justify-between text-subheadline tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
                     <span className={amt >= 0 ? 'text-positive' : 'text-negative'}>
-                      {formatINR(Math.abs(amt))}
+                      {formatINRFine(Math.abs(amt))}
                     </span>
                   </div>
                 ))}
               <div className={`flex justify-between text-subheadline font-semibold tabnum pt-1 border-t ${totalCarryover >= 0 ? 'text-positive' : 'text-negative'}`}
                    style={{ borderColor: 'rgba(48,209,88,0.2)' }}>
                 <span>Net</span>
-                <span>{formatINR(Math.abs(totalCarryover))}</span>
+                <span>{formatINRFine(Math.abs(totalCarryover))}</span>
               </div>
             </div>
           )}

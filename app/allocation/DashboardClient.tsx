@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatINR, formatINRFine } from '@/lib/formatter'
-import { HeroAmt, AmtText, PctText } from '@/components/NumDisplay'
+import { formatINRFine, trimPct } from '@/lib/formatter'
 import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -131,7 +130,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  <HeroAmt value={totalBudget} />
+                  {formatINRFine(totalBudget)}
                 </p>
               </div>
 
@@ -141,10 +140,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-center">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  <HeroAmt value={Math.max(0, totalRemaining)} />
+                  {formatINRFine(Math.max(0, totalRemaining))}
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
-                  <PctText value={pctLeft} />
+                  {`${trimPct(pctLeft)}%`}
                 </p>
               </div>
 
@@ -154,10 +153,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-end">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  <HeroAmt value={totalDeployed} />
+                  {formatINRFine(totalDeployed)}
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
-                  <PctText value={pctDeployed} />
+                  {`${trimPct(pctDeployed)}%`}
                 </p>
               </div>
 
@@ -236,9 +235,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           ) : (
             <>
               <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                <AmtText value={row.remaining} />
+                {formatINRFine(row.remaining)}
               </p>
-              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><PctText value={leftPct} /></p>
+              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{`${trimPct(leftPct)}%`}</p>
             </>
           )}
         </div>
@@ -247,9 +246,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
             <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
-              <AmtText value={row.currentCost} />
+              {formatINRFine(row.currentCost)}
             </p>
-            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><PctText value={investedPct} /></p>}
+            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{`${trimPct(investedPct)}%`}</p>}
           </div>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
@@ -291,7 +290,7 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
       <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
         <span className={`tabnum text-body font-semibold ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-          <AmtText value={Math.abs(total)} />
+          {formatINRFine(Math.abs(total))}
         </span>
       </div>
       {/* Orphaned stocks */}
@@ -304,14 +303,14 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
             <div key={o.symbol} className="flex justify-between items-center py-3">
               <span className="text-body" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
               <span className={`tabnum text-body ${o.remaining >= 0 ? 'text-positive' : 'text-negative'}`}>
-                <AmtText value={Math.abs(o.remaining)} /> → pool
+                {formatINRFine(Math.abs(o.remaining))} → pool
               </span>
             </div>
           ))}
           <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
             <span className="text-subheadline font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
             <span className={`tabnum text-subheadline font-medium ${poolTotal >= 0 ? 'text-positive' : 'text-negative'}`}>
-              <AmtText value={Math.abs(poolTotal)} />
+              {formatINRFine(Math.abs(poolTotal))}
             </span>
           </div>
         </div>
@@ -329,11 +328,11 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
                 <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
                 <div className="text-right">
                   <span className={`tabnum text-body ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-                    <AmtText value={Math.abs(total)} />
+                    {formatINRFine(Math.abs(total))}
                   </span>
                   {d !== 0 && p !== 0 && (
                     <p className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-                      <AmtText value={Math.abs(d)} /> direct · <AmtText value={Math.abs(p)} /> pool
+                      {formatINRFine(Math.abs(d))} direct · {formatINRFine(Math.abs(p))} pool
                     </p>
                   )}
                 </div>
