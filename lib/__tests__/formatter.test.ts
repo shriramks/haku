@@ -1,27 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { fyLabel, formatINR, formatINRFine, formatPriceFine } from '../formatter'
 
+const THIN = ' '
+
 describe('formatINRFine — up to 2 decimal places, trailing zeros stripped', () => {
   it('1.32L — two significant decimals', () => {
-    expect(formatINRFine(132_000)).toBe('₹1.32L')
+    expect(formatINRFine(132_000)).toBe(`1.32${THIN}L`)
   })
   it('1.3L — second decimal zero, stripped', () => {
-    expect(formatINRFine(130_000)).toBe('₹1.3L')
+    expect(formatINRFine(130_000)).toBe(`1.3${THIN}L`)
   })
   it('1L — whole number, no decimals', () => {
-    expect(formatINRFine(100_000)).toBe('₹1L')
+    expect(formatINRFine(100_000)).toBe(`1${THIN}L`)
   })
   it('3.5L — one decimal', () => {
-    expect(formatINRFine(350_000)).toBe('₹3.5L')
+    expect(formatINRFine(350_000)).toBe(`3.5${THIN}L`)
   })
   it('84.2K — K range', () => {
-    expect(formatINRFine(84_200)).toBe('₹84.2K')
+    expect(formatINRFine(84_200)).toBe(`84.2${THIN}K`)
   })
   it('negatives preserved', () => {
-    expect(formatINRFine(-132_000)).toBe('-₹1.32L')
+    expect(formatINRFine(-132_000)).toBe(`-1.32${THIN}L`)
   })
   it('K range: 8.4K', () => {
-    expect(formatINRFine(8_400)).toBe('₹8.4K')
+    expect(formatINRFine(8_400)).toBe(`8.4${THIN}K`)
   })
 })
 

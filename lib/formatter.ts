@@ -1,8 +1,10 @@
-// Indian currency formatting: ₹1.2L, ₹24L, ₹2.4Cr
+// Indian currency formatting: 1.2 L, 24 L, 2.4 Cr (no ₹ — hero screens use HeroAmt component)
 
 const CR  = 1_00_00_000
 const LAC = 1_00_000
 const K   = 1_000
+
+const THIN = ' '
 
 function compact(v: number): string {
   if (v >= 100)              return Math.round(v).toString()
@@ -14,34 +16,30 @@ export function formatINR(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '-' : ''
 
-  if (abs >= CR)  return `${sign}₹${compact(abs / CR)}Cr`
-  if (abs >= LAC) return `${sign}₹${compact(abs / LAC)}L`
-  if (abs >= K)   return `${sign}₹${compact(abs / K)}K`
-  return `${sign}₹${Math.round(abs)}`
+  if (abs >= CR)  return `${sign}${compact(abs / CR)}${THIN}Cr`
+  if (abs >= LAC) return `${sign}${compact(abs / LAC)}${THIN}L`
+  if (abs >= K)   return `${sign}${compact(abs / K)}${THIN}K`
+  return `${sign}${Math.round(abs)}`
 }
 
 export function formatPnL(amount: number): string {
-  return (amount >= 0 ? '+' : '') + formatINR(amount)
+  const sign = amount >= 0 ? `+${THIN}` : `−${THIN}`
+  return sign + formatINR(Math.abs(amount))
 }
 
 export function formatPct(pct: number, decimals = 1): string {
   return `${pct.toFixed(decimals)}%`
 }
 
-/** Same as formatINR but without the ₹ prefix */
-export function formatAmt(amount: number): string {
-  return formatINR(amount).replace('₹', '')
-}
-
 /** Compact Indian amount with up to 2 decimal places; trailing zeros stripped.
- * 132_000 → "₹1.32L", 130_000 → "₹1.3L", 100_000 → "₹1L", 8_400 → "₹8,400" */
+ * 132_000 → "1.32 L", 130_000 → "1.3 L", 100_000 → "1 L", 8_400 → "8,400" */
 export function formatINRFine(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '-' : ''
-  if (abs >= CR)  return `${sign}₹${parseFloat((abs / CR).toFixed(2))}Cr`
-  if (abs >= LAC) return `${sign}₹${parseFloat((abs / LAC).toFixed(2))}L`
-  if (abs >= K)   return `${sign}₹${parseFloat((abs / K).toFixed(2))}K`
-  return `${sign}₹${Math.round(abs)}`
+  if (abs >= CR)  return `${sign}${parseFloat((abs / CR).toFixed(2))}${THIN}Cr`
+  if (abs >= LAC) return `${sign}${parseFloat((abs / LAC).toFixed(2))}${THIN}L`
+  if (abs >= K)   return `${sign}${parseFloat((abs / K).toFixed(2))}${THIN}K`
+  return `${sign}${Math.round(abs)}`
 }
 
 /** Price with up to 2 decimal places — for avg cost display.
@@ -64,14 +62,14 @@ export function formatPriceNum(price: number): string {
   return n < 10000 ? `${n}` : `${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
-/** Full Indian-locale number with ₹ prefix — e.g. ₹33,40,000 (for hero display) */
+/** Full Indian-locale number without ₹ — e.g. 33,40,000 */
 export function formatINRFull(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '-' : ''
-  return `${sign}₹${abs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  return `${sign}${abs.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
-/** Same as formatINRFull but without the ₹ — for use when ₹ lives in the label */
+/** Same as formatINRFull but uses proper minus sign */
 export function formatINRFullNum(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '−' : ''
@@ -108,19 +106,22 @@ export function formatXirr(v: number | null): string {
 /** Gain formatted with sign using formatINRFine, or "—" for null */
 export function formatPnLFine(gain: number | null): string {
   if (gain === null) return '—'
-  return (gain >= 0 ? '+' : '') + formatINRFine(gain)
+  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
+  return sign + formatINRFine(Math.abs(gain))
 }
 
 /** Gain formatted with sign using formatINRFull, or "—" for null */
 export function formatPnLFull(gain: number | null): string {
   if (gain === null) return '—'
-  return (gain >= 0 ? '+' : '') + formatINRFull(gain)
+  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
+  return sign + formatINRFull(Math.abs(gain))
 }
 
 /** Gain as a percentage of invested, with sign. Empty string when gain is null or invested is 0 */
 export function formatGainPct(gain: number | null, invested: number): string {
   if (gain === null || invested <= 0) return ''
-  return `${gain >= 0 ? '+' : ''}${trimPct((gain / invested) * 100)}%`
+  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
+  return `${sign}${trimPct(Math.abs((gain / invested) * 100))}%`
 }
 
 /** Percentage with trailing ".0" stripped: 12.0 → "12", 12.5 → "12.5" */

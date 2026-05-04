@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINR, formatINRFull, formatPct } from '@/lib/formatter'
+import { formatINR, formatINRFull } from '@/lib/formatter'
+import { HeroAmt } from '@/components/NumDisplay'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -319,20 +320,18 @@ function PlanTab({
           <div className="border-b" style={{ borderColor: 'var(--border)' }}>
             <button onClick={() => setShowBudgetSheet(true)}
               className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
-              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan <span style={{ fontWeight: 400, fontSize: 15, color: 'var(--text-muted)' }}>₹</span></span>
+              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
               <div className="flex items-center px-3 py-1.5 rounded-xl"
                    style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <span className="text-title-2 font-bold tabnum">{formatINRFull(effectiveBudget).slice(1)}</span>
+                <span className="text-title-2 font-bold tabnum"><HeroAmt value={effectiveBudget} /></span>
               </div>
             </button>
             {unallocCarryover > 0 && (
               <div className="flex items-center justify-between px-4"
                    style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
-                <span className="text-body" style={{ color: 'var(--text-2)' }}>
-                  Carryover <span style={{ color: 'var(--text-faint)' }}>₹</span>
-                </span>
+                <span className="text-body" style={{ color: 'var(--text-2)' }}>Carryover</span>
                 <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                  +{formatINRFull(unallocCarryover).slice(1)}
+                  + <HeroAmt value={unallocCarryover} />
                 </span>
               </div>
             )}
@@ -1165,14 +1164,14 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                   <div key={sym} className="flex justify-between text-subheadline tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
                     <span className={amt >= 0 ? 'text-positive' : 'text-negative'}>
-                      {amt >= 0 ? '+' : '−'}{formatINR(Math.abs(amt))}
+                      {amt >= 0 ? '+ ' : '− '}{formatINR(Math.abs(amt))}
                     </span>
                   </div>
                 ))}
               <div className={`flex justify-between text-subheadline font-semibold tabnum pt-1 border-t ${totalCarryover >= 0 ? 'text-positive' : 'text-negative'}`}
                    style={{ borderColor: 'rgba(48,209,88,0.2)' }}>
                 <span>Net</span>
-                <span>{totalCarryover >= 0 ? '+' : '−'}{formatINR(Math.abs(totalCarryover))}</span>
+                <span>{totalCarryover >= 0 ? '+ ' : '− '}{formatINR(Math.abs(totalCarryover))}</span>
               </div>
             </div>
           )}

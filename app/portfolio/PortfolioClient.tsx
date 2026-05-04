@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { formatINRFine, formatINRFull, formatPriceFine, trimZero, formatXirr, formatPnLFine, formatPnLFull, formatGainPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { HeroAmt, AmtText, PctText } from '@/components/NumDisplay'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
@@ -190,7 +191,6 @@ function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity
   return 'equity'
 }
 
-function noR(s: string): string { return s.replace('₹', '') }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -342,12 +342,12 @@ export default function PortfolioClient({
       <div className="grid px-4 py-2 border-b"
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
-          <SCell label="Current Value ₹" value={formatINRFine(totalCurrent)} />
-          <SCell label="Gain ₹" value={formatPnLFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+          <SCell label="Current Value" value={<HeroAmt value={totalCurrent} />} />
+          <SCell label="Gain" value={<HeroAmt value={totalGain} showSign />} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
-          <SCell label="Invested ₹" value={formatINRFine(totalInvested)} />
-          <SCell label="XIRR p.a." value={formatXirr(overallXirr)} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
+          <SCell label="Invested" value={<HeroAmt value={totalInvested} />} />
+          <SCell label="XIRR p.a." value={overallXirr !== null ? <PctText value={overallXirr * 100} showSign /> : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -358,7 +358,7 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          badge={equity.invested > 0 ? `${noR(formatINRFine(equity.invested))} inv` : null}
+          badge={equity.invested > 0 ? `${formatINRFine(equity.invested)} inv` : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           currentValue={equity.currentValue > 0 ? equity.currentValue : null}
           open={openSections.has('equity')}
@@ -368,16 +368,15 @@ export default function PortfolioClient({
           <>
             {stockHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Curr ₹" c3="Inv ₹" c4="Return" />
+                <ColHeaders c1="Stock" c2="Curr" c3="Inv" c4="Return" />
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
                     meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} shares`}
-                    invested={noR(formatINRFine(h.invested))}
-                    current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
-                    gain={noR(formatPnLFine(h.gain))}
+                    invested={h.invested}
+                    current={h.currentValue}
+                    gain={h.gain}
                     xirr={h.xirr !== null ? formatXirr(h.xirr) : formatGainPct(h.gain, h.invested)}
-                    positive={(h.gain ?? 0) > 0}
                   />
                 ))}
               </>
@@ -391,7 +390,7 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          badge={mfInvested > 0 ? `${noR(formatINRFine(mfInvested))} inv` : null}
+          badge={mfInvested > 0 ? `${formatINRFine(mfInvested)} inv` : null}
           gainPct={mfSectionXirr !== null ? mfSectionXirr * 100 : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
           open={openSections.has('mf')}
@@ -401,16 +400,15 @@ export default function PortfolioClient({
           <>
             {mfHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Curr ₹" c3="Inv ₹" c4="Return" />
+                <ColHeaders c1="Fund" c2="Curr" c3="Inv" c4="Return" />
                 {mfHoldings.map(h => (
                   <FundRow key={h.fund.id}
                     name={h.fund.scheme_name}
                     meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
-                    invested={noR(formatINRFine(h.invested))}
-                    current={h.currentValue !== null ? noR(formatINRFine(h.currentValue)) : '—'}
-                    gain={noR(formatPnLFine(h.gain))}
+                    invested={h.invested}
+                    current={h.currentValue}
+                    gain={h.gain}
                     xirr={formatXirr(h.xirr)}
-                    positive={(h.gain ?? 0) > 0}
                     onClick={() => setSelectedMFHolding(h)}
                   />
                 ))}
@@ -435,16 +433,15 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Gold" c2="Curr ₹" c3="Inv ₹" c4="Return" />
+                <ColHeaders c1="Gold" c2="Curr" c3="Inv" c4="Return" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
                     name={goldDisplayName(b)}
                     meta={goldMeta(b)}
-                    invested={noR(formatINRFine(b.invested))}
-                    current={b.currentValue !== null ? noR(formatINRFine(b.currentValue)) : '—'}
-                    gain={noR(formatPnLFine(b.gain))}
+                    invested={b.invested}
+                    current={b.currentValue}
+                    gain={b.gain}
                     xirr={formatXirr(b.xirr)}
-                    positive={(b.gain ?? 0) > 0}
                   />
                 ))}
               </>
@@ -458,7 +455,7 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          badge={ppf.totalDeposited > 0 ? `${noR(formatINRFine(ppf.totalDeposited))} dep` : null}
+          badge={ppf.totalDeposited > 0 ? `${formatINRFine(ppf.totalDeposited)} dep` : null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
           open={openSections.has('ppf')}
@@ -471,7 +468,7 @@ export default function PortfolioClient({
         {/* EPF */}
         <SectionHeader
           id="epf" label="EPF"
-          badge={epf.totalDeposited > 0 ? `${noR(formatINRFine(epf.totalDeposited))} dep` : null}
+          badge={epf.totalDeposited > 0 ? `${formatINRFine(epf.totalDeposited)} dep` : null}
           gainPct={epf.totalDeposited > 0 ? ((epf.computedBalance - epf.totalDeposited) / epf.totalDeposited * 100) : null}
           currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
           open={openSections.has('epf')}
@@ -491,14 +488,14 @@ export default function PortfolioClient({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function SCell({ label, value, positive, negative }: {
-  label: string; value: string; positive?: boolean; negative?: boolean
+  label: string; value: React.ReactNode; positive?: boolean; negative?: boolean
 }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="text-subheadline" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
-        {noR(value)}
+        {value}
       </p>
     </div>
   )
@@ -597,11 +594,11 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
       </div>
       <span className="text-headline font-semibold tabnum text-right"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
-        {currentValue !== null ? noR(formatINRFine(currentValue)) : '—'}
+        {currentValue !== null ? <AmtText value={currentValue} /> : '—'}
       </span>
       {gainPct !== null ? (
         <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
-          {positive ? '+' : ''}{trimPct(gainPct)}%
+          <PctText value={gainPct} showSign />
         </span>
       ) : (
         <span />
@@ -628,10 +625,17 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   )
 }
 
-function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick }: {
-  name: string; meta: string; invested: string; current: string;
-  gain: string; xirr: string; positive: boolean; onClick?: () => void
+function pctStr(str: string): React.ReactNode {
+  const idx = str.lastIndexOf('%')
+  if (idx < 0) return str
+  return <>{str.slice(0, idx)}<span className="text-[0.6em] leading-none">%</span>{str.slice(idx + 1)}</>
+}
+
+function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
+  name: string; meta: string; invested: number; current: number | null
+  gain: number | null; xirr: string; onClick?: () => void
 }) {
+  const positive = (gain ?? 0) > 0
   const content = (
     <div className="grid px-4 py-3"
          style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
@@ -644,12 +648,18 @@ function FundRow({ name, meta, invested, current, gain, xirr, positive, onClick 
         </div>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
-      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{current}</p>
-      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>{invested}</p>
+      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
+        {current !== null ? <AmtText value={current} /> : '—'}
+      </p>
+      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
+        <AmtText value={invested} />
+      </p>
       <div className="text-right">
         <p className="text-body font-semibold tabnum"
-           style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>{gain}</p>
-        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
+           style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
+          {gain !== null ? <>{(gain >= 0) ? '+ ' : '− '}<AmtText value={Math.abs(gain)} /></> : '—'}
+        </p>
+        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{pctStr(xirr)}</p>}
       </div>
     </div>
   )
@@ -694,7 +704,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
         />
         <DetailRow
           label="XIRR p.a."
-          value={formatXirr(holding.xirr)}
+          value={holding.xirr !== null ? <PctText value={holding.xirr * 100} showSign /> : '—'}
           valueColor={getGainColor(holding.xirr)}
         />
         <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
@@ -704,7 +714,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
 }
 
 function DetailRow({ label, value, valueColor, last: _last }: {
-  label: string; value: string; valueColor?: string; last?: boolean
+  label: string; value: React.ReactNode; valueColor?: string; last?: boolean
 }) {
   return (
     <div className="flex items-center justify-between py-3" style={{ minHeight: 52 }}>
@@ -739,7 +749,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
-              {t.trade_type === 'withdrawal' ? '−' : ''}{noR(formatINRFine(t.amount))}
+              {t.trade_type === 'withdrawal' ? '− ' : ''}<AmtText value={t.amount} />
             </p>
           </div>
         )
@@ -770,7 +780,7 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: 'var(--text-primary)' }}>
-              {noR(formatINRFine(t.amount))}
+              <AmtText value={t.amount} />
             </p>
           </div>
         )

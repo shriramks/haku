@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { computeStockRows, computeCarryover } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import type { CarryoverResult } from '@/lib/compute'
-import { formatAmt, formatINR, formatINRFine } from '@/lib/formatter'
+import { formatINR, formatINRFine } from '@/lib/formatter'
+import { HeroAmt, AmtText, PctText } from '@/components/NumDisplay'
 import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
@@ -126,11 +127,11 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             {/* Three stat columns, top-aligned */}
             <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
 
-              {/* Plan ₹ — only column with ₹ in label */}
+              {/* Plan */}
               <div className="flex flex-col gap-0.5">
-                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan ₹</p>
+                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFine(totalBudget).slice(1)}
+                  <HeroAmt value={totalBudget} />
                 </p>
               </div>
 
@@ -140,10 +141,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-center">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFine(Math.max(0, totalRemaining)).slice(1)}
+                  <HeroAmt value={Math.max(0, totalRemaining)} />
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
-                  {pctLeft.toFixed(1)}%
+                  <PctText value={pctLeft} />
                 </p>
               </div>
 
@@ -153,10 +154,10 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               <div className="flex flex-col gap-0.5 items-end">
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
-                  {formatINRFine(totalDeployed).slice(1)}
+                  <HeroAmt value={totalDeployed} />
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
-                  {pctDeployed.toFixed(1)}%
+                  <PctText value={pctDeployed} />
                 </p>
               </div>
 
@@ -186,8 +187,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           <div className="grid px-4 pt-4 pb-1"
                style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
             <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Stock</span>
-            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></span>
-            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>₹</span></span>
+            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</span>
+            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</span>
           </div>
           {/* Flat allocation rows */}
           <div>
@@ -235,9 +236,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           ) : (
             <>
               <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-                {formatINRFine(row.remaining).slice(1)}
+                <AmtText value={row.remaining} />
               </p>
-              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{leftPct}%</p>
+              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><PctText value={leftPct} /></p>
             </>
           )}
         </div>
@@ -246,9 +247,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
             <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
-              {formatINRFine(row.currentCost).slice(1)}
+              <AmtText value={row.currentCost} />
             </p>
-            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>{investedPct}%</p>}
+            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><PctText value={investedPct} /></p>}
           </div>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
@@ -290,7 +291,7 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
       <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
         <span className={`tabnum text-body font-semibold ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-          {total >= 0 ? '+' : '−'}{formatINR(Math.abs(total))}
+          {total >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(total)} />
         </span>
       </div>
       {/* Orphaned stocks */}
@@ -303,14 +304,14 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
             <div key={o.symbol} className="flex justify-between items-center py-3">
               <span className="text-body" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
               <span className={`tabnum text-body ${o.remaining >= 0 ? 'text-positive' : 'text-negative'}`}>
-                {o.remaining >= 0 ? '+' : '−'}{formatAmt(Math.abs(o.remaining))} → pool
+                {o.remaining >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(o.remaining)} /> → pool
               </span>
             </div>
           ))}
           <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
             <span className="text-subheadline font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
             <span className={`tabnum text-subheadline font-medium ${poolTotal >= 0 ? 'text-positive' : 'text-negative'}`}>
-              {poolTotal >= 0 ? '+' : '−'}{formatAmt(Math.abs(poolTotal))}
+              {poolTotal >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(poolTotal)} />
             </span>
           </div>
         </div>
@@ -328,11 +329,11 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
                 <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
                 <div className="text-right">
                   <span className={`tabnum text-body ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-                    {total >= 0 ? '+' : '−'}{formatAmt(Math.abs(total))}
+                    {total >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(total)} />
                   </span>
                   {d !== 0 && p !== 0 && (
                     <p className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-                      {d >= 0 ? '+' : '−'}{formatAmt(Math.abs(d))} direct · {p >= 0 ? '+' : '−'}{formatAmt(Math.abs(p))} pool
+                      {d >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(d)} /> direct · {p >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(p)} /> pool
                     </p>
                   )}
                 </div>
