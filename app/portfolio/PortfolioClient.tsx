@@ -94,7 +94,7 @@ function computeMFHoldings(
       currentNav, currentValue, gain,
       xirr: currentValue !== null ? mfXirr(txns, currentValue) : null,
     }]
-  })
+  }).sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
 }
 
 function computeSGBBatches(transactions: SGBTransaction[], goldPrice: number | null): SGBBatch[] {

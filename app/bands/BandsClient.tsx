@@ -201,8 +201,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     setSavingRiskFree(false)
   }
 
-  const activeRows    = useMemo(() => rows.filter(r => r.remaining > 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
-  const completedRows = useMemo(() => rows.filter(r => r.remaining <= 0).sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
+  const sortedRows = useMemo(() => [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)), [rows])
 
   const fyParam = selectedFY ? `?fy=${encodeURIComponent(selectedFY.label)}` : ''
 
@@ -265,7 +264,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
 
       {/* Stock rows */}
       <div>
-        {[...activeRows, ...completedRows].map((row) => {
+        {sortedRows.map((row) => {
           const band      = bands.find(b => b.symbol === row.symbol)
           const isDone    = row.remaining <= 0
           const buyLow    = band?.buy_low    ?? null

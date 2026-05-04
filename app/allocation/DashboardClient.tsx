@@ -71,18 +71,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
   }
 
   const sortedRows = useMemo(() =>
-    [...rows].sort((a, b) => {
-      const aFull = a.remaining <= 0
-      const bFull = b.remaining <= 0
-      if (aFull !== bFull) return aFull ? 1 : -1
-      return b.pctRemaining - a.pctRemaining || a.symbol.localeCompare(b.symbol)
-    }),
+    [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol)),
     [rows]
   )
-  const { activeRows, completedRows } = useMemo(() => ({
-    activeRows:    sortedRows.filter(r => r.remaining > 0),
-    completedRows: sortedRows.filter(r => r.remaining <= 0),
-  }), [sortedRows])
 
   const { totalBudget, totalDeployed, totalRemaining, pctDeployed } = useMemo(() => {
     const totalBudget   = rows.reduce((s, r) => s + r.budget, 0)
@@ -191,8 +182,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Flat allocation rows */}
           <div>
-            {activeRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} />)}
-            {completedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim />)}
+            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim={row.remaining <= 0} />)}
           </div>
 
           {/* Carryover breakdown — only when there's a previous FY with data */}
@@ -225,7 +215,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
       <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
-          <p className="text-headline font-medium" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
+          <p className="text-headline font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
         </div>
 
         {/* Col 2 — Left (prominent, green) */}
