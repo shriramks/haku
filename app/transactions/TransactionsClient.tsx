@@ -742,7 +742,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className={`font-bold tabnum text-headline ${isBuy ? 'text-positive' : 'text-negative'}`}>
-          {isBuy ? '+ ' : '− '}{formatINRFine(txn.amount)}
+          {formatINRFine(txn.amount)}
         </p>
         <button onClick={openEdit}
           className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"

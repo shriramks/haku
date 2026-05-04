@@ -291,7 +291,7 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
       <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
         <span className={`tabnum text-body font-semibold ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-          {total >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(total)} />
+          <AmtText value={Math.abs(total)} />
         </span>
       </div>
       {/* Orphaned stocks */}
@@ -304,14 +304,14 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
             <div key={o.symbol} className="flex justify-between items-center py-3">
               <span className="text-body" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
               <span className={`tabnum text-body ${o.remaining >= 0 ? 'text-positive' : 'text-negative'}`}>
-                {o.remaining >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(o.remaining)} /> → pool
+                <AmtText value={Math.abs(o.remaining)} /> → pool
               </span>
             </div>
           ))}
           <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
             <span className="text-subheadline font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
             <span className={`tabnum text-subheadline font-medium ${poolTotal >= 0 ? 'text-positive' : 'text-negative'}`}>
-              {poolTotal >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(poolTotal)} />
+              <AmtText value={Math.abs(poolTotal)} />
             </span>
           </div>
         </div>
@@ -329,11 +329,11 @@ function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; pr
                 <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
                 <div className="text-right">
                   <span className={`tabnum text-body ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-                    {total >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(total)} />
+                    <AmtText value={Math.abs(total)} />
                   </span>
                   {d !== 0 && p !== 0 && (
                     <p className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-                      {d >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(d)} /> direct · {p >= 0 ? '+ ' : '− '}<AmtText value={Math.abs(p)} /> pool
+                      <AmtText value={Math.abs(d)} /> direct · <AmtText value={Math.abs(p)} /> pool
                     </p>
                   )}
                 </div>

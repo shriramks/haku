@@ -23,8 +23,7 @@ export function formatINR(amount: number): string {
 }
 
 export function formatPnL(amount: number): string {
-  const sign = amount >= 0 ? `+${THIN}` : `−${THIN}`
-  return sign + formatINR(Math.abs(amount))
+  return formatINR(Math.abs(amount))
 }
 
 export function formatPct(pct: number, decimals = 1): string {
@@ -103,25 +102,22 @@ export function formatXirr(v: number | null): string {
   return `${trimZero(v * 100)}%`
 }
 
-/** Gain formatted with sign using formatINRFine, or "—" for null */
+/** Gain formatted using formatINRFine (absolute), or "—" for null */
 export function formatPnLFine(gain: number | null): string {
   if (gain === null) return '—'
-  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
-  return sign + formatINRFine(Math.abs(gain))
+  return formatINRFine(Math.abs(gain))
 }
 
-/** Gain formatted with sign using formatINRFull, or "—" for null */
+/** Gain formatted using formatINRFull (absolute), or "—" for null */
 export function formatPnLFull(gain: number | null): string {
   if (gain === null) return '—'
-  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
-  return sign + formatINRFull(Math.abs(gain))
+  return formatINRFull(Math.abs(gain))
 }
 
-/** Gain as a percentage of invested, with sign. Empty string when gain is null or invested is 0 */
+/** Gain as a percentage of invested (absolute). Empty string when gain is null or invested is 0 */
 export function formatGainPct(gain: number | null, invested: number): string {
   if (gain === null || invested <= 0) return ''
-  const sign = gain >= 0 ? `+${THIN}` : `−${THIN}`
-  return `${sign}${trimPct(Math.abs((gain / invested) * 100))}%`
+  return `${trimPct(Math.abs((gain / invested) * 100))}%`
 }
 
 /** Percentage with trailing ".0" stripped: 12.0 → "12", 12.5 → "12.5" */

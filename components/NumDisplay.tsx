@@ -13,39 +13,31 @@ function compact(abs: number): [string, string] {
   return [String(Math.round(abs)), '']
 }
 
-function signPrefix(value: number, showSign?: boolean): string {
-  if (showSign) return value >= 0 ? '+ ' : '− '
-  return value < 0 ? '− ' : ''
-}
-
-/** Hero/non-hero amount: number + small unit. Use showSign for gain/loss contexts. */
-export function HeroAmt({ value, showSign }: { value: number; showSign?: boolean }) {
-  const abs = Math.abs(value)
-  const [num, unit] = compact(abs)
+/** Hero/non-hero amount: absolute value + small unit. Color at call site carries direction. */
+export function HeroAmt({ value }: { value: number }) {
+  const [num, unit] = compact(Math.abs(value))
   return (
     <>
-      {signPrefix(value, showSign)}{num}{unit && <span className={SMALL}>{unit}</span>}
+      {num}{unit && <span className={SMALL}>{unit}</span>}
     </>
   )
 }
 
-/** Non-hero amount: number + small unit. */
+/** Non-hero amount: absolute value + small unit. */
 export function AmtText({ value }: { value: number }) {
-  const abs = Math.abs(value)
-  const [num, unit] = compact(abs)
+  const [num, unit] = compact(Math.abs(value))
   return (
     <>
-      {signPrefix(value)}{num}{unit && <span className={SMALL}>{unit}</span>}
+      {num}{unit && <span className={SMALL}>{unit}</span>}
     </>
   )
 }
 
-/** Percentage with small % symbol. Use showSign for gain/XIRR contexts. */
-export function PctText({ value, showSign }: { value: number; showSign?: boolean }) {
-  const abs = Math.abs(value)
+/** Percentage with small % symbol. Color at call site carries direction. */
+export function PctText({ value }: { value: number }) {
   return (
     <>
-      {signPrefix(value, showSign)}{trimPct(abs)}<span className={SMALL}>%</span>
+      {trimPct(Math.abs(value))}<span className={SMALL}>%</span>
     </>
   )
 }

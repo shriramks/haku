@@ -331,7 +331,7 @@ function PlanTab({
                    style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
                 <span className="text-body" style={{ color: 'var(--text-2)' }}>Carryover</span>
                 <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                  + <HeroAmt value={unallocCarryover} />
+                  <HeroAmt value={unallocCarryover} />
                 </span>
               </div>
             )}
@@ -1164,14 +1164,14 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                   <div key={sym} className="flex justify-between text-subheadline tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
                     <span className={amt >= 0 ? 'text-positive' : 'text-negative'}>
-                      {amt >= 0 ? '+ ' : '− '}{formatINR(Math.abs(amt))}
+                      {formatINR(Math.abs(amt))}
                     </span>
                   </div>
                 ))}
               <div className={`flex justify-between text-subheadline font-semibold tabnum pt-1 border-t ${totalCarryover >= 0 ? 'text-positive' : 'text-negative'}`}
                    style={{ borderColor: 'rgba(48,209,88,0.2)' }}>
                 <span>Net</span>
-                <span>{totalCarryover >= 0 ? '+ ' : '− '}{formatINR(Math.abs(totalCarryover))}</span>
+                <span>{formatINR(Math.abs(totalCarryover))}</span>
               </div>
             </div>
           )}

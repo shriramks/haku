@@ -343,11 +343,11 @@ export default function PortfolioClient({
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value" value={<HeroAmt value={totalCurrent} />} />
-          <SCell label="Gain" value={<HeroAmt value={totalGain} showSign />} positive={totalGain > 0} negative={totalGain < 0} />
+          <SCell label="Gain" value={<HeroAmt value={totalGain} />} positive={totalGain > 0} negative={totalGain < 0} />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
           <SCell label="Invested" value={<HeroAmt value={totalInvested} />} />
-          <SCell label="XIRR p.a." value={overallXirr !== null ? <PctText value={overallXirr * 100} showSign /> : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
+          <SCell label="XIRR p.a." value={overallXirr !== null ? <PctText value={overallXirr * 100} /> : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -598,7 +598,7 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
       </span>
       {gainPct !== null ? (
         <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
-          <PctText value={gainPct} showSign />
+          <PctText value={gainPct} />
         </span>
       ) : (
         <span />
@@ -657,7 +657,7 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
       <div className="text-right">
         <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
-          {gain !== null ? <>{(gain >= 0) ? '+ ' : '− '}<AmtText value={Math.abs(gain)} /></> : '—'}
+          {gain !== null ? <AmtText value={Math.abs(gain)} /> : '—'}
         </p>
         {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{pctStr(xirr)}</p>}
       </div>
@@ -704,7 +704,7 @@ function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () =
         />
         <DetailRow
           label="XIRR p.a."
-          value={holding.xirr !== null ? <PctText value={holding.xirr * 100} showSign /> : '—'}
+          value={holding.xirr !== null ? <PctText value={holding.xirr * 100} /> : '—'}
           valueColor={getGainColor(holding.xirr)}
         />
         <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
@@ -749,7 +749,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
-              {t.trade_type === 'withdrawal' ? '− ' : ''}<AmtText value={t.amount} />
+              <AmtText value={t.amount} />
             </p>
           </div>
         )
