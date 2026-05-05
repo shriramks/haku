@@ -1,5 +1,11 @@
 # Haku — Agent Instructions
 
+## Debugging principle
+
+**Fix the model, not the symptom.** When something displays wrong, the instinct is to patch the output formula until the number looks right. Resist this. First ask: what is the underlying model supposed to guarantee? Is the model internally consistent?
+
+A correct fix restores a property or invariant. A symptom fix moves the inconsistency elsewhere. Before changing any formula, write down the invariant it must satisfy, verify that invariant holds after the change, and check every other value that shares the same base — if you change one, audit all.
+
 ## Working approach
 
 - **Start from agent.md + memory before reading files.** Use Grep/Glob for targeted lookups. Only open files when something is genuinely missing. Avoid full-codebase Explore agents unless the question clearly needs it.

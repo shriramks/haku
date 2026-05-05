@@ -64,7 +64,7 @@ function extractJSON(text: string): Record<string, unknown> {
 function stockPrompt(symbol: string): string {
   return `Open https://www.screener.in/company/${symbol}/consolidated/ — consolidated financials for NSE:${symbol}.
 
-From the Profit & Loss table, read the RIGHTMOST non-empty column (most recent — prefer TTM if shown, else latest annual FY):
+From the ANNUAL Profit & Loss table (columns are full fiscal years: Mar 2023, Mar 2024, Mar 2025, etc. — NOT the Quarterly Results table which has columns like Jun 2024, Sep 2024), read the RIGHTMOST non-empty column (most recent annual FY or TTM if shown):
 - "EPS in Rs" row → EPS per share in ₹ (rupees per share, NOT crores). Typical range: ₹5–₹300 for large/mid-caps.
 - "Net Profit" row → PAT now in Cr (current period, same rightmost column)
 - "Net Profit" from 3 years prior (the column 3 years before the rightmost) → PAT 3yr ago in Cr
@@ -74,6 +74,7 @@ From the page header:
 - Market Capitalisation in Cr
 
 Self-validation (do not include in output):
+- You MUST use the annual P&L table, not the Quarterly Results table. If PAT looks like a single quarter (e.g. 125 Cr when annual would be ~470 Cr), you are reading the wrong table.
 - EPS below ₹2 for a large/mid-cap almost always means a scale error — recheck.
 - PAT should be in Crores (e.g. 1,000–50,000 for mid/large-caps), not rupees.
 
