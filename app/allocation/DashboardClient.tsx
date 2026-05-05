@@ -206,7 +206,7 @@ import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
   const isDone      = row.remaining <= 0
-  const leftPct     = row.budget > 0 ? Math.max(0, Math.round(((row.budget - row.currentCost) / row.budget) * 100)) : 0
+  const leftPct     = Math.max(0, Math.round(row.pctRemaining))
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
