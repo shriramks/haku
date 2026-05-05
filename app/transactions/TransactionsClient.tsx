@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
+import { formatINRFine, formatDate, shortMonthYear, formatPriceNum } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -91,7 +91,8 @@ export default function TransactionsClient({
     .filter(t => !filterSymbol || t.symbol === filterSymbol)
     .filter(t => typeFilter === 'all' || t.trade_type === typeFilter)
     .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
-    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
+    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to))
+    .map(t => ({ ...t, signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount })),
     [txns, filterSymbol, typeFilter, symbolFilter, dateFilter]
   )
 
@@ -293,7 +294,7 @@ export default function TransactionsClient({
             <section key={month}>
               <div className="flex items-end justify-between gap-3 px-4 pt-4 pb-3">
                 <p className="font-extrabold tracking-tight" style={{ fontSize: 26, letterSpacing: -0.8 }}>{month}</p>
-                <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
+                <div className="flex-shrink-0 pb-0.5 mr-[52px]" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
                   {buyTotal > 0 && (
                     <>
                       <span className="tabnum text-footnote font-semibold text-right text-positive"><Num amount={buyTotal} /></span>
@@ -539,7 +540,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
 function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
-  txn: Transaction
+  txn: Transaction & { signedAmount: number }
   fiscalYears: FiscalYear[]
   onDelete: (id: string) => void
   onSaved: (updated: Transaction) => void
@@ -590,8 +591,9 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     onDelete(txn.id)
   }
 
-  const editAmount  = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
-  const saveDisabled = saving || !editQty || !editPrice || !editDate || (advanceOn && !advanceFyId)
+  const editAmount       = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
+  const signedEditAmount = isBuy ? editAmount : -editAmount
+  const saveDisabled     = saving || !editQty || !editPrice || !editDate || (advanceOn && !advanceFyId)
 
   // ── Edit mode ──
   if (editing) {
@@ -607,7 +609,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
             </span>
           </div>
           <span className="font-bold tabnum text-body" style={{ color: 'var(--text-2)' }}>
-            <Num amount={editAmount > 0 ? editAmount : txn.amount} />
+            <Num amount={signedEditAmount || txn.signedAmount} signed />
           </span>
         </div>
 
@@ -734,7 +736,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
         </div>
         <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
           {txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
-          {' · '}{txn.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+          {' · '}{formatPriceNum(txn.price)}
         </p>
         {txn.notes && (
           <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>{txn.notes}</p>
@@ -743,7 +745,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className={`font-bold tabnum text-headline ${isBuy ? 'text-positive' : 'text-negative'}`}>
-          <Num amount={txn.amount} />
+          <Num amount={txn.signedAmount} signed />
         </p>
         <button onClick={openEdit}
           className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"
@@ -761,8 +763,8 @@ function getFYLabel(fyId: string, fiscalYears: FiscalYear[]): string {
   return fiscalYears.find(f => f.id === fyId)?.label ?? '?'
 }
 
-function groupByMonth(txns: Transaction[]) {
-  const map = new Map<string, Transaction[]>()
+function groupByMonth<T extends Transaction>(txns: T[]) {
+  const map = new Map<string, T[]>()
   for (const t of txns) {
     const key = new Date(t.trade_date + 'T00:00:00')
       .toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
