@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINRFine, formatDate, shortMonthYear } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
@@ -295,13 +296,13 @@ export default function TransactionsClient({
                 <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
                   {buyTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-positive">{formatINRFine(buyTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-positive"><Num amount={buyTotal} /></span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>bought</span>
                     </>
                   )}
                   {sellTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-negative">{formatINRFine(sellTotal)}</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-negative"><Num amount={sellTotal} /></span>
                       <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>sold</span>
                     </>
                   )}
@@ -606,7 +607,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
             </span>
           </div>
           <span className="font-bold tabnum text-body" style={{ color: 'var(--text-2)' }}>
-            {editAmount > 0 ? formatINRFine(editAmount) : formatINRFine(txn.amount)}
+            <Num amount={editAmount > 0 ? editAmount : txn.amount} />
           </span>
         </div>
 
@@ -742,7 +743,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
       <div className="flex items-center gap-2 flex-shrink-0">
         <p className={`font-bold tabnum text-headline ${isBuy ? 'text-positive' : 'text-negative'}`}>
-          {formatINRFine(txn.amount)}
+          <Num amount={txn.amount} />
         </p>
         <button onClick={openEdit}
           className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"

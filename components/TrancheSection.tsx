@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { formatINRFine, formatPrice } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
@@ -150,7 +151,7 @@ function TrancheRow({ tranche, cmp, onEdit }: {
       </div>
       {/* Amount */}
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
-        {formatINRFine(amount)}
+        <Num amount={amount} />
       </p>
       {/* Edit — 44pt tap target */}
       <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"

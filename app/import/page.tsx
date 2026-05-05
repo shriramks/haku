@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINRFine } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 import { parseCsv, type ParsedRow } from '@/lib/csv-parser'
 import BottomNav from '@/components/BottomNav'
 
@@ -244,7 +245,7 @@ export default function ImportPage() {
                         </td>
                         <td className="px-3 py-2 tabnum" style={{ color: 'var(--text-2)' }}>{r.quantity}</td>
                         <td className="px-3 py-2 tabnum" style={{ color: 'var(--text-2)' }}>{r.price}</td>
-                        <td className="px-3 py-2 tabnum">{formatINRFine(r.amount)}</td>
+                        <td className="px-3 py-2 tabnum"><Num amount={r.amount} /></td>
                       </tr>
                     ))}
                     {validRows.length > 20 && (

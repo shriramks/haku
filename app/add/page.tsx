@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import BottomNav from '@/components/BottomNav'
 import { todayISO, formatINRFine } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 
 export default function AddPage() {
   const router = useRouter()
@@ -165,7 +166,7 @@ export default function AddPage() {
                  style={{ background: 'var(--bg-tertiary)' }}>
               <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
               <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
-                {formatINRFine(amount)}
+                <Num amount={amount} />
               </span>
             </div>
           )}
