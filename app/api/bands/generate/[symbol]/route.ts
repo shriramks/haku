@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeGrowth, computeTranchePrices, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
+import { calculateBands, computeGrowth, computeHospitalGrowth, computeTranchePrices, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
 import { fetchCmp } from '@/lib/market-data'
 import { fetchScreenerData } from '@/lib/screener'
 import { fetchNseIndex } from '@/lib/nse'
@@ -135,7 +135,11 @@ export async function POST(
       mode: action,
       financials: isIndex
         ? { eps, indexLevel, indexPE, asOf }
-        : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, g: computeGrowth(patNow, pat3yrAgo), ke, asOf },
+        : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap,
+            g: category === 'Hospitals'
+              ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg).g
+              : computeGrowth(patNow, pat3yrAgo),
+            ke, asOf },
       band: savedBand,
     })
   }
@@ -149,7 +153,9 @@ export async function POST(
   const mcap = existingBand?.mcap ?? null
   const indexLevel = existingBand?.index_level ?? null
   const indexPE = existingBand?.index_pe ?? null
-  const g = computeGrowth(patNow, pat3yrAgo)
+  const { g, growthSource } = category === 'Hospitals'
+    ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg)
+    : { g: computeGrowth(patNow, pat3yrAgo), growthSource: 'calculated_3y_pat_cagr' as const }
 
   if (!eps || (!isIndex && (patNow == null || pat3yrAgo == null || roce3yrAvg == null || mcap == null))) {
     return NextResponse.json({
@@ -267,7 +273,7 @@ export async function POST(
     mode: action,
     financials: isIndex
       ? { eps, indexLevel, indexPE, asOf: existingBand?.notes ?? '' }
-      : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, g, ke, asOf: existingBand?.notes ?? '' },
+      : { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, g, growthSource, ke, asOf: existingBand?.notes ?? '' },
     band: newBand,
     result,
     tranches: generatedTranches,

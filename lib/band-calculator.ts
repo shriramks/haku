@@ -68,6 +68,19 @@ export function computeGrowth(patNow: number | null, pat3yrAgo: number | null): 
     : null
 }
 
+// Hospitals only: if PAT CAGR < 10% but ROCE >= 16%, assume expansion phase and floor g at 15%.
+export function computeHospitalGrowth(
+  patNow: number | null,
+  pat3yrAgo: number | null,
+  roce3yrAvg: number | null,
+): { g: number | null; growthSource: 'hospital_expansion_phase_floor' | 'calculated_3y_pat_cagr' } {
+  const g = computeGrowth(patNow, pat3yrAgo)
+  if (g !== null && g < 0.10 && roce3yrAvg !== null && roce3yrAvg >= 16) {
+    return { g: 0.15, growthSource: 'hospital_expansion_phase_floor' }
+  }
+  return { g, growthSource: 'calculated_3y_pat_cagr' }
+}
+
 export function deriveIndexEps(indexLevel: number | null, indexPE: number | null): number | null {
   return (indexLevel != null && indexPE != null && indexPE > 0)
     ? indexLevel / indexPE / 100

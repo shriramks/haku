@@ -130,7 +130,19 @@ CATEGORY BANDS
 ---
 3. HOSPITALS
    Buy 38-45x | Mid 46-55x | Trim >= 56x
-   Rationale: D&A and interest are permanent sector features. PE calibrated for this.
+
+   g override (hospitals only, apply before FACTOR COMPUTATION Step 1):
+     g = (PAT_now / PAT_3yr_ago)^(1/3) - 1
+
+     if g < 0.10 AND ROCE_3yr_avg >= 16%:
+         g = 0.15
+         growth_source = "hospital_expansion_phase_floor"
+     else:
+         growth_source = "calculated_3y_pat_cagr"
+
+   If stock_PE > 80x:
+       output "PE unreliable EV/EBITDA override needed"
+       stop.
 
    buyLow  = 38 x factor x EPS
    buyHigh = 45 x factor x EPS
