@@ -68,4 +68,5 @@ DB queries: always select specific columns and add WHERE filters server-side —
 
 ## AI integration
 
+- Gemini is used **only** for the investability scorecard (`/api/investability/generate`). Financial data (EPS, PAT, ROCE, Mcap) comes from Screener.in via `lib/screener.ts`; index level and PE come from the NSE API via `lib/nse.ts`.
 - AI features are user-key-gated — always read the key from `user_settings` (decrypted), never from environment variables. If no key, return an error directing the user to Settings.
