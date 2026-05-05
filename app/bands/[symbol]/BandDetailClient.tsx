@@ -136,7 +136,6 @@ export default function BandDetailClient({
   }
 
   async function runBandAction(action: 'bands' | 'financials') {
-    if (action === 'financials' && !hasKey) { setShowKeyPrompt(true); return }
     if (action === 'bands') setGenerating(true)
     if (action === 'financials') setRefreshingFinancials(true)
     setGenError('')
@@ -1297,7 +1296,7 @@ function KeyPromptSheet({ onClose, onSaved }: {
       />
       <div className="px-5 pt-4 space-y-4">
         <p className="text-subheadline text-center text-positive">
-          ★ Gemini is used for live financial data and band generation
+          ★ Gemini is used for investability scoring
         </p>
         <input
           type="password" placeholder="AIzaSy…" value={key}

@@ -65,3 +65,7 @@ New token: add CSS var to `app/globals.css`, then reference in `tailwind.config.
 DB write → `revalidateTag(tag)` via server action — otherwise `unstable_cache` serves stale data.
 
 DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and process client-side.
+
+## AI integration
+
+- AI features are user-key-gated — always read the key from `user_settings` (decrypted), never from environment variables. If no key, return an error directing the user to Settings.

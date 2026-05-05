@@ -3,99 +3,9 @@ import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { calculateBands, computeGrowth, computeTranchePrices, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
 import { fetchCmp } from '@/lib/market-data'
-import { decrypt } from '@/lib/encrypt'
+import { fetchScreenerData } from '@/lib/screener'
+import { fetchNseIndex } from '@/lib/nse'
 import type { StockCategory } from '@/lib/types'
-
-// ── AI provider helpers ───────────────────────────────────────────────────────
-
-// Model preference order — tried in sequence until one succeeds
-const GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-]
-
-async function callGemini(prompt: string, key: string): Promise<string> {
-  let lastErr: Error = new Error('No Gemini models available')
-
-  for (const model of GEMINI_MODELS) {
-    let res: Response
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify({
-            tools: [{ google_search: {} }],
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          }),
-          signal: AbortSignal.timeout(45_000),
-        }
-      )
-    } catch (e) {
-      lastErr = e instanceof Error ? e : new Error(String(e))
-      continue  // network/timeout — try next model
-    }
-
-    if (res.status === 503 || res.status === 429 || res.status === 404) {
-      lastErr = new Error(`Gemini ${res.status}: ${await res.text()}`)
-      continue  // capacity/rate-limit/unavailable — try next model
-    }
-
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`)
-
-    const data = await res.json()
-    const parts: Array<{ text?: string; thought?: boolean }> = data.candidates?.[0]?.content?.parts ?? []
-    // Skip thought parts from reasoning models; fall back to first part if all filtered
-    const textParts = parts.filter(p => p.text && !p.thought)
-    return (textParts.map(p => p.text).join('') || parts[0]?.text) ?? ''
-  }
-
-  throw new Error(`Gemini fetch failed: ${lastErr.message}`)
-}
-
-function extractJSON(text: string): Record<string, unknown> {
-  const start = text.indexOf('{')
-  const end   = text.lastIndexOf('}')
-  if (start === -1 || end === -1) throw new Error('No JSON block found in response')
-  return JSON.parse(text.slice(start, end + 1))
-}
-
-function stockPrompt(symbol: string): string {
-  return `Open https://www.screener.in/company/${symbol}/consolidated/ — consolidated financials for NSE:${symbol}.
-
-From the ANNUAL Profit & Loss table (columns are full fiscal years: Mar 2023, Mar 2024, Mar 2025, etc. — NOT the Quarterly Results table which has columns like Jun 2024, Sep 2024), read the RIGHTMOST non-empty column (most recent annual FY or TTM if shown):
-- "EPS in Rs" row → EPS per share in ₹ (rupees per share, NOT crores). Typical range: ₹5–₹300 for large/mid-caps.
-- "Net Profit" row → PAT now in Cr (current period, same rightmost column)
-- "Net Profit" from 3 years prior (the column 3 years before the rightmost) → PAT 3yr ago in Cr
-From the Ratios section:
-- 3-year average ROCE % (or ROE % for financial/insurance companies)
-From the page header:
-- Market Capitalisation in Cr
-
-Self-validation (do not include in output):
-- You MUST use the annual P&L table, not the Quarterly Results table. If PAT looks like a single quarter (e.g. 125 Cr when annual would be ~470 Cr), you are reading the wrong table.
-- EPS below ₹2 for a large/mid-cap almost always means a scale error — recheck.
-- PAT should be in Crores (e.g. 1,000–50,000 for mid/large-caps), not rupees.
-
-Return ONLY this JSON, no markdown, no explanation:
-{"eps":0,"patNow":0,"pat3yrAgo":0,"roce3yrAvg":0,"mcap":0,"asOf":""}
-
-asOf = the period label used, e.g. "TTM Mar25" or "FY25"`
-}
-
-function indexPrompt(symbol: string): string {
-  return `Look up NSE:${symbol} and identify which index it tracks. Then find:
-1. Current index level (e.g. Nifty 50 at 22,500)
-2. Current trailing PE ratio of that index (last 12 months, NOT forward PE). If commodity ETF (gold, silver, etc.), set indexPE to 0.
-
-Sanity check: Trailing PE for Indian equity indices is normally 15–40.
-
-Return ONLY this JSON, no markdown, no explanation:
-{"indexLevel":0,"indexPE":0,"asOf":""}
-
-asOf = brief description, e.g. "Nifty Next 50 @ 28.4x PE, level 70,500 | Mar 2025"`
-}
 
 type GenerateAction = 'bands' | 'financials'
 
@@ -118,7 +28,7 @@ export async function POST(
   const [{ data: userSettings }, { data: alloc }, { data: existingBand }] = await Promise.all([
     supabase
       .from('user_settings')
-      .select('gemini_api_key, risk_free')
+      .select('risk_free')
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase
@@ -149,43 +59,8 @@ export async function POST(
   const existingCmp = existingBand?.manual_cmp ?? null
 
   if (action === 'financials') {
-    const rawKey = userSettings?.gemini_api_key
-    const activeKey = rawKey ? await decrypt(rawKey) : null
-
-    if (!activeKey) {
-      return NextResponse.json({
-        error: 'No Gemini API key configured. Add your key in Settings (profile icon).',
-      }, { status: 500 })
-    }
-
-    let aiText: string
-    const prompt = isIndex ? indexPrompt(upperSymbol) : stockPrompt(upperSymbol)
-    const callAI = () => callGemini(prompt, activeKey)
-
-    try {
-      aiText = await callAI()
-    } catch {
-      try {
-        aiText = await callAI()
-      } catch (e2: unknown) {
-        return NextResponse.json({
-          error: `Gemini fetch failed: ${e2 instanceof Error ? e2.message : String(e2)}`,
-        }, { status: 502 })
-      }
-    }
-
-    let parsed: Record<string, unknown>
-    try {
-      parsed = extractJSON(aiText)
-    } catch {
-      return NextResponse.json({
-        error: 'Could not parse JSON from Gemini response',
-        raw: aiText.slice(0, 600),
-      }, { status: 502 })
-    }
-
     let eps: number | null = null
-    let asOf = String(parsed.asOf ?? '')
+    let asOf = ''
     let indexLevel: number | null = null
     let indexPE: number | null = null
     let patNow: number | null = null
@@ -193,48 +68,32 @@ export async function POST(
     let roce3yrAvg: number | null = null
     let mcap: number | null = null
 
-    if (isIndex) {
-      indexLevel = Number(parsed.indexLevel) || null
-      indexPE    = Number(parsed.indexPE) || null
-
-      if (!indexLevel) {
-        return NextResponse.json({ error: 'Could not extract index level', raw: aiText.slice(0, 600) }, { status: 422 })
+    try {
+      if (isIndex) {
+        const indexName = category === 'Nifty 50 Index' ? 'NIFTY 50' : 'NIFTY NEXT 50'
+        const data = await fetchNseIndex(indexName)
+        indexLevel = data.level
+        indexPE    = data.pe
+        asOf       = data.asOf
+        eps        = deriveIndexEps(indexLevel, indexPE)
+      } else {
+        const data = await fetchScreenerData(upperSymbol)
+        eps        = data.eps
+        patNow     = data.patNow
+        pat3yrAgo  = data.pat3yrAgo
+        roce3yrAvg = data.roce3yrAvg
+        mcap       = data.mcap
+        asOf       = data.asOf
       }
-      if (!indexPE) {
-        return NextResponse.json({
-          error: `${upperSymbol} appears to be a non-equity ETF (commodity/debt) — PE-based bands don't apply. Set price targets manually.`,
-          raw: aiText.slice(0, 600),
-        }, { status: 422 })
-      }
-      eps = deriveIndexEps(indexLevel, indexPE)
-    } else {
-      eps        = Number(parsed.eps) || null
-      patNow     = Number(parsed.patNow) || null
-      pat3yrAgo  = Number(parsed.pat3yrAgo) || null
-      roce3yrAvg = Number(parsed.roce3yrAvg) || null
-      mcap       = Number(parsed.mcap) || null
-
-      if (!eps) {
-        try {
-          const retryText = await callAI()
-          const retryParsed = extractJSON(retryText)
-          eps        = Number(retryParsed.eps) || eps
-          patNow     = Number(retryParsed.patNow) || patNow
-          pat3yrAgo  = Number(retryParsed.pat3yrAgo) || pat3yrAgo
-          roce3yrAvg = Number(retryParsed.roce3yrAvg) || roce3yrAvg
-          mcap       = Number(retryParsed.mcap) || mcap
-          if (retryParsed.asOf) asOf = String(retryParsed.asOf)
-          aiText = retryText
-        } catch {
-          // ignore retry failure
-        }
-      }
+    } catch (e: unknown) {
+      return NextResponse.json({
+        error: `Failed to fetch financials: ${e instanceof Error ? e.message : String(e)}`,
+      }, { status: 502 })
     }
 
     if (!eps) {
       return NextResponse.json({
         error: `Not enough data to save financials for ${upperSymbol}. Got: EPS=${eps}`,
-        raw: aiText.slice(0, 600),
       }, { status: 422 })
     }
 
