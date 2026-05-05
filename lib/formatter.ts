@@ -1,4 +1,4 @@
-// Indian currency compact formatting: "1.32 L", "2.4 Cr", "8.4 K" (thin space before unit)
+// Indian currency compact formatting: "1.32 L", "2.4 cr", "8.4 K" (thin space before unit)
 
 const CR  = 1_00_00_000
 const LAC = 1_00_000
@@ -11,10 +11,26 @@ const THIN = ' '
 export function formatINRFine(amount: number): string {
   const abs  = Math.abs(amount)
   const sign = amount < 0 ? '-' : ''
-  if (abs >= CR)  return `${sign}${parseFloat((abs / CR).toFixed(2))}${THIN}Cr`
+  if (abs >= CR)  return `${sign}${parseFloat((abs / CR).toFixed(2))}${THIN}cr`
   if (abs >= LAC) return `${sign}${parseFloat((abs / LAC).toFixed(2))}${THIN}L`
   if (abs >= K)   return `${sign}${parseFloat((abs / K).toFixed(2))}${THIN}K`
   return `${sign}${Math.round(abs)}`
+}
+
+/** Splits a compact INR amount into digits + unit for the Num component.
+ * Always uses absolute value — sign handling is the caller's responsibility. */
+export function splitINR(amount: number): { digits: string; unit: string } {
+  const abs = Math.abs(amount)
+  if (abs >= CR)  return { digits: String(parseFloat((abs / CR).toFixed(2))),  unit: 'cr' }
+  if (abs >= LAC) return { digits: String(parseFloat((abs / LAC).toFixed(2))), unit: 'L'  }
+  if (abs >= K)   return { digits: String(parseFloat((abs / K).toFixed(2))),   unit: 'K'  }
+  return { digits: String(Math.round(abs)), unit: '' }
+}
+
+/** Splits a percentage into digits + "%" unit for the Num component.
+ * Always uses absolute value — sign handling is the caller's responsibility. */
+export function splitPct(v: number): { digits: string; unit: string } {
+  return { digits: trimPct(Math.abs(v)), unit: '%' }
 }
 
 /** Price with up to 2 decimal places — for avg cost display.

@@ -98,6 +98,9 @@ body {
 
 .tap-row:active { background: var(--tap-active); }
 
+.num-u   { font-size: 0.72em; margin-left: 0.18em; }
+.num-sgn { font-size: 0.80em; vertical-align: 0.06em; margin-right: 0.18em; }
+
 /* Keyboard-aware sheet: animates bottom up above keyboard, suppresses safe-area pad */
 .sheet-kb {
   transition: bottom 0.25s ease;

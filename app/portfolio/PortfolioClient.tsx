@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine, formatINRFull, formatPriceFine, trimZero, trimPct, formatXirr, formatPnLFull, formatGainPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { formatINRFine, formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
@@ -341,12 +342,12 @@ export default function PortfolioClient({
       <div className="grid px-4 py-2 border-b"
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
-          <SCell label="Current Value" value={formatINRFine(totalCurrent)} />
-          <SCell label="Gain" value={formatINRFine(totalGain)} positive={totalGain > 0} negative={totalGain < 0} />
+          <SCell label="Current Value" amount={totalCurrent} />
+          <SCell label="Gain" amount={totalGain} signed />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
-          <SCell label="Invested" value={formatINRFine(totalInvested)} />
-          <SCell label="XIRR p.a." value={overallXirr !== null ? `${trimPct(Math.abs(overallXirr * 100))}%` : '—'} positive={overallXirr !== null && overallXirr > 0} negative={overallXirr !== null && overallXirr < 0} />
+          <SCell label="Invested" amount={totalInvested} />
+          <SCell label="XIRR p.a." pct={overallXirr !== null ? overallXirr * 100 : null} signed />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -375,7 +376,7 @@ export default function PortfolioClient({
                     invested={h.invested}
                     current={h.currentValue}
                     gain={h.gain}
-                    xirr={h.xirr !== null ? formatXirr(h.xirr) : formatGainPct(h.gain, h.invested)}
+                    xirr={h.xirr}
                   />
                 ))}
               </>
@@ -407,7 +408,7 @@ export default function PortfolioClient({
                     invested={h.invested}
                     current={h.currentValue}
                     gain={h.gain}
-                    xirr={formatXirr(h.xirr)}
+                    xirr={h.xirr}
                     onClick={() => setSelectedMFHolding(h)}
                   />
                 ))}
@@ -440,7 +441,7 @@ export default function PortfolioClient({
                     invested={b.invested}
                     current={b.currentValue}
                     gain={b.gain}
-                    xirr={formatXirr(b.xirr)}
+                    xirr={b.xirr}
                   />
                 ))}
               </>
@@ -486,15 +487,23 @@ export default function PortfolioClient({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SCell({ label, value, positive, negative }: {
-  label: string; value: string; positive?: boolean; negative?: boolean
+function SCell({ label, amount, pct, signed }: {
+  label: string
+  amount?: number | null
+  pct?: number | null
+  signed?: boolean
 }) {
+  const val = amount !== undefined ? amount : pct
+  const positive = signed && val !== null && val !== undefined && val > 0
+  const negative = signed && val !== null && val !== undefined && val < 0
   return (
     <div className="flex flex-col gap-1">
       <p className="text-subheadline" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
-        {value}
+        {amount !== undefined
+          ? <Num amount={amount} signed={signed} />
+          : <Num pct={pct ?? null} signed={signed} />}
       </p>
     </div>
   )
@@ -593,11 +602,11 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
       </div>
       <span className="text-headline font-semibold tabnum text-right"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
-        {currentValue !== null ? formatINRFine(currentValue) : '—'}
+        <Num amount={currentValue} />
       </span>
       {gainPct !== null ? (
         <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
-          {`${trimPct(Math.abs(gainPct))}%`}
+          <Num pct={gainPct} signed />
         </span>
       ) : (
         <span />
@@ -626,9 +635,11 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
 
 function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
   name: string; meta: string; invested: number; current: number | null
-  gain: number | null; xirr: string; onClick?: () => void
+  gain: number | null; xirr: number | null; onClick?: () => void
 }) {
   const positive = (gain ?? 0) > 0
+  const xirrPct = xirr !== null ? xirr * 100
+    : (gain !== null && invested > 0 ? (gain / invested) * 100 : null)
   const content = (
     <div className="grid px-4 py-3"
          style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
@@ -642,17 +653,22 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        {current !== null ? formatINRFine(current) : '—'}
+        <Num amount={current} />
       </p>
       <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        {formatINRFine(invested)}
+        <Num amount={invested} />
       </p>
       <div className="text-right">
         <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
-          {gain !== null ? formatINRFine(Math.abs(gain)) : '—'}
+          <Num amount={gain} signed />
         </p>
-        {xirr && <p className="text-footnote tabnum mt-0.5" style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>{xirr}</p>}
+        {xirrPct !== null && (
+          <p className="text-footnote tabnum mt-0.5"
+             style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>
+            <Num pct={xirrPct} signed />
+          </p>
+        )}
       </div>
     </div>
   )
@@ -742,7 +758,7 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
-              {formatINRFine(t.amount)}
+              <Num amount={t.amount} />
             </p>
           </div>
         )
@@ -773,7 +789,7 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
             </p>
             <p className="text-body tabnum"
                style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: 'var(--text-primary)' }}>
-              {formatINRFine(t.amount)}
+              <Num amount={t.amount} />
             </p>
           </div>
         )

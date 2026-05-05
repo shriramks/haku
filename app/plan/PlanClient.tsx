@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINRFine, formatINRFull } from '@/lib/formatter'
+import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -322,7 +323,7 @@ function PlanTab({
               <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
               <div className="flex items-center px-3 py-1.5 rounded-xl"
                    style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <span className="text-title-2 font-bold tabnum">{formatINRFine(effectiveBudget)}</span>
+                <span className="text-title-2 font-bold tabnum"><Num amount={effectiveBudget} /></span>
               </div>
             </button>
             {unallocCarryover > 0 && (
@@ -330,7 +331,7 @@ function PlanTab({
                    style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
                 <span className="text-body" style={{ color: 'var(--text-2)' }}>Carryover</span>
                 <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                  {formatINRFine(unallocCarryover)}
+                  <Num amount={unallocCarryover} />
                 </span>
               </div>
             )}
@@ -1163,14 +1164,14 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                   <div key={sym} className="flex justify-between text-subheadline tabnum">
                     <span style={{ color: 'var(--text-2)' }}>{sym}</span>
                     <span className={amt >= 0 ? 'text-positive' : 'text-negative'}>
-                      {formatINRFine(Math.abs(amt))}
+                      <Num amount={amt} signed />
                     </span>
                   </div>
                 ))}
               <div className={`flex justify-between text-subheadline font-semibold tabnum pt-1 border-t ${totalCarryover >= 0 ? 'text-positive' : 'text-negative'}`}
                    style={{ borderColor: 'rgba(48,209,88,0.2)' }}>
                 <span>Net</span>
-                <span>{formatINRFine(Math.abs(totalCarryover))}</span>
+                <span><Num amount={totalCarryover} signed /></span>
               </div>
             </div>
           )}
