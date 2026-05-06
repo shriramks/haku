@@ -12,7 +12,7 @@ A correct fix restores a property or invariant. A symptom fix moves the inconsis
 - **Walk the user through the plan before coding.** Never jump straight to implementation without first stating the intended steps.
 - **Diagnose bugs from code only.** If an error message maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
 - **Never override ignore rules.** Never use `git add -f`, never stage ignored files, and never commit anything excluded by `.gitignore` or `.git/info/exclude`.
-- Create an HTML mockup in `mockups/` and get approval before writing component code. Static HTML + inline CSS is sufficient — no JS needed; just show layout and hierarchy. Check `docs/product.md` for IA priority and `docs/design.md` for tokens. `mockups/` is gitignored — never commit files from it.
+- Create an HTML mockup in `mockups/` and get approval before writing component code. Static HTML + inline CSS is sufficient — no JS needed; just show layout and hierarchy. Check `docs/app-spec.md` for IA priority and `docs/design.md` for tokens. `mockups/` is gitignored — never commit files from it.
 - `npm run build` before committing non-trivial changes (`build` already runs `vitest run` first, so no need to run `npm test` separately).
 - Schema changes: push code first, then hand over migration SQL — never the reverse (live app will crash on the dropped columns until code lands).
 

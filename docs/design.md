@@ -284,7 +284,7 @@ Handle: 4×36px rounded-full --bg-tertiary, centered, mt-2 mb-4
 
 ## 9. IA → Visual Mapping
 
-This section connects `product.md` to the style decisions above.
+This section connects `app-spec.md` to the style decisions above.
 The IA defines *what* appears and in *what priority*. This section defines *how*
 that priority is expressed visually.
 
