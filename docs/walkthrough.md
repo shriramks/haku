@@ -1,6 +1,6 @@
-# User Guide
+# Walkthrough
 
-A walkthrough for new users — what each screen does and the order to set things up.
+A screen-by-screen guide for new users — what each screen does and the order to set things up.
 
 ---
 
@@ -10,8 +10,8 @@ A walkthrough for new users — what each screen does and the order to set thing
 2. [Create your first plan](#2-create-your-first-plan)
 3. [Allocation screen](#3-allocation-screen)
 4. [Buy Bands](#4-buy-bands)
-   - [AI band generation](#ai-band-generation)
    - [Reading the band bar](#reading-the-band-bar)
+   - [Investability](#investability)
    - [Tranches](#tranches)
 5. [Logging transactions](#5-logging-transactions)
 6. [Plan management](#6-plan-management)
@@ -39,7 +39,7 @@ The five tabs at the bottom are your main navigation:
 
 ## 2. Create your first plan
 
-Go to **Plan** → tap **+ Add Plan**.
+Go to **Plan** → tap **+ Add Stock**.
 
 Fill in:
 - **Fiscal Year label** — use the year the FY *starts* in. FY26 = Apr 2026 – Mar 2027. FY25 = Apr 2025 – Mar 2026.
@@ -57,6 +57,10 @@ Repeat until your allocations sum to 100%. The header shows `X% · Y% left` as y
 
 > **Tip:** You don't have to hit exactly 100% — but it's a good forcing function to be deliberate about every rupee.
 
+<div align="center">
+  <img src="screenshots/plan.png" width="40%" alt="Plan screen" />
+</div>
+
 ---
 
 ## 3. Allocation screen
@@ -71,62 +75,74 @@ Each stock row shows:
 
 Stocks are sorted with the most under-deployed at the top, so you can see at a glance where budget is still available.
 
+<div align="center">
+  <img src="screenshots/allocation.png" width="40%" alt="Allocation screen" />
+</div>
+
 ---
 
 ## 4. Buy Bands
 
 The **Buy Bands** tab shows valuation zones for each stock — price ranges where the stock is cheap, fairly valued, or expensive based on your playbook rules.
 
-At the top of the screen, the primary action row is reserved for the two operational actions only:
-- **Refresh CMP**
-- **Regen Bands**
+At the top of the screen, the primary action row is reserved for two operational actions:
+- **Refresh CMP** — updates current market prices from NSE
+- **Regen Bands** — recomputes zones from saved financials
 
-The global valuation input **Set 10Y Yield** lives under the settings icon in the **Valuation** section rather than in the primary action row.
+<div align="center">
+  <img src="screenshots/buy_bands.png" width="40%" alt="Buy Bands list" />
+</div>
 
-### AI band generation
-
-Tap a stock row to open its detail screen, then open **Financials**.
-
-If you have not added an AI key yet, add one from **Settings** first. The app also lets you set the global **risk-free** rate used in valuation (`Ke = risk_free + 5%`) from **Settings → Valuation → Set 10Y Yield**.
-
-The v9 workflow is split into two actions:
-1. **Regen Financials** — fetches and stores raw inputs
-2. **Regen Bands** — computes Buy / Mid / Trim zones from the saved inputs and refreshes FY tranches
-
-For stock categories, **Regen Financials** stores:
-- EPS
-- PAT now
-- PAT 3 years ago
-- 3-year average ROCE
-- Market cap
-
-For index ETFs, **Regen Financials** stores:
-- Index level
-- Index trailing PE
-
-ETF `EPS` is not edited directly. It is derived as `index_level / index_pe / 100`.
-
-Manual edits are allowed in the Financials sheet. When you change financial inputs, the existing band values stay visible but the app marks them as stale with **Bands need regen** until you run **Regen Bands** again.
+Tap any stock row to open its detail screen.
 
 ### Reading the band bar
 
+The band bar at the top of a stock's detail screen maps price to valuation zone. The white vertical line shows the current market price (CMP).
+
 ```
-|  BUY (green)  |  MID (orange)  |  TRIM (red)  |
-                ↑
-               CMP (white line)
+| DEEP | BUY (green) | WAIT | HOLD (orange) | TRIM (red) |
+                              ↑
+                          CMP (white line)
 ```
 
 | Zone | What it means |
 |------|--------------|
-| **Buy** | Stock is cheap; good time to deploy budget |
-| **Mid / Hold** | Fairly valued; hold existing position, avoid adding |
-| **Trim** | Stock is expensive relative to fundamentals; consider reducing |
+| **Deep** | Well below fair value; highest conviction entry |
+| **Buy** | Cheap; good time to deploy budget |
+| **Wait** | Borderline — neither a clear buy nor a hold |
+| **Hold** | Fairly valued; hold existing position, avoid adding |
+| **Trim** | Expensive relative to fundamentals; consider reducing |
 
-The white vertical line shows the current market price (CMP). Tap **Refresh CMP** to update it from Yahoo Finance.
+Below the band bar, the detail screen shows the 52W low/high, current price, your allocation figures, and links to Financials and Band Computation.
+
+To regenerate financials and bands, use the two buttons in the action row:
+1. **Regen Bands** → fetches latest financials from Screener.in / NSE and recomputes zones
+
+Tap **Refresh CMP** to pull the latest price.
+
+<div align="center">
+  <img src="screenshots/bands_detail.png" width="40%" alt="Stock detail — band bar and allocation" />
+</div>
+
+### Investability
+
+Tap the **Investability** row on a stock's detail screen to open the scorecard sheet.
+
+The scorecard rates a stock across 10 qualitative gates (Moat, Owner Earnings, Capital Efficiency, Innovation, Execution Track, Sector Winds, Governance, and more) on a 0–5 scale. The total score out of 50 determines whether the stock is classed as **Investable**, **Borderline**, or **Avoid**.
+
+Tap **Regenerate** to have AI (Gemini 2.5 Flash) score the stock automatically. You can also adjust any gate manually with the **–** / **+** buttons. Gates marked **hard veto** (e.g. Governance) will override the total score if set to 0.
+
+Requires a Gemini API key in Settings (see [Settings](#7-settings)).
+
+<div align="center">
+  <img src="screenshots/investability.png" width="40%" alt="Investability scorecard" />
+</div>
 
 ### Tranches
 
 Tranches let you plan *how* you want to buy within the Buy zone — breaking a position into multiple orders at different price points.
+
+Tap **Buy Levels** at the bottom of a stock's detail screen to open the tranches sheet.
 
 **AI-generated tranches** are created automatically when you run **Regen Bands**. Up to 5 tranches are placed within the Buy zone:
 - Prices are distributed toward the lower end of the zone (more tranches near the floor, fewer near the ceiling)
@@ -136,13 +152,17 @@ Tranches let you plan *how* you want to buy within the Buy zone — breaking a p
 
 Running **Regen Bands** again replaces all existing tranches for that stock and FY.
 
-You can also add tranches manually. In an expanded stock card, scroll to **Tranches** and tap **+ Add**:
+You can also add tranches manually — tap **+ Manual** in the Buy Levels sheet:
 - **Qty** — number of shares
 - **Price ₹** — your target price
 
 Tranches are planning levels only. Actual deployment is tracked from real buy/sell transactions, not by marking tranches as filled.
 
 Tranches are scoped to your fiscal year — they don't carry over to the next year.
+
+<div align="center">
+  <img src="screenshots/stock-buy_levels.png" width="40%" alt="Buy Levels — tranches sheet" />
+</div>
 
 ---
 
@@ -159,6 +179,10 @@ The amount is computed automatically. The transaction is linked to the fiscal ye
 
 Once logged, the **Allocation** screen updates the Deployed and Remaining numbers for that stock.
 
+<div align="center">
+  <img src="screenshots/transactions.jpeg" width="40%" alt="Transactions screen" />
+</div>
+
 ---
 
 ## 6. Plan management
@@ -167,12 +191,16 @@ Once logged, the **Allocation** screen updates the Deployed and Remaining number
 
 From the **Plan** tab:
 - **Edit budget** — tap Edit next to the budget figure
-- **Change allocation %** — tap a stock row, edit the % field, tap away to save
-- **Change category** — expand a stock row (chevron) → Category dropdown
-- **Remove a stock** — expand → Remove from Plan (transactions are kept)
+- **Change allocation %** — tap a stock row to open its edit sheet; use the slider or +/– buttons
+- **Change category** — in the stock edit sheet, tap the Category dropdown
+- **Remove a stock** — in the stock edit sheet, tap **Remove from Plan** (transactions are kept)
 - **Add a stock** — tap + Add Stock at the top of the list
 
 The header always shows the live total % so you know if you're over or under.
+
+<div align="center">
+  <img src="screenshots/plan-stock.png" width="40%" alt="Stock allocation edit sheet" />
+</div>
 
 ### Starting a new fiscal year
 
@@ -195,7 +223,7 @@ The settings menu is grouped into sections. Only sections with multiple items us
 
 ### Gemini API key
 
-Required for AI band generation. The first time you tap Generate Bands without a key, a sheet slides up asking you to add one.
+Required for AI investability scoring. The first time you tap Regenerate in the Investability sheet without a key, a prompt slides up asking you to add one.
 
 **How to get a free key:**
 1. Go to [aistudio.google.com](https://aistudio.google.com)

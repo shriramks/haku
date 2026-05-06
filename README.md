@@ -15,10 +15,12 @@ Most apps let you monitor existing investments. Haku is for planning them.
 - [Docs](#docs)
 
 <div align="center">
-  <img src="docs/screenshots/allocation.png" width="22%" alt="Allocation" />
-  <img src="docs/screenshots/buy_bands.png" width="22%" alt="Buy Bands" />
-  <img src="docs/screenshots/plan.png" width="22%" alt="Plan" />
-  <img src="docs/screenshots/transactions.jpeg" width="22%" alt="Transactions" />
+  <img src="docs/screenshots/allocation.png" width="18%" alt="Allocation" />
+  <img src="docs/screenshots/buy_bands.png" width="18%" alt="Buy Bands" />
+  <img src="docs/screenshots/bands_detail.png" width="18%" alt="Band Detail" />
+  <img src="docs/screenshots/investability.png" width="18%" alt="Investability" />
+  <img src="docs/screenshots/plan.png" width="18%" alt="Plan" />
+  <img src="docs/screenshots/transactions.jpeg" width="18%" alt="Transactions" />
 </div>
 
 ---
@@ -73,7 +75,7 @@ The investability scorecard uses **Gemini 2.5 Flash** to score a stock across 10
 
 | Document | Description |
 |----------|-------------|
-| [docs/guide.md](docs/guide.md) | New user walkthrough — setup, screens, and flow |
+| [docs/walkthrough.md](docs/walkthrough.md) | New user walkthrough — setup, screens, and flow |
 | [docs/product.md](docs/product.md) | App model — vocabulary, screens, investment math |
 | [docs/valuation.md](docs/valuation.md) | Valuation rules — band multiples, signals, tranches |
 | [docs/architecture.md](docs/architecture.md) | Technical details — schema, band calculator, AI flow, security, setup |
