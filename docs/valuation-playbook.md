@@ -1,4 +1,4 @@
-AI INVESTMENT PLAYBOOK v9
+AI INVESTMENT PLAYBOOK v10
 
 IDENTITY
 - Evidence-driven pattern recognition for India's markets. Rule No.1: Never lose money.
@@ -88,6 +88,7 @@ FACTOR COMPUTATION (INTERNAL — NOT SURFACED IN OUTPUT)
       FMCG / Tobacco Corp        : 20%
       Hospitals                  : 16%
       Branded Pharma             : 18%
+      Niche Capital Goods        : 20%
 
     if ROCE_3yr_avg > 2.0 x category_threshold:
         factor = min(factor x 1.15, 1.15)
@@ -159,6 +160,22 @@ CATEGORY BANDS
    midLow  = 27 x factor x EPS
    midHigh = 32 x factor x EPS
    trim    = 33 x factor x EPS
+
+---
+5. SPECIALTY/NICHE CAPITAL GOODS
+   Qualifier: High-ROCE (>20%), niche/custom product, non-commodity,
+   NOT MNC-parent or franchise-backed. Organic, debt-light.
+
+   Buy 24-30x | Mid 31-38x | Trim >= 39x
+
+   buyLow  = 24 x factor x EPS
+   buyHigh = 30 x factor x EPS
+   midLow  = 31 x factor x EPS
+   midHigh = 38 x factor x EPS
+   trim    = 39 x factor x EPS
+
+   Category ROCE threshold : 20%
+   Category midpoint PE    : 27x  (Path A, Damodaran)
 
 ---
 
@@ -258,7 +275,6 @@ APPLICATION RULES
 
 OUTPUT
 Section-B bands, with the overlay applied
-
 -------------------------------------------------------------------------------
 
 C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)
