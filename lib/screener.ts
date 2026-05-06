@@ -30,9 +30,11 @@ function getRowValues(tableEl: ReturnType<typeof parse>, rowLabel: string): numb
   return []
 }
 
-export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {
-  const url = `https://www.screener.in/company/${symbol}/consolidated/`
-  const res = await fetch(url, {
+async function fetchScreenerHtml(symbol: string, consolidated: boolean): Promise<string> {
+  const path = consolidated
+    ? `https://www.screener.in/company/${symbol}/consolidated/`
+    : `https://www.screener.in/company/${symbol}/`
+  const res = await fetch(path, {
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -40,12 +42,23 @@ export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {
     },
   })
   if (!res.ok) throw new Error(`Screener fetch failed: ${res.status} for ${symbol}`)
+  return res.text()
+}
 
-  const html = await res.text()
-  const doc = parse(html)
+export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {
+  let html = await fetchScreenerHtml(symbol, true)
+  let doc = parse(html)
+
+  // If the consolidated page has no EPS data (company has no subsidiaries), use standalone
+  let plSection = doc.querySelector('#profit-loss')
+  if (!plSection) throw new Error(`#profit-loss section not found for ${symbol}`)
+  if (getRowValues(plSection, 'EPS in Rs').length === 0) {
+    html = await fetchScreenerHtml(symbol, false)
+    doc = parse(html)
+  }
 
   // --- EPS and PAT from #profit-loss (annual table) ---
-  const plSection = doc.querySelector('#profit-loss')
+  plSection = doc.querySelector('#profit-loss')
   if (!plSection) throw new Error(`#profit-loss section not found for ${symbol}`)
 
   const epsValues = getRowValues(plSection, 'EPS in Rs')
