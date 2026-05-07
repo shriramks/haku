@@ -184,6 +184,9 @@ function PlanTab({
   const currentFYIdx = sortedFYs.findIndex(fy => fy.id === selectedFY?.id)
   const prevFY = currentFYIdx > 0 ? sortedFYs[currentFYIdx - 1] : null
 
+  const unallocCarryover = selectedFY?.unallocated_carryover_inr ?? 0
+  const effectiveBudget = totalBudget + unallocCarryover
+
   // Check if prev FY has undeployed budget to carry over
   useEffect(() => {
     setCarryoverAmt(null)
@@ -313,10 +316,6 @@ function PlanTab({
           )}
 
           {/* Budget strip */}
-          {(() => {
-            const unallocCarryover = selectedFY.unallocated_carryover_inr ?? 0
-            const effectiveBudget = totalBudget + unallocCarryover
-            return (
           <div className="border-b" style={{ borderColor: 'var(--border)' }}>
             <button onClick={() => setShowBudgetSheet(true)}
               className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
@@ -326,18 +325,12 @@ function PlanTab({
                 <span className="text-title-2 font-bold tabnum"><Num amount={effectiveBudget} /></span>
               </div>
             </button>
-            {unallocCarryover > 0 && (
-              <div className="flex items-center justify-between px-4"
-                   style={{ minHeight: 44, borderTop: '1px solid var(--border-faint)' }}>
-                <span className="text-body" style={{ color: 'var(--text-2)' }}>Carryover</span>
-                <span className="tabnum" style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                  <Num amount={unallocCarryover} />
-                </span>
-              </div>
+            {unallocCarryover > 0 && prevFY && (
+              <p className="text-footnote tabnum px-4 pb-2" style={{ color: 'var(--text-faint)' }}>
+                incl. <Num amount={unallocCarryover} /> carryover from {prevFY.label}
+              </p>
             )}
           </div>
-            )
-          })()}
 
 
           {/* Stock list */}
@@ -386,7 +379,7 @@ function PlanTab({
                   <StockAllocRow
                     key={alloc.id}
                     alloc={alloc}
-                    totalBudget={totalBudget}
+                    totalBudget={effectiveBudget}
                     onEdit={() => setEditingAlloc(alloc)}
                   />
                 ))}
@@ -413,8 +406,8 @@ function PlanTab({
                     onClick={async () => {
                       const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
                       const lines = sorted.map(a => {
-                        const budget = (a.allocation_pct / 100) * totalBudget
-                        return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ₹${(budget / 100000).toFixed(1)}L`
+                        const budget = (a.allocation_pct / 100) * effectiveBudget
+                        return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ${(budget / 100000).toFixed(1)}L`
                       })
                       const total = allocations.reduce((s, a) => s + a.allocation_pct, 0)
                       const text = [
@@ -422,7 +415,7 @@ function PlanTab({
                         '─'.repeat(28),
                         ...lines,
                         '─'.repeat(28),
-                        `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ₹${(totalBudget / 100000).toFixed(1)}L`,
+                        `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ${(effectiveBudget / 100000).toFixed(1)}L`,
                       ].join('\n')
                       if (navigator.share) {
                         await navigator.share({ title: `${selectedFY?.label ?? 'Portfolio'} Allocation`, text })
@@ -481,7 +474,7 @@ function PlanTab({
       {showAddStock && selectedFY && (
         <AddStockSheet
           totalPct={totalPct}
-          totalBudget={totalBudget}
+          totalBudget={effectiveBudget}
           onClose={() => setShowAddStock(false)}
           onAdd={async (symbol, category, pct) => { await addStock(symbol, category, pct); setShowAddStock(false) }}
         />
@@ -491,6 +484,7 @@ function PlanTab({
         <BudgetSheet
           selectedFY={selectedFY}
           fyHasTxns={fyHasTxns}
+          prevFYLabel={prevFY?.label}
           onClose={() => setShowBudgetSheet(false)}
           onSave={saveBudget}
           onDeleteFY={() => { setShowBudgetSheet(false); onDeleteFY() }}
@@ -500,7 +494,7 @@ function PlanTab({
       {editingAlloc && (
         <StockEditSheet
           alloc={editingAlloc}
-          totalBudget={totalBudget}
+          totalBudget={effectiveBudget}
           totalPct={totalPct}
           onClose={() => setEditingAlloc(null)}
           onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
@@ -539,9 +533,10 @@ function StockAllocRow({ alloc, totalBudget, onEdit }: {
 
 // ── Budget edit sheet ─────────────────────────────────────────────────────────
 
-function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
+function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDeleteFY }: {
   selectedFY: FiscalYear
   fyHasTxns: boolean
+  prevFYLabel?: string
   onClose: () => void
   onSave: (budget: number) => Promise<void>
   onDeleteFY: () => void
@@ -581,18 +576,31 @@ function BudgetSheet({ selectedFY, fyHasTxns, onClose, onSave, onDeleteFY }: {
         {/* FY Budget field */}
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
           <p className="text-body">FY Budget</p>
-          <div className="flex items-center gap-1">
-            <span className="text-body" style={{ color: 'var(--text-muted)' }}>₹</span>
-            <input
-              type="number" inputMode="decimal"
-              value={budgetInput} onChange={e => setBudgetInput(e.target.value)}
-              className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-              autoFocus
-            />
-          </div>
+          <input
+            type="number" inputMode="decimal"
+            value={budgetInput} onChange={e => setBudgetInput(e.target.value)}
+            className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+            autoFocus
+          />
         </div>
 
+        {/* Carryover context — read-only */}
+        {(() => {
+          const carryover = selectedFY.unallocated_carryover_inr ?? 0
+          const fyBudget = parseFloat(budgetInput) || selectedFY.total_budget_inr
+          if (carryover <= 0 || !prevFYLabel) return null
+          return (
+            <div className="flex items-center justify-between px-5 border-b" style={{ minHeight: 36, borderColor: 'var(--border-faint)' }}>
+              <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+                + <Num amount={carryover} /> carryover from {prevFYLabel}
+              </p>
+              <p className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+                = <Num amount={fyBudget + carryover} />
+              </p>
+            </div>
+          )
+        })()}
 
         {/* Delete plan */}
         <div className="px-5 pt-2">
