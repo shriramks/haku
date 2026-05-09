@@ -1128,7 +1128,12 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
   return (
     <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[90vh]">
       <SheetHeader
-        title="Investability"
+        title={
+          <div className="flex flex-col items-center" style={{ gap: 1 }}>
+            <span className="text-footnote font-semibold" style={{ color: 'var(--text-faint)', letterSpacing: '0.06em' }}>{symbol}</span>
+            <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Investability</span>
+          </div>
+        }
         left={null}
         right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
       />
@@ -1213,7 +1218,7 @@ function InvestabilitySheet({ symbol, userId, initialInvestability, onClose, onS
                     <p className="text-body" style={{ color: 'var(--text-primary)' }}>
                       {label}
                     </p>
-                    {hardVeto && <span className="text-footnote text-negative">hard veto</span>}
+
                     {hasRationale && (
                       <ChevronRightIcon
                         className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
