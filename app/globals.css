@@ -51,6 +51,40 @@
   }
 }
 
+/* ── Manual theme overrides (beat the media query via element+attr specificity) */
+html[data-theme="dark"] {
+  --bg-primary:   #000000;
+  --bg-secondary: #1C1C1E;
+  --bg-tertiary:  #2C2C2E;
+  --bg-nav:       rgba(0,0,0,0.90);
+  --text-primary: #FFFFFF;
+  --text-2:       rgba(255,255,255,0.60);
+  --text-muted:   rgba(255,255,255,0.40);
+  --text-faint:   rgba(255,255,255,0.25);
+  --border:       rgba(255,255,255,0.10);
+  --border-faint: rgba(255,255,255,0.05);
+  --tap-active:   rgba(255,255,255,0.06);
+  --divider:      rgba(255,255,255,0.08);
+  --bar-fill:     #4A7FD4;
+  --accent:       #0A84FF;
+}
+html[data-theme="light"] {
+  --bg-primary:   #FFFFFF;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary:  #E5E5EA;
+  --bg-nav:       rgba(255,255,255,0.92);
+  --text-primary: #000000;
+  --text-2:       rgba(0,0,0,0.60);
+  --text-muted:   rgba(0,0,0,0.40);
+  --text-faint:   rgba(0,0,0,0.25);
+  --border:       rgba(0,0,0,0.10);
+  --border-faint: rgba(0,0,0,0.06);
+  --tap-active:   rgba(0,0,0,0.04);
+  --divider:      rgba(0,0,0,0.08);
+  --bar-fill:     #2150A8;
+  --accent:       #007AFF;
+}
+
 /* ── Nav safe-area: small in browser, proper inset in PWA standalone ──────── */
 :root { --nav-bottom-pad: 8px; }
 @media (display-mode: standalone) {

@@ -40,6 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="format-detection" content="telephone=no" />
+        {/* Hardcoded script — no user input; applies saved theme before paint to prevent flash */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('haku-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}` }} />
       </head>
       <body>
         <ServiceWorkerRegistrar />

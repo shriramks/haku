@@ -31,6 +31,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [savingKey, setSavingKey]       = useState(false)
   const [keyError, setKeyError]         = useState('')
+  const [theme, setTheme]               = useState<'auto' | 'light' | 'dark'>('auto')
   const ref                             = useRef<HTMLDivElement>(null)
   const router                          = useRouter()
 
@@ -38,6 +39,10 @@ export default function UserMenu({ extraSections = [] }: Props) {
     getSupabaseBrowser().auth.getUser().then(({ data }) => {
       setEmail(data.user?.email ?? null)
     })
+    try {
+      const saved = localStorage.getItem('haku-theme')
+      if (saved === 'dark' || saved === 'light') setTheme(saved)
+    } catch {}
   }, [])
 
   useEffect(() => {
@@ -94,6 +99,16 @@ export default function UserMenu({ extraSections = [] }: Props) {
     setHasKey(false)
     setShowKeyInput(false)
     setSavingKey(false)
+  }
+
+  function selectTheme(t: 'auto' | 'light' | 'dark') {
+    setTheme(t)
+    try { localStorage.setItem('haku-theme', t) } catch {}
+    if (t === 'auto') {
+      delete document.documentElement.dataset.theme
+    } else {
+      document.documentElement.dataset.theme = t
+    }
   }
 
   function runMenuAction(action: () => void) {
@@ -164,6 +179,35 @@ export default function UserMenu({ extraSections = [] }: Props) {
           </p>
 
           <div className="space-y-5">
+
+            {/* Appearance */}
+            <div className="space-y-1">
+              <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                Appearance
+              </p>
+              <div className="flex rounded-xl p-0.5 gap-0.5" style={{ background: 'var(--bg-tertiary)' }}>
+                {(['auto', 'light', 'dark'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => selectTheme(t)}
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-[10px] transition-all"
+                    style={{
+                      minHeight: 52,
+                      background: theme === t ? 'var(--bg-secondary)' : 'transparent',
+                      boxShadow: theme === t ? '0 1px 4px rgba(0,0,0,0.12)' : undefined,
+                      color: theme === t ? 'var(--accent)' : 'var(--text-muted)',
+                    }}>
+                    <span className="w-5 h-5 flex items-center justify-center">
+                      {t === 'auto'  && <ThemeAutoIcon />}
+                      {t === 'light' && <ThemeLightIcon />}
+                      {t === 'dark'  && <ThemeDarkIcon />}
+                    </span>
+                    <span className="text-[11px] font-medium leading-none capitalize">{t}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               {renderMenuSection('AI Settings', [
                 {
@@ -280,6 +324,39 @@ function PlanMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
       <path strokeLinecap="round" strokeLinejoin="round"
         d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  )
+}
+
+function ThemeAutoIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M12 3a9 9 0 0 0 0 18V3z" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  )
+}
+
+function ThemeLightIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+      <circle cx="12" cy="12" r="4" />
+      <line x1="12" y1="2"  x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="4.22" y1="4.22"   x2="6.34" y2="6.34" />
+      <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
+      <line x1="2"  y1="12" x2="5"  y2="12" />
+      <line x1="19" y1="12" x2="22" y2="12" />
+      <line x1="4.22" y1="19.78"  x2="6.34" y2="17.66" />
+      <line x1="17.66" y1="6.34"  x2="19.78" y2="4.22" />
+    </svg>
+  )
+}
+
+function ThemeDarkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
     </svg>
   )
 }
