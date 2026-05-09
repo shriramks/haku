@@ -121,7 +121,7 @@ To regenerate financials and bands, use the two buttons in the action row:
 Tap **Refresh CMP** to pull the latest price.
 
 <div align="center">
-  <img src="screenshots/bands_detail.png" width="40%" alt="Stock detail — band bar and allocation" />
+  <img src="screenshots/stock_detail.png" width="40%" alt="Stock detail — band bar and allocation" />
 </div>
 
 ### Investability
