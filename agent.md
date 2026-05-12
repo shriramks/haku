@@ -8,6 +8,7 @@ A correct fix restores a property or invariant. A symptom fix moves the inconsis
 
 ## Working approach
 
+- **After completing any unit of work, append an entry to `progress.md`.** Format: date heading, one-line title, files changed, and 2–4 bullet points covering what changed and why. Keep it terse — enough to understand the change and locate it in git history without re-reading the code.
 - **Start from agent.md + memory before reading files.** Use Grep/Glob for targeted lookups. Only open files when something is genuinely missing. Avoid full-codebase Explore agents unless the question clearly needs it.
 - **Walk the user through the plan before coding.** Never jump straight to implementation without first stating the intended steps.
 - **Diagnose bugs from code only.** If an error message maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.

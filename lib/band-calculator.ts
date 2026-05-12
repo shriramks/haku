@@ -14,6 +14,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Branded Pharma':  { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   'Niche Cap Goods': { buyLow: 24, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 },
+  'Jewellery':       { buyLow: 24, buyHigh: 32, midLow: 33, midHigh: 42, trim: 43 },
   // Index ETFs (v9): eps = indexLevel / indexPE / 100
   'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
   'Nifty Next 50 Index': { buyLow: 22, buyHigh: 25, midLow: 25, midHigh: 28, trim: 32 },
@@ -29,6 +30,7 @@ const CATEGORY_MIDPOINT_PE: Partial<Record<StockCategory, number>> = {
   'Hospitals':       41.5,
   'Branded Pharma':  23.0,
   'Niche Cap Goods': 27.0,
+  'Jewellery':       28.0,
 }
 
 const ROCE_THRESHOLDS: Partial<Record<StockCategory, number>> = {
@@ -37,6 +39,7 @@ const ROCE_THRESHOLDS: Partial<Record<StockCategory, number>> = {
   'Hospitals':       16,
   'Branded Pharma':  18,
   'Niche Cap Goods': 20,
+  'Jewellery':       18,
 }
 
 export const DEFAULT_ERP = 0.05

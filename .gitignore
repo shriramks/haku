@@ -9,6 +9,7 @@ supabase/migrations/
 supabase/seed*.sql
 .claude/
 mockups/
+progress.md
 CLAUDE.md
 
 # Import scripts — contain embedded transaction data and service keys

@@ -109,6 +109,7 @@ export const ALL_CATEGORIES = [
   'Branded Pharma',
   'Tobacco Corp',
   'Niche Cap Goods',
+  'Jewellery',
 ] as const
 
 export type StockCategory = typeof ALL_CATEGORIES[number]

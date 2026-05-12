@@ -88,6 +88,7 @@ FACTOR COMPUTATION (INTERNAL — NOT SURFACED IN OUTPUT)
       FMCG / Tobacco Corp        : 20%
       Hospitals                  : 16%
       Branded Pharma             : 18%
+      Jewellery                  : 18%
       Niche Capital Goods        : 20%
 
     if ROCE_3yr_avg > 2.0 x category_threshold:
@@ -101,6 +102,7 @@ FACTOR COMPUTATION (INTERNAL — NOT SURFACED IN OUTPUT)
     Cap-Light Infra / Services : 31.5
     Hospitals                  : 41.5
     Branded Pharma             : 23.0
+    Jewellery                  : 28.0
 
 CATEGORY BANDS
   All categories: PE anchor only.
@@ -178,6 +180,19 @@ CATEGORY BANDS
    Category midpoint PE    : 27x  (Path A, Damodaran)
 
 ---
+6. JEWELLERY
+   Buy 24-32x | Mid 33-42x | Trim >= 43x
+
+   buyLow  = 24 x factor x EPS
+   buyHigh = 32 x factor x EPS
+   midLow  = 33 x factor x EPS
+   midHigh = 42 x factor x EPS
+   trim    = 43 x factor x EPS
+
+   Category ROCE threshold : 18%
+   Category midpoint PE    : 28x  (Path A, Damodaran)
+
+---
 
 WORKED EXAMPLES (Ke = 0.12, risk_free = 0.07)
 
@@ -202,6 +217,11 @@ WORKED EXAMPLES (Ke = 0.12, risk_free = 0.07)
     g=0.21 > Ke -> Path B | mcap=36137 -> s_mod=1.00
     ROCE=20.8% vs 16% = 1.3x -> no premium -> factor=1.00 | EPS=39.5
     buyLow=1501  buyHigh=1778  midLow=1817  midHigh=2173  trim=2212 | CMP=1768
+
+  KALYAN JEWELLERS (Jewellery)
+    g~0.50 >> Ke -> Path B | mcap~40500 -> s_mod=1.00
+    ROCE=21% vs 18% = 1.17x -> below 2x -> no premium -> factor=1.00 | EPS=13.5
+    buyLow=324  buyHigh=432  midLow=446  midHigh=567  trim=581 | CMP=407
 
   CAPLIN POINT (Branded Pharma)
     g=0.20 > Ke -> Path B | mcap=13070 -> s_mod=1.00
