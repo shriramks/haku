@@ -57,7 +57,11 @@ Gates to score:
 4. g4_innovation — Adaptability, product evolution
 5. g5_execution_track — Through-cycle delivery track record
 6. g6_sector_winds — Growth durability, margin quality
-7. g7_governance — Clean audits, capital allocation, no red flags (HARD VETO: score 0 if any governance concern)
+7. g7_governance — Score via 3 forensic checks (max 5). Any veto = 0, hard fail.
+   Check 1 – Cash conversion (OCF/PAT, 3yr avg): >70%=+2, 50-70%=+1, <50%=0, <30%=VETO.
+   Check 2 – Related-party exposure (RPT value/revenue, latest AR): <2%=+2, 2-5%=+1, >5%=0, loans to promoters=VETO.
+   Check 3 – Promoter holding trend (last 8 quarters): stable/increasing=+1, <3% decline=0, 3-5% decline=0, >5% decline in any 18-month window=VETO.
+   Flag in rationale if promoter pledge >30%. Return the integer sum (0–5).
 8. g8_supply_regulatory — Supply concentration, regulatory stability
 9. g9_market_cap — Re-rating ceiling, EPS growth headroom
 10. g10_capital_discipline — Buybacks, dividends, acquisition quality

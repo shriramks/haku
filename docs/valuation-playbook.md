@@ -26,13 +26,37 @@ G3.  CAPITAL EFFICIENCY — ROCE / ROE vs sector threshold
 G4.  INNOVATION        — adaptability, product evolution
 G5.  EXECUTION TRACK   — through-cycle delivery
 G6.  SECTOR WINDS      — growth durability, margin quality, competition
-G7.  GOVERNANCE        — clean audits, allocation, no red flags [HARD VETO at 0]
+G7.  GOVERNANCE        — 3 forensic checks: OCF/PAT · RPT exposure · promoter trend [max 5; any veto = 0]
 G8.  SUPPLY / REGULATORY — concentration, regulatory stability
 G9.  MARKET CAP        — re-rating ceiling, EPS growth headroom
 G10. CAPITAL DISCIPLINE — buybacks, dividends, acquisition quality
 
 totalScore = G1 + ... + G10 (0-50)
 Investable = YES if totalScore >= 20 AND G7 > 0
+
+G7 GOVERNANCE — FORENSIC DETAIL
+  Three checks; scores are additive (max 5). Any veto trigger sets G7 = 0 regardless of other checks.
+  A G7 = 0 is a hard fail — stock is not investable.
+
+  1. Cash conversion  (OCF / PAT, 3-year average)
+       > 70%              +2
+       50 – 70%           +1
+       < 50%               0
+       < 30%              VETO
+
+  2. Related-party exposure  (RPT value / revenue, latest annual report)
+       < 2%               +2
+       2 – 5%             +1
+       > 5%                0
+       Loans to promoters / related entities present  →  VETO
+
+  3. Promoter holding trend  (last 8 quarters)
+       Stable or increasing   +1
+       < 3% net decline        0
+       3 – 5% net decline      0
+       > 5% decline in any 18-month window  →  VETO
+
+  Note: promoter pledge % is a soft flag, not a veto trigger — flag in rationale if pledge > 30%.
 
 -------------------------------------------------------------------------------
 B) PRICE-BAND COMPUTATION (PURELY QUANTITATIVE — INDIVIDUAL STOCKS ONLY)
