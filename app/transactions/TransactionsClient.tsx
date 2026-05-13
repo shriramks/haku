@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFine, formatDate, shortMonthYear, formatPriceNum } from '@/lib/formatter'
+import { formatINRFine, formatDate, formatPriceNum } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -549,20 +549,15 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   const [editQty, setEditQty]         = useState('')
   const [editPrice, setEditPrice]     = useState('')
   const [editDate, setEditDate]       = useState('')
-  const [advanceOn, setAdvanceOn]     = useState(false)
-  const [advanceFyId, setAdvanceFyId] = useState<string | null>(null)
   const [saving, setSaving]           = useState(false)
   const [confirming, setConfirming]   = useState(false)
 
-  const isBuy    = txn.trade_type === 'buy'
-  const otherFYs = fiscalYears.filter(f => f.id !== txn.fy_id)
+  const isBuy = txn.trade_type === 'buy'
 
   function openEdit() {
     setEditQty(String(txn.quantity))
     setEditPrice(String(txn.price))
     setEditDate(txn.trade_date)
-    setAdvanceOn(!!txn.advance_fy_id)
-    setAdvanceFyId(txn.advance_fy_id ?? null)
     setConfirming(false)
     setEditing(true)
   }
@@ -575,10 +570,9 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
     if (!qty || !price || !editDate) return
     setSaving(true)
     const patch = {
-      quantity:      qty,
+      quantity:   qty,
       price,
-      trade_date:    editDate,
-      advance_fy_id: advanceOn && advanceFyId ? advanceFyId : null,
+      trade_date: editDate,
     }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
     onSaved({ ...txn, ...patch, amount: qty * price })
@@ -593,7 +587,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
   const editAmount       = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
   const signedEditAmount = isBuy ? editAmount : -editAmount
-  const saveDisabled     = saving || !editQty || !editPrice || !editDate || (advanceOn && !advanceFyId)
+  const saveDisabled = saving || !editQty || !editPrice || !editDate
 
   // ── Edit mode ──
   if (editing) {
@@ -636,51 +630,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           </div>
           <div />
         </div>
-
-        {isBuy && otherFYs.length > 0 && (
-          <div className="border-t pt-3 mb-3" style={{ borderColor: 'var(--border-faint)' }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-body font-medium">Count toward a different FY</p>
-                <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>Apply this to another year's plan</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setAdvanceOn(v => !v); setAdvanceFyId(null) }}
-                className={`w-[51px] h-[31px] rounded-full relative flex-shrink-0 transition-colors ${advanceOn ? 'bg-positive' : ''}`}
-                style={advanceOn ? undefined : { background: 'var(--border)' }}>
-                <span className="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white transition-all"
-                      style={{ left: advanceOn ? '22px' : '2px', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-              </button>
-            </div>
-            {advanceOn && (
-              <div className="mt-3 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-                {otherFYs.map(fy => (
-                  <button key={fy.id} type="button"
-                    onClick={() => setAdvanceFyId(fy.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 border-b last:border-b-0 text-left"
-                    style={{
-                      borderColor: 'var(--border-faint)',
-                      background: advanceFyId === fy.id ? 'rgba(10,132,255,0.06)' : 'var(--bg-secondary)',
-                    }}>
-                    <div>
-                      <p className="text-body font-medium"
-                         style={{ color: advanceFyId === fy.id ? 'var(--accent)' : 'var(--text-primary)' }}>{fy.label}</p>
-                      <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
-                        {shortMonthYear(fy.start_date)} – {shortMonthYear(fy.end_date)}
-                      </p>
-                    </div>
-                    {advanceFyId === fy.id && (
-                      <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {confirming ? (
           <div className="flex gap-2">
@@ -727,12 +676,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
           <span className="font-semibold text-headline flex-shrink-0">{txn.symbol}</span>
           <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-muted)' }}>·</span>
           <span className="text-subheadline tabnum flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(txn.trade_date)}</span>
-          {txn.advance_fy_id && (
-            <span className="text-footnote font-semibold px-1.5 py-0.5 rounded-md text-accent flex-shrink-0"
-                  style={{ background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)' }}>
-              {`→ ${getFYLabel(txn.advance_fy_id, fiscalYears)}`}
-            </span>
-          )}
         </div>
         <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
           {txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
@@ -759,9 +702,6 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getFYLabel(fyId: string, fiscalYears: FiscalYear[]): string {
-  return fiscalYears.find(f => f.id === fyId)?.label ?? '?'
-}
 
 function groupByMonth<T extends Transaction>(txns: T[]) {
   const map = new Map<string, T[]>()

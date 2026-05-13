@@ -2,7 +2,7 @@ import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
 } from './data'
-import { computeCarryover, computeStockRows, seqCost } from './compute'
+import { computeStockRows, seqCost } from './compute'
 import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability } from './types'
 
 export interface StockDetailProps {
@@ -35,12 +35,8 @@ export async function fetchStockDetailProps(
     ? (getCurrentFY(fiscalYears, fyParam) ?? fiscalYears[fiscalYears.length - 1])
     : getCurrentFY(fiscalYears, fyParam)
 
-  const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
-  const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
-
   const [
     allocations, transactions, bands, tranches,
-    prevAllocations, prevTransactions,
     aiKeyStatus, symbolTxns, investability,
   ] = fy
     ? await Promise.all([
@@ -48,24 +44,14 @@ export async function fetchStockDetailProps(
         getTransactions(fy.id),
         getBuyBands(),
         getBuyTranches(fy.id),
-        prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
-        prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
         getAIKeyStatus(),
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
       ])
-    : [[], [], [], [], [], [], { hasKey: false }, [], null]
-
-  const carryoverMap = prevFY
-    ? computeCarryover(
-        prevAllocations, prevTransactions,
-        prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0),
-        prevFY.id, allocations,
-      ).adjustments
-    : undefined
+    : [[], [], [], [], { hasKey: false }, [], null]
 
   const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
-  const rows = computeStockRows(allocations, transactions, bands, totalBudget, fy?.id, carryoverMap)
+  const rows = computeStockRows(allocations, transactions, bands, totalBudget)
   const fyRow = rows.find(r => r.symbol === symbol) ?? null
   const allTimePosition = seqCost(symbolTxns as Parameters<typeof seqCost>[0])
 

@@ -58,12 +58,12 @@ export const getTransactions = cache(async (fyId?: string): Promise<Transaction[
   if (!userId) return []
   const q = createSupabaseServiceClient()
     .from('transactions')
-    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, advance_fy_id, notes, created_at')
+    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes, created_at')
     .eq('user_id', userId)
     .order('trade_date', { ascending: false })
     .order('created_at', { ascending: false })
   const { data } = fyId
-    ? await q.or(`fy_id.eq.${fyId},advance_fy_id.eq.${fyId}`)
+    ? await q.eq('fy_id', fyId)
     : await q
   return data ?? []
 })
@@ -73,7 +73,7 @@ export const getTransactionsBySymbol = cache(async (symbol: string): Promise<Tra
   if (!userId) return []
   const { data } = await createSupabaseServiceClient()
     .from('transactions')
-    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, advance_fy_id, notes')
+    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes')
     .eq('user_id', userId)
     .eq('symbol', symbol)
     .order('trade_date', { ascending: false })

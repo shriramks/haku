@@ -1,5 +1,5 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY, getInvestability } from '@/lib/data'
-import { computeStockRows, computeCarryover } from '@/lib/compute'
+import { computeStockRows } from '@/lib/compute'
 import BandsClient from './BandsClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -12,27 +12,18 @@ export default async function BandsPage({
   const { fy: fyParam } = await searchParams
   const fy = getCurrentFY(fiscalYears, fyParam) ?? fiscalYears[fiscalYears.length - 1]
 
-  const fyIdx = fiscalYears.findIndex(f => f.id === fy?.id)
-  const prevFY = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
-
-  const [allocations, transactions, bands, prevAllocations, prevTransactions] = fy
+  const [allocations, transactions, bands] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
         getBuyBands(),
-        prevFY ? getAllocations(prevFY.id) : Promise.resolve([]),
-        prevFY ? getTransactions(prevFY.id) : Promise.resolve([]),
       ])
-    : [[], [], [], [], []]
+    : [[], [], []]
 
   const symbols = allocations.map((a: { symbol: string }) => a.symbol)
   const investabilities = await getInvestability(symbols)
 
-  const carryoverMap = prevFY
-    ? computeCarryover(prevAllocations, prevTransactions, prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0), prevFY.id, allocations).adjustments
-    : undefined
-
-  const rows = computeStockRows(allocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), fy?.id, carryoverMap)
+  const rows = computeStockRows(allocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0))
   const sorted = [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol))
 
   return (

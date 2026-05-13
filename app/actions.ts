@@ -29,8 +29,11 @@ export async function checkFYHasTxns(fyId: string): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
-/** Computes undeployed amount from a previous FY's transactions vs budget */
-export async function getPrevFYCarryover(prevFYId: string, prevFYBudget: number): Promise<number> {
+/**
+ * Computes carryover from a previous FY: pool (budget + its own carryover) minus
+ * net deployed (all buys minus all sell proceeds). Can be negative if over-invested.
+ */
+export async function getPrevFYCarryover(prevFYId: string, prevFYPool: number): Promise<number> {
   const userId = await getUserId()
   if (!userId) return 0
   const { data } = await createSupabaseServiceClient()
@@ -38,12 +41,12 @@ export async function getPrevFYCarryover(prevFYId: string, prevFYBudget: number)
     .select('trade_type, amount')
     .eq('user_id', userId)
     .eq('fy_id', prevFYId)
-  const spent = (data ?? []).reduce(
+  const netDeployed = (data ?? []).reduce(
     (s, t: { trade_type: string; amount: number }) =>
       s + (t.trade_type === 'buy' ? t.amount : -t.amount),
     0
   )
-  return Math.max(0, prevFYBudget - spent)
+  return prevFYPool - netDeployed
 }
 
 /** Returns true if any current buy bands exist — used for onboarding step */
@@ -57,20 +60,16 @@ export async function hasBands(): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
-/** Fetches allocations + transactions for a FY and its previous FY — used by DashboardClient switchFY */
-export async function getFYData(fyId: string, prevFYId: string | null): Promise<{
+/** Fetches allocations + transactions for a FY — used by DashboardClient switchFY */
+export async function getFYData(fyId: string): Promise<{
   allocations: StockAllocation[]
   transactions: Transaction[]
-  prevAllocations: StockAllocation[]
-  prevTransactions: Transaction[]
 }> {
-  const [allocations, transactions, prevAllocations, prevTransactions] = await Promise.all([
+  const [allocations, transactions] = await Promise.all([
     getAllocations(fyId),
     getTransactions(fyId),
-    prevFYId ? getAllocations(prevFYId) : Promise.resolve([] as StockAllocation[]),
-    prevFYId ? getTransactions(prevFYId) : Promise.resolve([] as Transaction[]),
   ])
-  return { allocations, transactions, prevAllocations, prevTransactions }
+  return { allocations, transactions }
 }
 
 /** Copies allocations from one FY into another — used by copyFromPrevFY */

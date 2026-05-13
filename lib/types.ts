@@ -33,7 +33,6 @@ export interface Transaction {
   price: number
   amount: number       // generated: quantity * price
   fy_id: string | null
-  advance_fy_id: string | null
   notes: string
   created_at?: string
 }

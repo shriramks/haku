@@ -1,10 +1,8 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { computeStockRows, computeCarryover } from '@/lib/compute'
+import { computeStockRows } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
-import type { CarryoverResult } from '@/lib/compute'
-import { formatINRFine } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
@@ -17,57 +15,32 @@ interface Props {
   initialAllocations: StockAllocation[]
   initialTransactions: Transaction[]
   initialAllTransactions: Transaction[]
-  initialPrevFY: FiscalYear | null
-  initialPrevAllocations: StockAllocation[]
-  initialPrevTransactions: Transaction[]
   bands: BuyBand[]
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialAllTransactions, initialPrevFY, initialPrevAllocations, initialPrevTransactions, bands }: Props) {
-  const [selectedFY, setSelectedFY]         = useState(initialFY)
-  const [allocations, setAllocations]       = useState(initialAllocations)
-  const [transactions, setTransactions]     = useState(initialTransactions)
-  const [prevFY, setPrevFY]                 = useState(initialPrevFY)
-  const [prevAllocations, setPrevAllocations] = useState(initialPrevAllocations)
-  const [prevTransactions, setPrevTransactions] = useState(initialPrevTransactions)
-  const [loading, setLoading]               = useState(false)
-
-  const carryoverResult = useMemo<CarryoverResult | null>(() => {
-    if (!prevFY) return null
-    const prevBudget = prevFY.total_budget_inr + (prevFY.unallocated_carryover_inr ?? 0)
-    return computeCarryover(prevAllocations, prevTransactions, prevBudget, prevFY.id, allocations)
-  }, [prevFY, prevAllocations, prevTransactions, allocations])
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialAllTransactions, bands }: Props) {
+  const [selectedFY, setSelectedFY]     = useState(initialFY)
+  const [allocations, setAllocations]   = useState(initialAllocations)
+  const [transactions, setTransactions] = useState(initialTransactions)
+  const [loading, setLoading]           = useState(false)
 
   const rows = useMemo(() =>
     computeStockRows(
       allocations, transactions, bands,
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
-      selectedFY?.id ?? undefined,
-      carryoverResult?.adjustments,
       initialAllTransactions,
     ),
-    [allocations, transactions, bands, selectedFY, carryoverResult, initialAllTransactions]
+    [allocations, transactions, bands, selectedFY, initialAllTransactions]
   )
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
-    // Update URL for bookmarking without triggering an RSC re-render.
-    // router.replace() would fire a soft navigation that re-fetches the same
-    // data server-side while getFYData does the same — two concurrent fetches
-    // for identical data, both wasted except one.
     window.history.replaceState(null, '', `/allocation?fy=${encodeURIComponent(fy.label)}`)
 
-    const fyIdx = fiscalYears.findIndex(f => f.id === fy.id)
-    const pFY   = fyIdx > 0 ? fiscalYears[fyIdx - 1] : null
-
-    const { allocations: alloc, transactions: txns, prevAllocations: pAlloc, prevTransactions: pTxns } =
-      await getFYData(fy.id, pFY?.id ?? null)
+    const { allocations: alloc, transactions: txns } = await getFYData(fy.id)
     setAllocations(alloc)
     setTransactions(txns)
-    setPrevFY(pFY ?? null)
-    setPrevAllocations(pAlloc)
-    setPrevTransactions(pTxns)
     setLoading(false)
   }
 
@@ -186,15 +159,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim={row.remaining <= 0} />)}
           </div>
 
-          {/* Carryover breakdown — only when there's a previous FY with data */}
-          {carryoverResult && prevFY && (
-            carryoverResult.breakdown.orphans.length > 0 ||
-            carryoverResult.breakdown.direct.size > 0
-          ) && (
-            <CollapsibleSection title={`Carryover from ${prevFY.label}`}>
-              <CarryoverSection result={carryoverResult} prevFYLabel={prevFY.label} />
-            </CollapsibleSection>
-          )}
           <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
         </div>
       )}
@@ -253,86 +217,4 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   )
 }
 
-
-function CollapsibleSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="mt-5">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between w-full px-4"
-        style={{ minHeight: '40px', background: 'var(--bg-tertiary)' }}>
-        <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.06em' }}>{title}</span>
-        <ChevronRightIcon
-          className={`w-4 h-4 transition-transform ${open ? 'rotate-90' : ''}`}
-          style={{ color: 'var(--text-muted)' }} />
-      </button>
-      {open && children}
-    </div>
-  )
-}
-
-function CarryoverSection({ result, prevFYLabel }: { result: CarryoverResult; prevFYLabel: string }) {
-  const { direct, poolTotal, poolShares, orphans } = result.breakdown
-  const total = Array.from(result.adjustments.values()).reduce((s, v) => s + v, 0)
-  return (
-    <div className="px-4 pb-4 space-y-4">
-      {/* Total carryover into this FY */}
-      <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>Total</span>
-        <span className={`tabnum text-body font-semibold ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-          <Num amount={total} signed />
-        </span>
-      </div>
-      {/* Orphaned stocks */}
-      {orphans.length > 0 && (
-        <div>
-          <p className="text-footnote uppercase tracking-widest font-semibold mb-2" style={{ color: 'var(--text-faint)' }}>
-            Exited in {prevFYLabel}
-          </p>
-          {orphans.map(o => (
-            <div key={o.symbol} className="flex justify-between items-center py-3">
-              <span className="text-body" style={{ color: 'var(--text-muted)' }}>{o.symbol}</span>
-              <span className={`tabnum text-body ${o.remaining >= 0 ? 'text-positive' : 'text-negative'}`}>
-                <Num amount={o.remaining} signed /> → pool
-              </span>
-            </div>
-          ))}
-          <div className="flex justify-between items-center py-3 border-t mt-1" style={{ borderColor: 'var(--border-faint)' }}>
-            <span className="text-subheadline font-medium" style={{ color: 'var(--text-muted)' }}>Pool total</span>
-            <span className={`tabnum text-subheadline font-medium ${poolTotal >= 0 ? 'text-positive' : 'text-negative'}`}>
-              <Num amount={poolTotal} signed />
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Per-stock adjustments */}
-      {result.adjustments.size > 0 && (
-        <div>
-          {Array.from(result.adjustments.entries()).map(([sym, total]) => {
-            const d = direct.get(sym) ?? 0
-            const p = poolShares.get(sym) ?? 0
-            if (total === 0) return null
-            return (
-              <div key={sym} className="flex justify-between items-center py-3">
-                <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{sym}</span>
-                <div className="text-right">
-                  <span className={`tabnum text-body ${total >= 0 ? 'text-positive' : 'text-negative'}`}>
-                    <Num amount={total} signed />
-                  </span>
-                  {d !== 0 && p !== 0 && (
-                    <p className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>
-                      {formatINRFine(Math.abs(d))} direct · {formatINRFine(Math.abs(p))} pool
-                    </p>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
 

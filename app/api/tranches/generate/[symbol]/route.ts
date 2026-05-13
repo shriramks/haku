@@ -75,7 +75,7 @@ export async function POST(
     supabase.from('transactions')
       .select('trade_type, amount')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
-      .or(`fy_id.eq.${fyId},advance_fy_id.eq.${fyId}`),
+      .eq('fy_id', fyId),
   ])
 
   // If the client passes remainingInr, use it directly — it already includes per-stock
