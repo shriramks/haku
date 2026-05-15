@@ -136,7 +136,7 @@ signal.deep  → color.deep
 ### Border radius
 | Token | Size | Use |
 |-------|------|-----|
-| `rounded-full` | pill | Badges, avatars, signal dots |
+| `rounded-full` | pill | Badges, avatars |
 | `rounded-lg` | 8px | Small chips, tags, inline pills |
 | `rounded-xl` | 12px | Buttons, inputs, toggles |
 | `rounded-2xl` | 16px | Cards, collapsed rows |

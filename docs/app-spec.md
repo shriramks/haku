@@ -156,7 +156,7 @@ Open app
 1. FY selector (which year am I viewing)
 2. FY summary strip — Total FY Allocation, Total Invested (currentCost), Remaining (FY)
 3. Per-stock list rows — each row shows:
-   - Primary: Stock symbol + signal dot
+   - Primary: Stock symbol
    - Secondary: Remaining (FY) + Invested (currentCost)
    - Bar fill: currentCost as % of FY budget
 4. Completed / exited stocks — collapsed by default

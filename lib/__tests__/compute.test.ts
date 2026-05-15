@@ -152,41 +152,6 @@ describe('computeStockRows — currentCost (FY-scoped)', () => {
   })
 })
 
-// ── computeStockRows — signal uses stored generated bands ────────────────────
-
-describe('computeStockRows — bandSignal uses stored generated bands', () => {
-  it('signal is buy when CMP is inside stored buy zone', () => {
-    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
-    const band  = mkBand('ITC', {
-      eps: 10, manual_cmp: 220,
-      buy_low: 200, buy_high: 250, mid_high: 300, trim_price: 310,
-    })
-    const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('buy')
-  })
-
-  it('signal is deep when CMP is below stored buy zone', () => {
-    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
-    const band  = mkBand('ITC', {
-      eps: 10, manual_cmp: 150,
-      buy_low: 200, buy_high: 250, mid_high: 300, trim_price: 310,
-    })
-    const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('deep')
-  })
-
-  it('signal is unknown when no CMP', () => {
-    const alloc = { ...mkAlloc('ITC', 10), category: 'Tobacco Corp' }
-    const band  = mkBand('ITC', { eps: 10, manual_cmp: null })
-    const [row] = computeStockRows([alloc], [], [band], totalBudget)
-    expect(row.bandSignal).toBe('unknown')
-  })
-
-  it('signal is unknown when no band', () => {
-    const [row] = computeStockRows([mkAlloc('HINDUNILVR', 10)], [], [], totalBudget)
-    expect(row.bandSignal).toBe('unknown')
-  })
-})
 
 // ── seqCost ───────────────────────────────────────────────────────────────────
 

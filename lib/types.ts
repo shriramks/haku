@@ -98,7 +98,6 @@ export interface BuyTranche {
 
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
-export type BandSignal = 'buy' | 'hold' | 'trim' | 'deep' | 'unknown'
 
 export const ALL_CATEGORIES = [
   'Nifty 50 Index',
@@ -140,5 +139,4 @@ export interface StockRow {
   cmp: number | null
   unrealisedPnL: number | null
   unrealisedPnLPct: number | null
-  bandSignal: BandSignal
 }

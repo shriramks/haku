@@ -1,18 +1,4 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear, BandSignal } from './types'
-
-export function getBandSignal(
-  cmp: number | null,
-  buyLow: number | null,
-  buyHigh: number | null,
-  midHigh: number | null,
-  trimPrice: number | null,
-): BandSignal {
-  if (cmp === null || buyLow === null || trimPrice === null) return 'unknown'
-  if (cmp < buyLow) return 'deep'
-  if (cmp <= (buyHigh ?? trimPrice)) return 'buy'
-  if (cmp <= (midHigh ?? trimPrice)) return 'hold'
-  return 'trim'
-}
+import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from './types'
 
 // ── Sequential cost basis ─────────────────────────────────────────────────────
 
@@ -93,13 +79,6 @@ export function computeStockRows(
 
     const band = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp  = band?.manual_cmp ?? null
-    const signal = getBandSignal(
-      cmp,
-      band?.buy_low ?? null,
-      band?.buy_high ?? null,
-      band?.mid_high ?? null,
-      band?.trim_price ?? null,
-    )
 
     const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
     const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)
@@ -118,7 +97,6 @@ export function computeStockRows(
       cmp,
       unrealisedPnL,
       unrealisedPnLPct,
-      bandSignal:      signal,
     }
   })
 }

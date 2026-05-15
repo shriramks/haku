@@ -129,7 +129,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
             {/* Progress bar — invested portion */}
             <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
-              <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--bar-fill)' }} />
+              <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--c-positive)' }} />
             </div>
           </div>
         )
@@ -183,13 +183,13 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           <p className="text-headline font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
         </div>
 
-        {/* Col 2 — Left (prominent, green) */}
+        {/* Col 2 — Left (secondary) */}
         <div className="text-center">
           {isDone ? (
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>Complete</p>
           ) : (
             <>
-              <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
+              <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
                 <Num amount={row.remaining} />
               </p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><Num pct={leftPct} /></p>
@@ -197,10 +197,10 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           )}
         </div>
 
-        {/* Col 3 — Invested (secondary) + chevron */}
+        {/* Col 3 — Invested (primary, matches bar) + chevron */}
         <div className="flex items-start justify-end gap-1">
           <div className="text-right">
-            <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
+            <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
               <Num amount={row.currentCost} />
             </p>
             {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><Num pct={investedPct} /></p>}
@@ -211,7 +211,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 
       {/* Bar — rounded, full-width, serves as row divider */}
       <div className="rounded-full overflow-hidden mb-0" style={{ height: '6px', background: 'var(--border-faint)' }}>
-        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: isDone ? 'var(--border-faint)' : 'var(--bar-fill)' }} />
+        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: isDone ? 'var(--border-faint)' : 'var(--c-positive)' }} />
       </div>
     </Link>
   )
