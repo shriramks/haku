@@ -1,75 +1,107 @@
-# Haku — Agent Instructions
+# Haku — Agent Reference
 
-## Debugging principle
+## Project
 
-**Fix the model, not the symptom.** When something displays wrong, the instinct is to patch the output formula until the number looks right. Resist this. First ask: what is the underlying model supposed to guarantee? Is the model internally consistent?
+Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted, band-based buying), MF/Gold/PPF/EPF portfolio, and all transactions across asset types.
 
-A correct fix restores a property or invariant. A symptom fix moves the inconsistency elsewhere. Before changing any formula, write down the invariant it must satisfy, verify that invariant holds after the change, and check every other value that shares the same base — if you change one, audit all.
+---
 
-## Working approach
+## Docs
 
-- **After completing any unit of work, append an entry to `progress.md`.** Format: date heading, one-line title, files changed, and 2–4 bullet points covering what changed and why. Keep it terse — enough to understand the change and locate it in git history without re-reading the code.
-- **Start from agent.md + memory before reading files.** Use Grep/Glob for targeted lookups. Only open files when something is genuinely missing. Avoid full-codebase Explore agents unless the question clearly needs it.
-- **Walk the user through the plan before coding.** Never jump straight to implementation without first stating the intended steps.
-- **Diagnose bugs from code only.** If an error message maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
-- **Never override ignore rules.** Never use `git add -f`, never stage ignored files, and never commit anything excluded by `.gitignore` or `.git/info/exclude`.
-- **Git email.** Always run `git config user.email "12730252+shriramks@users.noreply.github.com"` before committing in this repo.
-- Create an HTML mockup in `mockups/` and get approval before writing component code. Static HTML + inline CSS is sufficient — no JS needed; just show layout and hierarchy. Check `docs/app-spec.md` for IA priority and `docs/design.md` for tokens. `mockups/` is gitignored — never commit files from it.
-- `npm run build` before committing non-trivial changes (`build` already runs `vitest run` first, so no need to run `npm test` separately).
-- Schema changes: push code first, then hand over migration SQL — never the reverse (live app will crash on the dropped columns until code lands).
+| File | What it covers |
+|------|----------------|
+| `docs/app-spec.md` | Screen-by-screen IA, vocabulary, investment math (spent vs currentCost, carryover) |
+| `docs/design.md` | All UI/design rules — typography, colour, spacing, components, platform |
+| `docs/architecture.md` | Data model, Supabase schema, server/client split |
+| `docs/valuation-playbook.md` | Band calculation methodology, PE multiples by category |
 
-## UI rules
+**Before any UI change: read `docs/design.md` first. Before any logic change: read `docs/app-spec.md` first.**
 
-- **Before any UI/design change, read `docs/design.md` first.** Match its component contracts and visual rules before inventing a local pattern.
-- No raw hex or raw px in JSX — only token classes (`text-accent`) or `var(--token)`
-- All screens should be designed for iPhone 16/17 widths as the default target viewport
-- Primary action rows must not wrap; if actions do not fit on one row at iPhone 16/17 width, reduce, regroup, or demote actions instead of allowing a second line
-- Settings menus may include screen-specific actions, but those actions must be demoted under the settings icon rather than promoted into primary action rows when space is tight
-- In settings menus, use dividers only within sections that contain multiple items; do not add a horizontal divider after every section
-- Financial numbers: `tabnum` class always; actionable numbers (CMP, P&L) minimum `text-body` (15px)
-- **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the `Num` component (e.g. `2.41 L`, `25 K`). Prices use `formatPriceNum()` — also no ₹ symbol.
-- Prices: `formatPriceNum()` from `lib/formatter.ts` — no commas below 10,000
-- Interactive elements: `color.accent` only — never signal colours
-- Dimming (opacity): allocation-done state only — never for buy/hold/trim signal
-- Min 44px tap target on all interactive elements; use `min-h-[44px] min-w-[44px]` wrapper if needed
-- **MUST keep `body { min-height: calc(100dvh + 1px) }` in `app/globals.css`** — removing it breaks iOS fixed nav
+---
 
-## Colour tokens
+## Key directories
 
-| Meaning | Class |
-|---|---|
-| Gains / buy / allocated | `text-positive` |
-| Loss / sell / trim | `text-negative` |
-| CTA / links / interactive | `text-accent` |
-| Hold / caution | `text-warning` |
-| Deep value zone | `text-signal-deep` |
+| Path | Purpose |
+|------|---------|
+| `app/allocation/` | Allocation overview — FY deployment status per stock |
+| `app/bands/` | Buy Bands screen; `[symbol]/` is Stock Detail |
+| `app/plan/` | FY planning — allocation percentages, carryover |
+| `app/transactions/` | Transaction history, all asset types |
+| `app/portfolio/` | MF / Gold / PPF / EPF portfolio screen |
+| `app/add/` | Add transaction (FAB) |
+| `app/import/` | CSV import |
+| `app/api/` | Server-side API routes (CMP, bands gen, investability, tranches) |
+| `lib/` | Computation, types, data fetching, formatters |
+| `components/` | Shared UI components |
 
-New token: add CSS var to `app/globals.css`, then reference in `tailwind.config.ts`.
+---
 
-## Component patterns
+## Key files
 
-| Container | Radius | Padding |
-|---|---|---|
-| Card | `rounded-2xl` | `p-4` |
-| Button | `rounded-xl` | min 44px height |
-| Bottom sheet | `rounded-t-3xl` | `px-5 pt-5` |
+| File | Purpose |
+|------|---------|
+| `lib/types.ts` | Core types: `Transaction`, `FiscalYear`, `StockRow`, etc. |
+| `lib/portfolio-types.ts` | `MFTransaction`, `SGBTransaction`, `PPFTransaction`, `EPFTransaction`, `MFund` |
+| `lib/compute.ts` | Stock row computation: allocation, spent, currentCost, bands, XIRR |
+| `lib/mf-compute.ts` | MF holding computation: units, cost, current value, XIRR |
+| `lib/band-calculator.ts` | PE/PB/EV band price calculation by category |
+| `lib/data.ts` | Supabase data fetching helpers |
+| `lib/xirr.ts` | XIRR implementation |
+| `lib/formatter.ts` | `formatPriceNum()`, `formatDate()`, compact Indian number formatting |
+| `lib/screener.ts` | Screener.in HTML parsing for financials (EPS, PAT, ROCE, Mcap) |
+| `lib/nse.ts` | NSE API for index level and PE |
+| `lib/supabase-browser.ts` | Browser Supabase client (for client-side mutations) |
+| `app/actions.ts` | Server actions for DB writes + `revalidateTag` cache invalidation |
+| `components/icons.tsx` | All SVG icons — check here before adding SVGs inline |
+| `components/Num.tsx` | Compact Indian number formatting component — use for all amounts |
+| `app/globals.css` | CSS tokens, global styles, iOS body hack |
+| `tailwind.config.ts` | Tailwind token extensions (colour, type scale) |
 
-- Page padding: `px-4` only — never `px-3` or `px-5`
-- List rows: `py-3` (gives 44px tap target with headline text)
-- Check `components/icons.tsx` before adding SVGs inline
+---
 
 ## Asset types
 
-- **Stocks** — buy bands, tranches, investability scorecard; computed via `lib/band-calculator.ts` and `lib/compute.ts`
-- **Mutual Funds (MF)** — portfolio-only asset type; no bands or tranches; computed via `lib/mf-compute.ts`; handled in `app/portfolio/`
+| Asset | Compute | DB tables |
+|-------|---------|-----------|
+| Stocks | `lib/compute.ts`, `lib/band-calculator.ts` | `transactions`, `stocks`, `fiscal_years` |
+| Mutual Funds | `lib/mf-compute.ts` | `mf_funds`, `mf_transactions` |
+| Gold / SGB | `app/portfolio/` | `sgb_transactions` |
+| PPF | `app/portfolio/` | `ppf_transactions` |
+| EPF | `app/portfolio/` | `epf_transactions` |
+
+Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches.
+
+---
 
 ## Data / caching
 
-DB write → `revalidateTag(tag)` via server action — otherwise `unstable_cache` serves stale data.
+- DB writes go through server actions in `app/actions.ts`; always call `revalidateTag(tag)` after a write — otherwise `unstable_cache` serves stale data.
+- DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and filter client-side.
 
-DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and process client-side.
+---
 
 ## AI integration
 
-- Gemini is used **only** for the investability scorecard (`/api/investability/generate`). Financial data (EPS, PAT, ROCE, Mcap) comes from Screener.in via `lib/screener.ts`; index level and PE come from the NSE API via `lib/nse.ts`.
-- AI features are user-key-gated — always read the key from `user_settings` (decrypted), never from environment variables. If no key, return an error directing the user to Settings.
+- Gemini is used **only** for the investability scorecard (`/api/investability/generate/[symbol]`).
+- Financial inputs (EPS, PAT, ROCE, Mcap) come from Screener.in via `lib/screener.ts`; index level and PE come from NSE API via `lib/nse.ts`.
+- Always read the Gemini key from `user_settings` (decrypted) — never from env vars. If no key, return an error directing the user to Settings.
+
+---
+
+## Working approach
+
+- **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
+- **After completing any unit of work**, append an entry to `progress.md`: date heading, one-line title, files changed, 2–4 bullets on what changed and why. Keep it terse.
+- **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
+- **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
+- **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
+- **Git email:** always run `git config user.email "12730252+shriramks@users.noreply.github.com"` before committing.
+- **Never override ignore rules.** No `git add -f`, never stage ignored files.
+- **Diagnose bugs from code only.** If an error maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
+- **Targeted reads only.** Use grep/glob for lookups; open files only when something is genuinely missing. Avoid full-codebase explore agents unless clearly needed.
+
+---
+
+## Debugging principle
+
+**Fix the model, not the symptom.** When something displays wrong, first ask: what is the underlying model supposed to guarantee? A correct fix restores an invariant. A symptom fix moves the inconsistency elsewhere. Before changing any formula, write down the invariant it must satisfy, verify it holds after the change, and audit every other value that shares the same base.

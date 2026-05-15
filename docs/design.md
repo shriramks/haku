@@ -36,6 +36,9 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
   Prices are at minimum `body`, ideally `headline`.
 - **tabnum** class on all financial numbers — prevents layout shift as digits change.
 - Line heights: display/title 1.1–1.2, everything else 1.4.
+- **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the
+  `Num` component (e.g. `2.41 L`, `25 K`). Prices use `formatPriceNum()` from
+  `lib/formatter.ts` — also no ₹ symbol.
 
 ### What this looks like in a Plans list row
 ```
@@ -100,10 +103,15 @@ signal.deep  → color.deep
 - Zone fills: signal colour at 28–35% opacity (`rgba(...)` or Tailwind `/30`)
 - Zone labels (text inside the bar): signal colour at full opacity
 - P&L positive: `color.positive`. P&L negative: `color.negative`. Never green-500/red-400.
-- Interactive elements (buttons with actions, links): `color.accent` only. Not green, not the
-  signal colours.
+- **Interactive elements** (buttons, links, any tappable element): `color.accent` only — never
+  signal colours (positive/negative/warning).
 - `color.deep` and `color.positive` are intentionally different. Deep value is a stronger buy
   signal than buy — it deserves a visually distinct colour.
+- **Dimming (reduced opacity)**: allocation-done state only — never use opacity to indicate
+  buy/hold/trim signal.
+- **No raw hex or rgba() in JSX component code.** Use token classes (`text-accent`,
+  `bg-positive`) or `var(--token)` CSS variables only. Raw values belong only in
+  `globals.css` and `tailwind.config.ts`.
 
 ---
 
@@ -244,6 +252,8 @@ Section spacing: vertical gap only; no horizontal rule after every section
 
 Rules for SettingsMenu:
 - Global but non-primary actions may live here when they should not compete with a screen's main CTA row.
+- **Screen-specific actions** may be included, but must be demoted under the settings icon — never promoted into the primary action row when space is tight.
+- **Dividers**: only within sections that contain multiple items. Do not add a horizontal divider after every section.
 - If a section has one item, render it as a standalone card/button without an extra divider.
 - If a section has multiple items, use one shared group container with internal dividers.
 
@@ -413,3 +423,19 @@ rgba(52,  199,  89, 0.12)  /* positive / green */
 rgba(255,  59,  48, 0.10)  /* negative / red  */
 rgba(255, 149,   0, 0.15)  /* warning / amber */
 ```
+
+---
+
+## 11. Platform
+
+### Viewport
+Design for **iPhone 16/17 width (393pt)** as the default target. Every layout decision — wrapping, font size, tap targets — is evaluated at this width first.
+
+### Action rows
+**Primary action rows must not wrap.** If actions do not fit on one row at iPhone 16/17 width, reduce, regroup, or demote actions — never allow a second line.
+
+### iOS fixed nav
+`body { min-height: calc(100dvh + 1px) }` in `app/globals.css` is required. It forces the WebKit scrollable-document compositing path so `position: fixed` nav renders correctly on iOS. **Never remove this line.**
+
+### New design tokens
+To add a token: define the CSS variable in `app/globals.css` (light + dark), then reference it in `tailwind.config.ts`.
