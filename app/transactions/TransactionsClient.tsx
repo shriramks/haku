@@ -913,10 +913,13 @@ function TxnRow({ txn, fiscalYears, showAssetTag, onDelete, onSaved }: {
         </div>
         <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
           {showAssetTag && (
-            <span className="font-semibold uppercase" style={{ fontSize: 11, letterSpacing: '0.03em', color: 'var(--text-faint)' }}>
-              {ASSET_LABELS[txn.asset]}
-              {' · '}
-            </span>
+            <>
+              <span className="font-semibold uppercase inline-flex items-center rounded px-1 leading-[1.5]"
+                    style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-muted)', background: 'var(--border-faint)', border: '1px solid var(--border)' }}>
+                {ASSET_LABELS[txn.asset]}
+              </span>
+              <span style={{ color: 'var(--text-faint)' }}>·</span>
+            </>
           )}
           {txn.detail}
         </p>
