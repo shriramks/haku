@@ -157,8 +157,9 @@ Open app
 2. FY summary strip — Total FY Allocation, Total Invested (currentCost), Remaining (FY)
 3. Per-stock list rows — each row shows:
    - Primary: Stock symbol
-   - Secondary: Remaining (FY) + Invested (currentCost)
-   - Bar fill: currentCost as % of FY budget
+   - Trailing hero (bold): Invested (currentCost) — matches bar fill visually
+   - Trailing secondary (muted): Remaining (FY)
+   - Bar fill: currentCost as % of FY budget (green)
 4. Completed / exited stocks — collapsed by default
 
 **What is NOT here:** Band bars, tranche details, CMP, P&L.
