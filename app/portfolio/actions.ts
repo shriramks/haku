@@ -2,12 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-async function getUserId(): Promise<string | null> {
-  const sb = await createSupabaseServerClient()
-  const { data: { session } } = await sb.auth.getSession()
-  return session?.user.id ?? null
-}
+import { getUserId } from '@/lib/data'
 
 // ── MF ────────────────────────────────────────────────────────────────────────
 

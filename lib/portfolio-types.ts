@@ -111,12 +111,3 @@ export interface EPFSummary {
   xirr: number | null
 }
 
-// Passed from server to PortfolioClient
-export interface PortfolioProps {
-  mfFunds: MFund[]
-  mfTransactions: MFTransaction[]
-  sgbTransactions: SGBTransaction[]
-  ppfTransactions: PPFTransaction[]
-  ppfOverride: PPFBalanceOverride | null
-  epfTransactions: EPFTransaction[]
-}

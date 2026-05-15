@@ -76,12 +76,6 @@ export function formatDate(isoDate: string): string {
     : base + " '" + String(d.getFullYear()).slice(2)
 }
 
-/** "Mar '26" — compact month + 2-digit year, e.g. for band anchor timestamps */
-export function shortMonthYear(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-IN', { month: 'short' }) + " '" + String(d.getFullYear()).slice(2)
-}
-
 /** Strip trailing zeros after a fixed-precision format: 1.50 → "1.5", 1.00 → "1" */
 export function trimZero(n: number, dp = 1): string {
   const s = n.toFixed(dp)
@@ -94,22 +88,10 @@ export function formatXirr(v: number | null): string {
   return `${trimZero(v * 100)}%`
 }
 
-/** Absolute gain as compact amount, or "—" for null */
-export function formatPnLFine(gain: number | null): string {
-  if (gain === null) return '—'
-  return formatINRFine(Math.abs(gain))
-}
-
 /** Absolute gain as full Indian-locale amount, or "—" for null */
 export function formatPnLFull(gain: number | null): string {
   if (gain === null) return '—'
   return formatINRFull(Math.abs(gain))
-}
-
-/** Absolute gain as a percentage of invested. Empty string when gain is null or invested is 0 */
-export function formatGainPct(gain: number | null, invested: number): string {
-  if (gain === null || invested <= 0) return ''
-  return `${trimPct(Math.abs((gain / invested) * 100))}%`
 }
 
 /** Percentage with trailing ".0" stripped: 12.0 → "12", 12.5 → "12.5" */
