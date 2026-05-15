@@ -481,10 +481,9 @@ export default function TransactionsClient({
                   <TxnRow
                     key={txn.id}
                     txn={txn}
-                    fiscalYears={fiscalYears}
                     showAssetTag={showAssetTag}
                     onDelete={deleteTxn}
-                    onSaved={updateTxn}
+                    onSavedStock={updateTxn}
                   />
                 ))}
               </div>
@@ -764,47 +763,103 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
   )
 }
 
+// ── TxnRow helpers ────────────────────────────────────────────────────────────
+
+interface EditState {
+  qty: string
+  price: string
+  date: string
+  saving: boolean
+  confirming: boolean
+}
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      {children}
+    </div>
+  )
+}
+
+function EditActions({ confirming, saveDisabled, saving, onStartDelete, onKeep, onDelete, onCancel, onSave }: {
+  confirming: boolean
+  saveDisabled: boolean
+  saving: boolean
+  onStartDelete: () => void
+  onKeep: () => void
+  onDelete: () => void
+  onCancel: () => void
+  onSave: () => void
+}) {
+  if (confirming) {
+    return (
+      <div className="flex gap-2">
+        <button onClick={onKeep}
+          className="flex-1 py-2.5 rounded-xl text-body font-medium"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+          Keep
+        </button>
+        <button onClick={onDelete}
+          className="flex-1 py-2.5 rounded-xl text-body font-medium text-negative"
+          style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
+          Delete
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center justify-between">
+      <button onClick={onStartDelete}
+        className="px-4 py-2.5 rounded-xl text-body font-medium text-negative"
+        style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)' }}>
+        Delete
+      </button>
+      <div className="flex gap-2">
+        <button onClick={onCancel}
+          className="px-4 py-2.5 rounded-xl text-body font-medium"
+          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+          Cancel
+        </button>
+        <button onClick={onSave} disabled={saveDisabled}
+          className="px-5 py-2.5 rounded-xl text-body font-semibold disabled:opacity-40 text-white bg-accent">
+          {saving ? '…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
-function TxnRow({ txn, fiscalYears, showAssetTag, onDelete, onSaved }: {
+function TxnRow({ txn, showAssetTag, onDelete, onSavedStock }: {
   txn: DisplayTxn
-  fiscalYears: FiscalYear[]
   showAssetTag: boolean
   onDelete: (id: string) => void
-  onSaved: (updated: Transaction) => void
+  onSavedStock: (updated: Transaction) => void
 }) {
-  const [editing, setEditing]       = useState(false)
-  const [editQty, setEditQty]       = useState('')
-  const [editPrice, setEditPrice]   = useState('')
-  const [editDate, setEditDate]     = useState('')
-  const [saving, setSaving]         = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const [editState, setEditState] = useState<EditState | null>(null)
 
   const stock = txn.rawStock
   const isBuy = stock?.trade_type === 'buy'
 
   function openEdit() {
     if (!stock) return
-    setEditQty(String(stock.quantity))
-    setEditPrice(String(stock.price))
-    setEditDate(stock.trade_date)
-    setConfirming(false)
-    setEditing(true)
+    setEditState({ qty: String(stock.quantity), price: String(stock.price), date: stock.trade_date, saving: false, confirming: false })
   }
 
-  function cancelEdit() { setEditing(false); setConfirming(false) }
+  function cancelEdit() { setEditState(null) }
 
   async function save() {
-    if (!stock) return
-    const qty   = parseFloat(editQty)
-    const price = parseFloat(editPrice)
-    if (!qty || !price || !editDate) return
-    setSaving(true)
-    const patch = { quantity: qty, price, trade_date: editDate }
+    if (!stock || !editState) return
+    const qty   = parseFloat(editState.qty)
+    const price = parseFloat(editState.price)
+    if (!qty || !price || !editState.date) return
+    setEditState(prev => prev ? { ...prev, saving: true } : null)
+    const patch = { quantity: qty, price, trade_date: editState.date }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
-    onSaved({ ...stock, ...patch, amount: qty * price })
-    setSaving(false)
-    setEditing(false)
+    onSavedStock({ ...stock, ...patch, amount: qty * price })
+    setEditState(null)
   }
 
   async function doDelete() {
@@ -812,12 +867,12 @@ function TxnRow({ txn, fiscalYears, showAssetTag, onDelete, onSaved }: {
     onDelete(txn.id)
   }
 
-  const editAmount       = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
+  const editAmount       = editState ? (parseFloat(editState.qty) || 0) * (parseFloat(editState.price) || 0) : 0
   const signedEditAmount = isBuy ? editAmount : -editAmount
-  const saveDisabled     = saving || !editQty || !editPrice || !editDate
+  const saveDisabled     = !editState || editState.saving || !editState.qty || !editState.price || !editState.date
 
   // ── Edit mode (stocks only) ──
-  if (editing && stock) {
+  if (editState && stock) {
     return (
       <div className="px-4 py-3" style={{ background: 'rgba(10,132,255,0.04)' }}>
         <div className="flex items-center justify-between mb-3">
@@ -835,62 +890,39 @@ function TxnRow({ txn, fiscalYears, showAssetTag, onDelete, onSaved }: {
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <div>
-            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Quantity</p>
-            <input type="number" inputMode="numeric" value={editQty} onChange={e => setEditQty(e.target.value)}
+          <EditField label="Quantity">
+            <input type="number" inputMode="numeric" value={editState.qty}
+              onChange={e => setEditState(prev => prev ? { ...prev, qty: e.target.value } : null)}
               className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-          </div>
-          <div>
-            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Price</p>
-            <input type="number" inputMode="decimal" value={editPrice} onChange={e => setEditPrice(e.target.value)}
+          </EditField>
+          <EditField label="Price">
+            <input type="number" inputMode="decimal" value={editState.price}
+              onChange={e => setEditState(prev => prev ? { ...prev, price: e.target.value } : null)}
               className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-          </div>
+          </EditField>
         </div>
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <div>
-            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Date</p>
-            <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+          <EditField label="Date">
+            <input type="date" value={editState.date}
+              onChange={e => setEditState(prev => prev ? { ...prev, date: e.target.value } : null)}
               className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
-          </div>
+          </EditField>
           <div />
         </div>
 
-        {confirming ? (
-          <div className="flex gap-2">
-            <button onClick={() => setConfirming(false)}
-              className="flex-1 py-2.5 rounded-xl text-body font-medium"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-              Keep
-            </button>
-            <button onClick={doDelete}
-              className="flex-1 py-2.5 rounded-xl text-body font-medium text-negative"
-              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
-              Delete
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <button onClick={() => setConfirming(true)}
-              className="px-4 py-2.5 rounded-xl text-body font-medium text-negative"
-              style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)' }}>
-              Delete
-            </button>
-            <div className="flex gap-2">
-              <button onClick={cancelEdit}
-                className="px-4 py-2.5 rounded-xl text-body font-medium"
-                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-                Cancel
-              </button>
-              <button onClick={save} disabled={saveDisabled}
-                className="px-5 py-2.5 rounded-xl text-body font-semibold disabled:opacity-40 text-white bg-accent">
-                {saving ? '…' : 'Save'}
-              </button>
-            </div>
-          </div>
-        )}
+        <EditActions
+          confirming={editState.confirming}
+          saveDisabled={saveDisabled}
+          saving={editState.saving}
+          onStartDelete={() => setEditState(prev => prev ? { ...prev, confirming: true } : null)}
+          onKeep={() => setEditState(prev => prev ? { ...prev, confirming: false } : null)}
+          onDelete={doDelete}
+          onCancel={cancelEdit}
+          onSave={save}
+        />
       </div>
     )
   }
