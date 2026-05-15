@@ -2,21 +2,51 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFine, formatDate, formatPriceNum } from '@/lib/formatter'
+import { formatDate, formatPriceNum } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import UserMenu from '@/components/UserMenu'
 import { PencilIcon, FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
+
+// ── Asset types ───────────────────────────────────────────────────────────────
+
+type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
+
+const ASSET_LABELS: Record<AssetType, string> = {
+  stock: 'Stocks', mf: 'MF', gold: 'Gold', ppf: 'PPF', epf: 'EPF',
+}
+
+function assetFilterLabel(f: Set<AssetType>): string {
+  const names = Array.from(f).map(a => ASSET_LABELS[a])
+  if (names.length <= 2) return names.join(', ')
+  return `${names.length} assets`
+}
+
+// ── Unified display type ──────────────────────────────────────────────────────
+
+interface DisplayTxn {
+  id: string
+  asset: AssetType
+  name: string
+  trade_date: string
+  direction: 'in' | 'out' | 'neutral'
+  trade_type: string
+  amount: number
+  signedAmount: number
+  detail: string
+  rawStock?: Transaction
+}
 
 // ── Date filter types + helpers ───────────────────────────────────────────────
 
 interface DateFilter {
   label: string
-  from: string  // YYYY-MM-DD
-  to: string    // YYYY-MM-DD
+  from: string
+  to: string
 }
 
 function toYMD(d: Date) { return d.toISOString().slice(0, 10) }
@@ -37,6 +67,18 @@ function getRollingRange(key: string): { from: string; to: string } {
   return { from: '', to: '' }
 }
 
+// ── Normalisation helpers ─────────────────────────────────────────────────────
+
+function fmtQty(n: number, dec: number): string {
+  return n % 1 === 0 ? String(n) : parseFloat(n.toFixed(dec)).toString()
+}
+function fmtNav(n: number): string {
+  return n % 1 === 0 ? String(n) : parseFloat(n.toFixed(2)).toString()
+}
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TransactionsClient({
@@ -44,11 +86,21 @@ export default function TransactionsClient({
   fiscalYears,
   currentFY,
   filterSymbol,
+  mfFunds,
+  mfTransactions,
+  sgbTransactions,
+  ppfTransactions,
+  epfTransactions,
 }: {
   transactions: Transaction[]
   fiscalYears: FiscalYear[]
   currentFY: FiscalYear | null
   filterSymbol?: string
+  mfFunds: MFund[]
+  mfTransactions: MFTransaction[]
+  sgbTransactions: SGBTransaction[]
+  ppfTransactions: PPFTransaction[]
+  epfTransactions: EPFTransaction[]
 }) {
   const defaultDateFilter: DateFilter | null = currentFY
     ? { label: currentFY.label, from: currentFY.start_date, to: currentFY.end_date }
@@ -61,16 +113,23 @@ export default function TransactionsClient({
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
   const [symbolFilter, setSymbolFilter] = useState('all')
   const [dateFilter,   setDateFilter]   = useState<DateFilter | null>(defaultDateFilter)
+  const [assetFilter,  setAssetFilter]  = useState<Set<AssetType>>(new Set())
 
   // Sheet visibility
   const [filterOpen,     setFilterOpen]     = useState(false)
   const [stockSheetOpen, setStockSheetOpen] = useState(false)
   const [dateSheetOpen,  setDateSheetOpen]  = useState(false)
+  const [assetSheetOpen, setAssetSheetOpen] = useState(false)
 
   const kh = useKeyboardHeight()
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setTxns(initial) }, [initial])
+
+  // Clear symbol filter when switching away from stocks
+  useEffect(() => {
+    if (assetFilter.size > 0 && !assetFilter.has('stock')) setSymbolFilter('all')
+  }, [assetFilter])
 
   function deleteTxn(id: string)     { setTxns(prev => prev.filter(t => t.id !== id)) }
   function updateTxn(u: Transaction) { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
@@ -79,33 +138,112 @@ export default function TransactionsClient({
     setTypeFilter('all')
     setSymbolFilter('all')
     setDateFilter(defaultDateFilter)
+    setAssetFilter(new Set())
   }
 
-  const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
-  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !isDefaultDate
+  // ── Normalise all transaction types into one list ──
+  const allDisplayTxns = useMemo((): DisplayTxn[] => {
+    const fundMap = new Map(mfFunds.map(f => [f.id, f]))
 
+    const stocks: DisplayTxn[] = txns.map(t => ({
+      id:           t.id,
+      asset:        'stock',
+      name:         t.symbol,
+      trade_date:   t.trade_date,
+      direction:    t.trade_type === 'buy' ? 'in' : 'out',
+      trade_type:   t.trade_type,
+      amount:       t.amount,
+      signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount,
+      detail:       `${fmtQty(t.quantity, 1)} sh · ${formatPriceNum(t.price)}`,
+      rawStock:     t,
+    }))
+
+    const mfs: DisplayTxn[] = mfTransactions.map(t => ({
+      id:           t.id,
+      asset:        'mf',
+      name:         fundMap.get(t.fund_id)?.scheme_name ?? 'Unknown Fund',
+      trade_date:   t.trade_date,
+      direction:    t.trade_type === 'buy' ? 'in' : 'out',
+      trade_type:   t.trade_type,
+      amount:       t.amount,
+      signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount,
+      detail:       `${fmtQty(t.units, 3)} units · NAV ${fmtNav(t.nav)}`,
+    }))
+
+    const gold: DisplayTxn[] = sgbTransactions.map(t => ({
+      id:           t.id,
+      asset:        'gold',
+      name:         t.gold_type === 'sgb'
+                      ? `Gold SGB${t.name ? ' · ' + t.name : ''}`
+                      : (t.name ?? (t.gold_type === 'etf' ? 'Gold ETF' : 'Physical Gold')),
+      trade_date:   t.trade_date,
+      direction:    t.trade_type === 'buy' ? 'in' : 'out',
+      trade_type:   t.trade_type,
+      amount:       t.amount,
+      signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount,
+      detail:       `${fmtQty(t.grams, 3)}g · ${formatPriceNum(t.price_per_gram)}/g`,
+    }))
+
+    const ppf: DisplayTxn[] = ppfTransactions.map(t => ({
+      id:           t.id,
+      asset:        'ppf',
+      name:         'PPF',
+      trade_date:   t.trade_date,
+      direction:    t.trade_type === 'deposit' ? 'in' : t.trade_type === 'withdrawal' ? 'out' : 'neutral',
+      trade_type:   t.trade_type,
+      amount:       t.amount,
+      signedAmount: t.trade_type === 'deposit' ? t.amount : t.trade_type === 'withdrawal' ? -t.amount : t.amount,
+      detail:       capitalize(t.trade_type),
+    }))
+
+    const epf: DisplayTxn[] = epfTransactions.map(t => ({
+      id:           t.id,
+      asset:        'epf',
+      name:         'EPF',
+      trade_date:   t.trade_date,
+      direction:    t.trade_type === 'deposit' ? 'in' : 'neutral',
+      trade_type:   t.trade_type,
+      amount:       t.amount,
+      signedAmount: t.amount,
+      detail:       capitalize(t.trade_type),
+    }))
+
+    return [...stocks, ...mfs, ...gold, ...ppf, ...epf]
+      .sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+  }, [txns, mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions])
+
+  // ── Stock symbols for the symbol picker ──
   const symbols = useMemo(() =>
     Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
 
-  const displayed = useMemo(() => txns
-    .filter(t => !filterSymbol || t.symbol === filterSymbol)
-    .filter(t => typeFilter === 'all' || t.trade_type === typeFilter)
-    .filter(t => symbolFilter === 'all' || t.symbol === symbolFilter)
-    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to))
-    .map(t => ({ ...t, signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount })),
-    [txns, filterSymbol, typeFilter, symbolFilter, dateFilter]
+  // ── Apply filters ──
+  const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
+  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !isDefaultDate || assetFilter.size > 0
+
+  const displayed = useMemo(() => allDisplayTxns
+    .filter(t => !filterSymbol || (t.asset === 'stock' && t.name === filterSymbol))
+    .filter(t => assetFilter.size === 0 || assetFilter.has(t.asset))
+    .filter(t => typeFilter === 'all' || (typeFilter === 'buy' ? t.direction === 'in' : t.direction === 'out'))
+    .filter(t => symbolFilter === 'all' || (t.asset === 'stock' && t.name === symbolFilter))
+    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
+    [allDisplayTxns, filterSymbol, assetFilter, typeFilter, symbolFilter, dateFilter]
   )
 
   const grouped = useMemo(() => groupByMonth(displayed), [displayed])
 
-  // Active dismissible tags
+  // Show asset tag in rows only when multiple asset types are visible
+  const showAssetTag = assetFilter.size !== 1 && !filterSymbol
+
+  // ── Dismissible filter tags ──
   const activeTags: { key: string; label: string; clear: () => void }[] = []
+  if (assetFilter.size > 0)
+    activeTags.push({ key: 'asset',  label: assetFilterLabel(assetFilter),                 clear: () => setAssetFilter(new Set()) })
   if (typeFilter !== 'all')
-    activeTags.push({ key: 'type',   label: typeFilter === 'buy' ? 'Buys' : 'Sells', clear: () => setTypeFilter('all') })
+    activeTags.push({ key: 'type',   label: typeFilter === 'buy' ? 'Buys' : 'Sells',       clear: () => setTypeFilter('all') })
   if (!filterSymbol && symbolFilter !== 'all')
-    activeTags.push({ key: 'symbol', label: symbolFilter, clear: () => setSymbolFilter('all') })
+    activeTags.push({ key: 'symbol', label: symbolFilter,                                   clear: () => setSymbolFilter('all') })
   if (dateFilter && !isDefaultDate)
-    activeTags.push({ key: 'date', label: dateFilter.label, clear: () => setDateFilter(defaultDateFilter) })
+    activeTags.push({ key: 'date',   label: dateFilter.label,                               clear: () => setDateFilter(defaultDateFilter) })
 
   // ── Filter sheet ──
   const filterSheet = filterOpen && mounted && createPortal(
@@ -128,6 +266,19 @@ export default function TransactionsClient({
         }
       />
 
+      {/* Asset */}
+      <button
+        onClick={() => setAssetSheetOpen(true)}
+        className="w-full flex items-center justify-between px-5 border-b"
+        style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+        <span className="text-body">Asset</span>
+        <span className="flex items-center gap-1.5 text-body"
+              style={{ color: assetFilter.size === 0 ? 'var(--text-muted)' : 'var(--accent)' }}>
+          {assetFilter.size === 0 ? 'Any' : assetFilterLabel(assetFilter)}
+          <ChevronRightIcon className="w-4 h-4 opacity-40" />
+        </span>
+      </button>
+
       {/* Type */}
       <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
         <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Type</p>
@@ -144,8 +295,8 @@ export default function TransactionsClient({
         </div>
       </div>
 
-      {/* Stock picker row */}
-      {!filterSymbol && (
+      {/* Stock picker — only when stocks are in view */}
+      {!filterSymbol && (assetFilter.size === 0 || assetFilter.has('stock')) && (
         <button
           onClick={() => setStockSheetOpen(true)}
           className="w-full flex items-center justify-between px-5 border-b"
@@ -159,7 +310,7 @@ export default function TransactionsClient({
         </button>
       )}
 
-      {/* Date picker row */}
+      {/* Date */}
       <button
         onClick={() => setDateSheetOpen(true)}
         className="w-full flex items-center justify-between px-5 border-b"
@@ -172,6 +323,22 @@ export default function TransactionsClient({
         </span>
       </button>
     </BottomSheet>,
+    document.body
+  )
+
+  // ── Asset sub-sheet ──
+  const assetSheet = assetSheetOpen && mounted && createPortal(
+    <>
+      <div className="fixed inset-0 z-[210]" onClick={() => setAssetSheetOpen(false)} />
+      <div className="fixed left-0 right-0 z-[210] rounded-t-[28px] sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <AssetSubSheet
+          value={assetFilter}
+          onApply={v => { setAssetFilter(v); setAssetSheetOpen(false) }}
+          onClose={() => setAssetSheetOpen(false)}
+        />
+      </div>
+    </>,
     document.body
   )
 
@@ -229,7 +396,7 @@ export default function TransactionsClient({
           <UserMenu />
         </div>
 
-        {/* Filter row */}
+        {/* Filter chips */}
         <div className="flex items-center gap-2 px-4 pt-2 pb-3 overflow-x-auto"
              style={{ scrollbarWidth: 'none' }}>
           <a
@@ -290,21 +457,21 @@ export default function TransactionsClient({
         </div>
       ) : (
         <div className="pt-1 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
-          {grouped.map(({ month, items, buyTotal, sellTotal }) => (
+          {grouped.map(({ month, items, investedTotal, withdrawnTotal }) => (
             <section key={month}>
               <div className="flex items-end justify-between gap-3 px-4 pt-4 pb-3">
                 <p className="font-extrabold tracking-tight" style={{ fontSize: 26, letterSpacing: -0.8 }}>{month}</p>
-                <div className="flex-shrink-0 pb-0.5 mr-[52px]" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
-                  {buyTotal > 0 && (
+                <div className="flex-shrink-0 pb-0.5" style={{ display: 'grid', gridTemplateColumns: 'auto auto', columnGap: 5, rowGap: 1, alignItems: 'baseline' }}>
+                  {investedTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-positive"><Num amount={buyTotal} /></span>
-                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>bought</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-positive"><Num amount={investedTotal} /></span>
+                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>invested</span>
                     </>
                   )}
-                  {sellTotal > 0 && (
+                  {withdrawnTotal > 0 && (
                     <>
-                      <span className="tabnum text-footnote font-semibold text-right text-negative"><Num amount={sellTotal} /></span>
-                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>sold</span>
+                      <span className="tabnum text-footnote font-semibold text-right text-negative"><Num amount={withdrawnTotal} /></span>
+                      <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>withdrawn</span>
                     </>
                   )}
                 </div>
@@ -315,6 +482,7 @@ export default function TransactionsClient({
                     key={txn.id}
                     txn={txn}
                     fiscalYears={fiscalYears}
+                    showAssetTag={showAssetTag}
                     onDelete={deleteTxn}
                     onSaved={updateTxn}
                   />
@@ -326,6 +494,7 @@ export default function TransactionsClient({
       )}
 
       {filterSheet}
+      {assetSheet}
       {stockSheet}
       {dateSheet}
     </div>
@@ -338,6 +507,80 @@ function ImportIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v10m0 0l-4-4m4 4l4-4" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1" />
     </svg>
+  )
+}
+
+// ── AssetSubSheet ─────────────────────────────────────────────────────────────
+
+const ASSET_OPTIONS: { key: AssetType; label: string }[] = [
+  { key: 'stock', label: 'Stocks' },
+  { key: 'mf',    label: 'Mutual Funds' },
+  { key: 'gold',  label: 'Gold' },
+  { key: 'ppf',   label: 'PPF' },
+  { key: 'epf',   label: 'EPF' },
+]
+
+function AssetSubSheet({ value, onApply, onClose }: {
+  value: Set<AssetType>
+  onApply: (v: Set<AssetType>) => void
+  onClose: () => void
+}) {
+  const [local, setLocal] = useState(new Set(value))
+  const allSelected = local.size === 0
+
+  function toggle(a: AssetType) {
+    setLocal(prev => {
+      const next = new Set(prev)
+      if (next.has(a)) next.delete(a)
+      else next.add(a)
+      return next
+    })
+  }
+
+  return (
+    <>
+      <div className="flex justify-center pt-3 pb-1">
+        <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+      </div>
+      <SheetHeader
+        title="Asset"
+        left={null}
+        right={<button onClick={() => onApply(local)} className="font-semibold text-headline text-accent">Done</button>}
+      />
+      <div style={{ overflowY: 'auto', maxHeight: '50vh' }}>
+        <button
+          onClick={() => setLocal(new Set())}
+          className="w-full flex items-center justify-between px-5 border-b"
+          style={{
+            minHeight: 52, borderColor: 'var(--border-faint)',
+            background: allSelected ? 'rgba(10,132,255,0.04)' : undefined,
+          }}>
+          <span className="text-body"
+                style={{ color: allSelected ? 'var(--accent)' : 'var(--text-primary)', fontWeight: allSelected ? 500 : 400 }}>
+            All assets
+          </span>
+          {allSelected && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
+        </button>
+        {ASSET_OPTIONS.map(({ key, label }) => {
+          const sel = local.has(key)
+          return (
+            <button key={key}
+              onClick={() => toggle(key)}
+              className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+              style={{
+                minHeight: 52, borderColor: 'var(--border-faint)',
+                background: sel ? 'rgba(10,132,255,0.04)' : undefined,
+              }}>
+              <span className="text-body"
+                    style={{ color: sel ? 'var(--accent)' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
+                {label}
+              </span>
+              {sel && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' } as React.CSSProperties} />}
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }
 
@@ -431,9 +674,6 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
     setCustomTo(to)
   }
 
-  function handleCustomFrom(v: string) { setCustomFrom(v) }
-  function handleCustomTo(v: string)   { setCustomTo(v) }
-
   function apply() {
     if (!customFrom || !customTo) { onApply(null); return }
     const rolling = ROLLING_OPTIONS.find(o => {
@@ -467,11 +707,8 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
         right={<button onClick={apply} className="font-semibold text-headline text-accent">Done</button>}
       />
 
-      {/* Rolling quick selects */}
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-          Recent
-        </p>
+        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Recent</p>
         {ROLLING_OPTIONS.map(opt => {
           const range = getRollingRange(opt.key)
           const sel = isSelected(range.from, range.to)
@@ -489,11 +726,8 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
         })}
       </div>
 
-      {/* Fiscal year selects */}
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-          Fiscal year
-        </p>
+        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Fiscal year</p>
         {[...fiscalYears].reverse().map(fy => {
           const sel = isSelected(fy.start_date, fy.end_date)
           return (
@@ -510,24 +744,17 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
         })}
       </div>
 
-      {/* Custom range */}
       <div className="px-5 pt-4 pb-2">
-        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-          Custom range
-        </p>
+        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Custom range</p>
         <div className="flex items-center gap-2">
           <input
-            type="date"
-            value={customFrom}
-            onChange={e => handleCustomFrom(e.target.value)}
+            type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
             className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }}
           />
           <span className="text-body flex-shrink-0" style={{ color: 'var(--text-faint)' }}>→</span>
           <input
-            type="date"
-            value={customTo}
-            onChange={e => handleCustomTo(e.target.value)}
+            type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
             className="flex-1 px-3 py-2.5 rounded-xl text-body outline-none"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }}
           />
@@ -539,25 +766,28 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
 
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
-function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
-  txn: Transaction & { signedAmount: number }
+function TxnRow({ txn, fiscalYears, showAssetTag, onDelete, onSaved }: {
+  txn: DisplayTxn
   fiscalYears: FiscalYear[]
+  showAssetTag: boolean
   onDelete: (id: string) => void
   onSaved: (updated: Transaction) => void
 }) {
-  const [editing, setEditing]         = useState(false)
-  const [editQty, setEditQty]         = useState('')
-  const [editPrice, setEditPrice]     = useState('')
-  const [editDate, setEditDate]       = useState('')
-  const [saving, setSaving]           = useState(false)
-  const [confirming, setConfirming]   = useState(false)
+  const [editing, setEditing]       = useState(false)
+  const [editQty, setEditQty]       = useState('')
+  const [editPrice, setEditPrice]   = useState('')
+  const [editDate, setEditDate]     = useState('')
+  const [saving, setSaving]         = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
-  const isBuy = txn.trade_type === 'buy'
+  const stock = txn.rawStock
+  const isBuy = stock?.trade_type === 'buy'
 
   function openEdit() {
-    setEditQty(String(txn.quantity))
-    setEditPrice(String(txn.price))
-    setEditDate(txn.trade_date)
+    if (!stock) return
+    setEditQty(String(stock.quantity))
+    setEditPrice(String(stock.price))
+    setEditDate(stock.trade_date)
     setConfirming(false)
     setEditing(true)
   }
@@ -565,17 +795,14 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   function cancelEdit() { setEditing(false); setConfirming(false) }
 
   async function save() {
+    if (!stock) return
     const qty   = parseFloat(editQty)
     const price = parseFloat(editPrice)
     if (!qty || !price || !editDate) return
     setSaving(true)
-    const patch = {
-      quantity:   qty,
-      price,
-      trade_date: editDate,
-    }
+    const patch = { quantity: qty, price, trade_date: editDate }
     await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
-    onSaved({ ...txn, ...patch, amount: qty * price })
+    onSaved({ ...stock, ...patch, amount: qty * price })
     setSaving(false)
     setEditing(false)
   }
@@ -587,16 +814,16 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
   const editAmount       = (parseFloat(editQty) || 0) * (parseFloat(editPrice) || 0)
   const signedEditAmount = isBuy ? editAmount : -editAmount
-  const saveDisabled = saving || !editQty || !editPrice || !editDate
+  const saveDisabled     = saving || !editQty || !editPrice || !editDate
 
-  // ── Edit mode ──
-  if (editing) {
+  // ── Edit mode (stocks only) ──
+  if (editing && stock) {
     return (
       <div className="px-4 py-3" style={{ background: 'rgba(10,132,255,0.04)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
-            <span className="font-semibold text-headline">{txn.symbol}</span>
+            <span className="font-semibold text-headline">{txn.name}</span>
             <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md ${isBuy ? 'text-positive' : 'text-negative'}`}
                   style={{ background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)' }}>
               {isBuy ? 'BUY' : 'SELL'}
@@ -615,7 +842,7 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
           </div>
           <div>
-            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Price (₹)</p>
+            <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Price</p>
             <input type="number" inputMode="decimal" value={editPrice} onChange={e => setEditPrice(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
               style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
@@ -669,32 +896,45 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
   }
 
   // ── Normal display ──
+  const amtColour = txn.direction === 'in' ? 'text-positive' : txn.direction === 'out' ? 'text-negative' : ''
+  const amtStyle  = txn.direction === 'neutral' ? { color: 'var(--text-2)' } : undefined
+
   return (
     <div className="flex items-center px-4 py-3 gap-3 tap-row">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className="font-semibold text-headline flex-shrink-0">{txn.symbol}</span>
-          <span className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-muted)' }}>·</span>
-          <span className="text-subheadline tabnum flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(txn.trade_date)}</span>
+          <span className={`font-semibold truncate ${txn.asset === 'mf' ? 'text-body' : 'text-headline'}`}>
+            {txn.name}
+          </span>
+          <span className="flex-shrink-0 text-subheadline" style={{ color: 'var(--text-muted)' }}>·</span>
+          <span className="flex-shrink-0 text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+            {formatDate(txn.trade_date)}
+          </span>
         </div>
         <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {txn.quantity % 1 === 0 ? txn.quantity : txn.quantity.toFixed(1)} shares
-          {' · '}{formatPriceNum(txn.price)}
+          {showAssetTag && (
+            <span className="font-semibold uppercase" style={{ fontSize: 11, letterSpacing: '0.03em', color: 'var(--text-faint)' }}>
+              {ASSET_LABELS[txn.asset]}
+              {' · '}
+            </span>
+          )}
+          {txn.detail}
         </p>
-        {txn.notes && (
-          <p className="text-footnote mt-0.5 truncate" style={{ color: 'var(--text-faint)' }}>{txn.notes}</p>
-        )}
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <p className={`font-bold tabnum text-headline ${isBuy ? 'text-positive' : 'text-negative'}`}>
-          <Num amount={txn.signedAmount} signed />
+        <p className={`font-bold tabnum text-headline ${amtColour}`} style={amtStyle}>
+          <Num amount={txn.signedAmount} signed={txn.direction !== 'neutral'} />
         </p>
-        <button onClick={openEdit}
-          className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"
-          style={{ color: 'var(--text-faint)' }}>
-          <PencilIcon className="w-[18px] h-[18px]" />
-        </button>
+        {stock ? (
+          <button onClick={openEdit}
+            className="w-[44px] h-[44px] flex items-center justify-center flex-shrink-0"
+            style={{ color: 'var(--text-faint)' }}>
+            <PencilIcon className="w-[18px] h-[18px]" />
+          </button>
+        ) : (
+          <div className="w-[44px] h-[44px] flex-shrink-0" />
+        )}
       </div>
     </div>
   )
@@ -702,9 +942,8 @@ function TxnRow({ txn, fiscalYears, onDelete, onSaved }: {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-
-function groupByMonth<T extends Transaction>(txns: T[]) {
-  const map = new Map<string, T[]>()
+function groupByMonth(txns: DisplayTxn[]) {
+  const map = new Map<string, DisplayTxn[]>()
   for (const t of txns) {
     const key = new Date(t.trade_date + 'T00:00:00')
       .toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
@@ -714,7 +953,7 @@ function groupByMonth<T extends Transaction>(txns: T[]) {
   return Array.from(map.entries()).map(([month, items]) => ({
     month,
     items,
-    buyTotal:  items.filter(t => t.trade_type === 'buy').reduce((s, t) => s + t.amount, 0),
-    sellTotal: items.filter(t => t.trade_type === 'sell').reduce((s, t) => s + t.amount, 0),
+    investedTotal:  items.filter(t => t.direction === 'in').reduce((s, t) => s + t.amount, 0),
+    withdrawnTotal: items.filter(t => t.direction === 'out').reduce((s, t) => s + t.amount, 0),
   }))
 }
