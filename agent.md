@@ -27,7 +27,8 @@ A correct fix restores a property or invariant. A symptom fix moves the inconsis
 - Settings menus may include screen-specific actions, but those actions must be demoted under the settings icon rather than promoted into primary action rows when space is tight
 - In settings menus, use dividers only within sections that contain multiple items; do not add a horizontal divider after every section
 - Financial numbers: `tabnum` class always; actionable numbers (CMP, P&L) minimum `text-body` (15px)
-- Prices: `formatPrice()` from `lib/formatter.ts` — no commas below ₹10,000
+- **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the `Num` component (e.g. `2.41 L`, `25 K`). Prices use `formatPriceNum()` — also no ₹ symbol.
+- Prices: `formatPriceNum()` from `lib/formatter.ts` — no commas below 10,000
 - Interactive elements: `color.accent` only — never signal colours
 - Dimming (opacity): allocation-done state only — never for buy/hold/trim signal
 - Min 44px tap target on all interactive elements; use `min-h-[44px] min-w-[44px]` wrapper if needed
