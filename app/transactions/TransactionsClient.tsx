@@ -41,6 +41,8 @@ interface DisplayTxn {
   rawStock?: Transaction
   rawMF?: MFTransaction
   rawSGB?: SGBTransaction
+  rawPPF?: PPFTransaction
+  rawEPF?: EPFTransaction
 }
 
 // ── Date filter types + helpers ───────────────────────────────────────────────
@@ -111,6 +113,8 @@ export default function TransactionsClient({
   const [txns,    setTxns]    = useState(initial)
   const [mfTxns,  setMfTxns]  = useState(mfTransactions)
   const [sgbTxns, setSgbTxns] = useState(sgbTransactions)
+  const [ppfTxns, setPpfTxns] = useState(ppfTransactions)
+  const [epfTxns, setEpfTxns] = useState(epfTransactions)
   const [mounted, setMounted] = useState(false)
 
   // Filters
@@ -131,6 +135,8 @@ export default function TransactionsClient({
   useEffect(() => { setTxns(initial) }, [initial])
   useEffect(() => { setMfTxns(mfTransactions) }, [mfTransactions])
   useEffect(() => { setSgbTxns(sgbTransactions) }, [sgbTransactions])
+  useEffect(() => { setPpfTxns(ppfTransactions) }, [ppfTransactions])
+  useEffect(() => { setEpfTxns(epfTransactions) }, [epfTransactions])
 
   // Clear symbol filter when switching away from stocks
   useEffect(() => {
@@ -141,10 +147,14 @@ export default function TransactionsClient({
     if (asset === 'stock') setTxns(prev => prev.filter(t => t.id !== id))
     else if (asset === 'mf') setMfTxns(prev => prev.filter(t => t.id !== id))
     else if (asset === 'gold') setSgbTxns(prev => prev.filter(t => t.id !== id))
+    else if (asset === 'ppf') setPpfTxns(prev => prev.filter(t => t.id !== id))
+    else if (asset === 'epf') setEpfTxns(prev => prev.filter(t => t.id !== id))
   }
-  function updateTxn(u: Transaction)    { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
-  function updateMFTxn(u: MFTransaction) { setMfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updateTxn(u: Transaction)       { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updateMFTxn(u: MFTransaction)   { setMfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
   function updateSGBTxn(u: SGBTransaction) { setSgbTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updatePPFTxn(u: PPFTransaction) { setPpfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updateEPFTxn(u: EPFTransaction) { setEpfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
 
   function resetFilters() {
     setTypeFilter('all')
@@ -198,7 +208,7 @@ export default function TransactionsClient({
       rawSGB:       t,
     }))
 
-    const ppf: DisplayTxn[] = ppfTransactions.map(t => ({
+    const ppf: DisplayTxn[] = ppfTxns.map(t => ({
       id:           t.id,
       asset:        'ppf',
       name:         'PPF',
@@ -208,9 +218,10 @@ export default function TransactionsClient({
       amount:       t.amount,
       signedAmount: t.trade_type === 'deposit' ? t.amount : t.trade_type === 'withdrawal' ? -t.amount : t.amount,
       detail:       capitalize(t.trade_type),
+      rawPPF:       t,
     }))
 
-    const epf: DisplayTxn[] = epfTransactions.map(t => ({
+    const epf: DisplayTxn[] = epfTxns.map(t => ({
       id:           t.id,
       asset:        'epf',
       name:         'EPF',
@@ -220,11 +231,12 @@ export default function TransactionsClient({
       amount:       t.amount,
       signedAmount: t.amount,
       detail:       capitalize(t.trade_type),
+      rawEPF:       t,
     }))
 
     return [...stocks, ...mfs, ...gold, ...ppf, ...epf]
       .sort((a, b) => b.trade_date.localeCompare(a.trade_date))
-  }, [txns, mfTxns, sgbTxns, mfFunds, ppfTransactions, epfTransactions])
+  }, [txns, mfTxns, sgbTxns, ppfTxns, epfTxns, mfFunds])
 
   // ── Stock symbols for the symbol picker ──
   const symbols = useMemo(() =>
@@ -500,6 +512,8 @@ export default function TransactionsClient({
                     onSavedStock={updateTxn}
                     onSavedMF={updateMFTxn}
                     onSavedSGB={updateSGBTxn}
+                    onSavedPPF={updatePPFTxn}
+                    onSavedEPF={updateEPFTxn}
                   />
                 ))}
               </div>
@@ -796,7 +810,17 @@ interface SGBEditState {
   grams: string; price_per_gram: string; date: string; name: string
   saving: boolean; confirming: boolean
 }
-type ActiveEdit = StockEditState | MFEditState | SGBEditState
+interface PPFEditState {
+  kind: 'ppf'
+  amount: string; date: string; trade_type: 'deposit' | 'withdrawal' | 'interest'; notes: string
+  saving: boolean; confirming: boolean
+}
+interface EPFEditState {
+  kind: 'epf'
+  amount: string; date: string; trade_type: 'deposit' | 'interest'; notes: string
+  saving: boolean; confirming: boolean
+}
+type ActiveEdit = StockEditState | MFEditState | SGBEditState | PPFEditState | EPFEditState
 
 function EditField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -857,20 +881,23 @@ function EditActions({ confirming, saveDisabled, saving, onStartDelete, onKeep, 
 
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
-function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedSGB }: {
+function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedSGB, onSavedPPF, onSavedEPF }: {
   txn: DisplayTxn
   showAssetTag: boolean
   onDelete: (id: string, asset: AssetType) => void
   onSavedStock: (updated: Transaction) => void
   onSavedMF: (updated: MFTransaction) => void
   onSavedSGB: (updated: SGBTransaction) => void
+  onSavedPPF: (updated: PPFTransaction) => void
+  onSavedEPF: (updated: EPFTransaction) => void
 }) {
   const [activeEdit, setActiveEdit] = useState<ActiveEdit | null>(null)
 
   const stock = txn.rawStock
   const mf    = txn.rawMF
   const sgb   = txn.rawSGB
-  const isBuy = txn.direction === 'in'
+  const ppf   = txn.rawPPF
+  const epf   = txn.rawEPF
 
   function openEdit() {
     if (stock) {
@@ -879,13 +906,22 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       setActiveEdit({ kind: 'mf', units: String(mf.units), nav: String(mf.nav), date: mf.trade_date, saving: false, confirming: false })
     } else if (sgb) {
       setActiveEdit({ kind: 'sgb', grams: String(sgb.grams), price_per_gram: String(sgb.price_per_gram), date: sgb.trade_date, name: sgb.name ?? '', saving: false, confirming: false })
+    } else if (ppf) {
+      setActiveEdit({ kind: 'ppf', amount: String(ppf.amount), date: ppf.trade_date, trade_type: ppf.trade_type, notes: ppf.notes ?? '', saving: false, confirming: false })
+    } else if (epf) {
+      setActiveEdit({ kind: 'epf', amount: String(epf.amount), date: epf.trade_date, trade_type: epf.trade_type, notes: epf.notes ?? '', saving: false, confirming: false })
     }
   }
 
   function cancelEdit() { setActiveEdit(null) }
 
   async function doDelete() {
-    const table = txn.asset === 'stock' ? 'transactions' : txn.asset === 'mf' ? 'mf_transactions' : 'sgb_transactions'
+    const table =
+      txn.asset === 'stock' ? 'transactions' :
+      txn.asset === 'mf'    ? 'mf_transactions' :
+      txn.asset === 'gold'  ? 'sgb_transactions' :
+      txn.asset === 'ppf'   ? 'ppf_transactions' :
+                              'epf_transactions'
     await getSupabaseBrowser().from(table).delete().eq('id', txn.id)
     onDelete(txn.id, txn.asset)
   }
@@ -911,12 +947,26 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       onSavedMF({ ...mf, ...patch })
 
     } else if (activeEdit.kind === 'sgb' && sgb) {
-      const grams         = parseFloat(activeEdit.grams)
+      const grams          = parseFloat(activeEdit.grams)
       const price_per_gram = parseFloat(activeEdit.price_per_gram)
       if (!grams || !price_per_gram || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
       const patch = { grams, price_per_gram, trade_date: activeEdit.date, name: activeEdit.name || null, amount: grams * price_per_gram }
       await getSupabaseBrowser().from('sgb_transactions').update(patch).eq('id', txn.id)
       onSavedSGB({ ...sgb, ...patch })
+
+    } else if (activeEdit.kind === 'ppf' && ppf) {
+      const amount = parseFloat(activeEdit.amount)
+      if (!amount || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
+      const patch = { amount, trade_date: activeEdit.date, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
+      await getSupabaseBrowser().from('ppf_transactions').update(patch).eq('id', txn.id)
+      onSavedPPF({ ...ppf, ...patch })
+
+    } else if (activeEdit.kind === 'epf' && epf) {
+      const amount = parseFloat(activeEdit.amount)
+      if (!amount || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
+      const patch = { amount, trade_date: activeEdit.date, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
+      await getSupabaseBrowser().from('epf_transactions').update(patch).eq('id', txn.id)
+      onSavedEPF({ ...epf, ...patch })
     }
 
     setActiveEdit(null)
@@ -928,34 +978,52 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
     if (activeEdit.kind === 'stock') return (parseFloat(activeEdit.qty) || 0) * (parseFloat(activeEdit.price) || 0)
     if (activeEdit.kind === 'mf')    return (parseFloat(activeEdit.units) || 0) * (parseFloat(activeEdit.nav) || 0)
     if (activeEdit.kind === 'sgb')   return (parseFloat(activeEdit.grams) || 0) * (parseFloat(activeEdit.price_per_gram) || 0)
+    if (activeEdit.kind === 'ppf')   return parseFloat(activeEdit.amount) || 0
+    if (activeEdit.kind === 'epf')   return parseFloat(activeEdit.amount) || 0
     return 0
   })()
-  const signedEditAmount = isBuy ? editAmount : -editAmount
+
+  const editDirection: 'in' | 'out' | 'neutral' = (() => {
+    if (activeEdit?.kind === 'ppf') return activeEdit.trade_type === 'deposit' ? 'in' : activeEdit.trade_type === 'withdrawal' ? 'out' : 'neutral'
+    if (activeEdit?.kind === 'epf') return activeEdit.trade_type === 'deposit' ? 'in' : 'neutral'
+    return txn.direction
+  })()
+  const signedEditAmount = editDirection === 'in' ? editAmount : editDirection === 'out' ? -editAmount : editAmount
 
   const saveDisabled = !activeEdit || activeEdit.saving || (() => {
     if (activeEdit.kind === 'stock') return !activeEdit.qty || !activeEdit.price || !activeEdit.date
     if (activeEdit.kind === 'mf')    return !activeEdit.units || !activeEdit.nav || !activeEdit.date
     if (activeEdit.kind === 'sgb')   return !activeEdit.grams || !activeEdit.price_per_gram || !activeEdit.date
+    if (activeEdit.kind === 'ppf')   return !activeEdit.amount || !activeEdit.date
+    if (activeEdit.kind === 'epf')   return !activeEdit.amount || !activeEdit.date
     return true
   })()
 
-  const canEdit = !!(stock || mf || sgb)
+  const canEdit = !!(stock || mf || sgb || ppf || epf)
 
   // ── Edit mode ──
   if (activeEdit) {
+    const editDotClass = editDirection === 'in' ? 'bg-positive' : editDirection === 'out' ? 'bg-negative' : 'bg-muted'
+    const badgeLabel =
+      activeEdit.kind === 'ppf' || activeEdit.kind === 'epf'
+        ? capitalize(activeEdit.trade_type)
+        : editDirection === 'in' ? 'BUY' : 'SELL'
+    const badgeClass = editDirection === 'in' ? 'text-positive' : editDirection === 'out' ? 'text-negative' : ''
+    const badgeBg    = editDirection === 'in' ? 'rgba(52,199,89,0.15)' : editDirection === 'out' ? 'rgba(255,59,48,0.15)' : 'var(--bg-tertiary)'
+    const badgeStyle = editDirection === 'neutral' ? { background: badgeBg, color: 'var(--text-muted)' } : { background: badgeBg }
+
     return (
       <div className="px-4 py-3" style={{ background: 'rgba(10,132,255,0.04)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isBuy ? 'bg-positive' : 'bg-negative'}`} />
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${editDotClass}`} />
             <span className={`font-semibold ${txn.asset === 'mf' ? 'text-body' : 'text-headline'} truncate max-w-[160px]`}>{txn.name}</span>
-            <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${isBuy ? 'text-positive' : 'text-negative'}`}
-                  style={{ background: isBuy ? 'rgba(52,199,89,0.15)' : 'rgba(255,59,48,0.15)' }}>
-              {isBuy ? 'BUY' : 'SELL'}
+            <span className={`text-footnote font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${badgeClass}`} style={badgeStyle}>
+              {badgeLabel}
             </span>
           </div>
           <span className="font-bold tabnum text-body flex-shrink-0" style={{ color: 'var(--text-2)' }}>
-            <Num amount={signedEditAmount || txn.signedAmount} signed />
+            <Num amount={signedEditAmount || txn.signedAmount} signed={editDirection !== 'neutral'} />
           </span>
         </div>
 
@@ -1042,6 +1110,56 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
                 <input type="text" value={activeEdit.name}
                   onChange={e => setActiveEdit(prev => prev?.kind === 'sgb' ? { ...prev, name: e.target.value } : prev)}
                   placeholder="e.g. SGB 2023-24 S3"
+                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </EditField>
+            </div>
+          </>
+        )}
+
+        {(activeEdit.kind === 'ppf' || activeEdit.kind === 'epf') && (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <EditField label="Amount">
+                <input type="number" inputMode="decimal" value={activeEdit.amount}
+                  onChange={e => setActiveEdit(prev => (prev?.kind === 'ppf' || prev?.kind === 'epf') ? { ...prev, amount: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </EditField>
+              <EditField label="Date">
+                <input type="date" value={activeEdit.date}
+                  onChange={e => setActiveEdit(prev => (prev?.kind === 'ppf' || prev?.kind === 'epf') ? { ...prev, date: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
+              </EditField>
+            </div>
+            <div className="mb-2">
+              <EditField label="Type">
+                <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+                  {(activeEdit.kind === 'ppf'
+                    ? (['deposit', 'withdrawal', 'interest'] as const)
+                    : (['deposit', 'interest'] as const)
+                  ).map(tt => (
+                    <button key={tt}
+                      onClick={() => setActiveEdit(prev =>
+                        prev?.kind === 'ppf' ? { ...prev, trade_type: tt as PPFEditState['trade_type'] } :
+                        prev?.kind === 'epf' ? { ...prev, trade_type: tt as EPFEditState['trade_type'] } : prev
+                      )}
+                      className="flex-1 py-2.5 text-body font-medium transition-colors capitalize"
+                      style={activeEdit.trade_type === tt
+                        ? { background: 'var(--accent)', color: '#fff' }
+                        : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                      {tt}
+                    </button>
+                  ))}
+                </div>
+              </EditField>
+            </div>
+            <div className="mb-3">
+              <EditField label="Notes (optional)">
+                <input type="text" value={activeEdit.notes}
+                  onChange={e => setActiveEdit(prev => (prev?.kind === 'ppf' || prev?.kind === 'epf') ? { ...prev, notes: e.target.value } : prev)}
+                  placeholder="e.g. FY26 deposit"
                   className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </EditField>
