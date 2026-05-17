@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Num } from '@/components/Num'
 import { formatDate, trimZero } from '@/lib/formatter'
-import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
+import { ChevronRightIcon, RefreshIcon, FilterIcon, CheckIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import StockDividends from '@/components/StockDividends'
@@ -33,6 +33,8 @@ export default function DividendsClient({
   const [dividends, setDividends] = useState(initialDividends)
   const [segment, setSegment] = useState<Segment>('stocks')
   const [filterSymbol, setFilterSymbol] = useState<string | null>(null)
+  const [filterYear, setFilterYear] = useState<string | null>(null)
+  const [filterOpen, setFilterOpen] = useState(false)
   const [sheetSymbol, setSheetSymbol] = useState<string | null>(null)
 
   const [bulkRefreshing, setBulkRefreshing] = useState(false)
@@ -41,21 +43,37 @@ export default function DividendsClient({
   const [bulkFetchError, setBulkFetchError] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
 
-  // Aggregate totals per symbol
-  const symbolTotals = new Map<string, number>()
-  const symbolCounts = new Map<string, number>()
+  // All-dividends aggregates (for filter sheet lists)
   const symbolExchanges = new Map<string, string>()
+  const allSymbolTotals = new Map<string, number>()
   for (const d of dividends) {
-    symbolTotals.set(d.symbol, (symbolTotals.get(d.symbol) ?? 0) + d.amount)
-    symbolCounts.set(d.symbol, (symbolCounts.get(d.symbol) ?? 0) + 1)
     if (!symbolExchanges.has(d.symbol)) symbolExchanges.set(d.symbol, d.exchange)
+    allSymbolTotals.set(d.symbol, (allSymbolTotals.get(d.symbol) ?? 0) + d.amount)
   }
-  const sortedSymbols = [...symbolTotals.keys()].sort(
-    (a, b) => (symbolTotals.get(b) ?? 0) - (symbolTotals.get(a) ?? 0)
+  const allSymbols = [...allSymbolTotals.keys()].sort(
+    (a, b) => (allSymbolTotals.get(b) ?? 0) - (allSymbolTotals.get(a) ?? 0)
+  )
+  const allYears = [...new Set(dividends.map(d => d.ex_date.slice(0, 4)))].sort().reverse()
+
+  // Filtered set — drives all visible data
+  const filtered = dividends.filter(d =>
+    (!filterSymbol || d.symbol === filterSymbol) &&
+    (!filterYear   || d.ex_date.startsWith(filterYear))
+  )
+  const totalAmount  = filtered.reduce((s, d) => s + d.amount, 0)
+  const filteredCount = filtered.length
+
+  // Per-symbol aggregates within filtered set (for By Stock view)
+  const filteredSymbolTotals = new Map<string, number>()
+  const filteredSymbolCounts = new Map<string, number>()
+  for (const d of filtered) {
+    filteredSymbolTotals.set(d.symbol, (filteredSymbolTotals.get(d.symbol) ?? 0) + d.amount)
+    filteredSymbolCounts.set(d.symbol, (filteredSymbolCounts.get(d.symbol) ?? 0) + 1)
+  }
+  const filteredSymbols = [...filteredSymbolTotals.keys()].sort(
+    (a, b) => (filteredSymbolTotals.get(b) ?? 0) - (filteredSymbolTotals.get(a) ?? 0)
   )
 
-  const filtered = filterSymbol ? dividends.filter(d => d.symbol === filterSymbol) : dividends
-  const totalAmount = filtered.reduce((s, d) => s + d.amount, 0)
   const filteredTimeline = [...filtered].sort((a, b) => b.ex_date.localeCompare(a.ex_date))
 
   // Transactions grouped by symbol for StockDividends + bulk refresh
@@ -69,6 +87,13 @@ export default function DividendsClient({
   const sheetDivs = sheetSymbol ? dividends.filter(d => d.symbol === sheetSymbol) : []
   const sheetTxns = sheetSymbol ? (txnsBySymbol.get(sheetSymbol) ?? []) : []
   const sheetExch = sheetSymbol ? (symbolExchanges.get(sheetSymbol) ?? 'NSE') : 'NSE'
+
+  const hasFilters = filterSymbol !== null || filterYear !== null
+
+  function clearFilters() {
+    setFilterSymbol(null)
+    setFilterYear(null)
+  }
 
   function sharesAtDate(symbol: string, date: string): number {
     return (txnsBySymbol.get(symbol) ?? [])
@@ -183,16 +208,61 @@ export default function DividendsClient({
             Back
           </button>
           <span className="text-headline font-semibold">Dividends</span>
-          <div className="flex items-center" style={{ minWidth: 60, justifyContent: 'flex-end' }}>
+          <div className="flex items-center gap-2" style={{ minWidth: 60, justifyContent: 'flex-end' }}>
             <button
               onClick={handleRefreshAll}
               disabled={bulkRefreshing}
-              className="w-11 h-11 flex items-center justify-center"
-              style={{ color: bulkRefreshing ? 'var(--text-faint)' : 'var(--accent)' }}>
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{ background: 'var(--bg-tertiary)', color: bulkRefreshing ? 'var(--text-faint)' : 'var(--accent)' }}>
               <RefreshIcon className={`w-5 h-5${bulkRefreshing ? ' animate-spin' : ''}`} />
             </button>
             <UserMenu />
           </div>
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-2 px-4 pt-1 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+            style={hasFilters
+              ? { background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }
+              : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+            <FilterIcon className="w-3.5 h-3.5" />
+            Filter
+          </button>
+
+          {hasFilters && (
+            <div className="w-px self-stretch my-1.5 flex-shrink-0" style={{ background: 'var(--border)' }} />
+          )}
+
+          {filterSymbol && (
+            <div
+              className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+              style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }}>
+              {filterSymbol}
+              <button
+                onClick={() => setFilterSymbol(null)}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
+                style={{ background: 'rgba(10,132,255,0.20)', color: 'var(--accent)' }}>
+                ×
+              </button>
+            </div>
+          )}
+
+          {filterYear && (
+            <div
+              className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
+              style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }}>
+              {filterYear}
+              <button
+                onClick={() => setFilterYear(null)}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
+                style={{ background: 'rgba(10,132,255,0.20)', color: 'var(--accent)' }}>
+                ×
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -203,22 +273,37 @@ export default function DividendsClient({
         </p>
       )}
       {bulkFetchError && !bulkConfirmItems && (
-        <p className="px-4 py-2 text-subheadline" style={{ color: 'var(--destructive)', borderBottom: '1px solid var(--border-faint)' }}>
+        <p className="px-4 py-2 text-subheadline text-negative" style={{ borderBottom: '1px solid var(--border-faint)' }}>
           Some stocks failed to fetch — try again
         </p>
       )}
 
-      {/* Hero */}
-      <div className="px-4 pt-5 pb-4" style={{ background: 'var(--bg-primary)' }}>
-        <p className="text-display font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-          <Num amount={totalAmount} />
-        </p>
-        <p className="text-subheadline mt-1" style={{ color: 'var(--text-muted)' }}>
-          {filterSymbol ? `${filterSymbol} · total received` : 'Total received'}
-        </p>
+      {/* Summary strip */}
+      <div
+        className="px-4 pt-4 pb-3 border-b"
+        style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr', alignItems: 'start' }}>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+              Total received
+            </p>
+            <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+              <Num amount={totalAmount} />
+            </p>
+          </div>
+          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
+          <div className="flex flex-col gap-0.5 items-end">
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+              Dividends
+            </p>
+            <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+              {filteredCount}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Segment + filter */}
+      {/* Segment control */}
       <div
         className="px-4 pt-3"
         style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-faint)' }}>
@@ -239,34 +324,6 @@ export default function DividendsClient({
             </button>
           ))}
         </div>
-
-        {sortedSymbols.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-            <button
-              onClick={() => setFilterSymbol(null)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-lg text-subheadline font-medium"
-              style={{
-                background: !filterSymbol ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: !filterSymbol ? '#fff' : 'var(--text-2)',
-                border: `1px solid ${!filterSymbol ? 'transparent' : 'var(--border)'}`,
-              }}>
-              All
-            </button>
-            {sortedSymbols.map(sym => (
-              <button
-                key={sym}
-                onClick={() => setFilterSymbol(filterSymbol === sym ? null : sym)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-subheadline font-medium"
-                style={{
-                  background: filterSymbol === sym ? 'var(--accent)' : 'var(--bg-secondary)',
-                  color: filterSymbol === sym ? '#fff' : 'var(--text-2)',
-                  border: `1px solid ${filterSymbol === sym ? 'transparent' : 'var(--border)'}`,
-                }}>
-                {sym}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Empty state */}
@@ -279,36 +336,39 @@ export default function DividendsClient({
             Tap the refresh button above to fetch for all your stocks
           </p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="px-4 py-12 text-center">
+          <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>
+            No dividends match these filters
+          </p>
+        </div>
       ) : segment === 'stocks' ? (
         // ── By Stock ──
         <div>
-          {sortedSymbols
-            .filter(sym => !filterSymbol || sym === filterSymbol)
-            .map(sym => {
-              const total    = symbolTotals.get(sym) ?? 0
-              const count    = symbolCounts.get(sym) ?? 0
-              const exchange = symbolExchanges.get(sym) ?? 'NSE'
-              return (
-                <button
-                  key={sym}
-                  onClick={() => setSheetSymbol(sym)}
-                  className="flex items-center w-full px-4 py-3 tap-row"
-                  style={{ borderBottom: '1px solid var(--border-faint)' }}>
-                  <div className="flex-1 text-left">
-                    <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {sym}
-                    </p>
-                    <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>
-                      {exchange} · {count} payment{count !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <p className="text-body font-semibold tabnum mr-2" style={{ color: 'var(--text-primary)' }}>
-                    <Num amount={total} />
+          {filteredSymbols.map(sym => {
+            const total = filteredSymbolTotals.get(sym) ?? 0
+            const count = filteredSymbolCounts.get(sym) ?? 0
+            return (
+              <button
+                key={sym}
+                onClick={() => setSheetSymbol(sym)}
+                className="flex items-center w-full px-4 py-3 tap-row"
+                style={{ borderBottom: '1px solid var(--border-faint)' }}>
+                <div className="flex-1 text-left">
+                  <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {sym}
                   </p>
-                  <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-                </button>
-              )
-            })}
+                  <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>
+                    {count} payment{count !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <p className="text-body font-semibold tabnum mr-2" style={{ color: 'var(--text-primary)' }}>
+                  <Num amount={total} />
+                </p>
+                <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+              </button>
+            )
+          })}
         </div>
       ) : (
         // ── Timeline ──
@@ -319,18 +379,11 @@ export default function DividendsClient({
               className="flex items-center px-4 py-3"
               style={{ borderBottom: '1px solid var(--border-faint)' }}>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
-                    {formatDate(d.ex_date)}
-                  </p>
-                  {!filterSymbol && (
-                    <p className="text-subheadline font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {d.symbol}
-                    </p>
-                  )}
-                </div>
+                <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {d.symbol}
+                </p>
                 <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
-                  {trimZero(d.per_share, 2)}/share · {d.shares.toLocaleString('en-IN')} shares
+                  {formatDate(d.ex_date)} · {trimZero(d.per_share, 2)}/share · {d.shares.toLocaleString('en-IN')} shares
                 </p>
               </div>
               <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
@@ -341,22 +394,101 @@ export default function DividendsClient({
         </div>
       )}
 
+      {/* Filter sheet */}
+      {filterOpen && (
+        <BottomSheet onClose={() => setFilterOpen(false)} className="overflow-y-auto max-h-[80vh]">
+          <SheetHeader
+            title="Filter"
+            left={
+              <button
+                onClick={() => { clearFilters(); setFilterOpen(false) }}
+                className="text-accent text-headline"
+                style={{ minHeight: 44 }}>
+                Clear
+              </button>
+            }
+            right={
+              <button
+                onClick={() => setFilterOpen(false)}
+                className="text-accent text-headline font-semibold"
+                style={{ minHeight: 44 }}>
+                Done
+              </button>
+            }
+          />
+
+          {/* Stock section */}
+          <p className="text-footnote font-bold uppercase px-5 pt-4 pb-1.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+            Stock
+          </p>
+          <button
+            onClick={() => setFilterSymbol(null)}
+            className="w-full flex items-center justify-between px-5 border-b"
+            style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: !filterSymbol ? 'rgba(10,132,255,0.04)' : undefined }}>
+            <span className="text-body" style={{ color: !filterSymbol ? 'var(--accent)' : 'var(--text-primary)', fontWeight: !filterSymbol ? 500 : 400 }}>
+              All stocks
+            </span>
+            {!filterSymbol && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} />}
+          </button>
+          {allSymbols.map(sym => (
+            <button
+              key={sym}
+              onClick={() => setFilterSymbol(sym)}
+              className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+              style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: filterSymbol === sym ? 'rgba(10,132,255,0.04)' : undefined }}>
+              <span className="text-body" style={{ color: filterSymbol === sym ? 'var(--accent)' : 'var(--text-primary)', fontWeight: filterSymbol === sym ? 500 : 400 }}>
+                {sym}
+              </span>
+              {filterSymbol === sym && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} />}
+            </button>
+          ))}
+
+          {/* Year section */}
+          {allYears.length > 0 && (
+            <>
+              <p className="text-footnote font-bold uppercase px-5 pt-4 pb-1.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+                Year
+              </p>
+              <button
+                onClick={() => setFilterYear(null)}
+                className="w-full flex items-center justify-between px-5 border-b"
+                style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: !filterYear ? 'rgba(10,132,255,0.04)' : undefined }}>
+                <span className="text-body" style={{ color: !filterYear ? 'var(--accent)' : 'var(--text-primary)', fontWeight: !filterYear ? 500 : 400 }}>
+                  All years
+                </span>
+                {!filterYear && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} />}
+              </button>
+              {allYears.map(year => (
+                <button
+                  key={year}
+                  onClick={() => setFilterYear(year)}
+                  className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+                  style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: filterYear === year ? 'rgba(10,132,255,0.04)' : undefined }}>
+                  <span className="text-body" style={{ color: filterYear === year ? 'var(--accent)' : 'var(--text-primary)', fontWeight: filterYear === year ? 500 : 400 }}>
+                    {year}
+                  </span>
+                  {filterYear === year && <CheckIcon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent)' }} />}
+                </button>
+              ))}
+            </>
+          )}
+        </BottomSheet>
+      )}
+
       {/* Stock detail sheet */}
       {sheetSymbol && (
         <BottomSheet onClose={() => setSheetSymbol(null)} className="overflow-y-auto max-h-[90vh]">
-          <div
-            className="flex items-center justify-between px-5 pt-3 pb-2"
-            style={{ borderBottom: '1px solid var(--border-faint)' }}>
-            <p className="text-title-2 font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {sheetSymbol}
-            </p>
-            <button
-              onClick={() => setSheetSymbol(null)}
-              className="text-accent text-body font-medium"
-              style={{ minHeight: 44, minWidth: 44, textAlign: 'right' }}>
-              Done
-            </button>
-          </div>
+          <SheetHeader
+            title={sheetSymbol}
+            right={
+              <button
+                onClick={() => setSheetSymbol(null)}
+                className="text-accent text-headline font-semibold"
+                style={{ minHeight: 44 }}>
+                Done
+              </button>
+            }
+          />
           <StockDividends
             symbol={sheetSymbol}
             exchange={sheetExch}
