@@ -30,7 +30,7 @@ function getRowValues(tableEl: ReturnType<typeof parse>, rowLabel: string): numb
   return []
 }
 
-async function fetchScreenerHtml(symbol: string, consolidated: boolean): Promise<string> {
+export async function fetchScreenerHtml(symbol: string, consolidated: boolean): Promise<string> {
   const path = consolidated
     ? `https://www.screener.in/company/${symbol}/consolidated/`
     : `https://www.screener.in/company/${symbol}/`
@@ -43,6 +43,51 @@ async function fetchScreenerHtml(symbol: string, consolidated: boolean): Promise
   })
   if (!res.ok) throw new Error(`Screener fetch failed: ${res.status} for ${symbol}`)
   return res.text()
+}
+
+const MONTH_MAP: Record<string, string> = {
+  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
+}
+
+function parseDividendDate(raw: string): string | null {
+  // "28 Sep 2023" → "2023-09-28", "Sep 2023" → "2023-09-01"
+  const full = raw.match(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/)
+  if (full) {
+    const m = MONTH_MAP[full[2]] ?? null
+    if (!m) return null
+    return `${full[3]}-${m}-${full[1].padStart(2, '0')}`
+  }
+  const partial = raw.match(/([A-Za-z]{3})\s+(\d{4})/)
+  if (partial) {
+    const m = MONTH_MAP[partial[1]] ?? null
+    if (!m) return null
+    return `${partial[2]}-${m}-01`
+  }
+  return null
+}
+
+export interface DividendEntry {
+  ex_date: string   // "YYYY-MM-DD"
+  per_share: number
+}
+
+export function parseDividendHistory(html: string): DividendEntry[] {
+  const doc = parse(html)
+  const section = doc.querySelector('#dividends')
+  if (!section) return []
+
+  const results: DividendEntry[] = []
+  const rows = section.querySelectorAll('tbody tr')
+  for (const row of rows) {
+    const cells = row.querySelectorAll('td')
+    if (cells.length < 2) continue
+    const ex_date = parseDividendDate(cells[0].text.trim())
+    const per_share = parseNumber(cells[1].text.trim())
+    if (!ex_date || isNaN(per_share) || per_share <= 0) continue
+    results.push({ ex_date, per_share })
+  }
+  return results
 }
 
 export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {

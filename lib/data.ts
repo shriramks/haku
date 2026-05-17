@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction } from './types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -168,4 +168,43 @@ export const getInvestabilityForSymbol = cache(async (symbol: string): Promise<I
     .eq('symbol', symbol)
     .maybeSingle()
   return data ?? null
+})
+
+const _fetchDividendsForSymbol = unstable_cache(
+  async (userId: string, symbol: string): Promise<DividendTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('dividend_transactions')
+      .select('id, symbol, exchange, ex_date, per_share, shares, amount, created_at')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('ex_date', { ascending: false })
+    return data ?? []
+  },
+  ['dividend_transactions'],
+  { revalidate: 300, tags: ['dividend_transactions'] }
+)
+
+export const getDividendsForSymbol = cache(async (symbol: string): Promise<DividendTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchDividendsForSymbol(userId, symbol)
+})
+
+const _fetchAllDividends = unstable_cache(
+  async (userId: string): Promise<DividendTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('dividend_transactions')
+      .select('id, symbol, exchange, ex_date, per_share, shares, amount, created_at')
+      .eq('user_id', userId)
+      .order('ex_date', { ascending: false })
+    return data ?? []
+  },
+  ['dividend_transactions_all'],
+  { revalidate: 300, tags: ['dividend_transactions'] }
+)
+
+export const getAllDividends = cache(async (): Promise<DividendTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchAllDividends(userId)
 })

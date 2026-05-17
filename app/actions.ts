@@ -2,7 +2,7 @@
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getUserId, getAllocations, getTransactions } from '@/lib/data'
-import type { StockAllocation, Transaction } from '@/lib/types'
+import type { StockAllocation, Transaction, DividendTransaction } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -70,6 +70,21 @@ export async function getFYData(fyId: string): Promise<{
     getTransactions(fyId),
   ])
   return { allocations, transactions }
+}
+
+/** Batch-upserts dividend rows (keyed on user_id + symbol + ex_date) */
+export async function saveDividends(
+  rows: Pick<DividendTransaction, 'symbol' | 'exchange' | 'ex_date' | 'per_share' | 'shares'>[]
+): Promise<void> {
+  const userId = await getUserId()
+  if (!userId || rows.length === 0) return
+  await createSupabaseServiceClient()
+    .from('dividend_transactions')
+    .upsert(
+      rows.map(r => ({ ...r, user_id: userId })),
+      { onConflict: 'user_id,symbol,ex_date' }
+    )
+  revalidateTag('dividend_transactions', {})
 }
 
 /** Copies allocations from one FY into another — used by copyFromPrevFY */

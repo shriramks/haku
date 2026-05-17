@@ -96,6 +96,18 @@ export interface BuyTranche {
   created_at?: string
 }
 
+export interface DividendTransaction {
+  id: string
+  user_id?: string
+  symbol: string
+  exchange: string
+  ex_date: string    // "YYYY-MM-DD"
+  per_share: number
+  shares: number
+  amount: number     // generated: per_share * shares
+  created_at?: string
+}
+
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
 
