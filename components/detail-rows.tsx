@@ -17,11 +17,11 @@ export function DetailRow({ label, value, bold, muted, color, noRupee }: {
   )
 }
 
-export function CompRow({ k, v, faint, first: _first }: { k: string; v: string; faint?: boolean; first?: boolean }) {
+export function CompRow({ k, v, faint, first: _first, valueColor }: { k: string; v: string; faint?: boolean; first?: boolean; valueColor?: string }) {
   return (
     <div className="flex items-center justify-between" style={{ minHeight: faint ? 32 : 44 }}>
       <span style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-2)' }}>{k}</span>
-      <span className="tabnum" style={{ fontSize: 13, color: faint ? 'var(--text-faint)' : 'var(--text-primary)', fontWeight: 400, textAlign: 'right' }}>{v}</span>
+      <span className="tabnum" style={{ fontSize: 13, color: valueColor ?? (faint ? 'var(--text-faint)' : 'var(--text-primary)'), fontWeight: 400, textAlign: 'right' }}>{v}</span>
     </div>
   )
 }

@@ -4,40 +4,17 @@
 
 ## Todo
 
-### Snowball + Entry Strength Module
-
-Multi-session task. Adds a per-stock "Snowball Check" on the stock detail page for existing positions (only shown when `allTimeQty > 0`). Determines whether to deploy incremental capital based on zone, growth trajectory, and margin trajectory. Fully derived from stored financials + a new snapshot history table.
-
-**UI rule (applies to all sessions):** All UI must follow `docs/design.md`. Sheets use `BottomSheet` + `SheetHeader`. Data rows reuse `DetailRow` / `CompRow`. Section headers reuse `SectionLabel`. Signal badge follows the investability pill pattern (`color-mix` background, border, `tabnum font-semibold`). No new component patterns unless nothing existing fits.
-
----
-
-
-#### Session 4 — Snowball UI on stock detail page
-
-All changes in `BandDetailClient.tsx` and its server data loader (`lib/fetchStockDetailProps.ts`):
-
-**Data loading:**
-- `fetchStockDetailProps` fetches `getLatestSnapshot(userId, symbol)` and passes it as `initialSnapshot` prop to `BandDetailClient`.
-
-**Row on detail page:**
-- Add a "Snowball" row between Risk Overlay and Investability rows (same `DetailRow`-style tappable row with `›`).
-- Only render when `allTimeQty > 0` (existing position gate).
-- Right side shows the current signal as a compact pill if computable, or "Set up" in faint text if not.
-
-**`SnowballSheet` component** (inline in `BandDetailClient.tsx`, same pattern as `BandComputationSheet`):
-- `BottomSheet` + `SheetHeader` with title "Snowball Check" and Done button.
-- Top: signal badge — large pill with signal name and color (ADD_AGGRESSIVE/ADD_MEASURED → positive, WAIT → warning, BLOCK/INSUFFICIENT_DATA → faint). Same `color-mix` pill style as investability verdict.
-- Sections using `SectionLabel` + `CompRow` pattern:
-  - **Zone** — zone name + which band CMP is in
-  - **Conditions** — three `CompRow` rows for cond1/cond2/cond3, value = PASS / FAIL / INSUFFICIENT_DATA in appropriate color
-  - **Entry Strength** — numeric value + label (STRONG/MODERATE/WEAK), or N/A if not in buy/deep-value zone
-  - **Prior Session** — g_prior + opMargin_prior with snapshot label (e.g. "from FY26 Q1"); if missing, shows "No prior snapshot — save financials to start tracking"
-- No editable fields in this sheet. All inputs come from stored data.
-
 ---
 
 ## Done
+
+### 2026-05-17 — Snowball: Session 4 — Snowball UI on stock detail page
+Files: `lib/data.ts`, `lib/fetchStockDetailProps.ts`, `app/bands/[symbol]/page.tsx`, `app/stocks/[symbol]/page.tsx`, `components/detail-rows.tsx`, `app/bands/[symbol]/SnowballSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`
+- `lib/data.ts`: added `getLatestSnapshots` (fetches up to 2 most-recent snapshots for a symbol — needed to provide current + prior values for cond2/cond3)
+- `fetchStockDetailProps`: calls `getLatestSnapshots`, adds `initialSnapshot` / `initialPriorSnapshot` to `StockDetailProps` and returns them; both page routes pass them to `BandDetailClient`
+- `CompRow`: added optional `valueColor` prop so PASS/FAIL/INSUFFICIENT_DATA and zone names render in the correct token color — one place, no ad-hoc styles
+- `SnowballSheet.tsx`: read-only `BottomSheet` with signal badge (large `color-mix` pill, same pattern as investability verdict), Zone / Conditions / Entry Strength / Prior Session sections using `SectionLabel` + `CompRow`; missing prior snapshot shows inline "No prior snapshot — save financials to start tracking"
+- `BandDetailClient`: added `showSnowball` state, `useMemo`-computed `snowball` result from risk-adjusted band prices + snapshots; Snowball tappable row inserted between Risk Overlay and Investability (gated `allTimeQty > 0`), compact signal pill on right; `SnowballSheet` mounted in sheets section
 
 ### 2026-05-17 — Snowball: Session 3 — Financials sheet extension
 Files: `app/bands/[symbol]/FinancialsSheet.tsx`, `lib/screener.ts`, `app/api/bands/generate/[symbol]/route.ts`

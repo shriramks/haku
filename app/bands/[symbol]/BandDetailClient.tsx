@@ -1,10 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { INDEX_CATEGORIES, isBandStale } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
-import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, DividendTransaction } from '@/lib/types'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
+import { computeSnowball } from '@/lib/snowball'
+import type { Signal } from '@/lib/snowball'
 import BandBar from '@/components/BandBar'
 import StockDividends from '@/components/StockDividends'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
@@ -17,6 +19,22 @@ import BandComputationSheet from './BandComputationSheet'
 import TranchesSheet from './TranchesSheet'
 import InvestabilitySheet from './InvestabilitySheet'
 import KeyPromptSheet from './KeyPromptSheet'
+import SnowballSheet from './SnowballSheet'
+
+function signalPillColor(signal: Signal): string {
+  if (signal === 'ADD_AGGRESSIVE' || signal === 'ADD_MEASURED') return 'var(--c-positive)'
+  if (signal === 'WAIT') return 'var(--c-warning)'
+  if (signal === 'BLOCK') return 'var(--c-negative)'
+  return 'var(--text-faint)'
+}
+
+function signalShortLabel(signal: Signal): string {
+  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressive'
+  if (signal === 'ADD_MEASURED') return 'Add Measured'
+  if (signal === 'WAIT') return 'Wait'
+  if (signal === 'BLOCK') return 'Block'
+  return '—'
+}
 
 interface Props {
   symbol: string
@@ -34,6 +52,8 @@ interface Props {
   initialInvestability: Investability | null
   symbolTxns: Transaction[]
   initialDividends: DividendTransaction[]
+  initialSnapshot: BuyBandSnapshot | null
+  initialPriorSnapshot: BuyBandSnapshot | null
 }
 
 export default function BandDetailClient({
@@ -43,6 +63,7 @@ export default function BandDetailClient({
   fyId, fyLabel, backHref, backLabel, initialHasKey,
   initialInvestability,
   symbolTxns, initialDividends,
+  initialSnapshot, initialPriorSnapshot,
 }: Props) {
   const router = useRouter()
   const [band, setBand]               = useState(initialBand)
@@ -67,6 +88,7 @@ export default function BandDetailClient({
   const [showInvestability, setShowInvestability] = useState(false)
   const [investability, setInvestability]   = useState(initialInvestability)
   const [showRiskModal, setShowRiskModal]   = useState(false)
+  const [showSnowball, setShowSnowball]     = useState(false)
   const [userId, setUserId]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -93,6 +115,23 @@ export default function BandDetailClient({
   const fyRemaining = fyRow?.remaining ?? 0
   const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
   const financialSummary = isIndex ? '2 inputs' : '5 inputs'
+
+  const snowball = useMemo(() => {
+    if (!cmp || !adjBuyLow || !adjBuyHigh || !adjMidLow || !adjMidHigh || !adjTrimPrice) return null
+    if (!initialSnapshot) return null
+    return computeSnowball({
+      cmp,
+      buyLow: adjBuyLow,
+      buyHigh: adjBuyHigh,
+      midLow: adjMidLow,
+      midHigh: adjMidHigh,
+      trim: adjTrimPrice,
+      g: initialSnapshot.g_computed,
+      opMarginNow: initialSnapshot.op_margin,
+      gPrior: initialPriorSnapshot?.g_computed ?? null,
+      opMarginPrior: initialPriorSnapshot?.op_margin ?? null,
+    })
+  }, [cmp, adjBuyLow, adjBuyHigh, adjMidLow, adjMidHigh, adjTrimPrice, initialSnapshot, initialPriorSnapshot])
 
   const allTimeCurrentValue = cmp != null && allTimeQty > 0
     ? Math.round(allTimeQty) * cmp
@@ -305,6 +344,46 @@ export default function BandDetailClient({
         </button>
       </div>
 
+      {/* ── Snowball row ── */}
+      {allTimeQty > 0 && (
+        <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
+          <button
+            onClick={() => setShowSnowball(true)}
+            className="flex items-center justify-between w-full px-4 py-3"
+            style={{ minHeight: 56 }}>
+            <div style={{ textAlign: 'left' }}>
+              <p className="text-body" style={{ color: 'var(--text-2)' }}>Snowball</p>
+              {!initialSnapshot && (
+                <p className="text-subheadline" style={{ color: 'var(--text-faint)', marginTop: 2 }}>
+                  Set up financials to track
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {snowball && snowball.signal !== 'INSUFFICIENT_DATA' ? (
+                <span
+                  className="tabnum text-subheadline font-semibold"
+                  style={{
+                    color: signalPillColor(snowball.signal),
+                    background: `color-mix(in srgb, ${signalPillColor(snowball.signal)} 10%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${signalPillColor(snowball.signal)} 20%, transparent)`,
+                    borderRadius: 999,
+                    minHeight: 28,
+                    padding: '0 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}>
+                  {signalShortLabel(snowball.signal)}
+                </span>
+              ) : initialSnapshot && !snowball ? (
+                <span className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands</span>
+              ) : null}
+              <ChevronRightIcon className="w-4 h-4" style={{ color: 'var(--text-faint)' }} />
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* ── Investability row ── */}
       <div style={{ background: 'var(--bg-primary)', marginTop: 10 }}>
         <button
@@ -483,6 +562,15 @@ export default function BandDetailClient({
           band={band}
           onClose={() => setShowRiskModal(false)}
           onSaved={b => setBand(b)}
+        />
+      )}
+      {showSnowball && (
+        <SnowballSheet
+          symbol={symbol}
+          snowball={snowball}
+          snapshot={initialSnapshot}
+          priorSnapshot={initialPriorSnapshot}
+          onClose={() => setShowSnowball(false)}
         />
       )}
     </div>

@@ -231,3 +231,24 @@ export const getLatestSnapshot = cache(async (symbol: string): Promise<BuyBandSn
   if (!userId) return null
   return _fetchLatestSnapshot(userId, symbol)
 })
+
+const _fetchLatestTwoSnapshots = unstable_cache(
+  async (userId: string, symbol: string): Promise<BuyBandSnapshot[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('buy_band_snapshots')
+      .select('id, symbol, pat_now, pat_3yr_ago, op_profit_cr, revenue_cr, g_computed, op_margin, label, snapshotted_at')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('snapshotted_at', { ascending: false })
+      .limit(2)
+    return data ?? []
+  },
+  ['buy_band_snapshots_two'],
+  { revalidate: 300, tags: ['buy_band_snapshots'] }
+)
+
+export const getLatestSnapshots = cache(async (symbol: string): Promise<BuyBandSnapshot[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchLatestTwoSnapshots(userId, symbol)
+})

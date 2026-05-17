@@ -1,10 +1,10 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
-  getDividendsForSymbol,
+  getDividendsForSymbol, getLatestSnapshots,
 } from './data'
 import { computeStockRows, seqCost } from './compute'
-import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, DividendTransaction } from './types'
+import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, DividendTransaction, BuyBandSnapshot } from './types'
 
 export interface StockDetailProps {
   fy: FiscalYear | null
@@ -18,6 +18,8 @@ export interface StockDetailProps {
   investability: Investability | null
   symbolTxns: Transaction[]
   dividends: DividendTransaction[]
+  initialSnapshot: BuyBandSnapshot | null
+  initialPriorSnapshot: BuyBandSnapshot | null
 }
 
 /**
@@ -40,7 +42,7 @@ export async function fetchStockDetailProps(
 
   const [
     allocations, transactions, bands, tranches,
-    aiKeyStatus, symbolTxns, investability, dividends,
+    aiKeyStatus, symbolTxns, investability, dividends, snapshots,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -51,6 +53,7 @@ export async function fetchStockDetailProps(
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
         getDividendsForSymbol(symbol),
+        getLatestSnapshots(symbol),
       ])
     : await Promise.all([
         Promise.resolve([]),
@@ -61,6 +64,7 @@ export async function fetchStockDetailProps(
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
         getDividendsForSymbol(symbol),
+        getLatestSnapshots(symbol),
       ])
 
   const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
@@ -75,6 +79,7 @@ export async function fetchStockDetailProps(
     .sort((a, b) => b.price - a.price)
   const { hasKey } = aiKeyStatus as { hasKey: boolean }
 
+  const snapshotArr = snapshots as BuyBandSnapshot[]
   return {
     fy,
     fyRow,
@@ -87,5 +92,7 @@ export async function fetchStockDetailProps(
     investability: (investability as Investability | null) ?? null,
     symbolTxns: (symbolTxns as Transaction[]),
     dividends: (dividends as DividendTransaction[]),
+    initialSnapshot: snapshotArr[0] ?? null,
+    initialPriorSnapshot: snapshotArr[1] ?? null,
   }
 }
