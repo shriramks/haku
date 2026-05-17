@@ -30,6 +30,7 @@ export default function StockDividends({
   const [refreshing, setRefreshing] = useState(false)
   const [confirmItems, setConfirmItems] = useState<ConfirmItem[] | null>(null)
   const [upToDate, setUpToDate] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const [saving, setSaving] = useState(false)
 
   function sharesAtDate(date: string): number {
@@ -41,9 +42,13 @@ export default function StockDividends({
   async function handleRefresh() {
     setRefreshing(true)
     setUpToDate(false)
+    setFetchError(false)
     try {
       const res = await fetch(`/api/dividends/fetch/${encodeURIComponent(symbol)}`)
-      if (!res.ok) return
+      if (!res.ok) {
+        setFetchError(true)
+        return
+      }
       const fetched: { ex_date: string; per_share: number }[] = await res.json()
       const saved = new Set(dividends.map(d => d.ex_date))
       const newEntries = fetched.filter(e => !saved.has(e.ex_date))
@@ -131,6 +136,11 @@ export default function StockDividends({
       {upToDate && (
         <p className="px-4 pb-2 text-subheadline" style={{ color: 'var(--text-muted)' }}>
           Already up to date
+        </p>
+      )}
+      {fetchError && (
+        <p className="px-4 pb-2 text-subheadline" style={{ color: 'var(--destructive)' }}>
+          Failed to fetch dividends — try again
         </p>
       )}
 
