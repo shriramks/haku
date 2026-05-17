@@ -7,6 +7,8 @@ export interface ScreenerData {
   roce3yrAvg: number
   mcap: number
   asOf: string
+  opProfitCr: number | null
+  revenueCr: number | null
 }
 
 function parseNumber(raw: string): number {
@@ -115,6 +117,12 @@ export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {
   const patNow = patValues[patValues.length - 1]
   const pat3yrAgo = patValues[patValues.length - 4]
 
+  const opProfitValues = getRowValues(plSection, 'Operating Profit')
+  const opProfitCr = opProfitValues.length > 0 ? opProfitValues[opProfitValues.length - 1] : null
+
+  const salesValues = getRowValues(plSection, 'Sales')
+  const revenueCr = salesValues.length > 0 ? salesValues[salesValues.length - 1] : null
+
   // asOf: rightmost header column in #profit-loss thead
   const thCells = plSection.querySelectorAll('thead th')
   const asOf =
@@ -145,5 +153,5 @@ export async function fetchScreenerData(symbol: string): Promise<ScreenerData> {
   }
   if (isNaN(mcap)) throw new Error(`Market Cap not found for ${symbol}`)
 
-  return { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, asOf }
+  return { eps, patNow, pat3yrAgo, roce3yrAvg, mcap, asOf, opProfitCr, revenueCr }
 }

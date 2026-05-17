@@ -5,9 +5,22 @@ import { calculateBands, computeGrowth, computeHospitalGrowth, computeTranchePri
 import { fetchCmp } from '@/lib/market-data'
 import { fetchScreenerData } from '@/lib/screener'
 import { fetchNseIndex } from '@/lib/nse'
+import { saveSnapshotIfChanged } from '@/app/actions'
 import type { StockCategory } from '@/lib/types'
 
 type GenerateAction = 'bands' | 'financials'
+
+// Indian FY: Apr–Mar. Apr–Jun = Q1, Jul–Sep = Q2, Oct–Dec = Q3, Jan–Mar = Q4
+function fiscalQuarterLabel(d: Date): string {
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1 // 1-based
+  const fyEnd = month >= 4 ? year + 1 : year
+  const quarter = month >= 4 && month <= 6 ? 'Q1'
+    : month >= 7 && month <= 9 ? 'Q2'
+    : month >= 10 && month <= 12 ? 'Q3'
+    : 'Q4'
+  return `FY${String(fyEnd).slice(-2)} ${quarter}`
+}
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
@@ -40,7 +53,7 @@ export async function POST(
       .single(),
     supabase
       .from('buy_bands')
-      .select('id, eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at, risk_multiplier')
+      .select('id, eps, pat_now, pat_3yr_ago, op_profit_cr, revenue_cr, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at, risk_multiplier')
       .eq('user_id', user.id)
       .eq('symbol', upperSymbol)
       .maybeSingle(),
@@ -67,6 +80,8 @@ export async function POST(
     let pat3yrAgo: number | null = null
     let roce3yrAvg: number | null = null
     let mcap: number | null = null
+    let opProfitCr: number | null = null
+    let revenueCr: number | null = null
 
     try {
       if (isIndex) {
@@ -84,6 +99,8 @@ export async function POST(
         roce3yrAvg = data.roce3yrAvg
         mcap       = data.mcap
         asOf       = data.asOf
+        opProfitCr = data.opProfitCr
+        revenueCr  = data.revenueCr
       }
     } catch (e: unknown) {
       return NextResponse.json({
@@ -117,6 +134,8 @@ export async function POST(
       payload.pat_3yr_ago = pat3yrAgo
       payload.roce_3yr_avg = roce3yrAvg
       payload.mcap = mcap
+      payload.op_profit_cr = opProfitCr
+      payload.revenue_cr = revenueCr
     }
 
     const { data: savedBand, error } = await supabase
@@ -128,6 +147,24 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     revalidateTag('buy_bands', {})
+
+    if (!isIndex && patNow != null && pat3yrAgo != null) {
+      const g = category === 'Hospitals'
+        ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg).g
+        : computeGrowth(patNow, pat3yrAgo)
+      const opMargin = (opProfitCr != null && revenueCr != null && revenueCr !== 0)
+        ? opProfitCr / revenueCr
+        : null
+      const autoLabel = fiscalQuarterLabel(new Date())
+      await saveSnapshotIfChanged(upperSymbol, {
+        pat_now: patNow,
+        pat_3yr_ago: pat3yrAgo,
+        op_profit_cr: opProfitCr,
+        revenue_cr: revenueCr,
+        g_computed: g,
+        op_margin: opMargin,
+      }, autoLabel)
+    }
 
     return NextResponse.json({
       symbol: upperSymbol,

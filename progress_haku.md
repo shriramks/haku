@@ -12,17 +12,6 @@ Multi-session task. Adds a per-stock "Snowball Check" on the stock detail page f
 
 ---
 
-#### Session 3 — Financials sheet extension
-
-All changes inside `BandDetailClient.tsx` (the `FinancialsSheet` component):
-
-- Add `op_profit_cr` and `revenue_cr` as two new `FinInput` fields (same component, same styling) below `pat_3yr_ago` — only for non-index stocks (same `!isIndex` guard as existing fields).
-- Add a `label` field below the financial inputs: a plain text `FinInput` (type="text", not number) with placeholder "e.g. FY26 Q1". Optional.
-- On **Save**: in addition to updating `buy_bands`, call `saveSnapshotIfChanged` with the current values. The label comes from the new label input.
-- On **Regen Financials** (Screener/AI refresh via `/api/bands/generate/[symbol]`): update the API route to also fetch and store `op_profit_cr` and `revenue_cr` from Screener (operating profit and revenue rows); call `saveSnapshotIfChanged` server-side with label auto-set to the current fiscal quarter (e.g. "FY26 Q1" derived from current date).
-- Update `FinancialsSheet` state and `useEffect` sync to include `opProfitCr` and `revenueCr`.
-
----
 
 #### Session 4 — Snowball UI on stock detail page
 
@@ -49,6 +38,15 @@ All changes in `BandDetailClient.tsx` and its server data loader (`lib/fetchStoc
 ---
 
 ## Done
+
+### 2026-05-17 — Snowball: Session 3 — Financials sheet extension
+Files: `app/bands/[symbol]/FinancialsSheet.tsx`, `lib/screener.ts`, `app/api/bands/generate/[symbol]/route.ts`
+- `FinancialsSheet`: added `opProfitCr`, `revenueCr`, `snapshotLabel` state + `useEffect` sync; added Op Profit, Revenue, and Label inputs below `pat_3yr_ago` in the `!isIndex` block; `FinInput` now accepts optional `type` prop for text fields
+- On Save: includes `op_profit_cr`/`revenue_cr` in the `buy_bands` upsert; calls `saveSnapshotIfChanged` with computed `g_computed`/`op_margin` and the user-supplied label
+- `lib/screener.ts`: `ScreenerData` extended with `opProfitCr`/`revenueCr`; `fetchScreenerData` parses `Operating Profit` and `Sales` rows from `#profit-loss`
+- `generate/[symbol]/route.ts`: financials action stores `op_profit_cr`/`revenue_cr` to `buy_bands`; calls `saveSnapshotIfChanged` server-side with auto-derived fiscal quarter label (`fiscalQuarterLabel` helper, Indian FY Apr–Mar)
+
+---
 
 ### 2026-05-17 — Snowball: Session 2 — Backfill script + tests
 Files: `scripts/backfill-snapshots.ts`, `lib/__tests__/snowball.test.ts`
