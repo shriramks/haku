@@ -7,6 +7,17 @@ import { SparkleIcon, RefreshIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { saveSnapshotIfChanged } from '@/app/actions'
 
+function fiscalQuarterLabel(d: Date): string {
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const fyEnd = month >= 4 ? year + 1 : year
+  const quarter = month >= 4 && month <= 6 ? 'Q1'
+    : month >= 7 && month <= 9 ? 'Q2'
+    : month >= 10 && month <= 12 ? 'Q3'
+    : 'Q4'
+  return `FY${String(fyEnd).slice(-2)} ${quarter}`
+}
+
 export default function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinancials, genError, onGenerateBands, onRefreshFinancials, onBandSaved, onClose }: {
   symbol: string
   band: BuyBand | null
@@ -27,7 +38,6 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
   const [pat3yrAgo, setPat3yrAgo]   = useState(band?.pat_3yr_ago?.toString() ?? '')
   const [opProfitCr, setOpProfitCr] = useState(band?.op_profit_cr?.toString() ?? '')
   const [revenueCr, setRevenueCr]   = useState(band?.revenue_cr?.toString() ?? '')
-  const [snapshotLabel, setSnapshotLabel] = useState('')
   const [roce3yrAvg, setRoce3yrAvg] = useState(band?.roce_3yr_avg?.toString() ?? '')
   const [mcap, setMcap]             = useState(band?.mcap?.toString() ?? '')
   const [indexLevel, setIndexLevel] = useState(band?.index_level?.toString() ?? '')
@@ -112,7 +122,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
           revenue_cr: revenueVal,
           g_computed: g,
           op_margin: opMargin,
-        }, snapshotLabel.trim() || null)
+        }, fiscalQuarterLabel(new Date()))
       }
 
       onBandSaved(savedBand)
@@ -186,7 +196,6 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
                   <FinInput label="PAT 3yr Ago (Cr)" value={pat3yrAgo} onChange={setPat3yrAgo} placeholder="e.g. 3800" />
                   <FinInput label="Op Profit (Cr)" value={opProfitCr} onChange={setOpProfitCr} placeholder="e.g. 1200" />
                   <FinInput label="Revenue (Cr)" value={revenueCr} onChange={setRevenueCr} placeholder="e.g. 8500" />
-                  <FinInput label="Label" type="text" value={snapshotLabel} onChange={setSnapshotLabel} placeholder="e.g. FY26 Q1" />
                   <FinInput label="ROCE 3yr Avg (%)" value={roce3yrAvg} onChange={setRoce3yrAvg} placeholder="e.g. 36.8" />
                   <FinInput label="Mcap (Cr)" value={mcap} onChange={setMcap} placeholder="e.g. 18737" />
                 </>

@@ -8,6 +8,12 @@
 
 ## Done
 
+### 2026-05-17 — Bugfix: FinancialsSheet snapshot label auto-derived
+Files: `app/bands/[symbol]/FinancialsSheet.tsx`
+- Removed manual Label input field from the financials form; was inconsistent with the API route which already auto-derived the label
+- Added `fiscalQuarterLabel(new Date())` inline (same logic as the route) so the manual save path now derives the label from the current date (Indian FY, Apr–Mar quarters)
+- Dropped `snapshotLabel` state
+
 ### 2026-05-17 — Snowball: Session 4 — Snowball UI on stock detail page
 Files: `lib/data.ts`, `lib/fetchStockDetailProps.ts`, `app/bands/[symbol]/page.tsx`, `app/stocks/[symbol]/page.tsx`, `components/detail-rows.tsx`, `app/bands/[symbol]/SnowballSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`
 - `lib/data.ts`: added `getLatestSnapshots` (fetches up to 2 most-recent snapshots for a symbol — needed to provide current + prior values for cond2/cond3)
