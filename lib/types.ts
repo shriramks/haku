@@ -62,6 +62,22 @@ export interface BuyBand {
   is_current: boolean
   notes: string
   risk_multiplier?: number | null
+  op_profit_cr?: number | null
+  revenue_cr?: number | null
+}
+
+export interface BuyBandSnapshot {
+  id: string
+  user_id?: string
+  symbol: string
+  pat_now: number | null
+  pat_3yr_ago: number | null
+  op_profit_cr: number | null
+  revenue_cr: number | null
+  g_computed: number | null
+  op_margin: number | null
+  label: string | null
+  snapshotted_at: string
 }
 
 export interface Investability {

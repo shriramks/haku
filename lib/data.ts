@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction } from './types'
+import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -207,4 +207,27 @@ export const getAllDividends = cache(async (): Promise<DividendTransaction[]> =>
   const userId = await getUserId()
   if (!userId) return []
   return _fetchAllDividends(userId)
+})
+
+
+const _fetchLatestSnapshot = unstable_cache(
+  async (userId: string, symbol: string): Promise<BuyBandSnapshot | null> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('buy_band_snapshots')
+      .select('id, symbol, pat_now, pat_3yr_ago, op_profit_cr, revenue_cr, g_computed, op_margin, label, snapshotted_at')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('snapshotted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return data ?? null
+  },
+  ['buy_band_snapshots'],
+  { revalidate: 300, tags: ['buy_band_snapshots'] }
+)
+
+export const getLatestSnapshot = cache(async (symbol: string): Promise<BuyBandSnapshot | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+  return _fetchLatestSnapshot(userId, symbol)
 })

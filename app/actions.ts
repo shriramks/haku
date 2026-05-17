@@ -1,8 +1,8 @@
 'use server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getAllocations, getTransactions } from '@/lib/data'
-import type { StockAllocation, Transaction, DividendTransaction } from '@/lib/types'
+import { getUserId, getAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
+import type { StockAllocation, Transaction, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -85,6 +85,26 @@ export async function saveDividends(
       { onConflict: 'user_id,symbol,ex_date' }
     )
   revalidateTag('dividend_transactions', {})
+}
+
+type SnapFields = Pick<BuyBandSnapshot, 'pat_now' | 'pat_3yr_ago' | 'op_profit_cr' | 'revenue_cr' | 'g_computed' | 'op_margin'>
+
+/** Inserts a snapshot row only when any numeric field differs from the latest stored one */
+export async function saveSnapshotIfChanged(
+  symbol: string,
+  snap: SnapFields,
+  label: string | null
+): Promise<void> {
+  const userId = await getUserId()
+  if (!userId) return
+  const latest = await getLatestSnapshot(symbol)
+  const fields: (keyof SnapFields)[] = ['pat_now', 'pat_3yr_ago', 'op_profit_cr', 'revenue_cr', 'g_computed', 'op_margin']
+  const changed = !latest || fields.some(f => snap[f] !== latest[f])
+  if (!changed) return
+  await createSupabaseServiceClient()
+    .from('buy_band_snapshots')
+    .insert({ ...snap, user_id: userId, symbol, label })
+  revalidateTag('buy_band_snapshots', {})
 }
 
 /** Copies allocations from one FY into another — used by copyFromPrevFY */
