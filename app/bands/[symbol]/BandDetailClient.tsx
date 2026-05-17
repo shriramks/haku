@@ -24,6 +24,7 @@ import { revalidateBuyBands } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
+import UserMenu from '@/components/UserMenu'
 
 interface Props {
   symbol: string
@@ -236,7 +237,9 @@ export default function BandDetailClient({
           <div className="flex items-center gap-2">
             <span className="text-headline font-semibold">{symbol}</span>
           </div>
-          <div style={{ minWidth: 60 }} />
+          <div style={{ minWidth: 60 }} className="flex justify-end">
+            <UserMenu />
+          </div>
         </div>
       </div>
 
