@@ -15,9 +15,10 @@ import {
   isBandStale,
 } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
-import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability } from '@/lib/types'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, DividendTransaction } from '@/lib/types'
 import BandBar from '@/components/BandBar'
 import TrancheSection from '@/components/TrancheSection'
+import StockDividends from '@/components/StockDividends'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
@@ -38,6 +39,8 @@ interface Props {
   backLabel: string
   initialHasKey: boolean
   initialInvestability: Investability | null
+  symbolTxns: Transaction[]
+  initialDividends: DividendTransaction[]
 }
 
 export default function BandDetailClient({
@@ -46,6 +49,7 @@ export default function BandDetailClient({
   tranches: initialTranches,
   fyId, fyLabel, backHref, backLabel, initialHasKey,
   initialInvestability,
+  symbolTxns, initialDividends,
 }: Props) {
   const router = useRouter()
   const [band, setBand]               = useState(initialBand)
@@ -412,6 +416,16 @@ export default function BandDetailClient({
           Buy Levels
           <span style={{ opacity: 0.6 }}>›</span>
         </button>
+      </div>
+
+      {/* ── Dividends ── */}
+      <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
+        <StockDividends
+          symbol={symbol}
+          exchange={allocation?.exchange ?? symbolTxns[0]?.exchange ?? 'NSE'}
+          initialDividends={initialDividends}
+          initialTransactions={symbolTxns}
+        />
       </div>
 
       {/* ── Sheets ── */}

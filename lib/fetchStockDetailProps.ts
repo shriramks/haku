@@ -1,9 +1,10 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
+  getDividendsForSymbol,
 } from './data'
 import { computeStockRows, seqCost } from './compute'
-import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability } from './types'
+import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, DividendTransaction } from './types'
 
 export interface StockDetailProps {
   fy: FiscalYear | null
@@ -15,6 +16,8 @@ export interface StockDetailProps {
   allTimeCost: number
   hasKey: boolean
   investability: Investability | null
+  symbolTxns: Transaction[]
+  dividends: DividendTransaction[]
 }
 
 /**
@@ -37,7 +40,7 @@ export async function fetchStockDetailProps(
 
   const [
     allocations, transactions, bands, tranches,
-    aiKeyStatus, symbolTxns, investability,
+    aiKeyStatus, symbolTxns, investability, dividends,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -47,8 +50,18 @@ export async function fetchStockDetailProps(
         getAIKeyStatus(),
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
+        getDividendsForSymbol(symbol),
       ])
-    : [[], [], [], [], { hasKey: false }, [], null]
+    : await Promise.all([
+        Promise.resolve([]),
+        Promise.resolve([]),
+        getBuyBands(),
+        Promise.resolve([]),
+        getAIKeyStatus(),
+        getTransactionsBySymbol(symbol),
+        getInvestabilityForSymbol(symbol),
+        getDividendsForSymbol(symbol),
+      ])
 
   const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
   const rows = computeStockRows(allocations, transactions, bands, totalBudget)
@@ -72,5 +85,7 @@ export async function fetchStockDetailProps(
     allTimeCost: allTimePosition.cost,
     hasKey,
     investability: (investability as Investability | null) ?? null,
+    symbolTxns: (symbolTxns as Transaction[]),
+    dividends: (dividends as DividendTransaction[]),
   }
 }

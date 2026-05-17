@@ -12,7 +12,7 @@ export default async function StockDetailPage({
   const { symbol } = await params
   const { fy: fyParam } = await searchParams
 
-  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, investability } =
+  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, investability, symbolTxns, dividends } =
     await fetchStockDetailProps(symbol, fyParam)
 
   const backHref = fyParam ? `/allocation?fy=${encodeURIComponent(fyParam)}` : '/allocation'
@@ -33,6 +33,8 @@ export default async function StockDetailPage({
         backLabel="Allocation"
         initialHasKey={hasKey}
         initialInvestability={investability}
+        symbolTxns={symbolTxns}
+        initialDividends={dividends}
       />
       <BottomNav />
     </>

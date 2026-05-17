@@ -68,6 +68,7 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | Gold / SGB | `app/portfolio/` | `sgb_transactions` |
 | PPF | `app/portfolio/` | `ppf_transactions` |
 | EPF | `app/portfolio/` | `epf_transactions` |
+| Dividends | `app/dividends/`, `components/StockDividends.tsx` | `dividend_transactions` |
 
 Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches.
 

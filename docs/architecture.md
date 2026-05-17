@@ -21,6 +21,7 @@
 | `buy_tranches` | FY-scoped planned buy levels |
 | `user_settings` | Gemini API key plus `risk_free` |
 | `investability` | 10-gate qualitative scorecard |
+| `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
@@ -110,6 +111,7 @@ Changing `risk_free` marks non-index `buy_bands.last_updated_at` forward so the 
 | `app/add/` | Add Transaction | FAB (bottom nav center) |
 | `app/transactions/` | Transactions | Bottom nav tab 4 |
 | `app/plan/` | Plan | Accessed from the settings menu |
+| `app/dividends/` | Dividends | By Stock / Timeline view; accessed from the settings menu |
 | `app/stocks/[symbol]/` | Stock Detail | Drill-down from Allocation or Buy Bands; URL e.g. `/stocks/ITC?fy=FY26` |
 | `app/import/` | Zerodha Import | Zerodha transaction CSV import, launched from Transactions |
 | `app/login/` | Login | Auth entry point |
@@ -134,6 +136,9 @@ app/
     PortfolioClient.tsx                 portfolio summary and non-stock assets
   transactions/
     TransactionsClient.tsx              transaction list, filters, import entry point
+  dividends/
+    page.tsx                            server page — loads getAllDividends + getTransactions
+    DividendsClient.tsx                 By Stock / Timeline segments, symbol filter, StockDividends sheet
 
 lib/
   band-calculator.ts                    v9 band math
@@ -151,6 +156,7 @@ components/
   BottomNav.tsx                         fixed bottom navigation
   FYPicker.tsx                          fiscal year selector
   TrancheSection.tsx                    tranche list + add/generate actions
+  StockDividends.tsx                    dividend list + refresh/confirm sheet for a single symbol
   UserMenu.tsx                          settings menu, Gemini key, plan entry, screen-scoped settings actions
   icons.tsx                             all SVG icons — check here before adding inline SVGs
 

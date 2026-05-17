@@ -38,5 +38,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Only run on app pages — skip static assets, API routes, and public files
-  matcher: ['/allocation/:path*', '/bands/:path*', '/plan/:path*', '/transactions/:path*', '/stocks/:path*', '/add/:path*', '/login'],
+  matcher: ['/allocation/:path*', '/bands/:path*', '/plan/:path*', '/transactions/:path*', '/stocks/:path*', '/add/:path*', '/dividends/:path*', '/login'],
 }
