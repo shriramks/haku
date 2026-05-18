@@ -8,6 +8,10 @@
 
 ## Done
 
+### 2026-05-18 — Bugfix: Snowball stale after Regen Financials
+Files: `app/bands/[symbol]/BandDetailClient.tsx`
+- Added `router.refresh()` after a successful `action === 'financials'` response so the server component re-fetches and `initialSnapshot`/`initialPriorSnapshot` props update in place — previously the Snowball stayed stale until a manual page reload
+
 ### 2026-05-17 — Bugfix: FinancialsSheet snapshot label auto-derived
 Files: `app/bands/[symbol]/FinancialsSheet.tsx`
 - Removed manual Label input field from the financials form; was inconsistent with the API route which already auto-derived the label

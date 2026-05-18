@@ -188,6 +188,7 @@ export default function BandDetailClient({
         setBand(json.band)
         setCmp(json.band.manual_cmp ?? cmp)
         if (action === 'bands' && json.tranches?.length > 0) setTranches(json.tranches)
+        if (action === 'financials') router.refresh()
       }
     } catch {
       setGenError('Network error')
