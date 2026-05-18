@@ -8,6 +8,12 @@
 
 ## Done
 
+### 2026-05-18 — Snowball sheet copy + Risk Overlay text contrast fix
+Files: `app/bands/[symbol]/SnowballSheet.tsx`, `app/bands/[symbol]/RiskOverlaySheet.tsx`
+- Renamed signals: `ADD_AGGRESSIVE` → "Add Aggressively", `ADD_MEASURED` → "Add Slowly", `BLOCK` → "Trim" — labels now match band vocabulary and convey sizing intent
+- Added always-visible explanation paragraph below the Snowball sheet header (style consistent with Risk Overlay)
+- Both sheets now use `text-muted` (40% opacity) for explanatory text instead of `text-faint` (25%) — improves readability
+
 ### 2026-05-18 — Bugfix: Snowball stale after Regen Financials
 Files: `app/bands/[symbol]/BandDetailClient.tsx`
 - Added `router.refresh()` after a successful `action === 'financials'` response so the server component re-fetches and `initialSnapshot`/`initialPriorSnapshot` props update in place — previously the Snowball stayed stale until a manual page reload

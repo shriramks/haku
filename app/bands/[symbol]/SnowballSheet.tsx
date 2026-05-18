@@ -13,10 +13,10 @@ function signalCssColor(signal: Signal): string {
 }
 
 function signalDisplayLabel(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressive'
-  if (signal === 'ADD_MEASURED') return 'Add Measured'
+  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressively'
+  if (signal === 'ADD_MEASURED') return 'Add Slowly'
   if (signal === 'WAIT') return 'Wait'
-  if (signal === 'BLOCK') return 'Block'
+  if (signal === 'BLOCK') return 'Trim'
   return 'Insufficient Data'
 }
 
@@ -85,6 +85,12 @@ export default function SnowballSheet({ symbol, snowball, snapshot, priorSnapsho
         left={null}
         right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
       />
+
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-subheadline" style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          Combines CMP with three fundamental checks — earnings growth, margin trend, and growth momentum — to tell whether to add aggressively or wait.
+        </p>
+      </div>
 
       <div className="px-5 pb-8">
         {!snowball ? (

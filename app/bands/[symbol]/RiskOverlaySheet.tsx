@@ -51,7 +51,7 @@ export default function RiskOverlaySheet({ band, onClose, onSaved }: {
         }
       />
       <div className="px-5 pt-4 pb-3">
-        <p className="text-subheadline" style={{ color: 'var(--text-faint)', lineHeight: 1.55 }}>
+        <p className="text-subheadline" style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Risk Overlay adjusts buy bands when a known stock-specific or sector-specific risk may impair earnings durability, valuation multiple, or business model stability.
         </p>
       </div>
