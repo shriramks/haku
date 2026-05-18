@@ -100,7 +100,7 @@ Tap any stock row to open its detail screen.
 The band bar at the top of a stock's detail screen maps price to valuation zone. The white vertical line shows the current market price (CMP).
 
 ```
-| DEEP | BUY (green) | WAIT | HOLD (orange) | TRIM (red) |
+| DEEP | BUY (green) | WAIT | MID (orange) | TRIM (red) |
                               ↑
                           CMP (white line)
 ```
@@ -109,8 +109,8 @@ The band bar at the top of a stock's detail screen maps price to valuation zone.
 |------|--------------|
 | **Deep** | Well below fair value; highest conviction entry |
 | **Buy** | Cheap; good time to deploy budget |
-| **Wait** | Borderline — neither a clear buy nor a hold |
-| **Hold** | Fairly valued; hold existing position, avoid adding |
+| **Wait** | Borderline — neither a clear buy nor a mid hold |
+| **Mid** | Fairly valued; hold existing position, avoid adding |
 | **Trim** | Expensive relative to fundamentals; consider reducing |
 
 Below the band bar, the detail screen shows the 52W low/high, current price, your allocation figures, and links to Financials and Band Computation.
@@ -138,21 +138,47 @@ Requires a Gemini API key in Settings (see [Settings](#7-settings)).
   <img src="screenshots/investability.png" width="40%" alt="Investability scorecard" />
 </div>
 
+### Snowball Check
+
+Tap the **Snowball** row on a stock's detail screen (visible when you hold shares) to see whether the fundamentals support buying right now.
+
+Snowball combines the price zone with three trend conditions:
+
+| Condition | Passes when |
+|-----------|-------------|
+| **Growth > 12% CAGR** | 3-year PAT CAGR exceeds 12% |
+| **Margin improving** | Current op margin > prior snapshot |
+| **Growth holding** | Current g > prior g |
+
+The result is a single signal:
+
+| Signal | Meaning |
+|--------|---------|
+| **Add Aggressively** | In buy/deep zone, all 3 conditions pass |
+| **Add Slowly** | In buy/deep zone, 1–2 conditions pass |
+| **Wait** | Mid/Watch zone, or 0/3 conditions |
+| **Trim** | CMP above trim price |
+
+The signal also appears as a pill on the Buy Levels sheet header and inline on the Snowball row.
+
+Snowball requires two saved snapshots (current + one prior) to evaluate the trend conditions. Run **Regen Financials** across two separate sessions to build the comparison.
+
 ### Tranches
 
 Tranches let you plan *how* you want to buy within the Buy zone — breaking a position into multiple orders at different price points.
 
-Tap **Buy Levels** at the bottom of a stock's detail screen to open the tranches sheet.
+Tap **Buy Levels** at the bottom of a stock's detail screen to open the tranches sheet. Tap **Generate** to auto-generate tranches from the current bands and remaining budget.
 
-**AI-generated tranches** are created automatically when you run **Regen Bands**. Up to 5 tranches are placed within the Buy zone:
-- Prices are distributed toward the lower end of the zone (more tranches near the floor, fewer near the ceiling)
-- When CMP is within the Buy zone, the top tranche starts a few steps below CMP — no point planning a buy above current price when you could act now
-- When CMP is above the Buy zone (e.g. a stock like DMART that rarely dips into value territory), tranches are spread across the full Buy zone as target limit orders
-- Qty per tranche is auto-calculated from your remaining budget for the stock in the current FY
+Tranche generation:
+- Prices are spread within the Buy zone, with the ceiling capped at CMP (no point placing a limit above the current price)
+- When CMP is above the Buy zone, tranches are spread across the full zone as target limit orders
+- When CMP is in Deep Value (below buy low), 2–3 tranches are spaced 5% apart below CMP
+- Qty per tranche is auto-calculated from your FY remaining budget; deeper tranches receive more capital (conviction-weighted)
+- The Buy Levels sheet shows a descriptor line — e.g. "5 tranches · Aggressive" — when tranches are generated with a Snowball signal active
 
-Running **Regen Bands** again replaces all existing tranches for that stock and FY.
+Generating replaces all existing tranches for that stock and FY.
 
-You can also add tranches manually — tap **+ Manual** in the Buy Levels sheet:
+You can also add tranches manually — tap **+ Add** in the Buy Levels sheet:
 - **Qty** — number of shares
 - **Price ₹** — your target price
 

@@ -1,24 +1,11 @@
 'use client'
 import type { BuyBandSnapshot } from '@/lib/types'
-import type { SnowballResult, Zone, CondResult, Signal } from '@/lib/snowball'
+import { signalLabel, signalColor } from '@/lib/snowball'
+import type { SnowballResult, Zone, CondResult } from '@/lib/snowball'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { CompRow, SectionLabel } from '@/components/detail-rows'
 
-function signalCssColor(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE' || signal === 'ADD_MEASURED') return 'var(--c-positive)'
-  if (signal === 'WAIT') return 'var(--c-warning)'
-  if (signal === 'BLOCK') return 'var(--c-negative)'
-  return 'var(--text-faint)'
-}
-
-function signalDisplayLabel(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressively'
-  if (signal === 'ADD_MEASURED') return 'Add Slowly'
-  if (signal === 'WAIT') return 'Wait'
-  if (signal === 'BLOCK') return 'Trim'
-  return 'Insufficient Data'
-}
 
 function zoneCssColor(zone: Zone): string {
   if (zone === 'DEEP_VALUE') return 'var(--c-deep)'
@@ -104,15 +91,15 @@ export default function SnowballSheet({ symbol, snowball, snapshot, priorSnapsho
               <span
                 className="tabnum text-headline font-semibold"
                 style={{
-                  color: signalCssColor(snowball.signal),
-                  background: `color-mix(in srgb, ${signalCssColor(snowball.signal)} 12%, transparent)`,
-                  border: `1px solid color-mix(in srgb, ${signalCssColor(snowball.signal)} 25%, transparent)`,
+                  color: signalColor(snowball.signal),
+                  background: `color-mix(in srgb, ${signalColor(snowball.signal)} 12%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${signalColor(snowball.signal)} 25%, transparent)`,
                   borderRadius: 999,
                   padding: '8px 20px',
                   display: 'inline-flex',
                   alignItems: 'center',
                 }}>
-                {signalDisplayLabel(snowball.signal)}
+                {signalLabel(snowball.signal)}
               </span>
             </div>
 

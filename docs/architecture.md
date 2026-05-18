@@ -19,11 +19,37 @@
 | `transactions` | Real buy/sell log; source of truth for deployment |
 | `buy_bands` | Stored valuation inputs, generated bands, CMP, 52-week range |
 | `buy_tranches` | FY-scoped planned buy levels |
+| `buy_band_snapshots` | Time-series of financial inputs (EPS, g, op margin) per symbol — used for Snowball trend conditions |
 | `user_settings` | Gemini API key plus `risk_free` |
 | `investability` | 10-gate qualitative scorecard |
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
+
+---
+
+## Snowball Model
+
+`lib/snowball.ts` combines price zone with three fundamental conditions to produce an entry signal.
+
+**Inputs:** CMP, all five band prices (buyLow/buyHigh/midLow/midHigh/trim), current and prior snapshot values (g, op margin).
+
+**Conditions:**
+- `cond1` — earnings growth g > 12% CAGR
+- `cond2` — op margin improving (now > prior snapshot)
+- `cond3` — growth momentum holding (g > gPrior)
+
+**Signals:**
+
+| Signal | When |
+|--------|------|
+| `ADD_AGGRESSIVELY` | BUY or DEEP_VALUE zone + all 3 conditions pass |
+| `ADD_SLOWLY` | BUY or DEEP_VALUE zone + 1–2 conditions pass |
+| `WAIT` | MID or WATCH zone, or 0/3 conditions in buy zone |
+| `TRIM` | CMP above trim price |
+| `INSUFFICIENT_DATA` | Any condition lacks prior snapshot data |
+
+Signal display uses shared helpers `signalLabel()`, `signalColor()`, `signalStrategyWord()` from `lib/snowball.ts` — never duplicated in components.
 
 ---
 
@@ -142,6 +168,7 @@ app/
 
 lib/
   band-calculator.ts                    v9 band math
+  snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   compute.ts                            dashboard row computation + band signals
   data.ts                               cached Supabase fetchers
   fetchStockDetailProps.ts              server-side stock detail loader

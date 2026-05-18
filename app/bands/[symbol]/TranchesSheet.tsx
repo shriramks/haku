@@ -1,24 +1,10 @@
 'use client'
 import type { BuyTranche } from '@/lib/types'
+import { signalLabel, signalColor, signalStrategyWord } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import TrancheSection from '@/components/TrancheSection'
-
-function signalPillColor(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE' || signal === 'ADD_MEASURED') return 'var(--c-positive)'
-  if (signal === 'WAIT') return 'var(--c-warning)'
-  if (signal === 'BLOCK') return 'var(--c-negative)'
-  return 'var(--text-faint)'
-}
-
-function signalPillLabel(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressively'
-  if (signal === 'ADD_MEASURED') return 'Add Slowly'
-  if (signal === 'WAIT') return 'Wait'
-  if (signal === 'BLOCK') return 'Trim'
-  return '—'
-}
 
 export default function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, generating, genError,
   signal, recentBuys, onAdd, onDelete, onUpdate, onGenerate, onClear, onClose }: {
@@ -40,7 +26,9 @@ export default function TranchesSheet({ symbol, tranches, remaining, budget, has
   onClose: () => void
 }) {
   const showPill = signal != null && signal !== 'INSUFFICIENT_DATA'
-  const pillColor = showPill ? signalPillColor(signal!) : null
+  const pillColor = showPill ? signalColor(signal!) : null
+  const strategyWord = signal ? signalStrategyWord(signal) : null
+  const showDescriptor = tranches.length > 0 && strategyWord != null
 
   return (
     <BottomSheet onClose={onClose} className="overflow-y-auto max-h-[85vh]">
@@ -59,7 +47,7 @@ export default function TranchesSheet({ symbol, tranches, remaining, budget, has
                 fontWeight: 600,
                 lineHeight: 1.6,
               }}>
-                {signalPillLabel(signal!)}
+                {signalLabel(signal!)}
               </span>
             </div>
           ) : 'Buy Levels'
@@ -67,6 +55,11 @@ export default function TranchesSheet({ symbol, tranches, remaining, budget, has
         left={null}
         right={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Done</button>}
       />
+      {showDescriptor && (
+        <p className="px-5 pt-1 pb-0 text-subheadline text-secondary tabnum">
+          {tranches.length} tranches · {strategyWord}
+        </p>
+      )}
       {genError && (
         <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
       )}

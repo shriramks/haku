@@ -44,9 +44,9 @@ describe('zone classification', () => {
 // ── TRIM short-circuit ─────────────────────────────────────────────────────────
 
 describe('TRIM short-circuit', () => {
-  it('returns BLOCK signal when in TRIM zone regardless of conditions', () => {
+  it('returns TRIM signal when in TRIM zone regardless of conditions', () => {
     const result = computeSnowball({ ...BASE, cmp: 260 })
-    expect(result.signal).toBe('BLOCK')
+    expect(result.signal).toBe('TRIM')
     expect(result.entryStrength).toBeNull()
     expect(result.entryStrengthLabel).toBeNull()
   })
@@ -136,33 +136,33 @@ describe('WAIT signal in MID and WATCH zones', () => {
 // ── Entry strength + signal in BUY / DEEP_VALUE ───────────────────────────────
 
 describe('entry strength and signal', () => {
-  it('STRONG (3/3) → ADD_AGGRESSIVE', () => {
+  it('STRONG (3/3) → ADD_AGGRESSIVELY', () => {
     // cond1 PASS (g=0.15>0.12), cond2 PASS (0.22>0.18), cond3 PASS (0.15>0.10)
     const result = computeSnowball({ ...BASE, cmp: 125 })
     expect(result.entryStrength).toBe(3)
     expect(result.entryStrengthLabel).toBe('STRONG')
-    expect(result.signal).toBe('ADD_AGGRESSIVE')
+    expect(result.signal).toBe('ADD_AGGRESSIVELY')
   })
-  it('MODERATE (2/3) → ADD_MEASURED', () => {
+  it('MODERATE (2/3) → ADD_SLOWLY', () => {
     // cond1 FAIL (g=0.10 ≤ 0.12), cond2 PASS, cond3 FAIL (g=0.10 ≤ gPrior=0.10)
     const result = computeSnowball({ ...BASE, cmp: 125, g: 0.10 })
     expect(result.entryStrength).toBe(1)
     expect(result.entryStrengthLabel).toBe('WEAK')
-    expect(result.signal).toBe('ADD_MEASURED')
+    expect(result.signal).toBe('ADD_SLOWLY')
   })
-  it('MODERATE (2/3) → ADD_MEASURED (cond3 fails)', () => {
+  it('MODERATE (2/3) → ADD_SLOWLY (cond3 fails)', () => {
     // cond1 PASS, cond2 PASS, cond3 FAIL (g=0.15 = gPrior=0.15)
     const result = computeSnowball({ ...BASE, cmp: 125, g: 0.15, gPrior: 0.15 })
     expect(result.entryStrength).toBe(2)
     expect(result.entryStrengthLabel).toBe('MODERATE')
-    expect(result.signal).toBe('ADD_MEASURED')
+    expect(result.signal).toBe('ADD_SLOWLY')
   })
-  it('WEAK (1/3) → ADD_MEASURED', () => {
+  it('WEAK (1/3) → ADD_SLOWLY', () => {
     // cond1 PASS, cond2 FAIL, cond3 FAIL
     const result = computeSnowball({ ...BASE, cmp: 125, opMarginNow: 0.15, opMarginPrior: 0.20, g: 0.15, gPrior: 0.20 })
     expect(result.entryStrength).toBe(1)
     expect(result.entryStrengthLabel).toBe('WEAK')
-    expect(result.signal).toBe('ADD_MEASURED')
+    expect(result.signal).toBe('ADD_SLOWLY')
   })
   it('0/3 → WAIT', () => {
     // cond1 FAIL, cond2 FAIL, cond3 FAIL
@@ -179,6 +179,6 @@ describe('entry strength and signal', () => {
     const result = computeSnowball({ ...BASE, cmp: 80 })
     expect(result.zone).toBe('DEEP_VALUE')
     expect(result.entryStrength).toBe(3)
-    expect(result.signal).toBe('ADD_AGGRESSIVE')
+    expect(result.signal).toBe('ADD_AGGRESSIVELY')
   })
 })

@@ -22,6 +22,7 @@ Consistent terms across the entire app. Never mix these with synonyms.
 | **Remaining** | Allocation minus Allocated | Balance, left |
 | **CMP** | Current Market Price | Price, LTP |
 | **Signal** | Deep / Buy / Hold / Trim — derived from CMP vs bands | Zone, status |
+| **Snowball Signal** | Add Aggressively / Add Slowly / Wait / Trim — derived from zone + 3 fundamental conditions | Conviction, score |
 | **Tranche** | A planned buy order at a specific price and qty | Order, lot |
 | **Bands** | The PE/PB/EV-derived price zones for a stock | Levels, targets |
 | **Financials** | EPS, BVPS, EBITDA inputs that generate bands | Fundamentals, data |
@@ -200,8 +201,9 @@ Open app
    - Total Allocation across all FYs
    - Shares held (all-time net qty)
    - Avg Cost
-6. Tranches — Generate / Add / list
-7. Edit Financials button — opens sheet (rarely needed)
+6. **Snowball Check** — tappable row (shown only when holding shares); opens Snowball sheet with zone, 3 conditions, entry strength, and prior-snapshot comparison. Signal pill shown inline on the row.
+7. Tranches — Generate / Add / list; Buy Levels sheet header shows Snowball signal pill + descriptor line ("{n} tranches · Aggressive / Measured") when tranches exist
+8. Edit Financials button — opens sheet (rarely needed)
 
 **What is NOT here:** Transactions, P&L hero, manual CMP input.
 

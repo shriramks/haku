@@ -5,7 +5,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { INDEX_CATEGORIES, isBandStale } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
-import { computeSnowball } from '@/lib/snowball'
+import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
 import BandBar from '@/components/BandBar'
 import StockDividends from '@/components/StockDividends'
@@ -21,20 +21,6 @@ import InvestabilitySheet from './InvestabilitySheet'
 import KeyPromptSheet from './KeyPromptSheet'
 import SnowballSheet from './SnowballSheet'
 
-function signalPillColor(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE' || signal === 'ADD_MEASURED') return 'var(--c-positive)'
-  if (signal === 'WAIT') return 'var(--c-warning)'
-  if (signal === 'BLOCK') return 'var(--c-negative)'
-  return 'var(--text-faint)'
-}
-
-function signalShortLabel(signal: Signal): string {
-  if (signal === 'ADD_AGGRESSIVE') return 'Add Aggressive'
-  if (signal === 'ADD_MEASURED') return 'Add Measured'
-  if (signal === 'WAIT') return 'Wait'
-  if (signal === 'BLOCK') return 'Block'
-  return '—'
-}
 
 interface Props {
   symbol: string
@@ -372,16 +358,16 @@ export default function BandDetailClient({
                 <span
                   className="tabnum text-subheadline font-semibold"
                   style={{
-                    color: signalPillColor(snowball.signal),
-                    background: `color-mix(in srgb, ${signalPillColor(snowball.signal)} 10%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${signalPillColor(snowball.signal)} 20%, transparent)`,
+                    color: signalColor(snowball.signal),
+                    background: `color-mix(in srgb, ${signalColor(snowball.signal)} 10%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${signalColor(snowball.signal)} 20%, transparent)`,
                     borderRadius: 999,
                     minHeight: 28,
                     padding: '0 10px',
                     display: 'inline-flex',
                     alignItems: 'center',
                   }}>
-                  {signalShortLabel(snowball.signal)}
+                  {signalLabel(snowball.signal)}
                 </span>
               ) : initialSnapshot && !snowball ? (
                 <span className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No bands</span>

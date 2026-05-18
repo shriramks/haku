@@ -8,6 +8,13 @@
 
 ## Done
 
+### 2026-05-18 — Snowball signals rename + shared helpers + Buy Levels descriptor
+Files: `lib/snowball.ts`, `lib/__tests__/snowball.test.ts`, `app/bands/[symbol]/BandDetailClient.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/SnowballSheet.tsx`
+- Renamed signals to adverb/verb form: `ADD_AGGRESSIVE` → `ADD_AGGRESSIVELY`, `ADD_MEASURED` → `ADD_SLOWLY`, `BLOCK` → `TRIM`
+- Added three exported helpers to `lib/snowball.ts`: `signalLabel()`, `signalColor()`, `signalStrategyWord()` — single source of truth for all display
+- Removed three separate local duplicate label/color functions from `BandDetailClient`, `TranchesSheet`, and `SnowballSheet`; all now import shared helpers — fixes bug where stock page showed "Add Measured" / "Add Aggressive" while modals showed "Add Slowly" / "Add Aggressively"
+- `TranchesSheet`: added descriptor line below sheet header — "{n} tranches · Aggressive" or "{n} tranches · Measured" — only shown when tranches exist and signal is an add signal
+
 ### 2026-05-18 — Buy Levels: Snowball pill + stale level indicators
 Files: `app/bands/[symbol]/BandDetailClient.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `components/TrancheSection.tsx`
 - `BandDetailClient`: derives `recentBuys` (buy txns → `{price, date}`) from already-loaded `symbolTxns`; passes `signal` and `recentBuys` to `TranchesSheet`

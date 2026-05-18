@@ -1,7 +1,28 @@
 export type Zone = 'DEEP_VALUE' | 'BUY' | 'MID' | 'WATCH' | 'TRIM'
 export type CondResult = 'PASS' | 'FAIL' | 'INSUFFICIENT_DATA'
-export type Signal = 'ADD_AGGRESSIVE' | 'ADD_MEASURED' | 'WAIT' | 'BLOCK' | 'INSUFFICIENT_DATA'
+export type Signal = 'ADD_AGGRESSIVELY' | 'ADD_SLOWLY' | 'WAIT' | 'TRIM' | 'INSUFFICIENT_DATA'
 export type EntryStrengthLabel = 'STRONG' | 'MODERATE' | 'WEAK'
+
+export function signalLabel(signal: Signal): string {
+  if (signal === 'ADD_AGGRESSIVELY') return 'Add Aggressively'
+  if (signal === 'ADD_SLOWLY') return 'Add Slowly'
+  if (signal === 'WAIT') return 'Wait'
+  if (signal === 'TRIM') return 'Trim'
+  return 'Insufficient Data'
+}
+
+export function signalColor(signal: Signal): string {
+  if (signal === 'ADD_AGGRESSIVELY' || signal === 'ADD_SLOWLY') return 'var(--c-positive)'
+  if (signal === 'WAIT') return 'var(--c-warning)'
+  if (signal === 'TRIM') return 'var(--c-negative)'
+  return 'var(--text-faint)'
+}
+
+export function signalStrategyWord(signal: Signal): string | null {
+  if (signal === 'ADD_AGGRESSIVELY') return 'Aggressive'
+  if (signal === 'ADD_SLOWLY') return 'Measured'
+  return null
+}
 
 export interface SnowballInput {
   cmp: number
@@ -54,7 +75,7 @@ export function computeSnowball(input: SnowballInput): SnowballResult {
     : g > gPrior ? 'PASS' : 'FAIL'
 
   if (zone === 'TRIM') {
-    return { zone, cond1, cond2, cond3, entryStrength: null, entryStrengthLabel: null, signal: 'BLOCK' }
+    return { zone, cond1, cond2, cond3, entryStrength: null, entryStrengthLabel: null, signal: 'TRIM' }
   }
 
   const hasInsufficientData = cond1 === 'INSUFFICIENT_DATA' || cond2 === 'INSUFFICIENT_DATA' || cond3 === 'INSUFFICIENT_DATA'
@@ -72,8 +93,8 @@ export function computeSnowball(input: SnowballInput): SnowballResult {
   const entryStrengthLabel = strengthLabel(entryStrength)
 
   let signal: Signal
-  if (entryStrength === 3) signal = 'ADD_AGGRESSIVE'
-  else if (entryStrength >= 1) signal = 'ADD_MEASURED'
+  if (entryStrength === 3) signal = 'ADD_AGGRESSIVELY'
+  else if (entryStrength >= 1) signal = 'ADD_SLOWLY'
   else signal = 'WAIT'
 
   return { zone, cond1, cond2, cond3, entryStrength, entryStrengthLabel, signal }
