@@ -116,6 +116,13 @@ export default function BandDetailClient({
   const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
   const financialSummary = isIndex ? '2 inputs' : '5 inputs'
 
+  const recentBuys = useMemo(
+    () => symbolTxns
+      .filter(t => t.trade_type === 'buy')
+      .map(t => ({ price: t.price, date: t.trade_date })),
+    [symbolTxns]
+  )
+
   const snowball = useMemo(() => {
     if (!cmp || !adjBuyLow || !adjBuyHigh || !adjMidLow || !adjMidHigh || !adjTrimPrice) return null
     if (!initialSnapshot) return null
@@ -541,6 +548,8 @@ export default function BandDetailClient({
           cmp={cmp}
           generating={generatingTranches}
           genError={trancheGenError}
+          signal={snowball?.signal ?? null}
+          recentBuys={recentBuys}
           onAdd={(_sym, qty, price) => addTranche(qty, price)}
           onDelete={deleteTranche}
           onUpdate={updateTranche}

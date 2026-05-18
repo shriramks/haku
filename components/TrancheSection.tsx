@@ -6,7 +6,7 @@ import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
-  symbol, tranches, remaining, budget, hasBands, cmp,
+  symbol, tranches, remaining, budget, hasBands, cmp, recentBuys,
   onAdd, onDelete, onUpdate, onGenerate, onClear, generating, hideHeader,
 }: {
   symbol: string
@@ -15,6 +15,7 @@ export default function TrancheSection({
   budget: number
   hasBands: boolean
   cmp?: number | null
+  recentBuys?: { price: number; date: string }[]
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -95,7 +96,7 @@ export default function TrancheSection({
                   onDelete={() => { onDelete(t.id); setEditingId(null) }}
                   onCancel={() => setEditingId(null)}
                 />
-              : <TrancheRow tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+              : <TrancheRow tranche={t} cmp={cmp} recentBuys={recentBuys} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
             }
           </div>
         ))}
@@ -111,9 +112,16 @@ export default function TrancheSection({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function TrancheRow({ tranche, cmp, onEdit }: {
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+function fmtDay(iso: string): string {
+  const [, m, d] = iso.split('-')
+  return `${parseInt(d)} ${MONTHS[parseInt(m) - 1]}`
+}
+
+function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
   tranche: BuyTranche
   cmp?: number | null
+  recentBuys?: { price: number; date: string }[]
   onEdit: () => void
 }) {
   const amount = tranche.qty * tranche.price
@@ -122,17 +130,38 @@ function TrancheRow({ tranche, cmp, onEdit }: {
     ? ((cmp - tranche.price) / cmp) * 100
     : null
 
-  const cmpFormatted = cmp != null ? formatPrice(cmp) : null
+  // 2a: CMP has reached or passed this level
+  const atCmp = distPct != null && distPct >= 0
 
-  const distLabel = distPct == null
-    ? null
-    : distPct < 0
-      ? `↑ ${Math.abs(distPct).toFixed(1)}% above ${cmpFormatted}`
-      : `↓ ${distPct.toFixed(1)}% from ${cmpFormatted}`
+  // 2b: a buy transaction within 5% of this level (only checked when 2a doesn't apply)
+  const matchedBuy = !atCmp && recentBuys
+    ? recentBuys
+        .filter(t => Math.abs(t.price - tranche.price) / tranche.price <= 0.05)
+        .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
+    : null
+
+  const isWarning = atCmp || matchedBuy != null
+
+  const subLabel = atCmp
+    ? 'At CMP'
+    : matchedBuy
+      ? `Bought at this price on ${fmtDay(matchedBuy.date)}`
+      : distPct == null
+        ? null
+        : distPct < 0
+          ? `↑ ${Math.abs(distPct).toFixed(1)}% above ${formatPrice(cmp!)}`
+          : null
 
   return (
-    <div className="flex items-center px-4 py-3 gap-3">
-      {/* Price × qty — GTT pair */}
+    <div
+      className="flex items-center py-3 gap-3"
+      style={{
+        paddingLeft: isWarning ? 14 : 16,
+        paddingRight: 16,
+        borderLeft: isWarning ? '2px solid color-mix(in srgb, var(--c-warning) 45%, transparent)' : undefined,
+        background: isWarning ? 'color-mix(in srgb, var(--c-warning) 5%, transparent)' : undefined,
+      }}
+    >
       <div className="flex-1">
         <p className="tabnum" style={{ lineHeight: 1.2 }}>
           <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -143,17 +172,15 @@ function TrancheRow({ tranche, cmp, onEdit }: {
             {Math.round(tranche.qty)}
           </span>
         </p>
-        {distLabel && (
-          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {distLabel}
+        {subLabel && (
+          <p className="text-subheadline tabnum mt-0.5" style={{ color: isWarning ? 'var(--c-warning)' : 'var(--text-muted)' }}>
+            {subLabel}
           </p>
         )}
       </div>
-      {/* Amount */}
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-2)' }}>
         <Num amount={amount} />
       </p>
-      {/* Edit — 44pt tap target */}
       <button onClick={onEdit} className="w-11 h-11 flex items-center justify-center flex-shrink-0 -mr-2"
               style={{ color: 'var(--text-faint)' }}>
         <PencilIcon className="w-4 h-4" />

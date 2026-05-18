@@ -8,6 +8,12 @@
 
 ## Done
 
+### 2026-05-18 — Buy Levels: Snowball pill + stale level indicators
+Files: `app/bands/[symbol]/BandDetailClient.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `components/TrancheSection.tsx`
+- `BandDetailClient`: derives `recentBuys` (buy txns → `{price, date}`) from already-loaded `symbolTxns`; passes `signal` and `recentBuys` to `TranchesSheet`
+- `TranchesSheet`: renders Snowball signal pill inline in the "Buy Levels" sheet header (display-only; same color/label scheme as Snowball sheet)
+- `TrancheSection / TrancheRow`: amber left-border + tint warning state with priority — (1) CMP ≥ tranche price → "At CMP"; (2) buy txn within 5% of tranche price → "Bought at this price on DD Mon"; (3) otherwise existing distance label unchanged
+
 ### 2026-05-18 — Snowball sheet copy + Risk Overlay text contrast fix
 Files: `app/bands/[symbol]/SnowballSheet.tsx`, `app/bands/[symbol]/RiskOverlaySheet.tsx`
 - Renamed signals: `ADD_AGGRESSIVE` → "Add Aggressively", `ADD_MEASURED` → "Add Slowly", `BLOCK` → "Trim" — labels now match band vocabulary and convey sizing intent
