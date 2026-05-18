@@ -6,7 +6,7 @@ import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
-  symbol, tranches, remaining, budget, hasBands, cmp, recentBuys,
+  symbol, tranches, remaining, budget, hasBands, cmp,
   onAdd, onDelete, onUpdate, onGenerate, onClear, generating, hideHeader,
 }: {
   symbol: string
@@ -15,7 +15,6 @@ export default function TrancheSection({
   budget: number
   hasBands: boolean
   cmp?: number | null
-  recentBuys?: { price: number; date: string }[]
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -96,7 +95,7 @@ export default function TrancheSection({
                   onDelete={() => { onDelete(t.id); setEditingId(null) }}
                   onCancel={() => setEditingId(null)}
                 />
-              : <TrancheRow tranche={t} cmp={cmp} recentBuys={recentBuys} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+              : <TrancheRow tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
             }
           </div>
         ))}
@@ -112,16 +111,10 @@ export default function TrancheSection({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-function fmtDay(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${parseInt(d)} ${MONTHS[parseInt(m) - 1]}`
-}
 
-function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
+function TrancheRow({ tranche, cmp, onEdit }: {
   tranche: BuyTranche
   cmp?: number | null
-  recentBuys?: { price: number; date: string }[]
   onEdit: () => void
 }) {
   const amount = tranche.qty * tranche.price
@@ -130,27 +123,17 @@ function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
     ? ((cmp - tranche.price) / cmp) * 100
     : null
 
-  // 2a: tranche price is within 1% of CMP
   const atCmp = distPct != null && Math.abs(distPct) <= 1
 
-  // 2b: a buy transaction within 5% of this level (only checked when 2a doesn't apply)
-  const matchedBuy = !atCmp && recentBuys
-    ? recentBuys
-        .filter(t => Math.abs(t.price - tranche.price) / tranche.price <= 0.05)
-        .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
-    : null
-
-  const isWarning = atCmp || matchedBuy != null
+  const isWarning = atCmp
 
   const subLabel = atCmp
     ? 'At CMP'
-    : matchedBuy
-      ? `Bought at this price on ${fmtDay(matchedBuy.date)}`
-      : distPct == null
-        ? null
-        : distPct < 0
-          ? `↑ ${Math.abs(distPct).toFixed(1)}% above ${formatPrice(cmp!)}`
-          : null
+    : distPct == null
+      ? null
+      : distPct < 0
+        ? `↑ ${Math.abs(distPct).toFixed(1)}% above ${formatPrice(cmp!)}`
+        : null
 
   return (
     <div

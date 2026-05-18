@@ -13,7 +13,7 @@ function zoneLabel(zone: Zone): string {
 }
 
 export default function TranchesSheet({ symbol, tranches, remaining, budget, hasBands, cmp, generating, genError,
-  signal, zone, recentBuys, onAdd, onDelete, onUpdate, onGenerate, onClear, onClose }: {
+  signal, zone, onAdd, onDelete, onUpdate, onGenerate, onClear, onClose }: {
   symbol: string
   tranches: BuyTranche[]
   remaining: number
@@ -24,7 +24,6 @@ export default function TranchesSheet({ symbol, tranches, remaining, budget, has
   genError: string
   signal: Signal | null
   zone: Zone | null
-  recentBuys: { price: number; date: string }[]
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -78,7 +77,6 @@ export default function TranchesSheet({ symbol, tranches, remaining, budget, has
         budget={budget}
         hasBands={hasBands}
         cmp={cmp}
-        recentBuys={recentBuys}
         onAdd={onAdd}
         onDelete={onDelete}
         onUpdate={onUpdate}

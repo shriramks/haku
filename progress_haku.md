@@ -8,6 +8,11 @@
 
 ## Done
 
+### 2026-05-18 — Buy Levels: remove misleading "Bought at this price" sublabel
+Files: `components/TrancheSection.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`
+- Removed "Bought at this price on DD Mon" sublabel — it fired when any transaction was within 5% of a tranche price, not at it, making the text factually wrong
+- Removed `matchedBuy` logic, `fmtDay` helper, `MONTHS` constant, and `recentBuys` prop threading through `TranchesSheet` and `TrancheSection`; `recentBuys` memo in `BandDetailClient` also removed
+
 ### 2026-05-18 — Buy Levels: Option B conviction matrix
 Files: `lib/band-calculator.ts`, `app/api/tranches/generate/[symbol]/route.ts`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`, `lib/__tests__/band-calculator.test.ts`, `docs/valuation-playbook.md`
 - Added `WeightMode`, `ConvictionParams` types and `convictionMatrix(zone, signal, buyLow, buyHigh)` function to `band-calculator.ts`; maps the 5×2 zone×signal grid to `{ trancheCount, weightMode, deepExtension, ceilingOverride }`
