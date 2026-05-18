@@ -12,7 +12,7 @@ export default async function BandDetailPage({
   const { symbol } = await params
   const { fy: fyParam } = await searchParams
 
-  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, investability, symbolTxns, dividends, initialSnapshot, initialPriorSnapshot } =
+  const { fy, fyRow, band, allocation, tranches, allTimeQty, allTimeCost, hasKey, investability, symbolTxns, initialSnapshot, initialPriorSnapshot } =
     await fetchStockDetailProps(symbol, fyParam, true)
 
   const fyLabel = fy?.label
@@ -35,7 +35,6 @@ export default async function BandDetailPage({
         initialHasKey={hasKey}
         initialInvestability={investability}
         symbolTxns={symbolTxns}
-        initialDividends={dividends}
         initialSnapshot={initialSnapshot}
         initialPriorSnapshot={initialPriorSnapshot}
       />

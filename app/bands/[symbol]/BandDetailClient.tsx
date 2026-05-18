@@ -4,11 +4,10 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { INDEX_CATEGORIES, isBandStale } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
-import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
+import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, BuyBandSnapshot } from '@/lib/types'
 import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
 import BandBar from '@/components/BandBar'
-import StockDividends from '@/components/StockDividends'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
 import { revalidateBuyBands } from '@/app/actions'
 import UserMenu from '@/components/UserMenu'
@@ -37,7 +36,6 @@ interface Props {
   initialHasKey: boolean
   initialInvestability: Investability | null
   symbolTxns: Transaction[]
-  initialDividends: DividendTransaction[]
   initialSnapshot: BuyBandSnapshot | null
   initialPriorSnapshot: BuyBandSnapshot | null
 }
@@ -48,7 +46,7 @@ export default function BandDetailClient({
   tranches: initialTranches,
   fyId, fyLabel, backHref, backLabel, initialHasKey,
   initialInvestability,
-  symbolTxns, initialDividends,
+  symbolTxns,
   initialSnapshot, initialPriorSnapshot,
 }: Props) {
   const router = useRouter()
@@ -484,16 +482,6 @@ export default function BandDetailClient({
           Buy Levels
           <span style={{ opacity: 0.6 }}>›</span>
         </button>
-      </div>
-
-      {/* ── Dividends ── */}
-      <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
-        <StockDividends
-          symbol={symbol}
-          exchange={allocation?.exchange ?? symbolTxns[0]?.exchange ?? 'NSE'}
-          initialDividends={initialDividends}
-          initialTransactions={symbolTxns}
-        />
       </div>
 
       {/* ── Sheets ── */}

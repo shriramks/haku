@@ -1,10 +1,10 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
-  getDividendsForSymbol, getLatestSnapshots,
+  getLatestSnapshots,
 } from './data'
 import { computeStockRows, seqCost } from './compute'
-import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, DividendTransaction, BuyBandSnapshot } from './types'
+import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, BuyBandSnapshot } from './types'
 
 export interface StockDetailProps {
   fy: FiscalYear | null
@@ -17,7 +17,6 @@ export interface StockDetailProps {
   hasKey: boolean
   investability: Investability | null
   symbolTxns: Transaction[]
-  dividends: DividendTransaction[]
   initialSnapshot: BuyBandSnapshot | null
   initialPriorSnapshot: BuyBandSnapshot | null
 }
@@ -42,7 +41,7 @@ export async function fetchStockDetailProps(
 
   const [
     allocations, transactions, bands, tranches,
-    aiKeyStatus, symbolTxns, investability, dividends, snapshots,
+    aiKeyStatus, symbolTxns, investability, snapshots,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -52,7 +51,6 @@ export async function fetchStockDetailProps(
         getAIKeyStatus(),
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
-        getDividendsForSymbol(symbol),
         getLatestSnapshots(symbol),
       ])
     : await Promise.all([
@@ -63,7 +61,6 @@ export async function fetchStockDetailProps(
         getAIKeyStatus(),
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
-        getDividendsForSymbol(symbol),
         getLatestSnapshots(symbol),
       ])
 
@@ -91,7 +88,6 @@ export async function fetchStockDetailProps(
     hasKey,
     investability: (investability as Investability | null) ?? null,
     symbolTxns: (symbolTxns as Transaction[]),
-    dividends: (dividends as DividendTransaction[]),
     initialSnapshot: snapshotArr[0] ?? null,
     initialPriorSnapshot: snapshotArr[1] ?? null,
   }
