@@ -115,8 +115,10 @@ The band bar at the top of a stock's detail screen maps price to valuation zone.
 
 Below the band bar, the detail screen shows the 52W low/high, current price, your allocation figures, and links to Financials and Band Computation.
 
-To regenerate financials and bands, use the two buttons in the action row:
-1. **Regen Bands** → fetches latest financials from Screener.in / NSE and recomputes zones
+To update financials and bands, tap **Edit Financials** on the stock detail screen to open the Financials sheet. Inside that sheet:
+
+1. **Regen Financials** → fetches latest inputs from Screener.in (stocks) or NSE (index ETFs) and saves a snapshot — marks bands as stale
+2. **Regen Bands** → recomputes zones from the saved financial inputs and regenerates tranches
 
 Tap **Refresh CMP** to pull the latest price.
 

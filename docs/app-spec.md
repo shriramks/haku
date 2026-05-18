@@ -172,7 +172,7 @@ Open app
 
 **Priority order:**
 1. FY selector
-2. Primary action row — operational actions only (`Refresh CMP`, `Regen Bands`); global valuation settings such as `Set 10Y Yield` belong under the settings icon, not in this row
+2. Primary action row — operational actions only (`Refresh CMP`, `Regen Bands`); global valuation settings such as `Set 10Y Yield` belong under the settings icon, not in this row. `Regen Financials` lives inside the Financials sheet (per-stock), not in this row.
 3. Per-stock rows (expanded view) — each card shows:
    - Primary: Stock symbol + signal badge + CMP
    - Key visual: Band bar with CMP position

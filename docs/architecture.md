@@ -6,7 +6,9 @@
 - **TypeScript**, **Tailwind CSS 3**
 - **Supabase** — auth + PostgreSQL with Row Level Security per user
 - **Yahoo Finance** — live CMP + 52-week range
-- **Gemini** — optional user-provided AI key for financial data refresh
+- **Screener.in** — HTML parsing for financial inputs (EPS, PAT, ROCE, op margin, revenue, mcap) via `lib/screener.ts`
+- **NSE API** — index level and PE for ETF bands via `lib/nse.ts`
+- **Gemini** — optional user-provided AI key for investability scoring only
 
 ---
 
@@ -17,7 +19,7 @@
 | `fiscal_years` | FY plans and budgets |
 | `stock_allocations` | FY-scoped stock list with allocation % and category |
 | `transactions` | Real buy/sell log; source of truth for deployment |
-| `buy_bands` | Stored valuation inputs, generated bands, CMP, 52-week range |
+| `buy_bands` | Stored valuation inputs (eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, op_profit_cr, revenue_cr, index_level, index_pe), generated bands, CMP, 52-week range, risk multiplier |
 | `buy_tranches` | FY-scoped planned buy levels |
 | `buy_band_snapshots` | Time-series of financial inputs (EPS, g, op margin) per symbol — used for Snowball trend conditions |
 | `user_settings` | Gemini API key plus `risk_free` |
@@ -89,14 +91,14 @@ Index ETF bands are also PE-based, but `factor = 1.00` and `eps` is derived from
 ### `financials`
 
 - Reads allocation category
-- Uses Gemini to fetch raw inputs
-- Stores the raw inputs in `buy_bands`
+- Fetches raw inputs from Screener.in (`lib/screener.ts`) for stocks, NSE API (`lib/nse.ts`) for index ETFs
+- Stores raw inputs in `buy_bands` and a new snapshot row in `buy_band_snapshots`
 - Leaves existing band prices untouched
 - Updates `last_updated_at`, which marks the row as stale until regeneration
 
 Stored inputs:
 
-- Stocks: `eps`, `pat_now`, `pat_3yr_ago`, `roce_3yr_avg`, `mcap`
+- Stocks: `eps`, `pat_now`, `pat_3yr_ago`, `roce_3yr_avg`, `mcap`, `op_profit_cr`, `revenue_cr`
 - Index ETFs: `index_level`, `index_pe`, derived `eps`
 
 ### `bands`
@@ -157,7 +159,13 @@ app/
     settings/gemini-key/route.ts        AI key + risk_free settings
   bands/
     BandsClient.tsx                     bands list
-    [symbol]/BandDetailClient.tsx       stock detail, financials, tranches, investability
+    [symbol]/BandDetailClient.tsx       stock detail orchestrator — computes snowball, wires all sheets
+    [symbol]/FinancialsSheet.tsx        financial inputs editor + Regen Financials / Regen Bands buttons
+    [symbol]/BandComputationSheet.tsx   band computation breakdown (factor, path, ROCE premium)
+    [symbol]/InvestabilitySheet.tsx     10-gate scorecard sheet
+    [symbol]/RiskOverlaySheet.tsx       risk multiplier configuration sheet
+    [symbol]/SnowballSheet.tsx          Snowball conditions + signal detail sheet
+    [symbol]/TranchesSheet.tsx          Buy Levels sheet (signal pill + descriptor + TrancheSection)
   portfolio/
     PortfolioClient.tsx                 portfolio summary and non-stock assets
   transactions/
@@ -181,6 +189,7 @@ components/
   AddTxnModal.tsx                       add transaction bottom sheet (all asset types)
   BandBar.tsx                           band bar visualisation with CMP pin
   BottomNav.tsx                         fixed bottom navigation
+  detail-rows.tsx                       DetailRow, CompRow, SectionLabel — shared label:value layout primitives
   FYPicker.tsx                          fiscal year selector
   TrancheSection.tsx                    tranche list + add/generate actions
   StockDividends.tsx                    dividend list + refresh/confirm sheet for a single symbol
