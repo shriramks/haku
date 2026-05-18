@@ -10,6 +10,7 @@ import {
   getCostOfEquity,
   getSizeMod,
   isBandStale,
+  convictionMatrix,
 } from '../band-calculator'
 
 // ── calculateBands — base multiples (no factor inputs → Path B, sizeMod=1, no ROCE → factor=1) ──
@@ -441,10 +442,9 @@ describe('computeTranchePrices', () => {
     })
   })
 
-  it('CMP below buy zone (deep): spreads 2–3 tranches at/below CMP', () => {
+  it('CMP below buy zone (deep): spreads tranches at/below CMP', () => {
     const prices = computeTranchePrices(1000, 1500, 800, 3)
     expect(prices.length).toBeGreaterThanOrEqual(2)
-    expect(prices.length).toBeLessThanOrEqual(3)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
 
@@ -493,10 +493,10 @@ describe('computeTranchePrices', () => {
     prices.forEach(p => expect(p).toBeLessThanOrEqual(cmp))
   })
 
-  it('non-index deep zone: 2–3 tranches at/below CMP', () => {
+  it('non-index deep zone: count drives tranche count', () => {
     const prices = computeTranchePrices(1000, 1500, 850, 4, null, false)
     expect(prices.length).toBeGreaterThanOrEqual(2)
-    expect(prices.length).toBeLessThanOrEqual(3)
+    expect(prices.length).toBeLessThanOrEqual(4)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(850))
   })
 
@@ -526,8 +526,8 @@ describe('computeTranchePrices', () => {
   })
 })
 
-describe('computeTranchePrices — deep zone 5% steps', () => {
-  it('count=3 → 3 prices, all ≤ CMP', () => {
+describe('computeTranchePrices — deep zone parameterised spread', () => {
+  it('count=3, default deepExtension=0.05 → 3 prices, all ≤ CMP', () => {
     const prices = computeTranchePrices(1000, 1500, 800, 3)
     expect(prices).toHaveLength(3)
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
@@ -540,9 +540,87 @@ describe('computeTranchePrices — deep zone 5% steps', () => {
     prices.forEach(p => expect(p).toBeLessThanOrEqual(800))
   })
 
-  it('count capped at 3 even if caller requests more', () => {
-    const prices = computeTranchePrices(1000, 1500, 800, 8)
-    expect(prices.length).toBeLessThanOrEqual(3)
+  it('count=7, deepExtension=0.10 → up to 7 prices spread across 10% below CMP', () => {
+    const prices = computeTranchePrices(1000, 1500, 1000, 7, null, false, null, 0.10)
+    expect(prices.length).toBeGreaterThanOrEqual(2)
+    expect(prices.length).toBeLessThanOrEqual(7)
+    prices.forEach(p => {
+      expect(p).toBeLessThanOrEqual(1000)
+      expect(p).toBeGreaterThanOrEqual(1000 * 0.90 - 10)
+    })
+  })
+})
+
+// ── convictionMatrix ──────────────────────────────────────────────────────────
+
+describe('convictionMatrix', () => {
+  const BUY_LOW = 800, BUY_HIGH = 1000
+
+  it('MID zone → blocked regardless of signal', () => {
+    expect(convictionMatrix('MID', 'ADD_AGGRESSIVELY', BUY_LOW, BUY_HIGH).trancheCount).toBe(0)
+    expect(convictionMatrix('MID', 'WAIT', BUY_LOW, BUY_HIGH).trancheCount).toBe(0)
+  })
+
+  it('WATCH zone → blocked', () => {
+    expect(convictionMatrix('WATCH', 'ADD_AGGRESSIVELY', BUY_LOW, BUY_HIGH).trancheCount).toBe(0)
+  })
+
+  it('TRIM zone → blocked', () => {
+    expect(convictionMatrix('TRIM', 'TRIM', BUY_LOW, BUY_HIGH).trancheCount).toBe(0)
+  })
+
+  it('DEEP_VALUE + ADD_AGGRESSIVELY → 7 tranches, cubic, 10% extension', () => {
+    const p = convictionMatrix('DEEP_VALUE', 'ADD_AGGRESSIVELY', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(7)
+    expect(p.weightMode).toBe('cubic')
+    expect(p.deepExtension).toBe(0.10)
+    expect(p.ceilingOverride).toBeNull()
+  })
+
+  it('DEEP_VALUE + ADD_SLOWLY → 4 tranches, quadratic, 7% extension', () => {
+    const p = convictionMatrix('DEEP_VALUE', 'ADD_SLOWLY', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(4)
+    expect(p.weightMode).toBe('quadratic')
+    expect(p.deepExtension).toBe(0.07)
+  })
+
+  it('DEEP_VALUE + WAIT → 3 tranches, equal, 5% extension', () => {
+    const p = convictionMatrix('DEEP_VALUE', 'WAIT', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(3)
+    expect(p.weightMode).toBe('equal')
+    expect(p.deepExtension).toBe(0.05)
+  })
+
+  it('DEEP_VALUE + INSUFFICIENT_DATA → treated as WAIT', () => {
+    const p = convictionMatrix('DEEP_VALUE', 'INSUFFICIENT_DATA', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(3)
+    expect(p.weightMode).toBe('equal')
+  })
+
+  it('BUY + ADD_AGGRESSIVELY → 5 tranches, cubic', () => {
+    const p = convictionMatrix('BUY', 'ADD_AGGRESSIVELY', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(5)
+    expect(p.weightMode).toBe('cubic')
+    expect(p.ceilingOverride).toBeNull()
+  })
+
+  it('BUY + ADD_SLOWLY → 4 tranches, quadratic', () => {
+    const p = convictionMatrix('BUY', 'ADD_SLOWLY', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(4)
+    expect(p.weightMode).toBe('quadratic')
+  })
+
+  it('BUY + WAIT → 2 tranches, equal, ceiling at zone midpoint', () => {
+    const p = convictionMatrix('BUY', 'WAIT', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(2)
+    expect(p.weightMode).toBe('equal')
+    expect(p.ceilingOverride).toBeCloseTo(900)
+  })
+
+  it('BUY + INSUFFICIENT_DATA → treated as WAIT (2 tranches, equal)', () => {
+    const p = convictionMatrix('BUY', 'INSUFFICIENT_DATA', BUY_LOW, BUY_HIGH)
+    expect(p.trancheCount).toBe(2)
+    expect(p.weightMode).toBe('equal')
   })
 })
 
@@ -623,14 +701,36 @@ describe('computeTrancheAmounts — conviction-weighted sizing', () => {
     expect(amounts[4] / amounts[0]).toBeCloseTo(5)
   })
 
-  it('equal=true: all tranches get identical amounts', () => {
-    const amounts = computeTrancheAmounts(90_000, 3, true)
+  it("'equal': all tranches get identical amounts", () => {
+    const amounts = computeTrancheAmounts(90_000, 3, 'equal')
     expect(amounts).toHaveLength(3)
     amounts.forEach(a => expect(a).toBeCloseTo(30_000))
   })
 
-  it('equal=true: sums to remaining', () => {
-    const total = computeTrancheAmounts(47_300, 4, true).reduce((s, a) => s + a, 0)
+  it("'equal': sums to remaining", () => {
+    const total = computeTrancheAmounts(47_300, 4, 'equal').reduce((s, a) => s + a, 0)
     expect(total).toBeCloseTo(47_300)
+  })
+
+  it("'cubic': amounts are strongly bottom-heavy without linear fallback", () => {
+    // 3 tranches: weights 1, 8, 27 → total 36; last = 27/36 = 75% of capital
+    const amounts = computeTrancheAmounts(36_000, 3, 'cubic')
+    expect(amounts[0]).toBeCloseTo(1_000)
+    expect(amounts[1]).toBeCloseTo(8_000)
+    expect(amounts[2]).toBeCloseTo(27_000)
+  })
+
+  it("'cubic': sums to remaining", () => {
+    for (const count of [2, 3, 5, 7]) {
+      const total = computeTrancheAmounts(100_000, count, 'cubic').reduce((s, a) => s + a, 0)
+      expect(total).toBeCloseTo(100_000, 5)
+    }
+  })
+
+  it("'cubic': strictly increasing (deeper tranches get more capital)", () => {
+    const amounts = computeTrancheAmounts(100_000, 5, 'cubic')
+    for (let i = 1; i < amounts.length; i++) {
+      expect(amounts[i]).toBeGreaterThan(amounts[i - 1])
+    }
   })
 })

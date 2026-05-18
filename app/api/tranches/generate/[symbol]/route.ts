@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { computeTranchePrices, computeTrancheAmounts, trancheSuggestion, stagedDeepCmp, INDEX_CATEGORIES } from '@/lib/band-calculator'
+import { computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, INDEX_CATEGORIES, convictionMatrix } from '@/lib/band-calculator'
+import { computeSnowball } from '@/lib/snowball'
 import type { StockCategory } from '@/lib/types'
 
 export async function POST(
@@ -19,15 +20,20 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Fetch allocation (category) and current band (stored computed values + CMP)
-  const [{ data: fyAllocMeta }, { data: band, error: bandError }] = await Promise.all([
+  const [{ data: fyAllocMeta }, { data: band, error: bandError }, { data: snapshots }] = await Promise.all([
     supabase.from('stock_allocations')
       .select('category')
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
-      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high')
+      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, trim_price')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
       .maybeSingle(),
+    supabase.from('buy_band_snapshots')
+      .select('g_computed, op_margin')
+      .eq('user_id', user.id).eq('symbol', upperSymbol)
+      .order('snapshotted_at', { ascending: false })
+      .limit(2),
   ])
 
   if (bandError) return NextResponse.json({ error: `buy_bands query failed: ${bandError.message}` }, { status: 500 })
@@ -128,23 +134,70 @@ export async function POST(
   const stagedCmp = stagedDeepCmp(liveCmp, buyLow, minBuyPrice)
 
   const deployable = remaining
+  const isIndex = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
 
-  const totalCapital = fy?.total_budget_inr ?? 0
-  const suggestedAmt = trancheSuggestion(deployable, totalCapital)
-  const trancheCount = suggestedAmt > 0
-    ? Math.min(8, Math.max(2, Math.ceil(deployable / suggestedAmt)))
-    : 3
-  const isIndex     = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
-  const isAboveZone = stagedCmp !== null && stagedCmp > buyHigh
-  const isDeepZone  = stagedCmp !== null && stagedCmp < buyLow
-  const prices = computeTranchePrices(buyLow, buyHigh, stagedCmp, trancheCount, fiftyTwoWeekLow, isIndex)
+  // Compute Snowball signal from stored snapshots and live CMP
+  const snap0 = snapshots?.[0] ?? null
+  const snap1 = snapshots?.[1] ?? null
+  const trimPrice = band?.trim_price ?? null
+  const snowball = (liveCmp && trimPrice && midLow && midHigh)
+    ? computeSnowball({
+        cmp: liveCmp,
+        buyLow, buyHigh,
+        midLow, midHigh,
+        trim: trimPrice,
+        g: snap0?.g_computed ?? null,
+        opMarginNow: snap0?.op_margin ?? null,
+        gPrior: snap1?.g_computed ?? null,
+        opMarginPrior: snap1?.op_margin ?? null,
+      })
+    : null
+
+  const conviction = snowball
+    ? convictionMatrix(snowball.zone, snowball.signal, buyLow, buyHigh)
+    : convictionMatrix('BUY', 'INSUFFICIENT_DATA', buyLow, buyHigh)
+
+  if (conviction.trancheCount === 0) {
+    return NextResponse.json({
+      symbol: upperSymbol,
+      tranches: [],
+      blocked: true,
+      reason: `No tranches generated — stock is in ${snowball?.zone ?? 'mid/watch'} zone`,
+    })
+  }
+
+  const prices = computeTranchePrices(
+    buyLow, buyHigh, stagedCmp, conviction.trancheCount,
+    fiftyTwoWeekLow, isIndex, conviction.ceilingOverride, conviction.deepExtension,
+  )
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
   const sortedPrices = [...prices].sort((a, b) => b - a)
-  // Equal split when CMP is outside the buy zone — probability of any given tranche
-  // filling is too uncertain to over-weight the deepest one.
-  // Conviction-weighting (bottom-heavy) applies only inside the zone (Case B).
-  const amounts = computeTrancheAmounts(deployable, sortedPrices.length, isAboveZone || isDeepZone)
+
+  // Anchor: if a recent buy price falls within the generated range, pin one slot
+  // there so prior demand level is represented.
+  if (sortedPrices.length >= 2 && allSymbolBuys && allSymbolBuys.length > 0) {
+    const priceMin = sortedPrices[sortedPrices.length - 1]
+    const priceMax = sortedPrices[0]
+    const snap = (p: number) => { const u = p < 500 ? 5 : 10; return Math.round(p / u) * u }
+    const anchorRaw = (allSymbolBuys as { price: number }[])
+      .map(t => t.price)
+      .filter(p => p >= priceMin && p <= priceMax)
+      .sort((a, b) => b - a)[0]
+    if (anchorRaw != null) {
+      const anchor = snap(anchorRaw)
+      const minUnit = anchor < 500 ? 5 : 10
+      const alreadyCovered = sortedPrices.some(p => Math.abs(p - anchor) <= minUnit)
+      if (!alreadyCovered) {
+        const closestIdx = sortedPrices.reduce((best, p, i) =>
+          Math.abs(p - anchor) < Math.abs(sortedPrices[best] - anchor) ? i : best, 0)
+        sortedPrices[closestIdx] = anchor
+        sortedPrices.sort((a, b) => b - a)
+      }
+    }
+  }
+
+  const amounts = computeTrancheAmounts(deployable, sortedPrices.length, conviction.weightMode)
 
   await supabase.from('buy_tranches')
     .delete()
@@ -185,6 +238,6 @@ export async function POST(
     symbol: upperSymbol,
     tranches: inserted ?? [],
     warning,
-    _debug: { buyLow, buyHigh, liveCmp, stagedCmp, minBuyPrice, fiftyTwoWeekLow, deployable, trancheCount },
+    _debug: { buyLow, buyHigh, liveCmp, stagedCmp, minBuyPrice, fiftyTwoWeekLow, deployable, conviction, zone: snowball?.zone, signal: snowball?.signal },
   })
 }

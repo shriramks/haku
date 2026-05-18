@@ -8,6 +8,14 @@
 
 ## Done
 
+### 2026-05-18 — Buy Levels: Option B conviction matrix
+Files: `lib/band-calculator.ts`, `app/api/tranches/generate/[symbol]/route.ts`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`, `lib/__tests__/band-calculator.test.ts`, `docs/valuation-playbook.md`
+- Added `WeightMode`, `ConvictionParams` types and `convictionMatrix(zone, signal, buyLow, buyHigh)` function to `band-calculator.ts`; maps the 5×2 zone×signal grid to `{ trancheCount, weightMode, deepExtension, ceilingOverride }`
+- Updated `computeTrancheAmounts`: replaced `equal: boolean` with `weightMode: WeightMode`; added cubic branch `(i+1)³` with no linear fallback (intentional — max conviction warrants strong bottom-weighting)
+- Updated `computeTranchePrices`: added `ceilingOverride` (compresses range for WAIT in buy zone) and `deepExtension` (controls 5–10% spread below CMP in deep zone); removed hardcoded count-cap-at-3 in deep zone
+- Tranche route now fetches 2 latest snapshots, computes Snowball server-side, calls `convictionMatrix`, handles blocked (mid/watch/trim) with early return and `blocked: true`; adds recent-buy anchoring (pins the most recent in-range buy price to a tranche slot)
+- `TranchesSheet`: shows zone in descriptor ("N tranches · Aggressive · Deep Value"); `BandDetailClient`: handles `json.blocked` with a specific message
+
 ### 2026-05-18 — Buy Levels: remove warning colour from tranche sublabels
 Files: `components/TrancheSection.tsx`
 - "At CMP" and "Bought at this price on DD Mon" sublabels were incorrectly coloured `color.warning` (orange) — those are contextual metadata, not caution signals

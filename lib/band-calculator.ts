@@ -3,6 +3,7 @@
 // Part C: Index ETF PE bands — factor always 1, different PE thresholds.
 
 import type { StockCategory } from './types'
+import type { Zone, Signal } from './snowball'
 
 // ── Multiple tables ──────────────────────────────────────────────────────────
 
@@ -102,6 +103,42 @@ export function isBandStale(
   lastUpdatedAt: string | null | undefined,
 ): boolean {
   return !!(generatedAt && lastUpdatedAt && lastUpdatedAt > generatedAt)
+}
+
+// ── Conviction matrix ─────────────────────────────────────────────────────────
+
+export type WeightMode = 'equal' | 'quadratic' | 'cubic'
+
+export interface ConvictionParams {
+  trancheCount: number     // 0 = blocked (mid/watch/trim zone)
+  weightMode: WeightMode
+  deepExtension: number    // fraction below CMP to spread in deep zone (e.g. 0.10 = 10%)
+  ceilingOverride: number | null  // absolute price ceiling; null = use default logic
+}
+
+const BLOCKED: ConvictionParams = { trancheCount: 0, weightMode: 'equal', deepExtension: 0.05, ceilingOverride: null }
+
+/**
+ * Returns tranche generation parameters for a (zone, signal) pair.
+ * buyLow/buyHigh are needed to compute the lower-half ceiling for WAIT in buy zone.
+ * INSUFFICIENT_DATA is treated conservatively as WAIT.
+ */
+export function convictionMatrix(zone: Zone, signal: Signal, buyLow: number, buyHigh: number): ConvictionParams {
+  if (zone === 'MID' || zone === 'WATCH' || zone === 'TRIM') return BLOCKED
+
+  const sig = signal === 'INSUFFICIENT_DATA' ? 'WAIT' : signal
+
+  if (zone === 'DEEP_VALUE') {
+    if (sig === 'ADD_AGGRESSIVELY') return { trancheCount: 7, weightMode: 'cubic',     deepExtension: 0.10, ceilingOverride: null }
+    if (sig === 'ADD_SLOWLY')       return { trancheCount: 4, weightMode: 'quadratic', deepExtension: 0.07, ceilingOverride: null }
+    return                                 { trancheCount: 3, weightMode: 'equal',     deepExtension: 0.05, ceilingOverride: null }
+  }
+
+  // BUY zone
+  if (sig === 'ADD_AGGRESSIVELY') return { trancheCount: 5, weightMode: 'cubic',     deepExtension: 0.05, ceilingOverride: null }
+  if (sig === 'ADD_SLOWLY')       return { trancheCount: 4, weightMode: 'quadratic', deepExtension: 0.05, ceilingOverride: null }
+  // WAIT in buy zone: compress to lower half of the zone
+  return { trancheCount: 2, weightMode: 'equal', deepExtension: 0.05, ceilingOverride: buyLow + (buyHigh - buyLow) * 0.5 }
 }
 
 // ── Tranche price constants ───────────────────────────────────────────────────
@@ -236,19 +273,25 @@ export function trancheSuggestion(remainingBudget: number, totalCapital: number)
 /**
  * Tranche amounts split.
  *
- * equal=true (Case A above zone, Case C deep zone): equal split — probability of
- * any given tranche filling is uncertain, so don't over-bet on the deepest one.
- *
- * equal=false (Case B inside zone): conviction-weighted — deeper tranches get more
- * capital. Uses quadratic weights (i+1)² when the largest weight ≤ 40% of total,
- * otherwise falls back to linear (i+1) to avoid extreme skew on small counts.
+ * 'equal': uniform split — used when zone certainty is low (above zone, deep WAIT).
+ * 'quadratic': bottom-heavy, (i+1)², with linear fallback if largest weight > 40%.
+ * 'cubic': strongly bottom-heavy, (i+1)³, no linear fallback — intentional for
+ *   ADD_AGGRESSIVELY where concentrating capital at the deepest entry is the goal.
  *
  * Input order is highest-price-first (index 0 = nearest to market).
  * Returns amounts in the same order. Amounts sum exactly to `remaining`.
  */
-export function computeTrancheAmounts(remaining: number, count: number, equal = false): number[] {
+export function computeTrancheAmounts(remaining: number, count: number, weightMode: WeightMode = 'quadratic'): number[] {
   if (count <= 0 || remaining <= 0) return []
-  if (equal) return Array.from({ length: count }, () => remaining / count)
+  if (weightMode === 'equal') return Array.from({ length: count }, () => remaining / count)
+
+  if (weightMode === 'cubic') {
+    const weights = Array.from({ length: count }, (_, i) => (i + 1) ** 3)
+    const total   = weights.reduce((s, w) => s + w, 0)
+    return weights.map(w => remaining * w / total)
+  }
+
+  // quadratic with linear fallback for small counts where skew would exceed 40%
   const quadWeights  = Array.from({ length: count }, (_, i) => (i + 1) ** 2)
   const quadTotal    = quadWeights.reduce((s, w) => s + w, 0)
   const useQuadratic = Math.max(...quadWeights) / quadTotal <= WEIGHT_CAP
@@ -274,6 +317,11 @@ export function computeTrancheAmounts(remaining: number, count: number, equal = 
  * Deduplicates after rounding.
  *
  * midLow / midHigh are accepted for API compatibility but unused.
+ *
+ * ceilingOverride: if set and lower than the computed ceiling, clamps the range
+ *   top (e.g. lower-half compression for WAIT in buy zone).
+ * deepExtension: fraction of CMP to extend below in deep zone (default 0.05 = 5%).
+ *   Spread across count tranches: step = deepExtension / (count - 1).
  */
 export function computeTranchePrices(
   buyLow: number,
@@ -282,6 +330,8 @@ export function computeTranchePrices(
   count = 3,
   fiftyTwoWeekLow?: number | null,
   isIndex = false,
+  ceilingOverride?: number | null,
+  deepExtension = 0.05,
 ): number[] {
   // Floor is the higher of 52-week low and buyLow — never price below either.
   // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
@@ -289,7 +339,8 @@ export function computeTranchePrices(
   // Exception 2: if the 52wkLow would push floor above the ceiling (e.g. a narrow
   //   buy zone leaves buyHigh below the 52wkLow), fall back to buyLow — the 52wkLow is above
   //   the entire buy zone and is not a useful pricing floor in that case.
-  const ceiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
+  const rawCeiling = (!cmp || cmp > buyHigh) ? buyHigh : cmp
+  const ceiling = (ceilingOverride != null && ceilingOverride < rawCeiling) ? ceilingOverride : rawCeiling
   const use52wkLow = fiftyTwoWeekLow != null && (!cmp || fiftyTwoWeekLow < cmp)
   const raw52Floor = use52wkLow ? Math.max(fiftyTwoWeekLow, buyLow) : buyLow
   const floor = raw52Floor <= ceiling ? raw52Floor : buyLow
@@ -309,10 +360,11 @@ export function computeTranchePrices(
       }
     }
     const ref        = cmp ?? floor
-    const deepCount  = Math.min(Math.max(2, count), 3)
+    const deepCount  = Math.max(2, count)
+    const step       = deepCount > 1 ? deepExtension / (deepCount - 1) : 0
     const deepPrices: number[] = []
     for (let i = 0; i < deepCount; i++) {
-      const raw  = ref * (1 - 0.05 * i)
+      const raw  = ref * (1 - step * i)
       const snap = raw < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
       deepPrices.push(Math.round(raw / snap) * snap)
     }

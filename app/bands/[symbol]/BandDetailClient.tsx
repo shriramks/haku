@@ -208,6 +208,8 @@ export default function BandDetailClient({
       const json = await res.json()
       if (!res.ok) {
         setTrancheGenError(json.error ?? 'Generation failed')
+      } else if (json.blocked) {
+        setTrancheGenError(json.reason ?? 'No tranches — stock is outside the buy zone')
       } else if (json.tranches?.length > 0) {
         setTranches(json.tranches)
       } else {
@@ -523,6 +525,7 @@ export default function BandDetailClient({
           generating={generatingTranches}
           genError={trancheGenError}
           signal={snowball?.signal ?? null}
+          zone={snowball?.zone ?? null}
           recentBuys={recentBuys}
           onAdd={(_sym, qty, price) => addTranche(qty, price)}
           onDelete={deleteTranche}
