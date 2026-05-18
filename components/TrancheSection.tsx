@@ -130,8 +130,8 @@ function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
     ? ((cmp - tranche.price) / cmp) * 100
     : null
 
-  // 2a: CMP has reached or passed this level
-  const atCmp = distPct != null && distPct >= 0
+  // 2a: tranche price is within 1% of CMP
+  const atCmp = distPct != null && Math.abs(distPct) <= 1
 
   // 2b: a buy transaction within 5% of this level (only checked when 2a doesn't apply)
   const matchedBuy = !atCmp && recentBuys
