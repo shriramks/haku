@@ -92,7 +92,7 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 ## Working approach
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
-- **After completing any unit of work**, append an entry to `progress_haku.md`: date heading, one-line title, files changed, 2–4 bullets on what changed and why. Keep it terse. When all sessions of a multi-session task are done, move the entire task block from `## Todo` to `## Done` in `progress_haku.md`.
+- **After completing any unit of work**, append an entry to `progress_haku.md`: date heading, one-line title, files changed, 2–4 bullets on what changed and why. Keep it terse. When all sessions of a multi-session task are done, move the entire task block from `## Todo` to `## Done` in `progress_haku.md`. "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
