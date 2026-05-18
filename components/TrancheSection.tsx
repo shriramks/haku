@@ -155,12 +155,7 @@ function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
   return (
     <div
       className="flex items-center py-3 gap-3"
-      style={{
-        paddingLeft: isWarning ? 14 : 16,
-        paddingRight: 16,
-        borderLeft: isWarning ? '2px solid color-mix(in srgb, var(--c-warning) 45%, transparent)' : undefined,
-        background: isWarning ? 'color-mix(in srgb, var(--c-warning) 5%, transparent)' : undefined,
-      }}
+      style={{ paddingLeft: 16, paddingRight: 16 }}
     >
       <div className="flex-1">
         <p className="tabnum" style={{ lineHeight: 1.2 }}>
@@ -173,7 +168,7 @@ function TrancheRow({ tranche, cmp, recentBuys, onEdit }: {
           </span>
         </p>
         {subLabel && (
-          <p className="text-subheadline tabnum mt-0.5" style={{ color: isWarning ? 'var(--c-warning)' : 'var(--text-muted)' }}>
+          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {subLabel}
           </p>
         )}
