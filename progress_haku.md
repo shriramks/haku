@@ -8,6 +8,12 @@
 
 ## Done
 
+### 2026-05-18 — Docs: catch up to current codebase
+Files: `docs/architecture.md`, `docs/app-spec.md`, `docs/walkthrough.md`
+- `architecture.md`: added Screener.in + NSE to stack (Gemini now scoped to investability only); `buy_bands` table lists all columns including `op_profit_cr`/`revenue_cr`; `financials` action corrected to describe Screener fetch; added `buy_band_snapshots`; added all `[symbol]/` sheet modules and `detail-rows.tsx` to Key File Map; added Snowball Model section and `lib/snowball.ts` entry
+- `app-spec.md`: added Snowball Signal to vocabulary; updated Stock Detail IA to include Snowball Check row and Buy Levels descriptor; clarified Regen Financials lives in the Financials sheet
+- `walkthrough.md`: fixed wrong "Regen Bands fetches financials" description; added Snowball Check section; fixed band bar zone labels (HOLD → MID); rewrote Tranches section to match current behaviour
+
 ### 2026-05-18 — Snowball signals rename + shared helpers + Buy Levels descriptor
 Files: `lib/snowball.ts`, `lib/__tests__/snowball.test.ts`, `app/bands/[symbol]/BandDetailClient.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/SnowballSheet.tsx`
 - Renamed signals to adverb/verb form: `ADD_AGGRESSIVE` → `ADD_AGGRESSIVELY`, `ADD_MEASURED` → `ADD_SLOWLY`, `BLOCK` → `TRIM`
