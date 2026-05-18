@@ -8,6 +8,11 @@
 
 ## Done
 
+### 2026-05-18 — Buy Levels: remove warning colour from tranche sublabels
+Files: `components/TrancheSection.tsx`
+- "At CMP" and "Bought at this price on DD Mon" sublabels were incorrectly coloured `color.warning` (orange) — those are contextual metadata, not caution signals
+- Removed orange left border, background tint, and orange text from warning rows; sublabels now render in `text-muted` (40% white) consistent with other supporting context in the app
+
 ### 2026-05-18 — Docs: catch up to current codebase
 Files: `docs/architecture.md`, `docs/app-spec.md`, `docs/walkthrough.md`
 - `architecture.md`: added Screener.in + NSE to stack (Gemini now scoped to investability only); `buy_bands` table lists all columns including `op_profit_cr`/`revenue_cr`; `financials` action corrected to describe Screener fetch; added `buy_band_snapshots`; added all `[symbol]/` sheet modules and `detail-rows.tsx` to Key File Map; added Snowball Model section and `lib/snowball.ts` entry
@@ -268,6 +273,25 @@ Removed `advance_fy_id` field entirely:
 - Removed `→ FY26` display tag on transactions
 
 Removed old code: `computeCarryover`, `CarryoverBreakdown`, `CarryoverResult` types, `carryoverMap` param from `computeStockRows`, `CollapsibleSection`/`CarryoverSection` in DashboardClient, all related tests
+
+---
+
+## 2026-05-18
+
+### Buy Levels: fix "At CMP" label
+File: `components/TrancheSection.tsx`
+- "At CMP" was triggering for any tranche below CMP (`distPct >= 0`), incorrectly labelling all lower dip-buy levels
+- Restricted to ±1% of CMP (`Math.abs(distPct) <= 1`) so it only fires when the price is genuinely near the level
+
+---
+
+## 2026-05-18 (2)
+
+### Stock detail: remove dividends section
+Files: `lib/fetchStockDetailProps.ts`, `app/bands/[symbol]/BandDetailClient.tsx`, `app/bands/[symbol]/page.tsx`, `app/stocks/[symbol]/page.tsx`
+- Removed `StockDividends` component and its section from the per-stock page
+- Removed `getDividendsForSymbol` from the data fetch pipeline — dividends are now only on the dedicated dividends page
+- Also removes `initialDividends` prop from `BandDetailClient` and cleans up related types
 
 ---
 
