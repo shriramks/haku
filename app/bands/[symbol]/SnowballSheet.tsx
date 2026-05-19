@@ -141,26 +141,29 @@ export default function SnowballSheet({ symbol, snowball, snapshot, priorSnapsho
               </>
             )}
 
-            {/* Prior Session */}
-            <SectionLabel label="Prior Session" />
-            {priorSnapshot ? (
-              <>
-                <CompRow k="Growth (prior)" v={formatPct(priorSnapshot.g_computed)} />
-                <CompRow k="Op Margin (prior)" v={formatPct(priorSnapshot.op_margin)} />
-                <CompRow k="Snapshot" v={priorSnapshot.label ?? '—'} faint />
-              </>
-            ) : (
-              <p className="text-subheadline" style={{ color: 'var(--text-faint)', paddingTop: 10, paddingBottom: 4 }}>
-                No prior snapshot — save financials to start tracking
-              </p>
-            )}
+            {/* Fundamentals — current vs prior */}
+            <SectionLabel label="Fundamentals" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 20px', paddingTop: 4 }}>
+              {/* Header */}
+              <span />
+              <span className="text-caption1 font-semibold tabnum" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em', textAlign: 'right' }}>CURRENT</span>
+              <span className="text-caption1 font-semibold tabnum" style={{ color: 'var(--text-faint)', letterSpacing: '0.05em', textAlign: 'right' }}>PRIOR</span>
 
-            {/* Current snapshot label for reference */}
-            {snapshot?.label && (
-              <p className="text-footnote" style={{ color: 'var(--text-faint)', paddingTop: 12 }}>
-                Current data from {snapshot.label}
-              </p>
-            )}
+              {/* Growth */}
+              <span className="text-subheadline" style={{ color: 'var(--text-primary)', paddingTop: 12, paddingBottom: 2 }}>Growth</span>
+              <span className="text-subheadline tabnum" style={{ color: 'var(--text-primary)', textAlign: 'right', paddingTop: 12, paddingBottom: 2 }}>{formatPct(snapshot?.g_computed ?? null)}</span>
+              <span className="text-subheadline tabnum" style={{ color: 'var(--text-muted)', textAlign: 'right', paddingTop: 12, paddingBottom: 2 }}>{formatPct(priorSnapshot?.g_computed ?? null)}</span>
+
+              {/* Op Margin */}
+              <span className="text-subheadline" style={{ color: 'var(--text-primary)', paddingBottom: 12 }}>Op Margin</span>
+              <span className="text-subheadline tabnum" style={{ color: 'var(--text-primary)', textAlign: 'right', paddingBottom: 12 }}>{formatPct(snapshot?.op_margin ?? null)}</span>
+              <span className="text-subheadline tabnum" style={{ color: 'var(--text-muted)', textAlign: 'right', paddingBottom: 12 }}>{formatPct(priorSnapshot?.op_margin ?? null)}</span>
+
+              {/* Snapshot labels */}
+              <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>Snapshot</span>
+              <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)', textAlign: 'right' }}>{snapshot?.label ?? '—'}</span>
+              <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)', textAlign: 'right' }}>{priorSnapshot?.label ?? '—'}</span>
+            </div>
           </>
         )}
       </div>

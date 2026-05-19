@@ -8,6 +8,12 @@
 
 ## Done
 
+### 2026-05-19 — Snowball: current vs prior fundamentals comparison table
+- `app/bands/[symbol]/SnowballSheet.tsx`
+- Replaced "Prior Session" section + trailing footnote with a 3-column grid under "Fundamentals"
+- Shows Growth and Op Margin side-by-side for current and prior snapshots; Snapshot labels on a third row
+- Prior column uses `--text-muted`; current uses `--text-primary`; both fall back to `—` when data is absent
+
 ### 2026-05-18 — Buy Levels: remove misleading "Bought at this price" sublabel
 Files: `components/TrancheSection.tsx`, `app/bands/[symbol]/TranchesSheet.tsx`, `app/bands/[symbol]/BandDetailClient.tsx`
 - Removed "Bought at this price on DD Mon" sublabel — it fired when any transaction was within 5% of a tranche price, not at it, making the text factually wrong
