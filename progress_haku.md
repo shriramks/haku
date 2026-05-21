@@ -4,20 +4,16 @@
 
 ## Todo
 
-
-
-
-### 39 — Tax Report — Session 5 — Export (CSV + PDF)
-Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
-- Single Export button (bg-tertiary pill) → BottomSheet with two options: CSV (table/grid icon, green) and PDF (document icon, red)
-- Description text sits above the Export button
-- CSV: lot-level rows — symbol, purchase date, purchase cost, sale date, sale proceeds, STCG, LTCG; grouped by asset type; generated client-side with a library (e.g. papaparse) or server route
-- PDF: CAMS-style layout matching the capital gains statement format (fund/symbol header, folio/ISIN for MF, lot rows, fund total row); generated via server route returning a downloadable PDF
-- Columns per screenshot reference in session notes: SNo, Units, Purchase Date, Purchase Value, Acquisition Value*, Redemption Date, Redemption Value, STCG, LTCG
-
 ---
 
 ## Done
+
+### 39 — 2026-05-21 — Tax Report — Session 5 — Export (CSV + PDF)
+Files: `app/tax/TaxClient.tsx`, `package.json`
+- Export section: description text + bg-tertiary rounded-full pill → `ExportSheet` BottomSheet with two action rows (CSV green/table icon, PDF red/document icon)
+- CSV: client-side, no library — flattens `detailRows` lots into lot-level rows; columns: SNo / Symbol-Fund / Units / Purchase Date / Purchase Value / Sale Date / Sale Proceeds / STCG / LTCG; group headers + subtotals per asset type + grand total; `Blob` download
+- PDF: client-side with `jspdf` + `jspdf-autotable` (dynamic import, tree-shaken until triggered); CAMS-style — page header, per-asset-type section, per-symbol/fund name + autotable with lot rows, subtotal bold row, section totals, grand total; downloads `capital-gains-FY26.pdf`
+- Both generators use raw INR numbers (2 decimal places) for spreadsheet/CA use; filename includes `selectedFY.label`
 
 ### 41 — 2026-05-21 — Tax Report — Session 7 — Harvesting + hero polish
 Files: `app/tax/TaxClient.tsx`

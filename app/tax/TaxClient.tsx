@@ -8,7 +8,7 @@ import { formatDate } from '@/lib/formatter'
 import FYPicker from '@/components/FYPicker'
 import BottomSheet from '@/components/BottomSheet'
 import { Num } from '@/components/Num'
-import { ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon, ChevronRightIcon } from '@/components/icons'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import UserMenu from '@/components/UserMenu'
 
@@ -401,9 +401,7 @@ export default function TaxClient({
         </Section>
 
         <Section title="Export"     sectionKey="export"     expanded={expanded} onToggle={toggle}>
-          <div className="px-4 py-3">
-            <p className="text-body" style={{ color: 'var(--text-muted)' }}>Coming soon</p>
-          </div>
+          <ExportBody detailRows={detailRows} selectedFY={selectedFY} />
         </Section>
       </div>
     </div>
@@ -730,4 +728,325 @@ function HarvestingBody({
 
     </div>
   )
+}
+
+// ── Export section ─────────────────────────────────────────────────────────────
+
+function TableIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path strokeLinecap="round" d="M3 9h18M3 15h18M9 9v10M15 9v10" />
+    </svg>
+  )
+}
+
+function DocumentIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round"
+        d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v6h6M9 13h6M9 17h4" />
+    </svg>
+  )
+}
+
+function ExportBody({ detailRows, selectedFY }: { detailRows: SellRow[]; selectedFY: import('@/lib/types').FiscalYear | null }) {
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [exporting, setExporting]  = useState<'pdf' | null>(null)
+  const fyLabel = selectedFY?.label ?? 'FY'
+
+  function handleCSV() {
+    generateCSV(detailRows, fyLabel)
+    setSheetOpen(false)
+  }
+
+  async function handlePDF() {
+    setExporting('pdf')
+    try {
+      await generatePDF(detailRows, fyLabel)
+    } finally {
+      setExporting(null)
+      setSheetOpen(false)
+    }
+  }
+
+  return (
+    <div className="px-4 pt-3 pb-4">
+      <p className="text-body pb-4" style={{ color: 'var(--text-muted)' }}>
+        Download your capital gains statement — lot-level detail for filing or sharing with your CA.
+      </p>
+      <button
+        onClick={() => setSheetOpen(true)}
+        className="w-full rounded-full text-body font-semibold"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', minHeight: 50 }}>
+        Export
+      </button>
+      {sheetOpen && (
+        <ExportSheet
+          onClose={() => setSheetOpen(false)}
+          onCSV={handleCSV}
+          onPDF={handlePDF}
+          exporting={exporting}
+        />
+      )}
+    </div>
+  )
+}
+
+function ExportSheet({
+  onClose, onCSV, onPDF, exporting,
+}: {
+  onClose:   () => void
+  onCSV:     () => void
+  onPDF:     () => void
+  exporting: 'pdf' | null
+}) {
+  return (
+    <BottomSheet onClose={onClose}>
+      <div className="px-5 pt-1 pb-2">
+        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Export</p>
+      </div>
+      <div style={{ height: 1, background: 'var(--border-faint)' }} />
+
+      {/* CSV row */}
+      <button
+        onClick={onCSV}
+        disabled={exporting !== null}
+        className="flex items-center w-full px-5 tap-row"
+        style={{ minHeight: 62 }}>
+        <div className="flex items-center justify-center rounded-xl mr-4 flex-shrink-0"
+             style={{ width: 40, height: 40, background: 'color-mix(in srgb, var(--c-positive) 15%, transparent)' }}>
+          <TableIcon style={{ width: 20, height: 20, color: 'var(--c-positive)' }} />
+        </div>
+        <div className="flex flex-col gap-0.5 items-start flex-1 min-w-0">
+          <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>CSV Spreadsheet</span>
+          <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>Lot-level gains, all asset types</span>
+        </div>
+        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+      </button>
+
+      <div style={{ height: 1, background: 'var(--border-faint)', marginLeft: 69 }} />
+
+      {/* PDF row */}
+      <button
+        onClick={onPDF}
+        disabled={exporting !== null}
+        className="flex items-center w-full px-5 tap-row"
+        style={{ minHeight: 62 }}>
+        <div className="flex items-center justify-center rounded-xl mr-4 flex-shrink-0"
+             style={{ width: 40, height: 40, background: 'color-mix(in srgb, var(--c-negative) 12%, transparent)' }}>
+          <DocumentIcon style={{ width: 20, height: 20, color: 'var(--c-negative)' }} />
+        </div>
+        <div className="flex flex-col gap-0.5 items-start flex-1 min-w-0">
+          <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {exporting === 'pdf' ? 'Generating…' : 'PDF Statement'}
+          </span>
+          <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>CAMS-style capital gains statement</span>
+        </div>
+        <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+      </button>
+    </BottomSheet>
+  )
+}
+
+// ── CSV export ─────────────────────────────────────────────────────────────────
+
+function generateCSV(rows: SellRow[], fyLabel: string): void {
+  const esc = (v: string | number) => {
+    const s = String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  const lines: string[] = [
+    `Capital Gains Statement - ${fyLabel}`,
+    `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+    '',
+  ]
+
+  const colHeaders = ['SNo', 'Symbol / Fund', 'Units', 'Purchase Date', 'Purchase Value (INR)', 'Sale Date', 'Sale Proceeds (INR)', 'STCG (INR)', 'LTCG (INR)']
+  const assetGroups: [AssetType, string][] = [['stock', 'STOCKS'], ['mf', 'MUTUAL FUNDS'], ['gold', 'GOLD']]
+
+  let grandSTCG = 0, grandLTCG = 0
+
+  for (const [assetType, groupLabel] of assetGroups) {
+    const groupRows = rows.filter(r => r.assetType === assetType)
+    if (groupRows.length === 0) continue
+
+    lines.push(groupLabel)
+    lines.push(colHeaders.map(esc).join(','))
+
+    let sno = 1, groupSTCG = 0, groupLTCG = 0
+
+    for (const sellRow of groupRows) {
+      for (const lot of sellRow.lots) {
+        const stcg = lot.gainType === 'STCG' ? lot.gain : 0
+        const ltcg = lot.gainType === 'LTCG' ? lot.gain : 0
+        groupSTCG += stcg
+        groupLTCG += ltcg
+        const qty = Number.isInteger(lot.qty) ? String(lot.qty) : lot.qty.toFixed(3).replace(/\.?0+$/, '')
+        lines.push([
+          sno++, esc(sellRow.name), qty,
+          lot.purchaseDate, lot.purchaseCost.toFixed(2),
+          lot.sellDate, lot.saleValue.toFixed(2),
+          stcg.toFixed(2), ltcg.toFixed(2),
+        ].join(','))
+      }
+    }
+
+    grandSTCG += groupSTCG
+    grandLTCG += groupLTCG
+    lines.push(['', 'Total', '', '', '', '', '', groupSTCG.toFixed(2), groupLTCG.toFixed(2)].join(','))
+    lines.push('')
+  }
+
+  lines.push(['GRAND TOTAL', '', '', '', '', '', '', grandSTCG.toFixed(2), grandLTCG.toFixed(2)].join(','))
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `capital-gains-${fyLabel}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// ── PDF export ─────────────────────────────────────────────────────────────────
+
+async function generatePDF(rows: SellRow[], fyLabel: string): Promise<void> {
+  const { jsPDF }     = await import('jspdf')
+  const { autoTable } = await import('jspdf-autotable')
+
+  const doc       = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin    = 14
+  const fmtINR    = (n: number) => n.toFixed(2)
+  const fmtQty    = (n: number) => Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, '')
+
+  // Header
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Capital Gains Statement', pageWidth / 2, 20, { align: 'center' })
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'normal')
+  doc.text(fyLabel, pageWidth / 2, 28, { align: 'center' })
+  doc.setFontSize(8)
+  doc.setTextColor(120)
+  doc.text(
+    `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+    pageWidth / 2, 34, { align: 'center' }
+  )
+  doc.setTextColor(0)
+
+  let curY = 44
+  const colHeaders = ['SNo', 'Units', 'Purchase Date', 'Purchase Value', 'Sale Date', 'Sale Proceeds', 'STCG', 'LTCG']
+  const colStyles = {
+    0: { cellWidth: 10 },
+    1: { cellWidth: 16, halign: 'right' as const },
+    2: { cellWidth: 26 },
+    3: { cellWidth: 27, halign: 'right' as const },
+    4: { cellWidth: 26 },
+    5: { cellWidth: 27, halign: 'right' as const },
+    6: { cellWidth: 25, halign: 'right' as const },
+    7: { cellWidth: 25, halign: 'right' as const },
+  }
+
+  const assetGroups: [AssetType, string][] = [['stock', 'Stocks'], ['mf', 'Mutual Funds'], ['gold', 'Gold']]
+  let grandSTCG = 0, grandLTCG = 0
+
+  for (const [assetType, groupLabel] of assetGroups) {
+    const groupRows = rows.filter(r => r.assetType === assetType)
+    if (groupRows.length === 0) continue
+
+    let groupSTCG = 0, groupLTCG = 0
+
+    // Section heading + underline
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(groupLabel, margin, curY)
+    curY += 2
+    doc.setDrawColor(180)
+    doc.line(margin, curY, pageWidth - margin, curY)
+    curY += 5
+
+    // Group by symbol/fund (preserve order from detailRows)
+    const seen = new Set<string>()
+    const symbolOrder: { symbol: string; name: string }[] = []
+    for (const r of groupRows) {
+      if (!seen.has(r.symbol)) { seen.add(r.symbol); symbolOrder.push({ symbol: r.symbol, name: r.name }) }
+    }
+
+    for (const { symbol, name } of symbolOrder) {
+      const symbolRows = groupRows.filter(r => r.symbol === symbol)
+      let symSTCG = 0, symLTCG = 0
+      let sno = 1
+
+      const tableBody: string[][] = []
+      for (const sellRow of symbolRows) {
+        for (const lot of sellRow.lots) {
+          const stcg = lot.gainType === 'STCG' ? lot.gain : 0
+          const ltcg = lot.gainType === 'LTCG' ? lot.gain : 0
+          symSTCG += stcg; symLTCG += ltcg
+          groupSTCG += stcg; groupLTCG += ltcg
+          tableBody.push([
+            String(sno++),
+            fmtQty(lot.qty),
+            lot.purchaseDate,
+            fmtINR(lot.purchaseCost),
+            lot.sellDate,
+            fmtINR(lot.saleValue),
+            stcg !== 0 ? fmtINR(stcg) : '—',
+            ltcg !== 0 ? fmtINR(ltcg) : '—',
+          ])
+        }
+      }
+      tableBody.push(['', '', '', '', 'Total', '', fmtINR(symSTCG), fmtINR(symLTCG)])
+
+      // Fund/symbol name above table
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text(name, margin, curY)
+      curY += 4
+
+      const totalRowIdx = tableBody.length - 1
+      autoTable(doc, {
+        startY: curY,
+        head: [colHeaders],
+        body: tableBody,
+        styles: { fontSize: 7, cellPadding: { top: 2, bottom: 2, left: 2, right: 2 } },
+        headStyles: { fillColor: [40, 40, 40], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: colStyles,
+        margin: { left: margin, right: margin },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.row.index === totalRowIdx) {
+            data.cell.styles.fontStyle = 'bold'
+            data.cell.styles.fillColor = [245, 245, 245]
+          }
+        },
+      })
+
+      curY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 7
+    }
+
+    grandSTCG += groupSTCG
+    grandLTCG += groupLTCG
+
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text(
+      `${groupLabel} Total — STCG: ${fmtINR(groupSTCG)}  LTCG: ${fmtINR(groupLTCG)}`,
+      margin, curY
+    )
+    curY += 10
+  }
+
+  // Grand total
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Grand Total — STCG: ${fmtINR(grandSTCG)}  LTCG: ${fmtINR(grandLTCG)}`, margin, curY)
+
+  doc.save(`capital-gains-${fyLabel}.pdf`)
 }
