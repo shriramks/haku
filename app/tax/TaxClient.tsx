@@ -9,6 +9,7 @@ import FYPicker from '@/components/FYPicker'
 import BottomSheet from '@/components/BottomSheet'
 import { Num } from '@/components/Num'
 import { ChevronDownIcon } from '@/components/icons'
+import { DetailRow, SectionLabel } from '@/components/detail-rows'
 
 interface Props {
   fiscalYears:  FiscalYear[]
@@ -302,13 +303,15 @@ export default function TaxClient({
   }
 
   return (
-    <div className="pb-24" style={{ background: 'var(--bg-primary)', minHeight: '100dvh' }}>
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b"
-           style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
-        <h1 className="text-title-3 font-bold" style={{ color: 'var(--text-primary)' }}>Tax Report</h1>
-        <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
+      <div className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+           style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
+        <div className="flex items-center justify-between pt-1">
+          <h1 className="text-display font-bold">Tax Report</h1>
+          <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
+        </div>
       </div>
 
       {/* Hero strip */}
@@ -317,7 +320,7 @@ export default function TaxClient({
 
           <div className="flex flex-col gap-0.5">
             <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Gains</p>
-            <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={totalGain} signed />
             </p>
           </div>
@@ -326,7 +329,7 @@ export default function TaxClient({
 
           <div className="flex flex-col gap-0.5 items-center">
             <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>LTCG</p>
-            <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={totalLTCG} signed />
             </p>
           </div>
@@ -335,7 +338,7 @@ export default function TaxClient({
 
           <div className="flex flex-col gap-0.5 items-end">
             <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>STCG</p>
-            <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={totalSTCG} signed />
             </p>
           </div>
@@ -437,59 +440,21 @@ function SummaryBody({
     <div className="pb-2">
 
       {/* LTCG group */}
-      <GroupLabel label="LTCG" />
-      <TaxRow label="Gains">
-        <Num amount={totalLTCG} signed />
-      </TaxRow>
-      <TaxRow label="Exemption" muted>
-        <span>1.25<span className="num-u"> L</span></span>
-      </TaxRow>
-      <TaxRow label="Taxable Gains">
-        <Num amount={taxableLTCG} signed />
-      </TaxRow>
-      <TaxRow label="Tax @ 12.5%">
-        <Num amount={ltcgTax} />
-      </TaxRow>
+      <SectionLabel label="LTCG" className="px-4" />
+      <DetailRow label="Gains" bold noRupee><Num amount={totalLTCG} signed /></DetailRow>
+      <DetailRow label="Exemption" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
+      <DetailRow label="Taxable Gains" bold noRupee><Num amount={taxableLTCG} signed /></DetailRow>
+      <DetailRow label="Tax @ 12.5%" bold noRupee><Num amount={ltcgTax} /></DetailRow>
 
       {/* STCG group */}
-      <GroupLabel label="STCG" />
-      <TaxRow label="Gains">
-        <Num amount={totalSTCG} signed />
-      </TaxRow>
-      <TaxRow label="Tax @ 20%">
-        <Num amount={stcgTax} />
-      </TaxRow>
+      <SectionLabel label="STCG" className="px-4" />
+      <DetailRow label="Gains" bold noRupee><Num amount={totalSTCG} signed /></DetailRow>
+      <DetailRow label="Tax @ 20%" bold noRupee><Num amount={stcgTax} /></DetailRow>
 
       {/* Dividend Income group */}
-      <GroupLabel label="Dividend Income" />
-      <TaxRow label="Received">
-        <Num amount={dividendIncome} signed />
-      </TaxRow>
+      <SectionLabel label="Dividend Income" className="px-4" />
+      <DetailRow label="Received" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
 
-    </div>
-  )
-}
-
-function GroupLabel({ label }: { label: string }) {
-  return (
-    <p className="text-footnote font-semibold uppercase px-4 pt-4 pb-1"
-       style={{ color: 'var(--text-faint)', letterSpacing: '0.06em' }}>
-      {label}
-    </p>
-  )
-}
-
-function TaxRow({ label, muted, children }: { label: string; muted?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
-      <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
-      <span className="tabnum text-body" style={{
-        color: 'var(--text-primary)',
-        fontWeight: muted ? 400 : 400,
-        opacity: muted ? 0.5 : 1,
-      }}>
-        {children}
-      </span>
     </div>
   )
 }
@@ -515,7 +480,7 @@ function DetailsBody({ rows }: { rows: SellRow[] }) {
     <div className="pb-2">
       {stockRows.length > 0 && (
         <>
-          <GroupLabel label="Stocks" />
+          <SectionLabel label="Stocks" className="px-4" />
           {stockRows.map(row => (
             <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
           ))}
@@ -523,7 +488,7 @@ function DetailsBody({ rows }: { rows: SellRow[] }) {
       )}
       {mfRows.length > 0 && (
         <>
-          <GroupLabel label="Mutual Funds" />
+          <SectionLabel label="Mutual Funds" className="px-4" />
           {mfRows.map(row => (
             <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
           ))}
@@ -531,7 +496,7 @@ function DetailsBody({ rows }: { rows: SellRow[] }) {
       )}
       {goldRows.length > 0 && (
         <>
-          <GroupLabel label="Gold" />
+          <SectionLabel label="Gold" className="px-4" />
           {goldRows.map(row => (
             <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
           ))}
@@ -647,13 +612,9 @@ function HarvestingBody({
     <div className="pb-2">
 
       {/* LTCG Availability */}
-      <GroupLabel label="LTCG Availability" />
-      <TaxRow label="Exemption used">
-        <Num amount={ltcgUsed} />
-      </TaxRow>
-      <TaxRow label="Remaining">
-        <Num amount={ltcgRemaining} />
-      </TaxRow>
+      <SectionLabel label="LTCG Availability" className="px-4" />
+      <DetailRow label="Exemption used" bold noRupee><Num amount={ltcgUsed} /></DetailRow>
+      <DetailRow label="Remaining" bold noRupee><Num amount={ltcgRemaining} /></DetailRow>
       <div className="px-4 pb-3 pt-1">
         <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'var(--c-positive)' }} />
@@ -661,24 +622,24 @@ function HarvestingBody({
       </div>
 
       {/* Harvesting Availability */}
-      <GroupLabel label="Harvesting Availability" />
-      <TaxRow label="Unrealised losses">
+      <SectionLabel label="Harvesting Availability" className="px-4" />
+      <DetailRow label="Unrealised losses" bold noRupee>
         {pricesLoading
           ? <span style={{ color: 'var(--text-faint)' }}>—</span>
           : unrealisedLoss !== null && unrealisedLoss < 0
             ? <Num amount={unrealisedLoss} signed />
             : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
-      </TaxRow>
-      <TaxRow label="STCG to offset">
+      </DetailRow>
+      <DetailRow label="STCG to offset" bold noRupee>
         {totalSTCG > 0
           ? <Num amount={totalSTCG} signed />
           : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
-      </TaxRow>
+      </DetailRow>
 
       {/* Harvesting Readiness */}
-      <GroupLabel label="Harvesting Readiness" />
+      <SectionLabel label="Harvesting Readiness" className="px-4" />
       <p className="px-4 pb-2 text-footnote" style={{ color: 'var(--text-muted)' }}>
         Holdings within 30 days of the 1-year LTCG threshold — hold until they cross to avoid STCG.
       </p>
