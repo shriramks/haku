@@ -4,6 +4,14 @@ import type { MFTransaction, SGBTransaction } from './portfolio-types'
 export type AssetType = 'stock' | 'mf' | 'gold'
 export type GainType  = 'STCG'  | 'LTCG'
 
+export function mfAssetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
+  const t = `${fund.scheme_type} ${fund.scheme_name}`.toLowerCase()
+  if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') ||
+      t.includes('overnight') || t.includes('duration') || t.includes('arbitrage') ||
+      t.includes('gilt') || t.includes('money market') || t.includes('treasury')) return 'debt'
+  return 'equity'
+}
+
 export interface RealisedGain {
   assetType:    AssetType
   symbol:       string

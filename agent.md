@@ -83,10 +83,29 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 
 ## Tax constants
 
-- **LTCG exemption (equity + equity MFs):** 1.25 L per FY — raised from 1 L by Budget 2024 (July 2024), effective FY 2024–25 onwards.
-- **LTCG rate (equity):** 12.5% above the 1.25 L exemption.
-- **STCG rate (equity):** 20%.
-- **LTCG holding threshold:** 365 days (equity/MF), 1095 days (gold).
+### Equity capital gains (stocks + equity-oriented MFs)
+- **STCG** (held < 365 days): taxed at 20%.
+- **LTCG** (held ≥ 365 days): taxed at 12.5% on gains above the 1.25 L annual exemption (raised from 1 L by Budget 2024, effective FY 2024–25 onwards).
+- **1.25 L exemption** applies only to equity LTCG — not to debt or gold.
+
+### Debt MF capital gains
+Finance Act 2023 split debt MF treatment by purchase date (effective April 1, 2023):
+- **Units bought before April 1, 2023:** old rules — LTCG threshold 3 years (1095 days), 20% with indexation; STCG at slab. BUT Budget 2024 (Finance Act 2024, effective July 23, 2024) removed indexation across capital assets; the only carve-out was real estate. So for pre-April 2023 debt units sold on/after July 23, 2024, indexation benefit is likely gone too — gains at slab.
+- **Units bought on/after April 1, 2023:** LTCG benefit removed entirely — all gains taxed at slab rate regardless of holding period.
+- The 1.25 L LTCG exemption does **not** apply to debt MF gains.
+- **Indexation in this app:** We do not compute indexed cost. Debt gains are shown at purchase cost with a note to verify with a CA. Indexation requires a CBDT CII table (maintained annually each June) and the slab-rate outcome is user-specific anyway — false precision is worse than a clear disclaimer.
+
+### Gold capital gains
+- **LTCG threshold:** 1095 days (3 years).
+- **SGB held to maturity:** fully exempt from capital gains tax.
+- **SGB/ETF sold before maturity:** normal gold LTCG rules apply.
+
+### Loss set-off rules
+Equity, debt, and gold are separate capital gains buckets — losses cannot cross between them.
+- **Equity STCG losses** can be set off against equity STCG gains **and** equity LTCG gains.
+- **Equity LTCG losses** can only be set off against equity LTCG gains.
+- Equity losses cannot offset debt MF gains or gold gains (and vice versa).
+- Harvesting analysis therefore applies only to equity positions; debt and gold are reported separately.
 
 ---
 

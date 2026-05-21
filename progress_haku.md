@@ -5,6 +5,13 @@
 ## Todo
 
 
+### 41 — Tax Report — Session 7 — Harvesting: equity-only loss set-off
+Files: `app/tax/TaxClient.tsx`
+- Unrealised losses: restrict to equity positions only (stocks + equity MFs); exclude gold and debt MFs — gold LTCG and debt gains are separate tax buckets
+- "STCG to offset" → relabel to "Equity gains to offset"; value = equity STCG + equity LTCG combined, because equity STCG losses can be set off against both equity STCG and equity LTCG gains under the IT Act
+- nearThreshold (Harvesting Readiness): filter to equity positions only; gold's 3-year threshold is a different gain class and shouldn't appear here
+
+
 ### 39 — Tax Report — Session 5 — Export (CSV + PDF)
 Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
 - Single Export button (bg-tertiary pill) → BottomSheet with two options: CSV (table/grid icon, green) and PDF (document icon, red)
@@ -16,6 +23,13 @@ Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
 ---
 
 ## Done
+
+### 40 — 2026-05-21 — Tax Report — Session 6 — Hero metrics: equity vs debt 2×3 grid
+Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`, `app/portfolio/PortfolioClient.tsx`
+- Extracted `mfAssetClass()` from `PortfolioClient` into `lib/tax-compute.ts`; `PortfolioClient` now imports the shared helper
+- Totals memo split into 6 buckets: `equityLTCG/STCG` (stocks + equity MFs), `debtLTCG/STCG` (debt MFs), `goldLTCG/STCG`; classification via `mfAssetClass`
+- Hero strip: single 3-col → 2-row × 3-col (Equity row + Debt row, no horizontal divider between rows); gold excluded from hero
+- Summary: four groups — Equity LTCG (with 1.25 L exemption), Equity STCG (20%), Debt (hidden when zero; slab-rate footnote), Gold (hidden when zero); 1.25 L exemption not applied to debt/gold
 
 ### 38 — 2026-05-21 — Tax Report — Session 4 — Harvesting section
 Files: `app/tax/TaxClient.tsx`

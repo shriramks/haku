@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
-import { computeStockGains, computeMFGains, computeGoldGains } from '@/lib/tax-compute'
+import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass } from '@/lib/tax-compute'
 import type { RealisedGain, GainType, AssetType, UnrealisedPosition } from '@/lib/tax-compute'
 import { formatDate } from '@/lib/formatter'
 import FYPicker from '@/components/FYPicker'
@@ -164,66 +164,59 @@ export default function TaxClient({
     return { unrealisedLoss, nearThreshold }
   }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, cmps, navs, goldPrice])
 
-  const { totalLTCG, totalSTCG, dividendIncome } = useMemo(() => {
-    if (!fyRange) return { totalLTCG: 0, totalSTCG: 0, dividendIncome: 0 }
+  const { equityLTCG, equitySTCG, debtLTCG, debtSTCG, goldLTCG, goldSTCG, dividendIncome } = useMemo(() => {
+    if (!fyRange) return { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, goldLTCG: 0, goldSTCG: 0, dividendIncome: 0 }
 
     const asOf = new Date().toISOString().slice(0, 10)
-    let ltcg = 0
-    let stcg = 0
+    let eqLTCG = 0, eqSTCG = 0, dtLTCG = 0, dtSTCG = 0, gdLTCG = 0, gdSTCG = 0
 
-    // Stocks — group by symbol
+    // Stocks → equity
     const stockMap = new Map<string, Transaction[]>()
     for (const txn of stockTxns) {
-      const arr = stockMap.get(txn.symbol) ?? []
-      arr.push(txn)
-      stockMap.set(txn.symbol, arr)
+      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
     }
     for (const [symbol, txns] of stockMap) {
       const { realised } = computeStockGains(txns, symbol, null, fyRange, asOf)
       for (const g of realised) {
-        if (g.gainType === 'LTCG') ltcg += g.gain
-        else stcg += g.gain
+        if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain
       }
     }
 
-    // MF — group by fund_id
+    // MF — split equity vs debt by fund classification
     const mfMap = new Map<string, MFTransaction[]>()
     for (const txn of mfTxns) {
-      const arr = mfMap.get(txn.fund_id) ?? []
-      arr.push(txn)
-      mfMap.set(txn.fund_id, arr)
+      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
     }
     for (const [fundId, txns] of mfMap) {
       const fund = mfFunds.find(f => f.id === fundId)
-      void fund  // name not needed for gains computation
+      const cls  = fund ? mfAssetClass(fund) : 'equity'
       const { realised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
       for (const g of realised) {
-        if (g.gainType === 'LTCG') ltcg += g.gain
-        else stcg += g.gain
+        if (cls === 'debt') {
+          if (g.gainType === 'LTCG') dtLTCG += g.gain; else dtSTCG += g.gain
+        } else {
+          if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain
+        }
       }
     }
 
-    // Gold (SGB) — treat as one pool per gold_type
+    // Gold
     const goldMap = new Map<string, SGBTransaction[]>()
     for (const txn of sgbTxns) {
-      const arr = goldMap.get(txn.gold_type) ?? []
-      arr.push(txn)
-      goldMap.set(txn.gold_type, arr)
+      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
     }
     for (const [goldType, txns] of goldMap) {
       const { realised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
       for (const g of realised) {
-        if (g.gainType === 'LTCG') ltcg += g.gain
-        else stcg += g.gain
+        if (g.gainType === 'LTCG') gdLTCG += g.gain; else gdSTCG += g.gain
       }
     }
 
-    // Dividend income within selected FY
     const divIncome = dividends
       .filter(d => d.ex_date >= fyRange.start && d.ex_date <= fyRange.end)
       .reduce((s, d) => s + d.amount, 0)
 
-    return { totalLTCG: ltcg, totalSTCG: stcg, dividendIncome: divIncome }
+    return { equityLTCG: eqLTCG, equitySTCG: eqSTCG, debtLTCG: dtLTCG, debtSTCG: dtSTCG, goldLTCG: gdLTCG, goldSTCG: gdSTCG, dividendIncome: divIncome }
   }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, dividends])
 
   const detailRows = useMemo<SellRow[]>(() => {
@@ -288,10 +281,11 @@ export default function TaxClient({
     return rows
   }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns])
 
-  const totalGain    = totalLTCG + totalSTCG
-  const taxableLTCG  = Math.max(0, totalLTCG - LTCG_EXEMPTION)
+  const equityTotal  = equityLTCG + equitySTCG
+  const debtTotal    = debtLTCG + debtSTCG
+  const taxableLTCG  = Math.max(0, equityLTCG - LTCG_EXEMPTION)
   const ltcgTax      = taxableLTCG * 0.125
-  const stcgTax      = Math.max(0, totalSTCG) * 0.20
+  const stcgTax      = Math.max(0, equitySTCG) * 0.20
 
   function toggle(key: SectionKey) {
     setExpanded(prev => {
@@ -316,45 +310,70 @@ export default function TaxClient({
 
       {/* Hero strip */}
       <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
 
+        {/* Equity row */}
+        <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
           <div className="flex flex-col gap-0.5">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Gains</p>
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={totalGain} signed />
+              <Num amount={equityTotal} signed />
             </p>
           </div>
-
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-
           <div className="flex flex-col gap-0.5 items-center">
             <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>LTCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={totalLTCG} signed />
+              <Num amount={equityLTCG} signed />
             </p>
           </div>
-
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-
           <div className="flex flex-col gap-0.5 items-end">
             <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>STCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={totalSTCG} signed />
+              <Num amount={equitySTCG} signed />
             </p>
           </div>
-
         </div>
+
+        {/* Debt row */}
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt</p>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+              <Num amount={debtTotal} signed />
+            </p>
+          </div>
+          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
+          <div className="flex flex-col gap-0.5 items-center">
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>LTCG</p>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+              <Num amount={debtLTCG} signed />
+            </p>
+          </div>
+          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
+          <div className="flex flex-col gap-0.5 items-end">
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>STCG</p>
+            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
+              <Num amount={debtSTCG} signed />
+            </p>
+          </div>
+        </div>
+
       </div>
 
       {/* Sections */}
       <div className="mt-2">
         <Section title="Summary"    sectionKey="summary"    expanded={expanded} onToggle={toggle}>
           <SummaryBody
-            totalLTCG={totalLTCG}
+            equityLTCG={equityLTCG}
             taxableLTCG={taxableLTCG}
             ltcgTax={ltcgTax}
-            totalSTCG={totalSTCG}
+            equitySTCG={equitySTCG}
             stcgTax={stcgTax}
+            debtLTCG={debtLTCG}
+            debtSTCG={debtSTCG}
+            goldLTCG={goldLTCG}
+            goldSTCG={goldSTCG}
             dividendIncome={dividendIncome}
           />
         </Section>
@@ -365,8 +384,8 @@ export default function TaxClient({
 
         <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
           <HarvestingBody
-            totalLTCG={totalLTCG}
-            totalSTCG={totalSTCG}
+            equityLTCG={equityLTCG}
+            equitySTCG={equitySTCG}
             unrealisedLoss={harvestingData.unrealisedLoss}
             nearThreshold={harvestingData.nearThreshold}
             pricesLoading={pricesLoading}
@@ -422,36 +441,68 @@ function Section({
 // ── Summary section body ───────────────────────────────────────────────────────
 
 function SummaryBody({
-  totalLTCG,
+  equityLTCG,
   taxableLTCG,
   ltcgTax,
-  totalSTCG,
+  equitySTCG,
   stcgTax,
+  debtLTCG,
+  debtSTCG,
+  goldLTCG,
+  goldSTCG,
   dividendIncome,
 }: {
-  totalLTCG:     number
+  equityLTCG:    number
   taxableLTCG:   number
   ltcgTax:       number
-  totalSTCG:     number
+  equitySTCG:    number
   stcgTax:       number
+  debtLTCG:      number
+  debtSTCG:      number
+  goldLTCG:      number
+  goldSTCG:      number
   dividendIncome: number
 }) {
+  const hasDebt = debtLTCG !== 0 || debtSTCG !== 0
+  const hasGold = goldLTCG !== 0 || goldSTCG !== 0
+
   return (
     <div className="pb-2">
 
-      {/* LTCG group */}
-      <SectionLabel label="LTCG" className="px-4" />
-      <DetailRow label="Gains" bold noRupee><Num amount={totalLTCG} signed /></DetailRow>
+      {/* Equity LTCG */}
+      <SectionLabel label="Equity LTCG" className="px-4" />
+      <DetailRow label="Gains" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
       <DetailRow label="Exemption" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
       <DetailRow label="Taxable Gains" bold noRupee><Num amount={taxableLTCG} signed /></DetailRow>
       <DetailRow label="Tax @ 12.5%" bold noRupee><Num amount={ltcgTax} /></DetailRow>
 
-      {/* STCG group */}
-      <SectionLabel label="STCG" className="px-4" />
-      <DetailRow label="Gains" bold noRupee><Num amount={totalSTCG} signed /></DetailRow>
+      {/* Equity STCG */}
+      <SectionLabel label="Equity STCG" className="px-4" />
+      <DetailRow label="Gains" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
       <DetailRow label="Tax @ 20%" bold noRupee><Num amount={stcgTax} /></DetailRow>
 
-      {/* Dividend Income group */}
+      {/* Debt — only shown when non-zero */}
+      {hasDebt && (
+        <>
+          <SectionLabel label="Debt" className="px-4" />
+          <DetailRow label="LTCG" bold noRupee><Num amount={debtLTCG} signed /></DetailRow>
+          <DetailRow label="STCG" bold noRupee><Num amount={debtSTCG} signed /></DetailRow>
+          <div className="px-4 pb-2">
+            <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>Debt gains taxed at slab rate — verify with your CA</p>
+          </div>
+        </>
+      )}
+
+      {/* Gold — only shown when non-zero */}
+      {hasGold && (
+        <>
+          <SectionLabel label="Gold" className="px-4" />
+          <DetailRow label="LTCG" bold noRupee><Num amount={goldLTCG} signed /></DetailRow>
+          <DetailRow label="STCG" bold noRupee><Num amount={goldSTCG} signed /></DetailRow>
+        </>
+      )}
+
+      {/* Dividend Income */}
       <SectionLabel label="Dividend Income" className="px-4" />
       <DetailRow label="Received" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
 
@@ -592,19 +643,19 @@ function LotRow({ lot }: { lot: RealisedGain }) {
 // ── Harvesting section body ────────────────────────────────────────────────────
 
 function HarvestingBody({
-  totalLTCG,
-  totalSTCG,
+  equityLTCG,
+  equitySTCG,
   unrealisedLoss,
   nearThreshold,
   pricesLoading,
 }: {
-  totalLTCG:      number
-  totalSTCG:      number
+  equityLTCG:     number
+  equitySTCG:     number
   unrealisedLoss: number | null
   nearThreshold:  NearThresholdRow[]
   pricesLoading:  boolean
 }) {
-  const ltcgUsed      = Math.max(0, totalLTCG)
+  const ltcgUsed      = Math.max(0, equityLTCG)
   const ltcgRemaining = Math.max(0, LTCG_EXEMPTION - ltcgUsed)
   const barPct        = Math.min(100, (ltcgUsed / LTCG_EXEMPTION) * 100)
 
@@ -632,8 +683,8 @@ function HarvestingBody({
         }
       </DetailRow>
       <DetailRow label="STCG to offset" bold noRupee>
-        {totalSTCG > 0
-          ? <Num amount={totalSTCG} signed />
+        {equitySTCG > 0
+          ? <Num amount={equitySTCG} signed />
           : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>

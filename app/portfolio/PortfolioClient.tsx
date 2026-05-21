@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatINRFine, formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { mfAssetClass } from '@/lib/tax-compute'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
@@ -183,13 +184,7 @@ function computeEPF(transactions: EPFTransaction[]): EPFSummary {
   return { transactions, totalDeposited, computedBalance, xirr: epfXirr(transactions, computedBalance) }
 }
 
-function assetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
-  const t = `${fund.scheme_type} ${fund.scheme_name}`.toLowerCase()
-  if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') ||
-      t.includes('overnight') || t.includes('duration') || t.includes('arbitrage') ||
-      t.includes('gilt') || t.includes('money market') || t.includes('treasury')) return 'debt'
-  return 'equity'
-}
+const assetClass = mfAssetClass
 
 
 // ── Main component ────────────────────────────────────────────────────────────
