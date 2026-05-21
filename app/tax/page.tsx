@@ -1,0 +1,45 @@
+import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId } from '@/lib/data'
+import { createSupabaseServiceClient } from '@/lib/supabase-service'
+import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
+import TaxClient from './TaxClient'
+import BottomNav from '@/components/BottomNav'
+
+export default async function TaxPage() {
+  const userId = await getUserId()
+  const svc    = createSupabaseServiceClient()
+
+  const empty = Promise.resolve({ data: [] as never[] })
+
+  const [
+    fiscalYears,
+    stockTxns,
+    { data: mfFunds },
+    { data: mfTxns },
+    { data: sgbTxns },
+    dividends,
+  ] = await Promise.all([
+    getFiscalYears(),
+    getTransactions(),
+    userId ? svc.from('mf_funds').select('*').eq('user_id', userId).order('scheme_name') : empty,
+    userId ? svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
+    userId ? svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
+    getAllDividends(),
+  ])
+
+  const currentFY = getCurrentFY(fiscalYears) ?? null
+
+  return (
+    <>
+      <TaxClient
+        fiscalYears={fiscalYears}
+        currentFY={currentFY}
+        stockTxns={stockTxns}
+        mfFunds={(mfFunds ?? []) as MFund[]}
+        mfTxns={(mfTxns ?? []) as MFTransaction[]}
+        sgbTxns={(sgbTxns ?? []) as SGBTransaction[]}
+        dividends={dividends}
+      />
+      <BottomNav />
+    </>
+  )
+}

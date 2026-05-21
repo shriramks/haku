@@ -81,6 +81,15 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 
 ---
 
+## Tax constants
+
+- **LTCG exemption (equity + equity MFs):** 1.25 L per FY — raised from 1 L by Budget 2024 (July 2024), effective FY 2024–25 onwards.
+- **LTCG rate (equity):** 12.5% above the 1.25 L exemption.
+- **STCG rate (equity):** 20%.
+- **LTCG holding threshold:** 365 days (equity/MF), 1095 days (gold).
+
+---
+
 ## AI integration
 
 - Gemini is used **only** for the investability scorecard (`/api/investability/generate/[symbol]`).
@@ -93,9 +102,9 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
 - **After completing any unit of work**, append an entry to `progress_haku.md`. Format rules:
-  - Every entry (Todo and Done) has a globally sequential number, oldest Done = #1, ascending by date. New entries continue the sequence.
+  - Every entry (Todo and Done) has a globally sequential number. New entries continue the sequence (highest number = most recent).
   - Heading format: `### N — YYYY-MM-DD — Title` (Done) or `### N — Title` (Todo).
-  - Done entries are ordered oldest-first under `## Done`. Todo entries sit above `## Done` under `## Todo`.
+  - Done entries are ordered newest-first under `## Done` (highest number at top). Todo entries sit above `## Done` under `## Todo`.
   - Each entry: `Files:` line listing changed files, then 2–4 terse bullets on what changed and why.
   - When planning a multi-session task, add all sessions as numbered Todo entries first. When a session is completed, move it to Done (renumber if needed to stay sequential) and append the files + bullets.
   - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.

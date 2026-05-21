@@ -186,6 +186,18 @@ A button that looks small can still have a 44px tap target:
 
 Recurring patterns that must be consistent across the app.
 
+### NO CARDS — EVER
+
+**There are no card components in this app. No `bg-secondary` rounded boxes wrapping content. No `rounded-2xl` containers. No elevated surfaces.**
+
+Every screen uses one of two patterns:
+- **Summary strips** — MetricCard numbers floating directly on `--bg-primary`
+- **Detail content** — DetailRows sitting directly on `--bg-primary`, grouped by SectionDividers
+
+Content is never "boxed in". Rows breathe on the page background. Groups are separated by SectionDividers (text labels) and full-width `--divider` lines between rows — not by background colour changes or rounded containers.
+
+If you find yourself reaching for `bg-secondary`, `rounded-2xl`, or `p-4` on a container, stop. You are building a card. Do not do this.
+
 ### ListRow
 ```
 [Icon zone 40px] [Content flex-1]         [Trailing]
@@ -202,22 +214,16 @@ Divider: border-b using --divider
 [display or title-1 number, tabnum]
 [subheadline label, text-muted, mt-1]
 
-Alignment: context-dependent (center in summary strips, left in detail cards)
+Alignment: context-dependent (center in summary strips, left in detail groups)
 ```
+
+MetricCard is a **layout pattern for a number + label pair** — not a visual container. It has no background, no border, no radius. The number and label sit directly on `--bg-primary`.
 
 ### SectionDivider
 ```
 [subheadline text, text-faint]
 Padding: px-4 py-2
 Background: none (sits on page bg)
-```
-
-### Card
-```
-Background: --bg-secondary
-Radius: rounded-2xl
-Padding: p-4
-Border: 1px --border (optional, use for interactive/elevated cards)
 ```
 
 ### DetailRow (label left, value right — used in Stock Detail and similar drill-down screens)
@@ -254,7 +260,7 @@ Rules for SettingsMenu:
 - Global but non-primary actions may live here when they should not compete with a screen's main CTA row.
 - **Screen-specific actions** may be included, but must be demoted under the settings icon — never promoted into the primary action row when space is tight.
 - **Dividers**: only within sections that contain multiple items. Do not add a horizontal divider after every section.
-- If a section has one item, render it as a standalone card/button without an extra divider.
+- If a section has one item, render it as a standalone button/row without an extra divider.
 - If a section has multiple items, use one shared group container with internal dividers.
 
 ### ValueLabel (inline pair — e.g. band range labels below the bar)
@@ -439,3 +445,18 @@ Design for **iPhone 16/17 width (393pt)** as the default target. Every layout de
 
 ### New design tokens
 To add a token: define the CSS variable in `app/globals.css` (light + dark), then reference it in `tailwind.config.ts`.
+
+---
+
+## 12. Design Principles
+
+Pithy rules derived from building this app. When in doubt, re-read these.
+
+- **+/− over color for direction.** Gains and losses are conveyed by `+` and `−` prefix symbols, not green and red. Color conveys category (LTCG vs STCG badge); symbols convey direction. This works in monochrome, print, and for colorblind users.
+- **Color is categorical, not directional.** Use `color.positive`/`color.negative` only for semantic categories (signal zones, badge labels) — never to express "good" vs "bad" on a value that is simply a fact.
+- **Single scroll over tabs.** For multi-section detail screens, collapsible headers on one scroll beats tabbed navigation. Tabs add a navigation mode switch; collapsibles just reveal content. On a 393pt screen, mode switches have high cost.
+- **Collapsible sections, flat content within.** The section header collapses/expands; rows inside are a flat list. Two-level collapse (section → subsection → rows) is one level too many — it fragments content without proportional navigational benefit.
+- **Read code, not context, for spacing.** Before choosing any spacing value, read the nearest existing component. `DetailRow`: `px-4 minHeight:44`. `SectionLabel`: `paddingTop:16 paddingBottom:2`. Between groups: `marginTop:10`. Do not invent values or use "generous spacing" as a substitute.
+- **Description precedes action.** Explanatory text always sits above the button it relates to. Reading then acting is the natural order; reversing it makes the button feel abrupt.
+- **Bars and fills use `--c-positive`.** Progress/utilisation bars use the same green fill as the allocation screen. Neutral fills (`--bg-tertiary`, `--text-2`) are for inactive tracks, not active fills.
+- **Check the codebase before asking.** FYPicker pattern, spacing values, component contracts — all are in the code. Read before asking the user. Asking a question that a file read would answer is wasted turn.
