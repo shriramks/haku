@@ -10,6 +10,7 @@ import BottomSheet from '@/components/BottomSheet'
 import { Num } from '@/components/Num'
 import { ChevronDownIcon } from '@/components/icons'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
+import UserMenu from '@/components/UserMenu'
 
 interface Props {
   fiscalYears:  FiscalYear[]
@@ -141,20 +142,24 @@ export default function TaxClient({
       positions.push(...unrealised)
     }
 
+    const equityPositions = positions.filter(p => {
+      if (p.assetType === 'stock') return true
+      if (p.assetType === 'mf') {
+        const fund = mfFunds.find(f => f.id === p.symbol)
+        return !fund || mfAssetClass(fund) === 'equity'
+      }
+      return false
+    })
+
     const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(navs).length > 0 || goldPrice !== null
     const unrealisedLoss = pricesAvailable
-      ? positions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
+      ? equityPositions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
       : null
 
-    const nearThreshold: NearThresholdRow[] = positions
-      .filter(p => {
-        if (p.gainType !== 'STCG') return false
-        const threshold = p.assetType === 'gold' ? 1095 : 365
-        return p.holdingDays >= threshold - 30
-      })
+    const nearThreshold: NearThresholdRow[] = equityPositions
+      .filter(p => p.gainType === 'STCG' && p.holdingDays >= 335)
       .map(p => {
-        const threshold = p.assetType === 'gold' ? 1095 : 365
-        const daysToLTCG = threshold - p.holdingDays
+        const daysToLTCG = 365 - p.holdingDays
         const fund = p.assetType === 'mf' ? mfFunds.find(f => f.id === p.symbol) : null
         const name = fund ? fund.scheme_name : p.symbol
         return { position: p, daysToLTCG, name }
@@ -304,7 +309,10 @@ export default function TaxClient({
            style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between pt-1">
           <h1 className="text-display font-bold">Tax Report</h1>
-          <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
+          <div className="flex items-center gap-2">
+            <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
+            <UserMenu />
+          </div>
         </div>
       </div>
 
@@ -321,14 +329,14 @@ export default function TaxClient({
           </div>
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-center">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>LTCG</p>
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity LTCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={equityLTCG} signed />
             </p>
           </div>
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-end">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>STCG</p>
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity STCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={equitySTCG} signed />
             </p>
@@ -345,14 +353,14 @@ export default function TaxClient({
           </div>
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-center">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>LTCG</p>
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt LTCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={debtLTCG} signed />
             </p>
           </div>
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-end">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>STCG</p>
+            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt STCG</p>
             <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
               <Num amount={debtSTCG} signed />
             </p>
@@ -655,26 +663,29 @@ function HarvestingBody({
   nearThreshold:  NearThresholdRow[]
   pricesLoading:  boolean
 }) {
-  const ltcgUsed      = Math.max(0, equityLTCG)
-  const ltcgRemaining = Math.max(0, LTCG_EXEMPTION - ltcgUsed)
-  const barPct        = Math.min(100, (ltcgUsed / LTCG_EXEMPTION) * 100)
+  const equityTotal      = equityLTCG + equitySTCG
+  const netAfterHarvest  = equityTotal + (unrealisedLoss ?? 0)
+  const barPct           = Math.min(100, Math.max(0, (netAfterHarvest / LTCG_EXEMPTION) * 100))
+  const overThreshold    = netAfterHarvest > LTCG_EXEMPTION
+  const barColor         = overThreshold ? 'var(--c-warning)' : 'var(--c-positive)'
+  const netLabel         = unrealisedLoss !== null ? 'Net after harvesting' : 'Equity gains'
 
   return (
     <div className="pb-2">
 
       {/* LTCG Availability */}
       <SectionLabel label="LTCG Availability" className="px-4" />
-      <DetailRow label="Exemption used" bold noRupee><Num amount={ltcgUsed} /></DetailRow>
-      <DetailRow label="Remaining" bold noRupee><Num amount={ltcgRemaining} /></DetailRow>
+      <DetailRow label={netLabel} bold noRupee><Num amount={netAfterHarvest} signed /></DetailRow>
       <div className="px-4 pb-3 pt-1">
         <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'var(--c-positive)' }} />
+          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor }} />
         </div>
+        <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>1.25 L exemption threshold</p>
       </div>
 
       {/* Harvesting Availability */}
       <SectionLabel label="Harvesting Availability" className="px-4" />
-      <DetailRow label="Unrealised losses" bold noRupee>
+      <DetailRow label="Harvestable losses" bold noRupee>
         {pricesLoading
           ? <span style={{ color: 'var(--text-faint)' }}>—</span>
           : unrealisedLoss !== null && unrealisedLoss < 0
@@ -682,9 +693,9 @@ function HarvestingBody({
             : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>
-      <DetailRow label="STCG to offset" bold noRupee>
-        {equitySTCG > 0
-          ? <Num amount={equitySTCG} signed />
+      <DetailRow label="Equity gains to offset" bold noRupee>
+        {equityTotal > 0
+          ? <Num amount={equityTotal} signed />
           : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>

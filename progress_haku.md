@@ -5,11 +5,6 @@
 ## Todo
 
 
-### 41 — Tax Report — Session 7 — Harvesting: equity-only loss set-off
-Files: `app/tax/TaxClient.tsx`
-- Unrealised losses: restrict to equity positions only (stocks + equity MFs); exclude gold and debt MFs — gold LTCG and debt gains are separate tax buckets
-- "STCG to offset" → relabel to "Equity gains to offset"; value = equity STCG + equity LTCG combined, because equity STCG losses can be set off against both equity STCG and equity LTCG gains under the IT Act
-- nearThreshold (Harvesting Readiness): filter to equity positions only; gold's 3-year threshold is a different gain class and shouldn't appear here
 
 
 ### 39 — Tax Report — Session 5 — Export (CSV + PDF)
@@ -23,6 +18,14 @@ Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
 ---
 
 ## Done
+
+### 41 — 2026-05-21 — Tax Report — Session 7 — Harvesting + hero polish
+Files: `app/tax/TaxClient.tsx`
+- Harvesting equity-only: `equityPositions` filter (stocks + equity MFs) applied to both `unrealisedLoss` and `nearThreshold`; removes gold/debt MF positions; gold's 3-year threshold path eliminated
+- LTCG Availability bar: replaced "Exemption used / Remaining" rows with single "Net after harvesting" row + bar; fill = `(equityLTCG + equitySTCG + unrealisedLoss) / 1.25L`; amber when over threshold; label falls back to "Equity gains" before prices load
+- Harvesting Availability: "Unrealised losses" → "Harvestable losses"; "STCG to offset" → "Equity gains to offset" with value = equityLTCG + equitySTCG combined
+- Hero strip: LTCG/STCG labels qualified per row — "Equity LTCG / Equity STCG" and "Debt LTCG / Debt STCG"
+- Header: added `UserMenu` next to `FYPicker` (consistent with allocation and portfolio pages)
 
 ### 40 — 2026-05-21 — Tax Report — Session 6 — Hero metrics: equity vs debt 2×3 grid
 Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`, `app/portfolio/PortfolioClient.tsx`
