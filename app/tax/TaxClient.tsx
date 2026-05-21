@@ -1,9 +1,9 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
 import { computeStockGains, computeMFGains, computeGoldGains } from '@/lib/tax-compute'
-import type { RealisedGain, GainType, AssetType } from '@/lib/tax-compute'
+import type { RealisedGain, GainType, AssetType, UnrealisedPosition } from '@/lib/tax-compute'
 import { formatDate } from '@/lib/formatter'
 import FYPicker from '@/components/FYPicker'
 import BottomSheet from '@/components/BottomSheet'
@@ -23,6 +23,12 @@ interface Props {
 const LTCG_EXEMPTION = 125_000  // 1.25 L — Budget 2024
 
 type SectionKey = 'summary' | 'details' | 'harvesting' | 'export'
+
+interface NearThresholdRow {
+  position:   UnrealisedPosition
+  daysToLTCG: number
+  name:       string
+}
 
 interface SellRow {
   assetType: AssetType
@@ -47,11 +53,115 @@ export default function TaxClient({
 }: Props) {
   const [selectedFY, setSelectedFY]     = useState<FiscalYear | null>(currentFY)
   const [expanded, setExpanded]         = useState<Set<SectionKey>>(new Set(['summary']))
+  const [cmps, setCmps]                 = useState<Record<string, number>>({})
+  const [navs, setNavs]                 = useState<Record<string, number>>({})  // keyed by scheme_code
+  const [goldPrice, setGoldPrice]       = useState<number | null>(null)
+  const [pricesLoading, setPricesLoading] = useState(false)
+  const pricesFetchedRef                = useRef(false)
 
   const fyRange = useMemo(() => {
     if (!selectedFY) return null
     return { start: selectedFY.start_date, end: selectedFY.end_date }
   }, [selectedFY])
+
+  // Fetch live prices when harvesting section is opened (once per page load)
+  useEffect(() => {
+    if (!expanded.has('harvesting') || pricesFetchedRef.current) return
+    pricesFetchedRef.current = true
+    setPricesLoading(true)
+
+    const fetches: Promise<void>[] = []
+
+    const stockSymbols = [...new Set(stockTxns.map(t => t.symbol))]
+    if (stockSymbols.length > 0) {
+      fetches.push(
+        fetch(`/api/cmp/batch?symbols=${encodeURIComponent(stockSymbols.join(','))}`)
+          .then(r => r.json())
+          .then(d => { if (d.prices) setCmps(d.prices) })
+          .catch(() => {})
+      )
+    }
+
+    for (const fund of mfFunds) {
+      fetches.push(
+        fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
+          .then(r => r.json())
+          .then(d => {
+            const nav = parseFloat(d.data?.[0]?.nav)
+            if (!isNaN(nav)) setNavs(prev => ({ ...prev, [fund.scheme_code]: nav }))
+          })
+          .catch(() => {})
+      )
+    }
+
+    if (sgbTxns.length > 0) {
+      fetches.push(
+        fetch('/api/gold-price')
+          .then(r => r.json())
+          .then(d => { if (d.pricePerGram) setGoldPrice(d.pricePerGram) })
+          .catch(() => {})
+      )
+    }
+
+    Promise.allSettled(fetches).then(() => setPricesLoading(false))
+  }, [expanded, stockTxns, mfFunds, sgbTxns])
+
+  const harvestingData = useMemo(() => {
+    if (!fyRange) return { unrealisedLoss: null, nearThreshold: [] as NearThresholdRow[] }
+    const asOf = new Date().toISOString().slice(0, 10)
+    const positions: UnrealisedPosition[] = []
+
+    const stockMap = new Map<string, Transaction[]>()
+    for (const txn of stockTxns) {
+      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
+    }
+    for (const [symbol, txns] of stockMap) {
+      const { unrealised } = computeStockGains(txns, symbol, cmps[symbol] ?? null, fyRange, asOf)
+      positions.push(...unrealised)
+    }
+
+    const mfMap = new Map<string, MFTransaction[]>()
+    for (const txn of mfTxns) {
+      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
+    }
+    for (const [fundId, txns] of mfMap) {
+      const fund = mfFunds.find(f => f.id === fundId)
+      const nav = fund ? (navs[fund.scheme_code] ?? null) : null
+      const { unrealised } = computeMFGains(txns, fundId, null, nav, fyRange, asOf)
+      positions.push(...unrealised)
+    }
+
+    const goldMap = new Map<string, SGBTransaction[]>()
+    for (const txn of sgbTxns) {
+      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
+    }
+    for (const [goldType, txns] of goldMap) {
+      const { unrealised } = computeGoldGains(txns, goldType, goldPrice, fyRange, asOf)
+      positions.push(...unrealised)
+    }
+
+    const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(navs).length > 0 || goldPrice !== null
+    const unrealisedLoss = pricesAvailable
+      ? positions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
+      : null
+
+    const nearThreshold: NearThresholdRow[] = positions
+      .filter(p => {
+        if (p.gainType !== 'STCG') return false
+        const threshold = p.assetType === 'gold' ? 1095 : 365
+        return p.holdingDays >= threshold - 30
+      })
+      .map(p => {
+        const threshold = p.assetType === 'gold' ? 1095 : 365
+        const daysToLTCG = threshold - p.holdingDays
+        const fund = p.assetType === 'mf' ? mfFunds.find(f => f.id === p.symbol) : null
+        const name = fund ? fund.scheme_name : p.symbol
+        return { position: p, daysToLTCG, name }
+      })
+      .sort((a, b) => a.daysToLTCG - b.daysToLTCG)
+
+    return { unrealisedLoss, nearThreshold }
+  }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, cmps, navs, goldPrice])
 
   const { totalLTCG, totalSTCG, dividendIncome } = useMemo(() => {
     if (!fyRange) return { totalLTCG: 0, totalSTCG: 0, dividendIncome: 0 }
@@ -251,9 +361,13 @@ export default function TaxClient({
         </Section>
 
         <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
-          <div className="px-4 py-3">
-            <p className="text-body" style={{ color: 'var(--text-muted)' }}>Coming soon</p>
-          </div>
+          <HarvestingBody
+            totalLTCG={totalLTCG}
+            totalSTCG={totalSTCG}
+            unrealisedLoss={harvestingData.unrealisedLoss}
+            nearThreshold={harvestingData.nearThreshold}
+            pricesLoading={pricesLoading}
+          />
         </Section>
 
         <Section title="Export"     sectionKey="export"     expanded={expanded} onToggle={toggle}>
@@ -506,6 +620,91 @@ function LotRow({ lot }: { lot: RealisedGain }) {
       <span className="tabnum text-body ml-3 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
         <Num amount={lot.gain} signed />
       </span>
+    </div>
+  )
+}
+
+// ── Harvesting section body ────────────────────────────────────────────────────
+
+function HarvestingBody({
+  totalLTCG,
+  totalSTCG,
+  unrealisedLoss,
+  nearThreshold,
+  pricesLoading,
+}: {
+  totalLTCG:      number
+  totalSTCG:      number
+  unrealisedLoss: number | null
+  nearThreshold:  NearThresholdRow[]
+  pricesLoading:  boolean
+}) {
+  const ltcgUsed      = Math.max(0, totalLTCG)
+  const ltcgRemaining = Math.max(0, LTCG_EXEMPTION - ltcgUsed)
+  const barPct        = Math.min(100, (ltcgUsed / LTCG_EXEMPTION) * 100)
+
+  return (
+    <div className="pb-2">
+
+      {/* LTCG Availability */}
+      <GroupLabel label="LTCG Availability" />
+      <TaxRow label="Exemption used">
+        <Num amount={ltcgUsed} />
+      </TaxRow>
+      <TaxRow label="Remaining">
+        <Num amount={ltcgRemaining} />
+      </TaxRow>
+      <div className="px-4 pb-3 pt-1">
+        <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: 'var(--c-positive)' }} />
+        </div>
+      </div>
+
+      {/* Harvesting Availability */}
+      <GroupLabel label="Harvesting Availability" />
+      <TaxRow label="Unrealised losses">
+        {pricesLoading
+          ? <span style={{ color: 'var(--text-faint)' }}>—</span>
+          : unrealisedLoss !== null && unrealisedLoss < 0
+            ? <Num amount={unrealisedLoss} signed />
+            : <span style={{ color: 'var(--text-faint)' }}>None</span>
+        }
+      </TaxRow>
+      <TaxRow label="STCG to offset">
+        {totalSTCG > 0
+          ? <Num amount={totalSTCG} signed />
+          : <span style={{ color: 'var(--text-faint)' }}>None</span>
+        }
+      </TaxRow>
+
+      {/* Harvesting Readiness */}
+      <GroupLabel label="Harvesting Readiness" />
+      <p className="px-4 pb-2 text-footnote" style={{ color: 'var(--text-muted)' }}>
+        Holdings within 30 days of the 1-year LTCG threshold — hold until they cross to avoid STCG.
+      </p>
+      {nearThreshold.length === 0 ? (
+        <div className="px-4 pb-2">
+          <p className="text-body" style={{ color: 'var(--text-faint)' }}>None approaching threshold</p>
+        </div>
+      ) : (
+        nearThreshold.map((row, i) => (
+          <div key={i} className="flex items-center justify-between px-4" style={{ minHeight: 48 }}>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                {row.name}
+              </span>
+              <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
+                {row.position.holdingDays} days held · bought {formatDate(row.position.purchaseDate)}
+              </span>
+            </div>
+            <span className="tabnum text-body ml-3 flex-shrink-0 font-semibold"
+                  style={{ color: row.daysToLTCG <= 7 ? 'var(--c-warning)' : 'var(--text-primary)' }}>
+              {row.daysToLTCG}d
+            </span>
+          </div>
+        ))
+      )}
+
     </div>
   )
 }

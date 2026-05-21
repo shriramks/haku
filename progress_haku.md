@@ -4,11 +4,6 @@
 
 ## Todo
 
-### 38 — Tax Report — Session 4 — Harvesting section
-Files: `app/tax/TaxClient.tsx`, `lib/tax-compute.ts`
-- LTCG Availability: exemption-used DetailRow + remaining DetailRow + `--c-positive` progress bar (height 8, rounded-full, `--border-faint` track — matches allocation screen)
-- Harvesting Availability: unrealised losses available + realised STCG to offset; requires scanning open lots from `computeStockGains`/`computeMFGains` unrealised output
-- Harvesting Readiness: footnote explanation + countdown rows for holdings within 30 days of 365-day threshold; sorted ascending by days remaining
 
 ### 39 — Tax Report — Session 5 — Export (CSV + PDF)
 Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
@@ -21,6 +16,12 @@ Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
 ---
 
 ## Done
+
+### 38 — 2026-05-21 — Tax Report — Session 4 — Harvesting section
+Files: `app/tax/TaxClient.tsx`
+- LTCG Availability: used/remaining rows + `--c-positive` progress bar (height 8, rounded-full, `--border-faint` track)
+- Harvesting Availability: unrealised losses (live prices) + STCG to offset; prices fetched automatically on first open via `/api/cmp/batch`, mfapi.in, `/api/gold-price` — guarded by `pricesFetchedRef` so only fires once
+- Harvesting Readiness: footnote + countdown rows for STCG holdings within 30 days of 365-day (equity) or 1095-day (gold) threshold; days remaining shown in amber when ≤ 7 days
 
 ### 37 — 2026-05-21 — Tax Report — Session 3 — Details section
 Files: `app/tax/TaxClient.tsx`
