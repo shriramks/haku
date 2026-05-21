@@ -92,7 +92,13 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 ## Working approach
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
-- **After completing any unit of work**, append an entry to `progress_haku.md`: date heading, one-line title, files changed, 2–4 bullets on what changed and why. Keep it terse. When all sessions of a multi-session task are done, move the entire task block from `## Todo` to `## Done` in `progress_haku.md`. "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
+- **After completing any unit of work**, append an entry to `progress_haku.md`. Format rules:
+  - Every entry (Todo and Done) has a globally sequential number, oldest Done = #1, ascending by date. New entries continue the sequence.
+  - Heading format: `### N — YYYY-MM-DD — Title` (Done) or `### N — Title` (Todo).
+  - Done entries are ordered oldest-first under `## Done`. Todo entries sit above `## Done` under `## Todo`.
+  - Each entry: `Files:` line listing changed files, then 2–4 terse bullets on what changed and why.
+  - When planning a multi-session task, add all sessions as numbered Todo entries first. When a session is completed, move it to Done (renumber if needed to stay sequential) and append the files + bullets.
+  - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
