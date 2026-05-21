@@ -4,12 +4,6 @@
 
 ## Todo
 
-### 37 — Tax Report — Session 3 — Details section
-Files: `app/tax/TaxClient.tsx`, `lib/tax-compute.ts`
-- Details section: flat list of realised-gain rows grouped by asset type (Stocks, Mutual Funds); `computeStockGains` + `computeMFGains` already done in Session 1
-- Each row: symbol (headline) + LTCG/STCG badge + "Sold DD Mon YYYY · held N days" footnote + gain value with `+`/`−` prefix
-- Tap row → BottomSheet showing the individual FIFO lots consumed: purchase date, qty, cost, sale value, holding days, LTCG/STCG per lot
-
 ### 38 — Tax Report — Session 4 — Harvesting section
 Files: `app/tax/TaxClient.tsx`, `lib/tax-compute.ts`
 - LTCG Availability: exemption-used DetailRow + remaining DetailRow + `--c-positive` progress bar (height 8, rounded-full, `--border-faint` track — matches allocation screen)
@@ -27,6 +21,13 @@ Files: `app/tax/TaxClient.tsx`, `app/api/tax/export/route.ts`
 ---
 
 ## Done
+
+### 37 — 2026-05-21 — Tax Report — Session 3 — Details section
+Files: `app/tax/TaxClient.tsx`
+- `SellRow` groups `RealisedGain[]` by `(assetType, symbol, sellDate)`; `detailRows` memo runs parallel to the totals memo — same FIFO passes, separate output
+- `DetailsBody`: three asset-type groups (Stocks / Mutual Funds / Gold); `GainRow` tappable rows with LTCG/STCG/Mixed badge + "Sold DD Mon · held N days" footnote + signed gain
+- `LotDetailSheet` BottomSheet: per-lot rows showing purchase date, badge, qty/cost/proceeds, holding days, and signed gain
+- MF display name resolved from `scheme_name`; badge uses `--c-positive` (LTCG) / `--c-warning` (STCG) tinted fills; empty state renders "No realised gains this FY"
 
 ### 36 — 2026-05-21 — Tax Report — Session 2 — Route shell + Summary section
 Files: `app/tax/page.tsx`, `app/tax/TaxClient.tsx`, `components/UserMenu.tsx`, `middleware.ts`

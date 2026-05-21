@@ -3,7 +3,10 @@ import { useState, useMemo } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
 import { computeStockGains, computeMFGains, computeGoldGains } from '@/lib/tax-compute'
+import type { RealisedGain, GainType, AssetType } from '@/lib/tax-compute'
+import { formatDate } from '@/lib/formatter'
 import FYPicker from '@/components/FYPicker'
+import BottomSheet from '@/components/BottomSheet'
 import { Num } from '@/components/Num'
 import { ChevronDownIcon } from '@/components/icons'
 
@@ -20,6 +23,18 @@ interface Props {
 const LTCG_EXEMPTION = 125_000  // 1.25 L — Budget 2024
 
 type SectionKey = 'summary' | 'details' | 'harvesting' | 'export'
+
+interface SellRow {
+  assetType: AssetType
+  symbol:    string
+  name:      string  // display name (fund name for MF; same as symbol for stocks/gold)
+  sellDate:  string
+  lots:      RealisedGain[]
+  totalGain: number
+  gainType:  GainType | 'mixed'
+  minDays:   number
+  maxDays:   number
+}
 
 export default function TaxClient({
   fiscalYears,
@@ -100,6 +115,68 @@ export default function TaxClient({
     return { totalLTCG: ltcg, totalSTCG: stcg, dividendIncome: divIncome }
   }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, dividends])
 
+  const detailRows = useMemo<SellRow[]>(() => {
+    if (!fyRange) return []
+    const asOf = new Date().toISOString().slice(0, 10)
+    const rows: SellRow[] = []
+
+    function groupBySell(gained: RealisedGain[], assetType: AssetType, symbol: string, name: string) {
+      const bySell = new Map<string, RealisedGain[]>()
+      for (const g of gained) {
+        const arr = bySell.get(g.sellDate) ?? []
+        arr.push(g)
+        bySell.set(g.sellDate, arr)
+      }
+      for (const [sellDate, lots] of bySell) {
+        const totalGain = lots.reduce((s, g) => s + g.gain, 0)
+        const hasLTCG   = lots.some(g => g.gainType === 'LTCG')
+        const hasSTCG   = lots.some(g => g.gainType === 'STCG')
+        const gainType: GainType | 'mixed' = hasLTCG && hasSTCG ? 'mixed' : hasLTCG ? 'LTCG' : 'STCG'
+        const days      = lots.map(g => g.holdingDays)
+        rows.push({ assetType, symbol, name, sellDate, lots, totalGain, gainType, minDays: Math.min(...days), maxDays: Math.max(...days) })
+      }
+    }
+
+    // Stocks
+    const stockMap = new Map<string, Transaction[]>()
+    for (const txn of stockTxns) {
+      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
+    }
+    for (const [symbol, txns] of stockMap) {
+      const { realised } = computeStockGains(txns, symbol, null, fyRange, asOf)
+      groupBySell(realised, 'stock', symbol, symbol)
+    }
+
+    // MF
+    const mfMap = new Map<string, MFTransaction[]>()
+    for (const txn of mfTxns) {
+      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
+    }
+    for (const [fundId, txns] of mfMap) {
+      const fund = mfFunds.find(f => f.id === fundId)
+      const { realised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
+      groupBySell(realised, 'mf', fundId, fund?.scheme_name ?? fundId)
+    }
+
+    // Gold
+    const goldMap = new Map<string, SGBTransaction[]>()
+    for (const txn of sgbTxns) {
+      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
+    }
+    for (const [goldType, txns] of goldMap) {
+      const { realised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
+      groupBySell(realised, 'gold', goldType, goldType)
+    }
+
+    // Sort: asset type order (stock → mf → gold), then newest sell first within each
+    const order: Record<AssetType, number> = { stock: 0, mf: 1, gold: 2 }
+    rows.sort((a, b) => {
+      if (a.assetType !== b.assetType) return order[a.assetType] - order[b.assetType]
+      return b.sellDate.localeCompare(a.sellDate)
+    })
+    return rows
+  }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns])
+
   const totalGain    = totalLTCG + totalSTCG
   const taxableLTCG  = Math.max(0, totalLTCG - LTCG_EXEMPTION)
   const ltcgTax      = taxableLTCG * 0.125
@@ -170,9 +247,7 @@ export default function TaxClient({
         </Section>
 
         <Section title="Details"    sectionKey="details"    expanded={expanded} onToggle={toggle}>
-          <div className="px-4 py-3">
-            <p className="text-body" style={{ color: 'var(--text-muted)' }}>Coming soon</p>
-          </div>
+          <DetailsBody rows={detailRows} />
         </Section>
 
         <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
@@ -300,6 +375,136 @@ function TaxRow({ label, muted, children }: { label: string; muted?: boolean; ch
         opacity: muted ? 0.5 : 1,
       }}>
         {children}
+      </span>
+    </div>
+  )
+}
+
+// ── Details section body ───────────────────────────────────────────────────────
+
+function DetailsBody({ rows }: { rows: SellRow[] }) {
+  const [selected, setSelected] = useState<SellRow | null>(null)
+
+  if (rows.length === 0) {
+    return (
+      <div className="px-4 py-3">
+        <p className="text-body" style={{ color: 'var(--text-muted)' }}>No realised gains this FY</p>
+      </div>
+    )
+  }
+
+  const stockRows = rows.filter(r => r.assetType === 'stock')
+  const mfRows    = rows.filter(r => r.assetType === 'mf')
+  const goldRows  = rows.filter(r => r.assetType === 'gold')
+
+  return (
+    <div className="pb-2">
+      {stockRows.length > 0 && (
+        <>
+          <GroupLabel label="Stocks" />
+          {stockRows.map(row => (
+            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
+          ))}
+        </>
+      )}
+      {mfRows.length > 0 && (
+        <>
+          <GroupLabel label="Mutual Funds" />
+          {mfRows.map(row => (
+            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
+          ))}
+        </>
+      )}
+      {goldRows.length > 0 && (
+        <>
+          <GroupLabel label="Gold" />
+          {goldRows.map(row => (
+            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
+          ))}
+        </>
+      )}
+      {selected && <LotDetailSheet row={selected} onClose={() => setSelected(null)} />}
+    </div>
+  )
+}
+
+function GainBadge({ gainType }: { gainType: GainType | 'mixed' }) {
+  const isLTCG = gainType === 'LTCG'
+  const isSTCG = gainType === 'STCG'
+  const color  = isLTCG ? 'var(--c-positive)' : isSTCG ? 'var(--c-warning)' : 'var(--text-muted)'
+  const bg     = isLTCG
+    ? 'color-mix(in srgb, var(--c-positive) 12%, transparent)'
+    : isSTCG
+      ? 'color-mix(in srgb, var(--c-warning) 12%, transparent)'
+      : 'var(--bg-tertiary)'
+  const label  = isLTCG ? 'LTCG' : isSTCG ? 'STCG' : 'Mixed'
+  return (
+    <span
+      className="text-footnote font-semibold"
+      style={{ color, background: bg, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.03em', flexShrink: 0 }}>
+      {label}
+    </span>
+  )
+}
+
+function GainRow({ row, onTap }: { row: SellRow; onTap: () => void }) {
+  const daysLabel = row.minDays === row.maxDays
+    ? `held ${row.minDays} days`
+    : `held ${row.minDays}–${row.maxDays} days`
+
+  return (
+    <button
+      onClick={onTap}
+      className="flex items-center justify-between w-full px-4 tap-row"
+      style={{ minHeight: 52 }}>
+      <div className="flex flex-col gap-0.5 items-start min-w-0">
+        <span className="text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+          {row.name}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <GainBadge gainType={row.gainType} />
+          <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
+            Sold {formatDate(row.sellDate)} · {daysLabel}
+          </span>
+        </div>
+      </div>
+      <span className="tabnum text-body ml-3 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
+        <Num amount={row.totalGain} signed />
+      </span>
+    </button>
+  )
+}
+
+function LotDetailSheet({ row, onClose }: { row: SellRow; onClose: () => void }) {
+  return (
+    <BottomSheet onClose={onClose}>
+      <div className="px-4 pt-1 pb-3">
+        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{row.name}</p>
+        <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>Sold {formatDate(row.sellDate)}</p>
+      </div>
+      <div style={{ height: 1, background: 'var(--border-faint)' }} />
+      {row.lots.map((lot, i) => <LotRow key={i} lot={lot} />)}
+    </BottomSheet>
+  )
+}
+
+function LotRow({ lot }: { lot: RealisedGain }) {
+  const qtyStr = Number.isInteger(lot.qty) ? String(lot.qty) : lot.qty.toFixed(3).replace(/\.?0+$/, '')
+  return (
+    <div className="flex items-center justify-between px-4" style={{ minHeight: 52 }}>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-body" style={{ color: 'var(--text-primary)' }}>
+            Bought {formatDate(lot.purchaseDate)}
+          </span>
+          <GainBadge gainType={lot.gainType} />
+        </div>
+        <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
+          {qtyStr} units · <Num amount={lot.purchaseCost} /> → <Num amount={lot.saleValue} /> · {lot.holdingDays} days
+        </span>
+      </div>
+      <span className="tabnum text-body ml-3 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
+        <Num amount={lot.gain} signed />
       </span>
     </div>
   )
