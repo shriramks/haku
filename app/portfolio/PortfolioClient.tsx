@@ -195,7 +195,7 @@ export default function PortfolioClient({
 }: Props) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-  const [openSections, setOpenSections] = useState(new Set<string>(['reports']))
+  const [openSections, setOpenSections] = useState(new Set<string>())
   const [selectedMFHolding, setSelectedMFHolding] = useState<MFHolding | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
@@ -474,48 +474,41 @@ export default function PortfolioClient({
         )}
 
         {/* Reports */}
-        <SectionHeader
-          id="reports" label="Reports"
-          badge={null} gainPct={null} currentValue={null}
-          open={openSections.has('reports')}
-          onToggle={() => toggleSection('reports')}
-        />
-        {openSections.has('reports') && (
-          <>
-            <button
-              onClick={() => router.push('/tax')}
-              className="flex items-center gap-3 w-full px-4 tap-row"
-              style={{ minHeight: 52, borderBottom: '1px solid var(--divider)' }}>
-              <span className="flex items-center justify-center flex-shrink-0"
-                    style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 14l2 2 4-4M7 3H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3h6a1 1 0 010 2H9a1 1 0 010-2z" />
-                </svg>
-              </span>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Tax Report</p>
-                <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Capital gains</p>
-              </div>
-              <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-            </button>
-            <button
-              onClick={() => router.push('/dividends')}
-              className="flex items-center gap-3 w-full px-4 tap-row"
-              style={{ minHeight: 52 }}>
-              <span className="flex items-center justify-center flex-shrink-0"
-                    style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Dividends</p>
-                <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Income received</p>
-              </div>
-              <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-            </button>
-          </>
-        )}
+        <div className="px-4" style={{ paddingTop: 24, paddingBottom: 6 }}>
+          <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.08em' }}>Reports</span>
+        </div>
+        <button
+          onClick={() => router.push('/tax')}
+          className="flex items-center gap-3 w-full px-4 tap-row"
+          style={{ minHeight: 52 }}>
+          <span className="flex items-center justify-center flex-shrink-0"
+                style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14l2 2 4-4M7 3H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3h6a1 1 0 010 2H9a1 1 0 010-2z" />
+            </svg>
+          </span>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Tax Report</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Capital gains</p>
+          </div>
+          <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+        </button>
+        <button
+          onClick={() => router.push('/dividends')}
+          className="flex items-center gap-3 w-full px-4 tap-row"
+          style={{ minHeight: 52 }}>
+          <span className="flex items-center justify-center flex-shrink-0"
+                style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </span>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Dividends</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Income received</p>
+          </div>
+          <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
+        </button>
 
       </div>
 
