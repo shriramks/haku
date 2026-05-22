@@ -91,13 +91,17 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             {/* Three stat columns, top-aligned */}
             <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
 
-              {/* Plan */}
-              <div className="flex flex-col gap-0.5">
+              {/* Plan — tappable, navigates to /plan */}
+              <Link href="/plan" className="flex flex-col gap-0.5" style={{ minHeight: 44, justifyContent: 'center' }}>
                 <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={totalBudget} />
                 </p>
-              </div>
+                <span className="flex items-center gap-0.5" style={{ marginTop: 3 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)' }}>Edit plan</span>
+                  <ChevronRightIcon className="w-2.5 h-2.5" style={{ color: 'var(--accent)' }} />
+                </span>
+              </Link>
 
               <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
 

@@ -270,27 +270,6 @@ export default function UserMenu({ extraSections = [] }: Props) {
               </div>
             ))}
 
-            {renderMenuSection('Data', [
-              {
-                label: 'Tax Report',
-                icon: <TaxMenuIcon className="w-5 h-5" />,
-                onClick: () => router.push('/tax'),
-              },
-              {
-                label: 'Dividends',
-                icon: <DividendsMenuIcon className="w-5 h-5" />,
-                onClick: () => router.push('/dividends'),
-              },
-            ])}
-
-            {renderMenuSection('Navigation', [
-              {
-                label: 'Plan',
-                icon: <PlanMenuIcon className="w-5 h-5" />,
-                onClick: () => router.push('/plan'),
-              },
-            ])}
-
             {renderMenuSection('Resources', [
               {
                 label: 'Docs',
@@ -332,14 +311,6 @@ function BookIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function PlanMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-    </svg>
-  )
-}
 
 function ThemeAutoIcon() {
   return (
@@ -374,13 +345,6 @@ function ThemeDarkIcon() {
   )
 }
 
-function DividendsMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  )
-}
 
 function SparkIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
@@ -390,10 +354,3 @@ function SparkIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-function TaxMenuIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l2 2 4-4M7 3H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3h6a1 1 0 010 2H9a1 1 0 010-2z" />
-    </svg>
-  )
-}

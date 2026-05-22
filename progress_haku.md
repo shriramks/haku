@@ -8,12 +8,11 @@
 
 ## Done
 
-### 39 — 2026-05-21 — Tax Report — Session 5 — Export (CSV + PDF)
-Files: `app/tax/TaxClient.tsx`, `package.json`
-- Export section: description text + bg-tertiary rounded-full pill → `ExportSheet` BottomSheet with two action rows (CSV green/table icon, PDF red/document icon)
-- CSV: client-side, no library — flattens `detailRows` lots into lot-level rows; columns: SNo / Symbol-Fund / Units / Purchase Date / Purchase Value / Sale Date / Sale Proceeds / STCG / LTCG; group headers + subtotals per asset type + grand total; `Blob` download
-- PDF: client-side with `jspdf` + `jspdf-autotable` (dynamic import, tree-shaken until triggered); CAMS-style — page header, per-asset-type section, per-symbol/fund name + autotable with lot rows, subtotal bold row, section totals, grand total; downloads `capital-gains-FY26.pdf`
-- Both generators use raw INR numbers (2 decimal places) for spreadsheet/CA use; filename includes `selectedFY.label`
+### 42 — 2026-05-22 — Nav Rejig — Plan + Reports + Settings cleanup
+Files: `components/UserMenu.tsx`, `app/allocation/DashboardClient.tsx`, `app/portfolio/PortfolioClient.tsx`
+- `UserMenu`: removed Data (Tax Report, Dividends) and Navigation (Plan) sections; menu is now Account · Appearance · AI · Resources · Sign Out only
+- `DashboardClient`: Plan column wrapped in `Link` to `/plan`; "Edit plan →" accent sublabel at 13px below budget number; entire column is 44px tap target
+- `PortfolioClient`: `openSections` initialised with `'reports'`; Reports `SectionHeader` added after EPF (gainPct/currentValue null); Tax Report + Dividends nav rows with outline icon (1px border, rounded-lg, --text-2 stroke) and chevron trailing
 
 ### 41 — 2026-05-21 — Tax Report — Session 7 — Harvesting + hero polish
 Files: `app/tax/TaxClient.tsx`
@@ -29,6 +28,13 @@ Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`, `app/portfolio/PortfolioCl
 - Totals memo split into 6 buckets: `equityLTCG/STCG` (stocks + equity MFs), `debtLTCG/STCG` (debt MFs), `goldLTCG/STCG`; classification via `mfAssetClass`
 - Hero strip: single 3-col → 2-row × 3-col (Equity row + Debt row, no horizontal divider between rows); gold excluded from hero
 - Summary: four groups — Equity LTCG (with 1.25 L exemption), Equity STCG (20%), Debt (hidden when zero; slab-rate footnote), Gold (hidden when zero); 1.25 L exemption not applied to debt/gold
+
+### 39 — 2026-05-21 — Tax Report — Session 5 — Export (CSV + PDF)
+Files: `app/tax/TaxClient.tsx`, `package.json`
+- Export section: description text + bg-tertiary rounded-full pill → `ExportSheet` BottomSheet with two action rows (CSV green/table icon, PDF red/document icon)
+- CSV: client-side, no library — flattens `detailRows` lots into lot-level rows; columns: SNo / Symbol-Fund / Units / Purchase Date / Purchase Value / Sale Date / Sale Proceeds / STCG / LTCG; group headers + subtotals per asset type + grand total; `Blob` download
+- PDF: client-side with `jspdf` + `jspdf-autotable` (dynamic import, tree-shaken until triggered); CAMS-style — page header, per-asset-type section, per-symbol/fund name + autotable with lot rows, subtotal bold row, section totals, grand total; downloads `capital-gains-FY26.pdf`
+- Both generators use raw INR numbers (2 decimal places) for spreadsheet/CA use; filename includes `selectedFY.label`
 
 ### 38 — 2026-05-21 — Tax Report — Session 4 — Harvesting section
 Files: `app/tax/TaxClient.tsx`
