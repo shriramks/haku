@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
-import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass } from '@/lib/tax-compute'
+import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy } from '@/lib/tax-compute'
 import type { RealisedGain, GainType, AssetType, UnrealisedPosition } from '@/lib/tax-compute'
 import { formatDate } from '@/lib/formatter'
 import FYPicker from '@/components/FYPicker'
@@ -66,6 +66,10 @@ export default function TaxClient({
     return { start: selectedFY.start_date, end: selectedFY.end_date }
   }, [selectedFY])
 
+  const stockMap = useMemo(() => groupBy(stockTxns, t => t.symbol),    [stockTxns])
+  const mfMap    = useMemo(() => groupBy(mfTxns,    t => t.fund_id),   [mfTxns])
+  const goldMap  = useMemo(() => groupBy(sgbTxns,   t => t.gold_type), [sgbTxns])
+
   // Fetch live prices when harvesting section is opened (once per page load)
   useEffect(() => {
     if (!expanded.has('harvesting') || pricesFetchedRef.current) return
@@ -108,41 +112,88 @@ export default function TaxClient({
     Promise.allSettled(fetches).then(() => setPricesLoading(false))
   }, [expanded, stockTxns, mfFunds, sgbTxns])
 
-  const harvestingData = useMemo(() => {
-    if (!fyRange) return { unrealisedLoss: null, nearThreshold: [] as NearThresholdRow[] }
+  const computed = useMemo(() => {
+    const empty = {
+      gains: { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, goldLTCG: 0, goldSTCG: 0, dividendIncome: 0 },
+      detailRows: [] as SellRow[],
+      unrealisedPositions: [] as UnrealisedPosition[],
+    }
+    if (!fyRange) return empty
+
     const asOf = new Date().toISOString().slice(0, 10)
-    const positions: UnrealisedPosition[] = []
+    let eqLTCG = 0, eqSTCG = 0, dtLTCG = 0, dtSTCG = 0, gdLTCG = 0, gdSTCG = 0
+    const rows: SellRow[] = []
+    const unrealisedPositions: UnrealisedPosition[] = []
 
-    const stockMap = new Map<string, Transaction[]>()
-    for (const txn of stockTxns) {
-      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
+    function addSellRows(gained: RealisedGain[], assetType: AssetType, symbol: string, name: string) {
+      for (const [sellDate, lots] of groupBy(gained, g => g.sellDate)) {
+        const totalGain = lots.reduce((s, g) => s + g.gain, 0)
+        const hasLTCG   = lots.some(g => g.gainType === 'LTCG')
+        const hasSTCG   = lots.some(g => g.gainType === 'STCG')
+        const gainType: GainType | 'mixed' = hasLTCG && hasSTCG ? 'mixed' : hasLTCG ? 'LTCG' : 'STCG'
+        const days      = lots.map(g => g.holdingDays)
+        rows.push({ assetType, symbol, name, sellDate, lots, totalGain, gainType, minDays: Math.min(...days), maxDays: Math.max(...days) })
+      }
     }
+
     for (const [symbol, txns] of stockMap) {
-      const { unrealised } = computeStockGains(txns, symbol, cmps[symbol] ?? null, fyRange, asOf)
-      positions.push(...unrealised)
+      const { realised, unrealised } = computeStockGains(txns, symbol, null, fyRange, asOf)
+      for (const g of realised) { if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain }
+      addSellRows(realised, 'stock', symbol, symbol)
+      unrealisedPositions.push(...unrealised)
     }
 
-    const mfMap = new Map<string, MFTransaction[]>()
-    for (const txn of mfTxns) {
-      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
-    }
     for (const [fundId, txns] of mfMap) {
       const fund = mfFunds.find(f => f.id === fundId)
-      const nav = fund ? (navs[fund.scheme_code] ?? null) : null
-      const { unrealised } = computeMFGains(txns, fundId, null, nav, fyRange, asOf)
-      positions.push(...unrealised)
+      const cls  = fund ? mfAssetClass(fund) : 'equity'
+      const { realised, unrealised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
+      for (const g of realised) {
+        if (cls === 'debt') { if (g.gainType === 'LTCG') dtLTCG += g.gain; else dtSTCG += g.gain }
+        else                { if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain }
+      }
+      addSellRows(realised, 'mf', fundId, fund?.scheme_name ?? fundId)
+      unrealisedPositions.push(...unrealised)
     }
 
-    const goldMap = new Map<string, SGBTransaction[]>()
-    for (const txn of sgbTxns) {
-      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
-    }
     for (const [goldType, txns] of goldMap) {
-      const { unrealised } = computeGoldGains(txns, goldType, goldPrice, fyRange, asOf)
-      positions.push(...unrealised)
+      const { realised, unrealised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
+      for (const g of realised) { if (g.gainType === 'LTCG') gdLTCG += g.gain; else gdSTCG += g.gain }
+      addSellRows(realised, 'gold', goldType, goldType)
+      unrealisedPositions.push(...unrealised)
     }
 
-    const equityPositions = positions.filter(p => {
+    const divIncome = dividends
+      .filter(d => d.ex_date >= fyRange.start && d.ex_date <= fyRange.end)
+      .reduce((s, d) => s + d.amount, 0)
+
+    const order: Record<AssetType, number> = { stock: 0, mf: 1, gold: 2 }
+    rows.sort((a, b) => {
+      if (a.assetType !== b.assetType) return order[a.assetType] - order[b.assetType]
+      return b.sellDate.localeCompare(a.sellDate)
+    })
+
+    return {
+      gains: { equityLTCG: eqLTCG, equitySTCG: eqSTCG, debtLTCG: dtLTCG, debtSTCG: dtSTCG, goldLTCG: gdLTCG, goldSTCG: gdSTCG, dividendIncome: divIncome },
+      detailRows: rows,
+      unrealisedPositions,
+    }
+  }, [fyRange, stockMap, mfMap, goldMap, mfFunds, dividends])
+
+  const harvestingData = useMemo(() => {
+    const { unrealisedPositions } = computed
+    if (unrealisedPositions.length === 0) return { unrealisedLoss: null, nearThreshold: [] as NearThresholdRow[] }
+
+    const withPrices = unrealisedPositions.map(p => {
+      let price: number | null = null
+      if      (p.assetType === 'stock') { price = cmps[p.symbol] ?? null }
+      else if (p.assetType === 'mf')    { const fund = mfFunds.find(f => f.id === p.symbol); price = fund ? (navs[fund.scheme_code] ?? null) : null }
+      else if (p.assetType === 'gold')  { price = goldPrice }
+      const currentValue = price !== null ? p.qty * price : null
+      const gain         = currentValue !== null ? currentValue - p.purchaseCost : null
+      return { ...p, currentValue, gain }
+    })
+
+    const equityPositions = withPrices.filter(p => {
       if (p.assetType === 'stock') return true
       if (p.assetType === 'mf') {
         const fund = mfFunds.find(f => f.id === p.symbol)
@@ -161,130 +212,14 @@ export default function TaxClient({
       .map(p => {
         const daysToLTCG = 365 - p.holdingDays
         const fund = p.assetType === 'mf' ? mfFunds.find(f => f.id === p.symbol) : null
-        const name = fund ? fund.scheme_name : p.symbol
-        return { position: p, daysToLTCG, name }
+        return { position: p, daysToLTCG, name: fund ? fund.scheme_name : p.symbol }
       })
       .sort((a, b) => a.daysToLTCG - b.daysToLTCG)
 
     return { unrealisedLoss, nearThreshold }
-  }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, cmps, navs, goldPrice])
+  }, [computed, mfFunds, cmps, navs, goldPrice])
 
-  const { equityLTCG, equitySTCG, debtLTCG, debtSTCG, goldLTCG, goldSTCG, dividendIncome } = useMemo(() => {
-    if (!fyRange) return { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, goldLTCG: 0, goldSTCG: 0, dividendIncome: 0 }
-
-    const asOf = new Date().toISOString().slice(0, 10)
-    let eqLTCG = 0, eqSTCG = 0, dtLTCG = 0, dtSTCG = 0, gdLTCG = 0, gdSTCG = 0
-
-    // Stocks → equity
-    const stockMap = new Map<string, Transaction[]>()
-    for (const txn of stockTxns) {
-      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
-    }
-    for (const [symbol, txns] of stockMap) {
-      const { realised } = computeStockGains(txns, symbol, null, fyRange, asOf)
-      for (const g of realised) {
-        if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain
-      }
-    }
-
-    // MF — split equity vs debt by fund classification
-    const mfMap = new Map<string, MFTransaction[]>()
-    for (const txn of mfTxns) {
-      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
-    }
-    for (const [fundId, txns] of mfMap) {
-      const fund = mfFunds.find(f => f.id === fundId)
-      const cls  = fund ? mfAssetClass(fund) : 'equity'
-      const { realised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
-      for (const g of realised) {
-        if (cls === 'debt') {
-          if (g.gainType === 'LTCG') dtLTCG += g.gain; else dtSTCG += g.gain
-        } else {
-          if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain
-        }
-      }
-    }
-
-    // Gold
-    const goldMap = new Map<string, SGBTransaction[]>()
-    for (const txn of sgbTxns) {
-      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
-    }
-    for (const [goldType, txns] of goldMap) {
-      const { realised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
-      for (const g of realised) {
-        if (g.gainType === 'LTCG') gdLTCG += g.gain; else gdSTCG += g.gain
-      }
-    }
-
-    const divIncome = dividends
-      .filter(d => d.ex_date >= fyRange.start && d.ex_date <= fyRange.end)
-      .reduce((s, d) => s + d.amount, 0)
-
-    return { equityLTCG: eqLTCG, equitySTCG: eqSTCG, debtLTCG: dtLTCG, debtSTCG: dtSTCG, goldLTCG: gdLTCG, goldSTCG: gdSTCG, dividendIncome: divIncome }
-  }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns, dividends])
-
-  const detailRows = useMemo<SellRow[]>(() => {
-    if (!fyRange) return []
-    const asOf = new Date().toISOString().slice(0, 10)
-    const rows: SellRow[] = []
-
-    function groupBySell(gained: RealisedGain[], assetType: AssetType, symbol: string, name: string) {
-      const bySell = new Map<string, RealisedGain[]>()
-      for (const g of gained) {
-        const arr = bySell.get(g.sellDate) ?? []
-        arr.push(g)
-        bySell.set(g.sellDate, arr)
-      }
-      for (const [sellDate, lots] of bySell) {
-        const totalGain = lots.reduce((s, g) => s + g.gain, 0)
-        const hasLTCG   = lots.some(g => g.gainType === 'LTCG')
-        const hasSTCG   = lots.some(g => g.gainType === 'STCG')
-        const gainType: GainType | 'mixed' = hasLTCG && hasSTCG ? 'mixed' : hasLTCG ? 'LTCG' : 'STCG'
-        const days      = lots.map(g => g.holdingDays)
-        rows.push({ assetType, symbol, name, sellDate, lots, totalGain, gainType, minDays: Math.min(...days), maxDays: Math.max(...days) })
-      }
-    }
-
-    // Stocks
-    const stockMap = new Map<string, Transaction[]>()
-    for (const txn of stockTxns) {
-      const arr = stockMap.get(txn.symbol) ?? []; arr.push(txn); stockMap.set(txn.symbol, arr)
-    }
-    for (const [symbol, txns] of stockMap) {
-      const { realised } = computeStockGains(txns, symbol, null, fyRange, asOf)
-      groupBySell(realised, 'stock', symbol, symbol)
-    }
-
-    // MF
-    const mfMap = new Map<string, MFTransaction[]>()
-    for (const txn of mfTxns) {
-      const arr = mfMap.get(txn.fund_id) ?? []; arr.push(txn); mfMap.set(txn.fund_id, arr)
-    }
-    for (const [fundId, txns] of mfMap) {
-      const fund = mfFunds.find(f => f.id === fundId)
-      const { realised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
-      groupBySell(realised, 'mf', fundId, fund?.scheme_name ?? fundId)
-    }
-
-    // Gold
-    const goldMap = new Map<string, SGBTransaction[]>()
-    for (const txn of sgbTxns) {
-      const arr = goldMap.get(txn.gold_type) ?? []; arr.push(txn); goldMap.set(txn.gold_type, arr)
-    }
-    for (const [goldType, txns] of goldMap) {
-      const { realised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
-      groupBySell(realised, 'gold', goldType, goldType)
-    }
-
-    // Sort: asset type order (stock → mf → gold), then newest sell first within each
-    const order: Record<AssetType, number> = { stock: 0, mf: 1, gold: 2 }
-    rows.sort((a, b) => {
-      if (a.assetType !== b.assetType) return order[a.assetType] - order[b.assetType]
-      return b.sellDate.localeCompare(a.sellDate)
-    })
-    return rows
-  }, [fyRange, stockTxns, mfTxns, mfFunds, sgbTxns])
+  const { gains: { equityLTCG, equitySTCG, debtLTCG, debtSTCG, goldLTCG, goldSTCG, dividendIncome }, detailRows } = computed
 
   const equityTotal  = equityLTCG + equitySTCG
   const debtTotal    = debtLTCG + debtSTCG

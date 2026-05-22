@@ -8,6 +8,19 @@
 
 ## Done
 
+### 44 — 2026-05-22 — TaxClient: deduplicate computation useMemos (Session 1)
+Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`
+- Added `groupBy<T>` helper to `lib/tax-compute.ts` — replaces the repeated `map.get(k) ?? []; arr.push; map.set` pattern
+- Hoisted `stockMap`, `mfMap`, `goldMap` as 3 dedicated `useMemo`s keyed to source arrays only
+- Merged 3 computation useMemos (harvestingData, gains summary, detailRows) into one `computed` memo that runs FIFO once per symbol per FY change
+- `harvestingData` is now a lightweight memo that applies live prices to pre-computed lot positions — price updates no longer re-run FIFO
+
+### 43 — 2026-05-22 — Portfolio: Reports section boundary + divider cleanup
+Files: `app/portfolio/PortfolioClient.tsx`
+- Replaced Reports `SectionHeader` (bold, collapsible) with a `SectionDivider`-style footnote uppercase label — Reports is navigation, not an asset class
+- 24px top breathing room above the label signals "portfolio list ends here"
+- Reports rows always visible (non-collapsible); removed inter-row divider between Tax Report and Dividends
+
 ### 42 — 2026-05-22 — Nav Rejig — Plan + Reports + Settings cleanup
 Files: `components/UserMenu.tsx`, `app/allocation/DashboardClient.tsx`, `app/portfolio/PortfolioClient.tsx`
 - `UserMenu`: removed Data (Tax Report, Dividends) and Navigation (Plan) sections; menu is now Account · Appearance · AI · Resources · Sign Out only

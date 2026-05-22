@@ -157,6 +157,15 @@ export function computeStockGains(
   return { realised, unrealised }
 }
 
+export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const k = key(item)
+    const arr = map.get(k) ?? []; arr.push(item); map.set(k, arr)
+  }
+  return map
+}
+
 // ── MF ───────────────────────────────────────────────────────────────────────
 
 // fmvJan2018: NAV on Jan 31 2018 for this fund, null if fund had no pre-2018 units
