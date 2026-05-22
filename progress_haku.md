@@ -4,6 +4,13 @@
 
 ## Todo
 
+### 45 — TaxClient: split file into sub-component and export modules (Session 2)
+Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`, `app/tax/TaxExport.tsx`, `app/tax/tax-export.ts`
+- Move `generateCSV` and `generatePDF` to `app/tax/tax-export.ts` (no JSX)
+- Move `ExportBody`, `ExportSheet`, `TableIcon`, `DocumentIcon` to `app/tax/TaxExport.tsx`
+- Move `Section`, `SummaryBody`, `DetailsBody`, `HarvestingBody`, `GainBadge`, `GainRow`, `LotDetailSheet`, `LotRow` to `app/tax/TaxSections.tsx`
+- `TaxClient.tsx` reduced to state, memos, price-fetch effect, and main JSX (~200 lines)
+
 ---
 
 ## Done
