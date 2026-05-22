@@ -4,16 +4,16 @@
 
 ## Todo
 
-### 45 — TaxClient: split file into sub-component and export modules (Session 2)
-Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`, `app/tax/TaxExport.tsx`, `app/tax/tax-export.ts`
-- Move `generateCSV` and `generatePDF` to `app/tax/tax-export.ts` (no JSX)
-- Move `ExportBody`, `ExportSheet`, `TableIcon`, `DocumentIcon` to `app/tax/TaxExport.tsx`
-- Move `Section`, `SummaryBody`, `DetailsBody`, `HarvestingBody`, `GainBadge`, `GainRow`, `LotDetailSheet`, `LotRow` to `app/tax/TaxSections.tsx`
-- `TaxClient.tsx` reduced to state, memos, price-fetch effect, and main JSX (~200 lines)
-
 ---
 
 ## Done
+
+### 45 — 2026-05-22 — TaxClient: split file into sub-component and export modules (Session 2)
+Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`, `app/tax/TaxExport.tsx`, `app/tax/tax-export.ts`
+- Extracted `LTCG_EXEMPTION`, `SellRow`, `generateCSV`, `generatePDF` to `tax-export.ts` (no JSX); shared by both sections and export modules
+- Created `TaxSections.tsx` with `SectionKey`, `NearThresholdRow`, `Section`, `SummaryBody`, `DetailsBody`, `HarvestingBody`, `GainBadge`, `GainRow`, `LotDetailSheet`, `LotRow`
+- Created `TaxExport.tsx` with `ExportBody`, `ExportSheet`, `TableIcon`, `DocumentIcon`; imports generate functions from `tax-export.ts`
+- `TaxClient.tsx` reduced from 988 → 239 lines — state, memos, price-fetch effect, and main JSX only
 
 ### 44 — 2026-05-22 — TaxClient: deduplicate computation useMemos (Session 1)
 Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`
