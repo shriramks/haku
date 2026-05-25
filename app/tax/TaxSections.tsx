@@ -265,27 +265,36 @@ export function HarvestingBody({
   nearThreshold:  NearThresholdRow[]
   pricesLoading:  boolean
 }) {
-  const equityTotal     = equityLTCG + equitySTCG
-  const netAfterHarvest = equityTotal + (unrealisedLoss ?? 0)
-  const barPct          = Math.min(100, Math.max(0, (netAfterHarvest / LTCG_EXEMPTION) * 100))
-  const overThreshold   = netAfterHarvest > LTCG_EXEMPTION
-  const barColor        = overThreshold ? 'var(--c-warning)' : 'var(--c-positive)'
-  const netLabel        = unrealisedLoss !== null ? 'Net after harvesting' : 'Equity gains'
+  const equityTotal   = equityLTCG + equitySTCG
+  const barPct        = Math.min(100, Math.max(0, (equityTotal / LTCG_EXEMPTION) * 100))
+  const overThreshold = equityTotal > LTCG_EXEMPTION
+  const barColor      = overThreshold ? 'var(--c-warning)' : 'var(--c-positive)'
+  const remaining     = LTCG_EXEMPTION - equityTotal
 
   return (
     <div className="pb-2">
 
-      <SectionLabel label="LTCG Availability" className="px-4" />
-      <DetailRow label={netLabel} bold noRupee><Num amount={netAfterHarvest} signed /></DetailRow>
+      <SectionLabel label="LTCG Exemption" className="px-4" />
+      <DetailRow label="Realised gains" bold noRupee><Num amount={equityTotal} signed /></DetailRow>
       <div className="px-4 pb-3 pt-1">
         <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor }} />
         </div>
-        <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>1.25 L exemption threshold</p>
+        <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>
+          <Num amount={equityTotal} /> of 1.25 L used
+          {overThreshold
+            ? <> · <Num amount={-remaining} /> over limit</>
+            : <> · <Num amount={remaining} /> remaining</>
+          }
+        </p>
       </div>
 
-      <SectionLabel label="Harvesting Availability" className="px-4" />
-      <DetailRow label="Harvestable losses" bold noRupee>
+      <SectionLabel label="Equity Gains" className="px-4" />
+      <DetailRow label="LTCG" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
+      <DetailRow label="STCG" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
+
+      <SectionLabel label="Harvestable Losses" className="px-4" />
+      <DetailRow label="Unrealised losses" bold noRupee>
         {pricesLoading
           ? <span style={{ color: 'var(--text-faint)' }}>—</span>
           : unrealisedLoss !== null && unrealisedLoss < 0
@@ -293,16 +302,10 @@ export function HarvestingBody({
             : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>
-      <DetailRow label="Equity gains to offset" bold noRupee>
-        {equityTotal > 0
-          ? <Num amount={equityTotal} signed />
-          : <span style={{ color: 'var(--text-faint)' }}>None</span>
-        }
-      </DetailRow>
 
-      <SectionLabel label="Harvesting Readiness" className="px-4" />
+      <SectionLabel label="Approaching 1-Year Threshold" className="px-4" />
       <p className="px-4 pb-2 text-footnote" style={{ color: 'var(--text-muted)' }}>
-        Holdings within 30 days of the 1-year LTCG threshold — hold until they cross to avoid STCG.
+        Hold until they cross — selling now incurs STCG instead of LTCG.
       </p>
       {nearThreshold.length === 0 ? (
         <div className="px-4 pb-2">
