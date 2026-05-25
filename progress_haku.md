@@ -8,6 +8,13 @@
 
 ## Done
 
+### 47 — 2026-05-25 — Harvesting section: clarify bar, fix exited-stock filter
+Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`
+- Bar now uses realised equity gains (LTCG + STCG) vs 1.25L — not the hypothetical net-after-harvesting figure; caption shows X used · Y remaining / Z over limit
+- Section labels renamed: LTCG Availability → LTCG Exemption, Harvesting Availability → Harvestable Losses, Harvesting Readiness → Approaching 1-Year Threshold
+- Removed "Equity gains to offset" row (redundant with bar) and "Net after harvesting" as primary value
+- Near-threshold list now filters out stock positions where net qty (buys − sells) ≤ 0 — same pattern as the dividends bulk-refresh fix
+
 ### 46 — 2026-05-25 — Dividends bulk refresh: skip inactive stocks
 Files: `app/dividends/DividendsClient.tsx`
 - `handleRefreshAll` was fetching dividends for all ever-transacted symbols, including fully exited positions (e.g. ICICIGI)
