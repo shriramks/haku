@@ -8,6 +8,11 @@
 
 ## Done
 
+### 46 — 2026-05-25 — Dividends bulk refresh: skip inactive stocks
+Files: `app/dividends/DividendsClient.tsx`
+- `handleRefreshAll` was fetching dividends for all ever-transacted symbols, including fully exited positions (e.g. ICICIGI)
+- Filter `symbolList` to symbols with net holding > 0 before issuing fetch requests
+
 ### 45 — 2026-05-22 — TaxClient: split file into sub-component and export modules (Session 2)
 Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`, `app/tax/TaxExport.tsx`, `app/tax/tax-export.ts`
 - Extracted `LTCG_EXEMPTION`, `SellRow`, `generateCSV`, `generatePDF` to `tax-export.ts` (no JSX); shared by both sections and export modules

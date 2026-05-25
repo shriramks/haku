@@ -106,7 +106,10 @@ export default function DividendsClient({
     setBulkUpToDate(false)
     setBulkFetchError(false)
 
-    const symbolList = [...txnsBySymbol.keys()]
+    const symbolList = [...txnsBySymbol.keys()].filter(sym => {
+      const txns = txnsBySymbol.get(sym) ?? []
+      return txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0) > 0
+    })
     const exchangeFor = (sym: string) =>
       symbolExchanges.get(sym) ?? txnsBySymbol.get(sym)?.[0]?.exchange ?? 'NSE'
 
