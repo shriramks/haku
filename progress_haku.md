@@ -8,6 +8,11 @@
 
 ## Done
 
+### 48 — 2026-05-26 — Refactor: extract netStockQty and netStockQtyAsOf helpers
+Files: `lib/tax-compute.ts`, `app/tax/TaxClient.tsx`, `app/dividends/DividendsClient.tsx`, `components/StockDividends.tsx`
+- Added `netStockQty(txns)` and `netStockQtyAsOf(txns, date)` to `lib/tax-compute.ts`
+- Replaced 4 inline `reduce` instances across TaxClient, DividendsClient (×2), and StockDividends
+
 ### 47 — 2026-05-25 — Harvesting section: clarify bar, fix exited-stock filter
 Files: `app/tax/TaxClient.tsx`, `app/tax/TaxSections.tsx`
 - Bar now uses realised equity gains (LTCG + STCG) vs 1.25L — not the hypothetical net-after-harvesting figure; caption shows X used · Y remaining / Z over limit
