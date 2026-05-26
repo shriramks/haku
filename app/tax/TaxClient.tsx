@@ -173,7 +173,11 @@ export default function TaxClient({
     })
 
     const equityPositions = withPrices.filter(p => {
-      if (p.assetType === 'stock') return true
+      if (p.assetType === 'stock') {
+        const txns   = stockMap.get(p.symbol) ?? []
+        const netQty = txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
+        return netQty > 0
+      }
       if (p.assetType === 'mf') {
         const fund = mfFunds.find(f => f.id === p.symbol)
         return !fund || mfAssetClass(fund) === 'equity'
@@ -187,12 +191,6 @@ export default function TaxClient({
       : null
 
     const nearThreshold: NearThresholdRow[] = equityPositions
-      .filter(p => {
-        if (p.assetType !== 'stock') return true
-        const txns  = stockMap.get(p.symbol) ?? []
-        const netQty = txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
-        return netQty > 0
-      })
       .filter(p => p.gainType === 'STCG' && p.holdingDays >= 335)
       .map(p => {
         const daysToLTCG = 365 - p.holdingDays
