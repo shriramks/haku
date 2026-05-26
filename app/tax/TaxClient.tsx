@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
-import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy } from '@/lib/tax-compute'
+import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
 import type { RealisedGain, GainType, AssetType, UnrealisedPosition } from '@/lib/tax-compute'
 import FYPicker from '@/components/FYPicker'
 import { Num } from '@/components/Num'
@@ -174,9 +174,7 @@ export default function TaxClient({
 
     const equityPositions = withPrices.filter(p => {
       if (p.assetType === 'stock') {
-        const txns   = stockMap.get(p.symbol) ?? []
-        const netQty = txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
-        return netQty > 0
+        return netStockQty(stockMap.get(p.symbol) ?? []) > 0
       }
       if (p.assetType === 'mf') {
         const fund = mfFunds.find(f => f.id === p.symbol)

@@ -166,6 +166,10 @@ export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[
   return map
 }
 
+export function netStockQty(txns: Transaction[]): number {
+  return txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
+}
+
 // ── MF ───────────────────────────────────────────────────────────────────────
 
 // fmvJan2018: NAV on Jan 31 2018 for this fund, null if fund had no pre-2018 units
