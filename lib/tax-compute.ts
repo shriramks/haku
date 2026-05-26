@@ -170,6 +170,10 @@ export function netStockQty(txns: Transaction[]): number {
   return txns.reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
 }
 
+export function netStockQtyAsOf(txns: Transaction[], date: string): number {
+  return netStockQty(txns.filter(t => t.trade_date <= date))
+}
+
 // ── MF ───────────────────────────────────────────────────────────────────────
 
 // fmvJan2018: NAV on Jan 31 2018 for this fund, null if fund had no pre-2018 units

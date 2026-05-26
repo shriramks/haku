@@ -7,6 +7,7 @@ import { saveDividends } from '@/app/actions'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { DividendTransaction, Transaction } from '@/lib/types'
+import { netStockQtyAsOf } from '@/lib/tax-compute'
 
 interface ConfirmItem {
   ex_date: string
@@ -34,9 +35,7 @@ export default function StockDividends({
   const [saving, setSaving] = useState(false)
 
   function sharesAtDate(date: string): number {
-    return initialTransactions
-      .filter(t => t.symbol === symbol && t.trade_date <= date)
-      .reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
+    return netStockQtyAsOf(initialTransactions.filter(t => t.symbol === symbol), date)
   }
 
   async function handleRefresh() {

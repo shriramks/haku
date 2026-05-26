@@ -10,7 +10,7 @@ import StockDividends from '@/components/StockDividends'
 import UserMenu from '@/components/UserMenu'
 import { saveDividends } from '@/app/actions'
 import type { DividendTransaction, Transaction } from '@/lib/types'
-import { netStockQty } from '@/lib/tax-compute'
+import { netStockQty, netStockQtyAsOf } from '@/lib/tax-compute'
 
 type Segment = 'stocks' | 'timeline'
 
@@ -97,9 +97,7 @@ export default function DividendsClient({
   }
 
   function sharesAtDate(symbol: string, date: string): number {
-    return (txnsBySymbol.get(symbol) ?? [])
-      .filter(t => t.trade_date <= date)
-      .reduce((sum, t) => sum + (t.trade_type === 'buy' ? t.quantity : -t.quantity), 0)
+    return netStockQtyAsOf(txnsBySymbol.get(symbol) ?? [], date)
   }
 
   async function handleRefreshAll() {
