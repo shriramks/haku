@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { RealisedGain, GainType, UnrealisedPosition } from '@/lib/tax-compute'
 import { formatDate } from '@/lib/formatter'
 import BottomSheet from '@/components/BottomSheet'
+import EmptyState from '@/components/EmptyState'
 import { Num } from '@/components/Num'
 import { ChevronDownIcon } from '@/components/icons'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
@@ -126,11 +127,7 @@ export function DetailsBody({ rows }: { rows: SellRow[] }) {
   const [selected, setSelected] = useState<SellRow | null>(null)
 
   if (rows.length === 0) {
-    return (
-      <div className="px-4 py-3">
-        <p className="text-body" style={{ color: 'var(--text-muted)' }}>No realised gains this FY</p>
-      </div>
-    )
+    return <EmptyState>No realised gains this FY</EmptyState>
   }
 
   const stockRows = rows.filter(r => r.assetType === 'stock')
@@ -308,9 +305,7 @@ export function HarvestingBody({
         Hold until they cross — selling now incurs STCG instead of LTCG.
       </p>
       {nearThreshold.length === 0 ? (
-        <div className="px-4 pb-2">
-          <p className="text-body" style={{ color: 'var(--text-faint)' }}>None approaching threshold</p>
-        </div>
+        <EmptyState>None approaching threshold</EmptyState>
       ) : (
         nearThreshold.map((row, i) => (
           <div key={i} className="flex items-center justify-between px-4" style={{ minHeight: 48 }}>

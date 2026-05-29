@@ -120,7 +120,7 @@ Equity, debt, and gold are separate capital gains buckets — losses cannot cros
 ## Working approach
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
-- **After completing any unit of work**, append an entry to `progress_haku.md`. Format rules:
+- **After completing any unit of work**, append an entry to `progress_haku.md`. This file is gitignored — never stage or commit it. Format rules:
   - Every entry (Todo and Done) has a globally sequential number. New entries continue the sequence (highest number = most recent).
   - Heading format: `### N — YYYY-MM-DD — Title` (Done) or `### N — Title` (Todo).
   - Done entries are ordered newest-first under `## Done` (highest number at top). Todo entries sit above `## Done` under `## Todo`.
