@@ -5,6 +5,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/formatter'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
+import { Divider } from '@/components/Divider'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from '@/app/portfolio/actions'
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
@@ -346,7 +347,7 @@ export default function AddTxnModal({
           )}
         </div>
 
-        <div className="flex-shrink-0" style={{ height: 1, background: 'var(--border-faint)', margin: '0 16px 14px' }} />
+        <Divider className="flex-shrink-0" style={{ margin: '0 16px 14px' }} />
 
         {/* Scrollable form */}
         <div className="overflow-y-auto" style={{ paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>

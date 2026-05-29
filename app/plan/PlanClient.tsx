@@ -14,6 +14,7 @@ import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCa
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -286,9 +287,7 @@ function PlanTab({
           {/* Stock list */}
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="w-6 h-6 border-2 rounded-full"
-                   style={{ borderColor: 'var(--border)', borderTopColor: 'var(--text-primary)',
-                            animation: 'spin 0.8s linear infinite' }} />
+              <LoadingSpinner />
             </div>
           ) : (
             <div>

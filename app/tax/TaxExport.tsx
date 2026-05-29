@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { FiscalYear } from '@/lib/types'
 import BottomSheet from '@/components/BottomSheet'
 import { ChevronRightIcon } from '@/components/icons'
+import { Divider } from '@/components/Divider'
 import { generateCSV, generatePDF } from './tax-export'
 import type { SellRow } from './tax-export'
 
@@ -38,7 +39,7 @@ function ExportSheet({
       <div className="px-5 pt-1 pb-2">
         <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Export</p>
       </div>
-      <div style={{ height: 1, background: 'var(--border-faint)' }} />
+      <Divider />
 
       <button
         onClick={onCSV}
@@ -56,7 +57,7 @@ function ExportSheet({
         <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
       </button>
 
-      <div style={{ height: 1, background: 'var(--border-faint)', marginLeft: 69 }} />
+      <Divider style={{ marginLeft: 69 }} />
 
       <button
         onClick={onPDF}

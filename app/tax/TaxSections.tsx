@@ -6,6 +6,8 @@ import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
 import { Num } from '@/components/Num'
 import { ChevronDownIcon } from '@/components/icons'
+import { Divider } from '@/components/Divider'
+import { ProgressBar } from '@/components/ProgressBar'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { LTCG_EXEMPTION } from './tax-export'
 import type { SellRow } from './tax-export'
@@ -219,7 +221,7 @@ export function LotDetailSheet({ row, onClose }: { row: SellRow; onClose: () => 
         <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{row.name}</p>
         <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>Sold {formatDate(row.sellDate)}</p>
       </div>
-      <div style={{ height: 1, background: 'var(--border-faint)' }} />
+      <Divider />
       {row.lots.map((lot, i) => <LotRow key={i} lot={lot} />)}
     </BottomSheet>
   )
@@ -274,9 +276,7 @@ export function HarvestingBody({
       <SectionLabel label="LTCG Exemption" className="px-4" />
       <DetailRow label="Realised gains" bold noRupee><Num amount={equityTotal} signed /></DetailRow>
       <div className="px-4 pb-3 pt-1">
-        <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, background: barColor }} />
-        </div>
+        <ProgressBar percent={barPct} color={barColor} />
         <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>
           <Num amount={equityTotal} /> of 1.25 L used
           {overThreshold

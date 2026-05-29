@@ -8,6 +8,8 @@ import { ChevronRightIcon } from '@/components/icons'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
+import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { ProgressBar } from '@/components/ProgressBar'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -132,17 +134,14 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
             </div>
 
             {/* Progress bar — invested portion */}
-            <div className="rounded-full overflow-hidden" style={{ height: 8, background: 'var(--border-faint)' }}>
-              <div className="h-full rounded-full" style={{ width: `${Math.min(100, pctDeployed)}%`, background: 'var(--c-positive)' }} />
-            </div>
+            <ProgressBar percent={Math.min(100, pctDeployed)} />
           </div>
         )
       })()}
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="w-6 h-6 border-2 rounded-full animate-spin"
-               style={{ borderColor: 'var(--border)', borderTopColor: 'var(--text-primary)' }} />
+          <LoadingSpinner />
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
@@ -214,9 +213,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
       </div>
 
       {/* Bar — rounded, full-width, serves as row divider */}
-      <div className="rounded-full overflow-hidden mb-0" style={{ height: '6px', background: 'var(--border-faint)' }}>
-        <div className="h-full rounded-full" style={{ width: `${investedPct}%`, background: isDone ? 'var(--border-faint)' : 'var(--c-positive)' }} />
-      </div>
+      <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
     </Link>
   )
 }
