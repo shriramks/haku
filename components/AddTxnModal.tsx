@@ -6,6 +6,7 @@ import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/forma
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Divider } from '@/components/Divider'
+import { Button } from '@/components/Button'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from '@/app/portfolio/actions'
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
@@ -414,11 +415,10 @@ export default function AddTxnModal({
 
                 {error && <p className="text-negative text-body text-center">{error}</p>}
 
-                <button type="submit" disabled={loading || !symbol || !qty || !price}
-                  className="w-full py-4 rounded-xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+                <Button type="submit" loading={loading} disabled={!symbol || !qty || !price} fullWidth
                   style={{ background: done ? 'var(--border)' : (txnType === 'buy' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : loading ? '…' : `${txnType === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
-                </button>
+                  {done ? '✓ Added' : `${txnType === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
+                </Button>
               </>
             )}
 
@@ -480,11 +480,10 @@ export default function AddTxnModal({
 
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
 
-                <button type="submit" disabled={loading || !mfFund || !mfUnits || !mfNav}
-                  className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
+                <Button type="submit" loading={loading} disabled={!mfFund || !mfUnits || !mfNav} fullWidth
                   style={{ background: done ? 'var(--border)' : (txnType === 'buy' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : loading ? '…' : txnType === 'buy' ? 'Buy' : 'Sell'}
-                </button>
+                  {done ? '✓ Added' : txnType === 'buy' ? 'Buy' : 'Sell'}
+                </Button>
               </>
             )}
 
@@ -548,11 +547,10 @@ export default function AddTxnModal({
 
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
 
-                <button type="submit" disabled={loading || !goldQty || !goldPrice || (goldType === 'etf' && !goldName)}
-                  className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
+                <Button type="submit" loading={loading} disabled={!goldQty || !goldPrice || (goldType === 'etf' && !goldName)} fullWidth
                   style={{ background: done ? 'var(--border)' : (txnType === 'buy' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : loading ? '…' : txnType === 'buy' ? 'Save Buy' : 'Save Sell'}
-                </button>
+                  {done ? '✓ Added' : txnType === 'buy' ? 'Save Buy' : 'Save Sell'}
+                </Button>
               </>
             )}
 
@@ -572,11 +570,10 @@ export default function AddTxnModal({
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
-                <button type="submit" disabled={loading || !ppfAmount}
-                  className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
+                <Button type="submit" loading={loading} disabled={!ppfAmount} fullWidth
                   style={{ background: done ? 'var(--border)' : (ppfType === 'deposit' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : loading ? '…' : ppfType === 'deposit' ? 'Save Deposit' : 'Save Withdrawal'}
-                </button>
+                  {done ? '✓ Added' : ppfType === 'deposit' ? 'Save Deposit' : 'Save Withdrawal'}
+                </Button>
               </>
             )}
 
@@ -596,11 +593,10 @@ export default function AddTxnModal({
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
-                <button type="submit" disabled={loading || !epfAmount}
-                  className="w-full py-4 rounded-xl font-bold text-headline active:scale-[0.98] disabled:opacity-40 text-white"
-                  style={{ background: done ? 'var(--border)' : 'var(--accent)' }}>
-                  {done ? '✓ Added' : loading ? '…' : 'Save Deposit'}
-                </button>
+                <Button type="submit" loading={loading} disabled={!epfAmount} fullWidth
+                  style={{ background: done ? 'var(--border)' : undefined }}>
+                  {done ? '✓ Added' : 'Save Deposit'}
+                </Button>
               </>
             )}
 

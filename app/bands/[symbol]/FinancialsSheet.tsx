@@ -6,6 +6,7 @@ import type { BuyBand, StockAllocation, StockCategory } from '@/lib/types'
 import { SparkleIcon, RefreshIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { saveSnapshotIfChanged } from '@/app/actions'
+import { Button } from '@/components/Button'
 
 function fiscalQuarterLabel(d: Date): string {
   const year = d.getFullYear()
@@ -210,11 +211,9 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
                 </>
               )}
             </div>
-            <button onClick={save} disabled={saving}
-              className="w-full mt-1 py-4 rounded-xl text-headline font-semibold disabled:opacity-40"
-              style={{ background: 'var(--accent)', color: '#FFFFFF' }}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            <Button onClick={save} loading={saving} fullWidth className="mt-1">
+              Save
+            </Button>
             {saveFeedback && (
               <p className={`text-subheadline mt-3 text-center ${saveFeedback.tone === 'positive' ? 'text-positive' : 'text-negative'}`}>
                 {saveFeedback.message}

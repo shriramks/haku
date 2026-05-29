@@ -15,6 +15,7 @@ import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { Button } from '@/components/Button'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -527,11 +528,9 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">{selectedFY.label} Budget</p>
-          <button onClick={handleSave} disabled={saving}
-            className="text-accent text-headline font-semibold disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>
+            Save
+          </Button>
         </div>
 
         {/* FY Budget field */}
@@ -653,7 +652,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           </div>
         }
         left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
-        right={<button onClick={handleSave} disabled={saving} className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>{saving ? 'Saving…' : 'Save'}</button>}
+        right={<Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>}
       />
 
         {/* % stepper → slider → plan context */}
@@ -832,11 +831,9 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
               : <p className="font-semibold text-headline text-center">Add Stock</p>
             }
           </div>
-          <button onClick={handleAdd} disabled={saving || !symbol || pct <= 0}
-            className="text-accent text-headline font-semibold disabled:opacity-40"
-            style={{ minHeight: 44 }}>
-            {saving ? 'Adding…' : 'Add'}
-          </button>
+          <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!symbol || pct <= 0} style={{ minHeight: 44 }}>
+            Add
+          </Button>
         </div>
 
         {/* Symbol input */}
@@ -1022,7 +1019,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
       <SheetHeader
         title="New Plan"
         left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
-        right={<button onClick={create} disabled={creating} className="text-accent text-headline font-semibold disabled:opacity-40" style={{ minHeight: 44 }}>{creating ? 'Creating…' : 'Create'}</button>}
+        right={<Button variant="secondary" onClick={create} loading={creating} style={{ minHeight: 44 }}>Create</Button>}
       />
 
         <div className="px-5 pt-4 space-y-4">
