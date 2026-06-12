@@ -31,25 +31,6 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function computeEquity(transactions: Transaction[], bands: BuyBand[], allowedSymbols: string[]): EquitySummary {
-  const allowed = new Set(allowedSymbols)
-  const bySymbol: Record<string, Transaction[]> = {}
-  for (const t of transactions) {
-    if (allowed.size > 0 && !allowed.has(t.symbol)) continue
-    ;(bySymbol[t.symbol] ??= []).push(t)
-  }
-  let invested = 0, currentValue = 0, holdingsCount = 0
-  for (const [symbol, txns] of Object.entries(bySymbol)) {
-    const { qty, cost } = seqCost(txns)
-    if (qty <= 0.001) continue
-    holdingsCount++
-    invested     += cost
-    const band    = bands.find(b => b.symbol === symbol)
-    currentValue += band?.manual_cmp ? qty * band.manual_cmp : cost
-  }
-  return { holdingsCount, invested, currentValue }
-}
-
 function computeStockHoldings(
   transactions: Transaction[],
   bands: BuyBand[],
@@ -61,12 +42,13 @@ function computeStockHoldings(
     if (allowed.size > 0 && !allowed.has(t.symbol)) continue
     ;(bySymbol[t.symbol] ??= []).push(t)
   }
+  const cmpBySymbol = new Map(bands.map(b => [b.symbol, b.manual_cmp]))
   return Object.entries(bySymbol)
     .flatMap(([symbol, txns]) => {
       const { qty, cost } = seqCost(txns)
       if (qty <= 0.001) return []
-      const band = bands.find(b => b.symbol === symbol)
-      const currentValue = band?.manual_cmp ? qty * band.manual_cmp : null
+      const cmp = cmpBySymbol.get(symbol)
+      const currentValue = cmp ? qty * cmp : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
       return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal }]
@@ -241,8 +223,13 @@ export default function PortfolioClient({
     })
   }, [mfFunds, refreshKey])
 
-  const equity        = useMemo(() => computeEquity(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
+  // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
+  const equity: EquitySummary = useMemo(() => ({
+    holdingsCount: stockHoldings.length,
+    invested:      stockHoldings.reduce((s, h) => s + h.invested, 0),
+    currentValue:  stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0),
+  }), [stockHoldings])
   const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
   const ppf           = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])
@@ -258,7 +245,7 @@ export default function PortfolioClient({
   const totalGain       = totalCurrent - totalInvested
 
   // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
-  // Use the same symbol filter as computeEquity for consistency with totalCurrent.
+  // Use the same symbol filter as computeStockHoldings for consistency with totalCurrent.
   const overallXirr = useMemo(() => {
     if (navsLoading || (sgbTransactions.length > 0 && goldPrice === null)) return null
     const equityTxns = latestYearSymbols.length > 0

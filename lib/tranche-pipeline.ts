@@ -7,7 +7,7 @@
 import { revalidateTag } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  computeTranchePrices, computeTrancheAmounts, stagedDeepCmp,
+  computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, snapPrice, snapUnit,
   INDEX_CATEGORIES, convictionMatrix, effectiveBands,
 } from './band-calculator'
 import { computeSnowball } from './snowball'
@@ -176,15 +176,13 @@ export async function generateTranchesForSymbol(
   if (sortedPrices.length >= 2 && allSymbolBuys && allSymbolBuys.length > 0) {
     const priceMin = sortedPrices[sortedPrices.length - 1]
     const priceMax = sortedPrices[0]
-    const snap = (p: number) => { const u = p < 500 ? 5 : 10; return Math.round(p / u) * u }
     const anchorRaw = (allSymbolBuys as { price: number }[])
       .map(t => t.price)
       .filter(p => p >= priceMin && p <= priceMax)
       .sort((a, b) => b - a)[0]
     if (anchorRaw != null) {
-      const anchor = snap(anchorRaw)
-      const minUnit = anchor < 500 ? 5 : 10
-      const alreadyCovered = sortedPrices.some(p => Math.abs(p - anchor) <= minUnit)
+      const anchor = snapPrice(anchorRaw)
+      const alreadyCovered = sortedPrices.some(p => Math.abs(p - anchor) <= snapUnit(anchor))
       if (!alreadyCovered) {
         const closestIdx = sortedPrices.reduce((best, p, i) =>
           Math.abs(p - anchor) < Math.abs(sortedPrices[best] - anchor) ? i : best, 0)

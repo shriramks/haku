@@ -205,6 +205,17 @@ const SNAP_LARGE      = 10
 const MIN_GAP_RATIO   = 0.03  // Minimum %-gap between adjacent tranches
 const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to linear
 
+/** Snap unit for a price: < ₹500 → ₹5, ≥ ₹500 → ₹10 */
+export function snapUnit(price: number): number {
+  return price < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
+}
+
+/** Round a price to its snap unit */
+export function snapPrice(price: number): number {
+  const unit = snapUnit(price)
+  return Math.round(price / unit) * unit
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export interface BandInput {
@@ -315,8 +326,7 @@ export function stagedDeepCmp(
 ): number | null {
   const isDeep = liveCmp !== null && liveCmp < buyLow
   if (!isDeep || minBuyPrice === null) return liveCmp
-  const snap = minBuyPrice < 500 ? 5 : 10
-  return Math.min(liveCmp, minBuyPrice - snap)
+  return Math.min(liveCmp, minBuyPrice - snapUnit(minBuyPrice))
 }
 
 /** Tranche suggestion: 1–2% of total capital, capped at remaining */
@@ -420,9 +430,7 @@ export function computeTranchePrices(
     const step       = deepCount > 1 ? deepExtension / (deepCount - 1) : 0
     const deepPrices: number[] = []
     for (let i = 0; i < deepCount; i++) {
-      const raw  = ref * (1 - step * i)
-      const snap = raw < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
-      deepPrices.push(Math.round(raw / snap) * snap)
+      deepPrices.push(snapPrice(ref * (1 - step * i)))
     }
     return [...new Set(deepPrices)]
   }
@@ -433,19 +441,13 @@ export function computeTranchePrices(
 
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
-    const t    = usedCount > 1 ? i / (usedCount - 1) : 0
-    const raw  = floor + t * range
-    const snap = raw < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
-    prices.push(Math.round(raw / snap) * snap)
+    const t = usedCount > 1 ? i / (usedCount - 1) : 0
+    prices.push(snapPrice(floor + t * range))
   }
 
   // Hard cap: no tranche above CMP (snap down so we stay below)
   const capped = cmp
-    ? prices.map(p => {
-        if (p <= cmp) return p
-        const snap = cmp < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
-        return Math.floor(cmp / snap) * snap
-      })
+    ? prices.map(p => p <= cmp ? p : Math.floor(cmp / snapUnit(cmp)) * snapUnit(cmp))
     : prices
 
   return [...new Set(capped)]

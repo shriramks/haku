@@ -33,59 +33,62 @@ export function xirr(cashflows: Cashflow[], guess = 0.1): number | null {
   return null
 }
 
-// Build XIRR cashflows from MF transactions + notional current value sale today.
-// Buys are negative (cash out), sells and current value are positive (cash in).
+// ── Cashflow builders ─────────────────────────────────────────────────────────
+// All asset-class XIRRs reduce to the same shape: transactions become signed
+// cashflows (outflow type negative), plus a notional terminal value on asOfDate.
+
+type FlowTxn = { trade_date: string; trade_type: string; amount: number }
+
+interface FlowRule {
+  out: string        // trade_type that is a cash outflow (negative)
+  skip?: string[]    // trade_types that are not cash flows at all
+  onlyOut?: boolean  // keep only outflow rows (EPF: deposits only, interest is in the balance)
+}
+
+const TRADE_RULE: FlowRule = { out: 'buy' }
+// Interest rows are not cash flows — they're already reflected in the balance
+const PPF_RULE: FlowRule = { out: 'deposit', skip: ['interest'] }
+const EPF_RULE: FlowRule = { out: 'deposit', onlyOut: true }
+
+function buildCashflows(txns: FlowTxn[], rule: FlowRule): Cashflow[] {
+  return txns
+    .filter(t => rule.onlyOut ? t.trade_type === rule.out : !rule.skip?.includes(t.trade_type))
+    .map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === rule.out ? -t.amount : t.amount }))
+}
+
+// Append the terminal value and run XIRR; needs at least one flow of each sign.
+function flowsXirr(flows: Cashflow[], terminalValue: number, asOfDate = new Date()): number | null {
+  const all = [...flows, { date: asOfDate, amount: terminalValue }]
+  if (!all.some(f => f.amount > 0) || !all.some(f => f.amount < 0)) return null
+  return xirr(all)
+}
+
 export function mfXirr(
   transactions: Pick<import('./portfolio-types').MFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentValue: number
 ): number | null {
-  const flows: Cashflow[] = [
-    ...transactions.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy' ? -t.amount : t.amount })),
-    { date: new Date(), amount: currentValue },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr(buildCashflows(transactions, TRADE_RULE), currentValue)
 }
 
 export function sgbXirr(
   transactions: Pick<import('./portfolio-types').SGBTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentValue: number
 ): number | null {
-  const flows: Cashflow[] = [
-    ...transactions.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy' ? -t.amount : t.amount })),
-    { date: new Date(), amount: currentValue },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr(buildCashflows(transactions, TRADE_RULE), currentValue)
 }
 
 export function ppfXirr(
   transactions: Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentBalance: number
 ): number | null {
-  // Interest rows are not cash flows — they're already reflected in currentBalance
-  const flows: Cashflow[] = [
-    ...transactions
-      .filter(t => t.trade_type !== 'interest')
-      .map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount : t.amount })),
-    { date: new Date(), amount: currentBalance },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr(buildCashflows(transactions, PPF_RULE), currentBalance)
 }
 
 export function epfXirr(
   transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
   currentBalance: number
 ): number | null {
-  const flows: Cashflow[] = [
-    ...transactions
-      .filter(t => t.trade_type === 'deposit')
-      .map(t => ({ date: new Date(t.trade_date), amount: -t.amount })),
-    { date: new Date(), amount: currentBalance },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr(buildCashflows(transactions, EPF_RULE), currentBalance)
 }
 
 export function computeEPFBalance(
@@ -148,12 +151,7 @@ export function stockXirr(
   currentValue: number,
   asOfDate: Date = new Date()
 ): number | null {
-  const flows: Cashflow[] = [
-    ...transactions.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy' ? -t.amount : t.amount })),
-    { date: asOfDate, amount: currentValue },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr(buildCashflows(transactions, TRADE_RULE), currentValue, asOfDate)
 }
 
 // Portfolio-level XIRR across all asset classes.
@@ -168,18 +166,11 @@ export function portfolioXirr(
   totalCurrentValue: number,
   asOfDate: Date = new Date()
 ): number | null {
-  const flows: Cashflow[] = [
-    ...stockTxns.map(t => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
-    ...mfTxns.map(t    => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
-    ...sgbTxns.map(t   => ({ date: new Date(t.trade_date), amount: t.trade_type === 'buy'     ? -t.amount          : t.amount })),
-    ...ppfTxns
-      .filter(t => t.trade_type !== 'interest')
-      .map(t             => ({ date: new Date(t.trade_date), amount: t.trade_type === 'deposit' ? -t.amount          : t.amount })),
-    ...epfTxns
-      .filter(t => t.trade_type === 'deposit')
-      .map(t             => ({ date: new Date(t.trade_date), amount: -t.amount })),
-    { date: asOfDate, amount: totalCurrentValue },
-  ]
-  if (!flows.some(f => f.amount > 0) || !flows.some(f => f.amount < 0)) return null
-  return xirr(flows)
+  return flowsXirr([
+    ...buildCashflows(stockTxns, TRADE_RULE),
+    ...buildCashflows(mfTxns,    TRADE_RULE),
+    ...buildCashflows(sgbTxns,   TRADE_RULE),
+    ...buildCashflows(ppfTxns,   PPF_RULE),
+    ...buildCashflows(epfTxns,   EPF_RULE),
+  ], totalCurrentValue, asOfDate)
 }
