@@ -130,6 +130,7 @@ Equity, debt, and gold are separate capital gains buckets — losses cannot cros
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
+- **Commit directly to `main`.** Push straight to `main` — never create a feature branch or open a PR for ordinary work.
 - **Git email:** always run `git config user.email "12730252+shriramks@users.noreply.github.com"` before committing.
 - **Never override ignore rules.** No `git add -f`, never stage ignored files.
 - **Diagnose bugs from code only.** If an error maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
