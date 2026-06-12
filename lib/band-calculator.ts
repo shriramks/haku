@@ -105,6 +105,62 @@ export function isBandStale(
   return !!(generatedAt && lastUpdatedAt && lastUpdatedAt > generatedAt)
 }
 
+// ── Risk overlay ──────────────────────────────────────────────────────────────
+
+/**
+ * Single source of truth for the risk overlay.
+ *
+ * The stored band row holds the *raw* PE-derived prices. A risk overlay scales
+ * every band price by `risk_multiplier` (e.g. 0.9 = 10% more conservative). This
+ * helper applies that one rule so buy-band display, snowball/conviction, and
+ * tranche pricing all consume identical effective bands — never duplicate the
+ * multiplication at a call site.
+ *
+ * Raw values are kept in the DB; the overlay is applied at compute time only, so
+ * changing or clearing it instantly reflows everything with no derived data lost.
+ *
+ * `risk_multiplier` of null or 1 means no overlay → raw values pass through and
+ * `hasOverlay` is false. Mid bands fall back to buy_high when absent (legacy rows).
+ */
+export interface EffectiveBands {
+  buyLow: number | null
+  buyHigh: number | null
+  midLow: number | null
+  midHigh: number | null
+  trimPrice: number | null
+  riskMultiplier: number | null   // normalized: null when no overlay
+  hasOverlay: boolean
+}
+
+export function effectiveBands(band: {
+  buy_low: number | null
+  buy_high: number | null
+  mid_low?: number | null
+  mid_high?: number | null
+  trim_price?: number | null
+  risk_multiplier?: number | null
+} | null): EffectiveBands {
+  const buyLow    = band?.buy_low ?? null
+  const buyHigh   = band?.buy_high ?? null
+  const midLow    = band?.mid_low ?? band?.buy_high ?? null
+  const midHigh   = band?.mid_high ?? band?.buy_high ?? null
+  const trimPrice = band?.trim_price ?? null
+
+  const m = band?.risk_multiplier ?? null
+  const hasOverlay = m != null && m !== 1
+  const scale = (v: number | null) => (hasOverlay && v != null ? v * m! : v)
+
+  return {
+    buyLow:    scale(buyLow),
+    buyHigh:   scale(buyHigh),
+    midLow:    scale(midLow),
+    midHigh:   scale(midHigh),
+    trimPrice: scale(trimPrice),
+    riskMultiplier: hasOverlay ? m : null,
+    hasOverlay,
+  }
+}
+
 // ── Conviction matrix ─────────────────────────────────────────────────────────
 
 export type WeightMode = 'equal' | 'quadratic' | 'cubic'

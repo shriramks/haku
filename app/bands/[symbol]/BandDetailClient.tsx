@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { INDEX_CATEGORIES, isBandStale } from '@/lib/band-calculator'
+import { INDEX_CATEGORIES, isBandStale, effectiveBands } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, BuyBandSnapshot } from '@/lib/types'
 import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
@@ -80,20 +80,15 @@ export default function BandDetailClient({
       .then(({ data }) => setUserId(data.session?.user?.id ?? null))
   }, [])
 
-  const buyLow    = band?.buy_low    ?? null
-  const buyHigh   = band?.buy_high   ?? null
-  const midLow    = band?.mid_low    ?? null
-  const midHigh   = band?.mid_high   ?? null
-  const trimPrice = band?.trim_price ?? null
-  const hasBands  = buyLow != null && trimPrice != null
-
-  const riskMultiplier = band?.risk_multiplier ?? null
-  const hasOverlay = riskMultiplier != null && riskMultiplier !== 1
-  const adjBuyLow    = hasBands && hasOverlay ? buyLow!    * riskMultiplier! : buyLow
-  const adjBuyHigh   = hasBands && hasOverlay ? buyHigh!   * riskMultiplier! : buyHigh
-  const adjMidLow    = hasBands && hasOverlay ? midLow!    * riskMultiplier! : midLow
-  const adjMidHigh   = hasBands && hasOverlay ? midHigh!   * riskMultiplier! : midHigh
-  const adjTrimPrice = hasBands && hasOverlay ? trimPrice! * riskMultiplier! : trimPrice
+  // effectiveBands is the single source of truth for the risk overlay — the same
+  // helper the tranche route uses, so display bands, snowball, and generated buy
+  // levels all reflect the multiplier identically.
+  const {
+    buyLow: adjBuyLow, buyHigh: adjBuyHigh,
+    midLow: adjMidLow, midHigh: adjMidHigh,
+    trimPrice: adjTrimPrice, riskMultiplier, hasOverlay,
+  } = effectiveBands(band)
+  const hasBands = adjBuyLow != null && adjTrimPrice != null
   const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
 
   const fyRemaining = fyRow?.remaining ?? 0

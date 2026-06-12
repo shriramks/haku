@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, INDEX_CATEGORIES, convictionMatrix } from '@/lib/band-calculator'
+import { computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, INDEX_CATEGORIES, convictionMatrix, effectiveBands } from '@/lib/band-calculator'
 import { computeSnowball } from '@/lib/snowball'
 import type { StockCategory } from '@/lib/types'
 
@@ -26,7 +26,7 @@ export async function POST(
       .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
-      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, trim_price')
+      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, trim_price, risk_multiplier')
       .eq('user_id', user.id).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_band_snapshots')
@@ -53,10 +53,10 @@ export async function POST(
   }
 
   // Use stored band values — bands are only recomputed on Regen Bands.
-  const buyLow  = band?.buy_low  ?? null
-  const buyHigh = band?.buy_high ?? null
-  const midLow  = band?.mid_low  ?? band?.buy_high ?? null
-  const midHigh = band?.mid_high ?? band?.buy_high ?? null
+  // effectiveBands applies the risk overlay (risk_multiplier) once, so every
+  // downstream step — snowball, conviction, staged-deep cap, tranche pricing —
+  // sees the same adjusted bands as the Buy Band display.
+  const { buyLow, buyHigh, midLow, midHigh, trimPrice } = effectiveBands(band)
 
   if (!buyLow || !buyHigh) {
     const why = !band
@@ -139,7 +139,6 @@ export async function POST(
   // Compute Snowball signal from stored snapshots and live CMP
   const snap0 = snapshots?.[0] ?? null
   const snap1 = snapshots?.[1] ?? null
-  const trimPrice = band?.trim_price ?? null
   const snowball = (liveCmp && trimPrice && midLow && midHigh)
     ? computeSnowball({
         cmp: liveCmp,

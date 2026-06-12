@@ -11,6 +11,7 @@ import {
   getSizeMod,
   isBandStale,
   convictionMatrix,
+  effectiveBands,
 } from '../band-calculator'
 
 // ── calculateBands — base multiples (no factor inputs → Path B, sizeMod=1, no ROCE → factor=1) ──
@@ -732,5 +733,59 @@ describe('computeTrancheAmounts — conviction-weighted sizing', () => {
     for (let i = 1; i < amounts.length; i++) {
       expect(amounts[i]).toBeGreaterThan(amounts[i - 1])
     }
+  })
+})
+
+describe('effectiveBands — risk overlay single source', () => {
+  const raw = {
+    buy_low: 100, buy_high: 120,
+    mid_low: 121, mid_high: 140, trim_price: 150,
+  }
+
+  it('passes raw values through when no overlay (null multiplier)', () => {
+    const eb = effectiveBands({ ...raw, risk_multiplier: null })
+    expect(eb).toMatchObject({
+      buyLow: 100, buyHigh: 120, midLow: 121, midHigh: 140, trimPrice: 150,
+      riskMultiplier: null, hasOverlay: false,
+    })
+  })
+
+  it('treats a multiplier of 1 as no overlay', () => {
+    const eb = effectiveBands({ ...raw, risk_multiplier: 1 })
+    expect(eb.hasOverlay).toBe(false)
+    expect(eb.riskMultiplier).toBeNull()
+    expect(eb.buyLow).toBe(100)
+  })
+
+  it('scales every band by the multiplier when overlay is active', () => {
+    const eb = effectiveBands({ ...raw, risk_multiplier: 0.9 })
+    expect(eb.hasOverlay).toBe(true)
+    expect(eb.riskMultiplier).toBe(0.9)
+    expect(eb.buyLow).toBeCloseTo(90)
+    expect(eb.buyHigh).toBeCloseTo(108)
+    expect(eb.midLow).toBeCloseTo(108.9)
+    expect(eb.midHigh).toBeCloseTo(126)
+    expect(eb.trimPrice).toBeCloseTo(135)
+  })
+
+  it('falls back to buy_high for missing mid bands (legacy rows), then scales', () => {
+    const eb = effectiveBands({
+      buy_low: 100, buy_high: 120, trim_price: 150, risk_multiplier: 0.9,
+    })
+    expect(eb.midLow).toBeCloseTo(108)   // 120 * 0.9
+    expect(eb.midHigh).toBeCloseTo(108)  // 120 * 0.9
+  })
+
+  it('returns all-null for a null band row', () => {
+    const eb = effectiveBands(null)
+    expect(eb).toMatchObject({
+      buyLow: null, buyHigh: null, midLow: null, midHigh: null,
+      trimPrice: null, riskMultiplier: null, hasOverlay: false,
+    })
+  })
+
+  it('preserves nulls (does not coerce) when scaling', () => {
+    const eb = effectiveBands({ buy_low: 100, buy_high: 120, risk_multiplier: 0.9 })
+    expect(eb.trimPrice).toBeNull()
   })
 })
