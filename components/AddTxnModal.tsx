@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/formatter'
-import { fyIdForDate } from '@/lib/fy-utils'
+import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Divider } from '@/components/Divider'
@@ -152,26 +152,16 @@ export default function AddTxnModal({
 
     if (assetType === 'stock') {
       if (!symbol || !qty || !price) { setLoading(false); return }
-      const sb = getSupabaseBrowser()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { onClose(); return }
-
-      const fyId = await fyIdForDate(sb, date)
-      const { error: txnErr } = await sb.from('transactions').insert({
-        user_id: user.id, symbol, exchange: 'NSE',
+      const { fyId, error: txnErr } = await addStockTransaction({
+        symbol, exchange: 'NSE',
         trade_date: date, trade_type: txnType,
         quantity: parseFloat(qty), price: parseFloat(price),
-        fy_id: fyId,
       })
+      if (txnErr === 'Not signed in') { onClose(); return }
       if (!txnErr && txnType === 'sell' && redeploy && fyId) {
-        const { data: fy } = await sb.from('fiscal_years')
-          .select('unallocated_carryover_inr').eq('id', fyId).single()
-        const current = fy?.unallocated_carryover_inr ?? 0
-        await sb.from('fiscal_years')
-          .update({ unallocated_carryover_inr: current + stockAmount })
-          .eq('id', fyId)
+        await redeployToFY(fyId, stockAmount)
       }
-      err = txnErr?.message ?? null
+      err = txnErr
 
     } else if (assetType === 'mf') {
       if (!mfFund || !mfUnits || !mfNav) { setLoading(false); return }

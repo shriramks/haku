@@ -2,11 +2,10 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { importStockTransactions } from '@/app/actions'
 import { formatINRFine } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { parseCsv, type ParsedRow } from '@/lib/csv-parser'
-import { fyIdForDate } from '@/lib/fy-utils'
 import BottomNav from '@/components/BottomNav'
 
 export default function ImportPage() {
@@ -43,57 +42,24 @@ export default function ImportPage() {
     setImporting(true)
     setImportError(null)
 
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    // Build fy_id map keyed by date to avoid N round-trips for same FY
-    const fyCache = new Map<string, string | null>()
-    async function getFyId(date: string) {
-      if (!fyCache.has(date)) fyCache.set(date, await fyIdForDate(sb, date))
-      return fyCache.get(date)!
-    }
-
-    // Pre-fetch unique FY ids
-    const uniqueDates = [...new Set(validRows.map(r => r.trade_date))]
-    await Promise.all(uniqueDates.map(getFyId))
-
-    // Build inserts — omit `amount` (GENERATED ALWAYS column)
-    const inserts = validRows.map(r => ({
-      user_id:    user.id,
-      symbol:     r.symbol,
-      exchange:   r.exchange,
-      trade_date: r.trade_date,
-      trade_type: r.trade_type,
-      quantity:   r.quantity,
-      price:      r.price,
-      fy_id:      fyCache.get(r.trade_date) ?? null,
-    }))
-
-    // Batch insert in chunks of 500
-    const CHUNK = 500
-    for (let i = 0; i < inserts.length; i += CHUNK) {
-      const { error } = await sb.from('transactions').insert(inserts.slice(i, i + CHUNK))
-      if (error) { setImportError(error.message); setImporting(false); return }
-    }
-
-    // Redeploy sell proceeds per FY
-    if (redeploy && sellRows.length > 0) {
-      // Group sell amounts by fy_id
-      const sellByFy = new Map<string, number>()
-      for (const r of sellRows) {
-        const fyId = fyCache.get(r.trade_date)
-        if (!fyId) continue
-        sellByFy.set(fyId, (sellByFy.get(fyId) ?? 0) + r.amount)
-      }
-      for (const [fyId, totalSell] of sellByFy) {
-        const { data: fy } = await sb.from('fiscal_years')
-          .select('unallocated_carryover_inr').eq('id', fyId).single()
-        const current = fy?.unallocated_carryover_inr ?? 0
-        await sb.from('fiscal_years')
-          .update({ unallocated_carryover_inr: current + totalSell })
-          .eq('id', fyId)
-      }
+    // Server action derives fy_id per date, chunks inserts, and redeploys
+    // sell proceeds — `amount` is omitted (GENERATED ALWAYS column)
+    const { error } = await importStockTransactions(
+      validRows.map(r => ({
+        symbol:     r.symbol,
+        exchange:   r.exchange,
+        trade_date: r.trade_date,
+        trade_type: r.trade_type,
+        quantity:   r.quantity,
+        price:      r.price,
+      })),
+      redeploy && sellRows.length > 0
+    )
+    if (error) {
+      if (error === 'Not signed in') { router.push('/login'); return }
+      setImportError(error)
+      setImporting(false)
+      return
     }
 
     setImporting(false)

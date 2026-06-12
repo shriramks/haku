@@ -20,9 +20,9 @@ export default async function TaxPage() {
   ] = await Promise.all([
     getFiscalYears(),
     getTransactions(),
-    userId ? svc.from('mf_funds').select('*').eq('user_id', userId).order('scheme_name') : empty,
-    userId ? svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
-    userId ? svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
+    userId ? svc.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').eq('user_id', userId).order('scheme_name') : empty,
+    userId ? svc.from('mf_transactions').select('id, fund_id, trade_date, trade_type, units, nav, amount').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
+    userId ? svc.from('sgb_transactions').select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name').eq('user_id', userId).order('trade_date', { ascending: true }) : empty,
     getAllDividends(),
   ])
 

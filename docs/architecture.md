@@ -30,6 +30,25 @@
 
 ---
 
+## Data Caching & Writes
+
+Server pages fetch through `lib/data.ts`. Fetchers wrapped in `unstable_cache` persist across requests and are invalidated by `revalidateTag` from server actions:
+
+| Fetcher | Tag | Fallback TTL | Invalidated by |
+|---|---|---|---|
+| `getFiscalYears` | `fiscal_years` | 1 h | plan create/edit, sell-proceeds redeploy |
+| `getBuyBands` | `buy_bands` | 5 min | band generate, CMP upsert, risk overlay save |
+| `getBuyTranches` | `buy_tranches` | 2 min | tranche generate/CRUD |
+| `getTransactions`, `getTransactionsBySymbol` | `transactions` | 1 h | stock txn add/edit/delete/import |
+| `getDividendsForSymbol`, `getAllDividends` | `dividend_transactions` | 5 min | dividend save |
+| `getLatestSnapshot(s)` | `buy_band_snapshots` | 5 min | snapshot save |
+
+Everything else (`getAllocations`, portfolio tables) uses per-request `cache()` only.
+
+**Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions in `app/actions.ts` (or API routes for bands/tranches) that write and revalidate together. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. Uncached tables (MF/gold/PPF/EPF transactions, stock_allocations) may be written from the browser under RLS.
+
+---
+
 ## Snowball Model
 
 `lib/snowball.ts` combines price zone with three fundamental conditions to produce an entry signal.

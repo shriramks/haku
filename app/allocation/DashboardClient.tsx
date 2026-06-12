@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { computeStockRows } from '@/lib/compute'
+import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
@@ -16,11 +16,11 @@ interface Props {
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
   initialTransactions: Transaction[]
-  initialAllTransactions: Transaction[]
+  allTimeHoldings: Record<string, AllTimeHolding>
   bands: BuyBand[]
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialAllTransactions, bands }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState(initialTransactions)
@@ -30,9 +30,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     computeStockRows(
       allocations, transactions, bands,
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
-      initialAllTransactions,
+      allTimeHoldings,
     ),
-    [allocations, transactions, bands, selectedFY, initialAllTransactions]
+    [allocations, transactions, bands, selectedFY, allTimeHoldings]
   )
 
   async function switchFY(fy: FiscalYear) {

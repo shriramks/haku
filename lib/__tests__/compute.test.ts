@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStockRows, seqCost } from '../compute'
+import { computeStockRows, computeAllTimeHoldings, seqCost } from '../compute'
 import type { StockAllocation, Transaction, BuyBand } from '../types'
 
 const FY25 = 'fy25-id'
@@ -128,23 +128,23 @@ describe('computeStockRows — currentCost (FY-scoped)', () => {
     expect(row.currentCost).toBe(50 * 360)  // 18000 — old pre-harvest cost doesn't bleed in
   })
 
-  it('no FY transactions → currentCost=0 even if allTransactions has prior-FY buys', () => {
+  it('no FY transactions → currentCost=0 even if all-time holdings have prior-FY buys', () => {
     // Stock accumulated in FY25, no activity in FY26
     const allocs  = [mkAlloc('CAMS', 10, FY26)]
     const fyTxns  : Transaction[] = []
-    const allTxns = [mkTxn('CAMS', 'buy', 100, 1500, FY25)]
-    const [row]   = computeStockRows(allocs, fyTxns, noBands, totalBudget, allTxns)
+    const allTime = computeAllTimeHoldings([mkTxn('CAMS', 'buy', 100, 1500, FY25)])
+    const [row]   = computeStockRows(allocs, fyTxns, noBands, totalBudget, allTime)
     expect(row.currentCost).toBe(0)       // nothing deployed this FY
     expect(row.qty).toBe(100)             // but shares are still held (all-time)
     expect(row.avgCost).toBe(1500)        // and avg cost is known for unrealised PnL
     expect(row.spent).toBe(0)
   })
 
-  it('allTransactions does not affect currentCost — only qty/avgCost', () => {
+  it('all-time holdings do not affect currentCost — only qty/avgCost', () => {
     const allocs   = [mkAlloc('INFY', 10, FY26)]
     const fyTxns   = [mkTxn('INFY', 'buy', 50, 1800, FY26)]
-    const allTxns  = [mkTxn('INFY', 'buy', 100, 1500, FY25), mkTxn('INFY', 'buy', 50, 1800, FY26)]
-    const [row]    = computeStockRows(allocs, fyTxns, noBands, totalBudget, allTxns)
+    const allTime  = computeAllTimeHoldings([mkTxn('INFY', 'buy', 100, 1500, FY25), mkTxn('INFY', 'buy', 50, 1800, FY26)])
+    const [row]    = computeStockRows(allocs, fyTxns, noBands, totalBudget, allTime)
     expect(row.currentCost).toBe(50 * 1800)   // FY26 only
     expect(row.qty).toBe(150)                  // all-time
     expect(row.avgCost).toBe(1600)             // all-time avg

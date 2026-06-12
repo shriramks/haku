@@ -961,7 +961,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (!prior) return
 
     getSupabaseBrowser()
-      .from('stock_allocations').select('*')
+      .from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category')
       .eq('fy_id', prior.id)
       .then(({ data }) => { if (data?.length) setSourceAllocs(data) })
   }, [selectedYear, existingFYs])
@@ -981,7 +981,8 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
     // Live check — cached props may be stale if a previous session created this FY
     const { data: alreadyExists } = await sb.from('fiscal_years')
-      .select('*').eq('user_id', user.id).eq('label', label).maybeSingle()
+      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr')
+      .eq('user_id', user.id).eq('label', label).maybeSingle()
     if (alreadyExists) {
       setCreating(false)
       await revalidateFiscalYears()

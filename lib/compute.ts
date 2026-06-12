@@ -42,12 +42,33 @@ export function seqCost(txns: Transaction[]): {
 
 // ── Stock rows ────────────────────────────────────────────────────────────────
 
+export interface AllTimeHolding { qty: number; avgCost: number }
+
+/**
+ * Per-symbol all-time {qty, avgCost} via seqCost — computed server-side so the
+ * full transaction history never ships to the client just for these aggregates.
+ */
+export function computeAllTimeHoldings(transactions: Transaction[]): Record<string, AllTimeHolding> {
+  const bySymbol = new Map<string, Transaction[]>()
+  for (const t of transactions) {
+    const list = bySymbol.get(t.symbol)
+    if (list) list.push(t)
+    else bySymbol.set(t.symbol, [t])
+  }
+  const holdings: Record<string, AllTimeHolding> = {}
+  for (const [symbol, txns] of bySymbol) {
+    const { qty, avgCost } = seqCost(txns)
+    holdings[symbol] = { qty, avgCost }
+  }
+  return holdings
+}
+
 export function computeStockRows(
   allocations: StockAllocation[],
   transactions: Transaction[],
   bands: BuyBand[],
   totalBudget: number,
-  allTransactions?: Transaction[],
+  allTimeHoldings?: Record<string, AllTimeHolding>,
 ): StockRow[] {
   return allocations.map(alloc => {
     const txns  = transactions.filter(t => t.symbol === alloc.symbol)
@@ -71,11 +92,11 @@ export function computeStockRows(
     const { cost: currentCost } = seqCost(txns)
 
     // All-time holdings — qty, avgCost, unrealisedPnL only.
-    // Uses allTransactions so prior-FY holdings aren't lost when
+    // Uses the all-time map so prior-FY holdings aren't lost when
     // a stock has no transactions in the current FY.
-    const allTxns = (allTransactions ?? transactions)
-      .filter(t => t.symbol === alloc.symbol)
-    const { qty: allTimeQty, avgCost: allTimeAvg } = seqCost(allTxns)
+    const { qty: allTimeQty, avgCost: allTimeAvg } = allTimeHoldings
+      ? (allTimeHoldings[alloc.symbol] ?? { qty: 0, avgCost: 0 })
+      : seqCost(txns)
 
     const band = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp  = band?.manual_cmp ?? null

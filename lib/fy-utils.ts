@@ -27,14 +27,16 @@ export function fyDateRange(date: Date | string): { start: string; end: string }
  * Looks up the fiscal_years row whose range contains the given trade date.
  * fy_id must always be derived from trade_date — including on edits — never
  * carried over from a previous value.
+ * Pass `userId` when calling with the service client (no RLS scoping).
  */
-export async function fyIdForDate(sb: SupabaseClient, dateStr: string): Promise<string | null> {
+export async function fyIdForDate(sb: SupabaseClient, dateStr: string, userId?: string): Promise<string | null> {
   const { start, end } = fyDateRange(dateStr)
-  const { data } = await sb
+  let q = sb
     .from('fiscal_years').select('id')
     .gte('start_date', start)
     .lte('end_date', end)
-    .limit(1)
+  if (userId) q = q.eq('user_id', userId)
+  const { data } = await q.limit(1)
   return data?.[0]?.id ?? null
 }
 

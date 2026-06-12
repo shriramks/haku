@@ -9,10 +9,12 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Inv
 // unstable_cache  — persists across requests in the Next.js Data Cache
 //
 // Caching policy:
-//   getFiscalYears : 1 hour   — changes only when user creates/edits a plan
-//   getBuyBands    : 5 min    — on-demand revalidated via revalidateTag('buy_bands') on generate
-//   getBuyTranches : 2 min    — on-demand revalidated via revalidateTag('buy_tranches') on generate
-//   everything else: no cross-request cache — mutated client-side without server invalidation paths
+//   getFiscalYears  : 1 hour   — changes only when user creates/edits a plan
+//   getBuyBands     : 5 min    — on-demand revalidated via revalidateTag('buy_bands') on generate
+//   getBuyTranches  : 2 min    — on-demand revalidated via revalidateTag('buy_tranches') on generate
+//   getTransactions / getTransactionsBySymbol : 1 hour — all writes go through
+//     server actions in app/actions.ts which revalidateTag('transactions')
+//   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
 
@@ -53,31 +55,47 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
   return data ?? []
 })
 
+const _fetchTransactions = unstable_cache(
+  async (userId: string, fyId?: string): Promise<Transaction[]> => {
+    const q = createSupabaseServiceClient()
+      .from('transactions')
+      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes, created_at')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: false })
+      .order('created_at', { ascending: false })
+    const { data } = fyId
+      ? await q.eq('fy_id', fyId)
+      : await q
+    return data ?? []
+  },
+  ['transactions'],
+  { revalidate: 3600, tags: ['transactions'] }
+)
+
 export const getTransactions = cache(async (fyId?: string): Promise<Transaction[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const q = createSupabaseServiceClient()
-    .from('transactions')
-    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes, created_at')
-    .eq('user_id', userId)
-    .order('trade_date', { ascending: false })
-    .order('created_at', { ascending: false })
-  const { data } = fyId
-    ? await q.eq('fy_id', fyId)
-    : await q
-  return data ?? []
+  return _fetchTransactions(userId, fyId)
 })
+
+const _fetchTransactionsBySymbol = unstable_cache(
+  async (userId: string, symbol: string): Promise<Transaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('transactions')
+      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('trade_date', { ascending: false })
+    return data ?? []
+  },
+  ['transactions_by_symbol'],
+  { revalidate: 3600, tags: ['transactions'] }
+)
 
 export const getTransactionsBySymbol = cache(async (symbol: string): Promise<Transaction[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('transactions')
-    .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes')
-    .eq('user_id', userId)
-    .eq('symbol', symbol)
-    .order('trade_date', { ascending: false })
-  return data ?? []
+  return _fetchTransactionsBySymbol(userId, symbol)
 })
 
 export const getSymbolAllocations = cache(async (symbol: string): Promise<StockAllocation[]> => {
@@ -163,7 +181,7 @@ export const getInvestabilityForSymbol = cache(async (symbol: string): Promise<I
   if (!userId) return null
   const { data } = await createSupabaseServiceClient()
     .from('investability')
-    .select('*')
+    .select('id, symbol, assessed_at, g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation, g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory, g9_market_cap, g10_capital_discipline, total_score, investable, notes, rationale')
     .eq('user_id', userId)
     .eq('symbol', symbol)
     .maybeSingle()

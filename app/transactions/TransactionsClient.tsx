@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatDate, formatPriceNum } from '@/lib/formatter'
-import { fyIdForDate } from '@/lib/fy-utils'
+import { updateStockTransaction, deleteStockTransaction } from '@/app/actions'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -917,13 +917,17 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
   function cancelEdit() { setActiveEdit(null) }
 
   async function doDelete() {
-    const table =
-      txn.asset === 'stock' ? 'transactions' :
-      txn.asset === 'mf'    ? 'mf_transactions' :
-      txn.asset === 'gold'  ? 'sgb_transactions' :
-      txn.asset === 'ppf'   ? 'ppf_transactions' :
-                              'epf_transactions'
-    await getSupabaseBrowser().from(table).delete().eq('id', txn.id)
+    if (txn.asset === 'stock') {
+      // Server action — invalidates the 'transactions' cache tag
+      await deleteStockTransaction(txn.id)
+    } else {
+      const table =
+        txn.asset === 'mf'   ? 'mf_transactions' :
+        txn.asset === 'gold' ? 'sgb_transactions' :
+        txn.asset === 'ppf'  ? 'ppf_transactions' :
+                               'epf_transactions'
+      await getSupabaseBrowser().from(table).delete().eq('id', txn.id)
+    }
     onDelete(txn.id, txn.asset)
   }
 
@@ -935,13 +939,10 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       const qty   = parseFloat(activeEdit.qty)
       const price = parseFloat(activeEdit.price)
       if (!qty || !price || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
-      // fy_id is always derived from trade_date — a date edit can move the
-      // transaction into a different FY, so never keep the stored value.
-      const sb = getSupabaseBrowser()
-      const fyId = await fyIdForDate(sb, activeEdit.date)
-      const patch = { quantity: qty, price, trade_date: activeEdit.date, fy_id: fyId }
-      await sb.from('transactions').update(patch).eq('id', txn.id)
-      onSavedStock({ ...stock, ...patch, amount: qty * price })
+      // fy_id is re-derived from trade_date inside the action — a date edit
+      // can move the transaction into a different FY.
+      const { fyId } = await updateStockTransaction(txn.id, { quantity: qty, price, trade_date: activeEdit.date })
+      onSavedStock({ ...stock, quantity: qty, price, trade_date: activeEdit.date, fy_id: fyId, amount: qty * price })
 
     } else if (activeEdit.kind === 'mf' && mf) {
       const units = parseFloat(activeEdit.units)

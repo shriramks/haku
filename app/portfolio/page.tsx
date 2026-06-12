@@ -15,10 +15,13 @@ export default async function PortfolioPage() {
   const userId = session.user.id
   const svc    = createSupabaseServiceClient()
 
+  const fiscalYears = await getFiscalYears()
+  const currentFY   = getCurrentFY(fiscalYears)
+
   const [
     allTransactions,
     bands,
-    fiscalYears,
+    currentFYAllocations,
     { data: mfFunds },
     { data: mfTransactions },
     { data: sgbTransactions },
@@ -28,17 +31,15 @@ export default async function PortfolioPage() {
   ] = await Promise.all([
     getTransactions(),
     getBuyBands(),
-    getFiscalYears(),
-    svc.from('mf_funds').select('*').eq('user_id', userId).order('scheme_name'),
-    svc.from('mf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }).order('trade_type', { ascending: true }),
-    svc.from('sgb_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
-    svc.from('ppf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
-    svc.from('ppf_balance_override').select('*').eq('user_id', userId).limit(1),
-    svc.from('epf_transactions').select('*').eq('user_id', userId).order('trade_date', { ascending: true }),
+    currentFY ? getAllocations(currentFY.id) : Promise.resolve([]),
+    svc.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').eq('user_id', userId).order('scheme_name'),
+    svc.from('mf_transactions').select('id, fund_id, trade_date, trade_type, units, nav, amount').eq('user_id', userId).order('trade_date', { ascending: true }).order('trade_type', { ascending: true }),
+    svc.from('sgb_transactions').select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name').eq('user_id', userId).order('trade_date', { ascending: true }),
+    svc.from('ppf_transactions').select('id, trade_date, trade_type, amount, notes').eq('user_id', userId).order('trade_date', { ascending: true }),
+    svc.from('ppf_balance_override').select('id, balance, as_of_date').eq('user_id', userId).limit(1),
+    svc.from('epf_transactions').select('id, trade_date, trade_type, amount, notes').eq('user_id', userId).order('trade_date', { ascending: true }),
   ])
 
-  const currentFY = getCurrentFY(fiscalYears)
-  const currentFYAllocations = currentFY ? await getAllocations(currentFY.id) : []
   const latestYearSymbols = currentFYAllocations.map(a => a.symbol)
 
   return (

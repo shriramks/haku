@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { addStockTransaction } from '@/app/actions'
 import BottomNav from '@/components/BottomNav'
-import { todayISO, formatINRFine } from '@/lib/formatter'
-import { fyIdForDate } from '@/lib/fy-utils'
+import { todayISO } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 
 export default function AddPage() {
@@ -45,19 +45,17 @@ export default function AddPage() {
     if (!symbol || !qty || !price) return
     setLoading(true); setError(null)
 
-    const sb = getSupabaseBrowser()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    const { error } = await sb.from('transactions').insert({
-      user_id: user.id, symbol, exchange: 'NSE',
+    const { error } = await addStockTransaction({
+      symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
-      fy_id: await fyIdForDate(sb, date),
     })
 
     setLoading(false)
-    if (error) { setError(error.message); return }
+    if (error) {
+      if (error === 'Not signed in') { router.push('/login'); return }
+      setError(error); return
+    }
 
     // Bust Next.js router cache so allocation page reflects new transaction
     router.refresh()

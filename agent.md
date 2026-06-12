@@ -79,6 +79,8 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 ## Data / caching
 
 - DB writes go through server actions in `app/actions.ts`; always call `revalidateTag(tag)` after a write — otherwise `unstable_cache` serves stale data.
+- Cached tables (see the caching table in `docs/architecture.md`): `fiscal_years`, `transactions`, `buy_bands`, `buy_tranches`, `dividend_transactions`, `buy_band_snapshots` — every write must revalidate the matching tag: prefer a server action that writes + revalidates; a browser write is only OK if immediately followed by the matching revalidate action (PlanClient pattern). Uncached tables (MF/gold/PPF/EPF, `stock_allocations`) may be written client-side under RLS.
+- Stock transaction writes use `addStockTransaction` / `updateStockTransaction` / `deleteStockTransaction` / `importStockTransactions`; `fy_id` is derived server-side from `trade_date`.
 - DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and filter client-side.
 
 ---
