@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatDate, formatPriceNum } from '@/lib/formatter'
+import { fyIdForDate } from '@/lib/fy-utils'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -934,8 +935,12 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       const qty   = parseFloat(activeEdit.qty)
       const price = parseFloat(activeEdit.price)
       if (!qty || !price || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
-      const patch = { quantity: qty, price, trade_date: activeEdit.date }
-      await getSupabaseBrowser().from('transactions').update(patch).eq('id', txn.id)
+      // fy_id is always derived from trade_date — a date edit can move the
+      // transaction into a different FY, so never keep the stored value.
+      const sb = getSupabaseBrowser()
+      const fyId = await fyIdForDate(sb, activeEdit.date)
+      const patch = { quantity: qty, price, trade_date: activeEdit.date, fy_id: fyId }
+      await sb.from('transactions').update(patch).eq('id', txn.id)
       onSavedStock({ ...stock, ...patch, amount: qty * price })
 
     } else if (activeEdit.kind === 'mf' && mf) {

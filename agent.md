@@ -45,6 +45,8 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | `lib/compute.ts` | Stock row computation: allocation, spent, currentCost, bands, XIRR |
 | `lib/mf-compute.ts` | MF holding computation: units, cost, current value, XIRR |
 | `lib/band-calculator.ts` | PE/PB/EV band price calculation by category |
+| `lib/tranche-pipeline.ts` | Buy-level generation pipeline — shared by tranches + bands generate routes |
+| `lib/fy-utils.ts` | FY selection + Apr–Mar date math: `getCurrentFY`, `fyIdForDate`, `fiscalQuarterLabel` |
 | `lib/data.ts` | Supabase data fetching helpers |
 | `lib/xirr.ts` | XIRR implementation |
 | `lib/formatter.ts` | `formatPriceNum()`, `formatDate()`, compact Indian number formatting |

@@ -1,5 +1,7 @@
 // Indian currency compact formatting: "1.32 L", "2.4 cr", "8.4 K" (thin space before unit)
 
+import { fyEndYear } from './fy-utils'
+
 const CR  = 1_00_00_000
 const LAC = 1_00_000
 const K   = 1_000
@@ -114,8 +116,5 @@ export function todayISO(): string {
 /** Infer FY label from a date: Apr–Mar cycle → "FY25" */
 export function fyLabel(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  const month = d.getMonth() + 1  // 1-indexed
-  const year  = d.getFullYear()
-  const fyEnd = month >= 4 ? year + 1 : year
-  return `FY${(fyEnd % 100).toString().padStart(2, '0')}`
+  return `FY${(fyEndYear(d) % 100).toString().padStart(2, '0')}`
 }

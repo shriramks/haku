@@ -9,7 +9,7 @@ import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
 import BandBar from '@/components/BandBar'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
-import { revalidateBuyBands } from '@/app/actions'
+import { revalidateBuyBands, revalidateBuyTranches } from '@/app/actions'
 import UserMenu from '@/components/UserMenu'
 import { DetailRow } from '@/components/detail-rows'
 import RiskOverlaySheet from './RiskOverlaySheet'
@@ -132,7 +132,7 @@ export default function BandDetailClient({
           week_52_high: week52High ?? null,
         }).eq('id', band.id)
         setBand(prev => prev ? { ...prev, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : prev)
-        revalidateBuyBands()
+        await revalidateBuyBands()
       } else {
         const { data: { user } } = await sb.auth.getUser()
         if (user) {
@@ -141,6 +141,7 @@ export default function BandDetailClient({
             manual_cmp: price,
           }, { onConflict: 'user_id,symbol' }).select().single()
           if (data) setBand(data)
+          await revalidateBuyBands()
         }
       }
     } catch {
@@ -216,21 +217,25 @@ export default function BandDetailClient({
       sort_order: tranches.length + 1, fy_id: fyId,
     }).select().single()
     if (data) setTranches(prev => [...prev, data].sort((a, b) => b.price - a.price))
+    await revalidateBuyTranches()
   }
 
   async function updateTranche(id: string, qty: number, price: number) {
     setTranches(prev => prev.map(t => t.id === id ? { ...t, qty, price } : t))
     await getSupabaseBrowser().from('buy_tranches').update({ qty, price }).eq('id', id)
+    await revalidateBuyTranches()
   }
 
   async function deleteTranche(id: string) {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('id', id)
     setTranches(prev => prev.filter(t => t.id !== id))
+    await revalidateBuyTranches()
   }
 
   async function clearAllTranches() {
     await getSupabaseBrowser().from('buy_tranches').delete().eq('symbol', symbol).eq('fy_id', fyId)
     setTranches([])
+    await revalidateBuyTranches()
   }
 
   return (

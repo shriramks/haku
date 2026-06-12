@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/formatter'
+import { fyIdForDate } from '@/lib/fy-utils'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Divider } from '@/components/Divider'
@@ -155,14 +156,7 @@ export default function AddTxnModal({
       const { data: { user } } = await sb.auth.getUser()
       if (!user) { onClose(); return }
 
-      const d = new Date(date)
-      const fyEndYear = (d.getMonth() + 1) >= 4 ? d.getFullYear() + 1 : d.getFullYear()
-      const { data: fyRows } = await sb
-        .from('fiscal_years').select('id')
-        .gte('start_date', `${fyEndYear - 1}-04-01`)
-        .lte('end_date', `${fyEndYear}-03-31`)
-        .limit(1)
-      const fyId = fyRows?.[0]?.id ?? null
+      const fyId = await fyIdForDate(sb, date)
       const { error: txnErr } = await sb.from('transactions').insert({
         user_id: user.id, symbol, exchange: 'NSE',
         trade_date: date, trade_type: txnType,

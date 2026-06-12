@@ -35,6 +35,31 @@ export async function fetchCmp(symbol: string): Promise<number | null> {
   return (await fetchCmpQuote(symbol))?.price ?? null
 }
 
+export interface YearChart {
+  price: number | null
+  week52Low: number | null   // min of daily lows over the past year
+}
+
+/** Fetches the 1-year daily chart for an NSE symbol: live CMP (from meta) +
+ *  52-week low (from daily lows). Returns nulls on any failure. */
+export async function fetchYearChart(symbol: string): Promise<YearChart> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.NS?range=1y&interval=1d`,
+      { headers: { 'User-Agent': YAHOO_UA } }
+    )
+    if (!res.ok) return { price: null, week52Low: null }
+    const json = await res.json()
+    const result = json?.chart?.result?.[0]
+    const price: number | null = result?.meta?.regularMarketPrice ?? null
+    const dailyLows: (number | null)[] = result?.indicators?.quote?.[0]?.low ?? []
+    const validLows = dailyLows.filter((n): n is number => n != null && n > 0)
+    return { price, week52Low: validLows.length > 0 ? Math.min(...validLows) : null }
+  } catch {
+    return { price: null, week52Low: null }
+  }
+}
+
 export interface CmpQuoteBatch {
   prices: Record<string, number>
   week52: Record<string, { low: number | null; high: number | null }>

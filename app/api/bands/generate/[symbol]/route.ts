@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeGrowth, computeHospitalGrowth, computeTranchePrices, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
-import { fetchCmp } from '@/lib/market-data'
+import { calculateBands, computeGrowth, computeHospitalGrowth, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
 import { fetchScreenerData } from '@/lib/screener'
 import { fetchNseIndex } from '@/lib/nse'
+import { fiscalQuarterLabel } from '@/lib/fy-utils'
+import { generateTranchesForSymbol } from '@/lib/tranche-pipeline'
 import { saveSnapshotIfChanged } from '@/app/actions'
 import type { StockCategory } from '@/lib/types'
 
 type GenerateAction = 'bands' | 'financials'
-
-// Indian FY: Apr–Mar. Apr–Jun = Q1, Jul–Sep = Q2, Oct–Dec = Q3, Jan–Mar = Q4
-function fiscalQuarterLabel(d: Date): string {
-  const year = d.getFullYear()
-  const month = d.getMonth() + 1 // 1-based
-  const fyEnd = month >= 4 ? year + 1 : year
-  const quarter = month >= 4 && month <= 6 ? 'Q1'
-    : month >= 7 && month <= 9 ? 'Q2'
-    : month >= 10 && month <= 12 ? 'Q3'
-    : 'Q4'
-  return `FY${String(fyEnd).slice(-2)} ${quarter}`
-}
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
@@ -53,7 +42,7 @@ export async function POST(
       .single(),
     supabase
       .from('buy_bands')
-      .select('id, eps, pat_now, pat_3yr_ago, op_profit_cr, revenue_cr, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at, risk_multiplier')
+      .select('id, eps, pat_now, pat_3yr_ago, op_profit_cr, revenue_cr, roce_3yr_avg, mcap, index_level, index_pe, manual_cmp, notes, generated_at')
       .eq('user_id', user.id)
       .eq('symbol', upperSymbol)
       .maybeSingle(),
@@ -252,57 +241,17 @@ export async function POST(
 
   if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 })
 
+  // Regenerate buy levels through the shared pipeline so they reflect the bands
+  // just computed (the pipeline re-reads the upserted row). Blocked or failed
+  // generation is non-fatal here — the band regen itself succeeded.
   let generatedTranches: unknown[] = []
 
   if (fyId) {
-    const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
-      supabase.from('fiscal_years').select('total_budget_inr, unallocated_carryover_inr').eq('id', fyId).single(),
-      supabase.from('stock_allocations')
-        .select('allocation_pct')
-        .eq('user_id', user.id).eq('fy_id', fyId).eq('symbol', upperSymbol)
-        .maybeSingle(),
-      supabase.from('transactions')
-        .select('trade_type, amount')
-        .eq('user_id', user.id).eq('symbol', upperSymbol).eq('fy_id', fyId),
-    ])
-
-    const allocBudget = (fyAlloc && fy)
-      ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0))
-      : 0
-    const netSpent = (txns ?? []).reduce(
-      (s: number, t: { trade_type: string; amount: number }) =>
-        s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
-    const remaining = Math.max(0, allocBudget - netSpent)
-    const liveCmp: number | null = (await fetchCmp(upperSymbol)) ?? existingCmp
-    const rm = existingBand?.risk_multiplier ?? 1
-    const prices = computeTranchePrices(result.buyLow * rm, result.buyHigh * rm, liveCmp)
-    const amtPerTranche = prices.length > 0 ? remaining / prices.length : 0
-
-    await supabase.from('buy_tranches')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('symbol', upperSymbol)
-      .eq('fy_id', fyId)
-
-    const trancheRows = prices.map((price, i) => ({
-      user_id: user.id,
-      symbol: upperSymbol,
-      price,
-      qty: amtPerTranche > 0 ? Math.max(1, Math.round(amtPerTranche / price)) : 0,
-      sort_order: i + 1,
-      fy_id: fyId,
-    }))
-
-    const { data: inserted } = await supabase
-      .from('buy_tranches')
-      .insert(trancheRows)
-      .select()
-
-    generatedTranches = inserted ?? []
+    const gen = await generateTranchesForSymbol(supabase, user.id, upperSymbol, fyId)
+    if (gen.ok && !gen.blocked) generatedTranches = gen.tranches
   }
 
   revalidateTag('buy_bands', {})
-  revalidateTag('buy_tranches', {})
 
   return NextResponse.json({
     symbol: upperSymbol,

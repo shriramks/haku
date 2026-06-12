@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import type { StockRow, BuyBand, FiscalYear } from '@/lib/types'
+import { effectiveBands } from '@/lib/band-calculator'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon, YieldIcon } from '@/components/icons'
@@ -267,10 +268,9 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
         {sortedRows.map((row) => {
           const band      = bands.find(b => b.symbol === row.symbol)
           const isDone    = row.remaining <= 0
-          const buyLow    = band?.buy_low    ?? null
-          const buyHigh   = band?.buy_high   ?? null
-          const midHigh   = band?.mid_high   ?? null
-          const trimPrice = band?.trim_price ?? null
+          // effectiveBands applies the risk overlay so the list bar matches
+          // detail/tranches — never read raw buy_low/buy_high here.
+          const { buyLow, buyHigh, midHigh, trimPrice } = effectiveBands(band ?? null)
           const cmp       = band?.manual_cmp ?? null
           const hasBands  = buyLow != null && trimPrice != null
 

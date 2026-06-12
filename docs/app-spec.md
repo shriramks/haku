@@ -79,6 +79,13 @@ drives unrealised P&L on the bands screen, not the allocation screen.
 **`qty` and `avgCost` are all-time** (using all transactions, not FY-filtered).
 They are only used for unrealised P&L calculations, not for the allocation screen.
 
+#### `fy_id` is always derived from `trade_date`
+
+A transaction's `fy_id` is computed from its trade date (Apr–Mar cycle) via
+`lib/fy-utils.ts` — on insert, on CSV import, **and on every edit**. A date edit
+can move a transaction into a different FY, so the stored `fy_id` is never
+carried over.
+
 #### Why the split matters
 
 | Scenario | `spent` | `currentCost` | Correct? |
@@ -162,6 +169,12 @@ Open app
    - Trailing secondary (muted): Remaining (FY)
    - Bar fill: currentCost as % of FY budget (green)
 4. Completed / exited stocks — collapsed by default
+
+**Invested / Left semantics (strip and rows):** Invested amount **and** its %
+derive from `currentCost`; Left amount **and** its % derive from
+`budget − spent` (remaining). These are different measures (see Investment Math
+above), so the two percentages need not sum to 100 — never force them to by
+computing one as `100 − other`.
 
 **What is NOT here:** Band bars, tranche details, CMP, P&L.
 

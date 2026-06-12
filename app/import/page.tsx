@@ -6,18 +6,8 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINRFine } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { parseCsv, type ParsedRow } from '@/lib/csv-parser'
+import { fyIdForDate } from '@/lib/fy-utils'
 import BottomNav from '@/components/BottomNav'
-
-async function fyIdForDate(sb: ReturnType<typeof getSupabaseBrowser>, dateStr: string): Promise<string | null> {
-  const d = new Date(dateStr)
-  const fyEndYear = (d.getMonth() + 1) >= 4 ? d.getFullYear() + 1 : d.getFullYear()
-  const { data } = await sb
-    .from('fiscal_years').select('id')
-    .gte('start_date', `${fyEndYear - 1}-04-01`)
-    .lte('end_date',   `${fyEndYear}-03-31`)
-    .limit(1)
-  return data?.[0]?.id ?? null
-}
 
 export default function ImportPage() {
   const router = useRouter()

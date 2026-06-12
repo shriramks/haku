@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { revalidateBuyBands } from '@/app/actions'
 import type { BuyBand } from '@/lib/types'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -24,6 +25,7 @@ export default function RiskOverlaySheet({ band, onClose, onSaved }: {
     const { data } = await getSupabaseBrowser()
       .from('buy_bands').update({ risk_multiplier: multiplier }).eq('id', band.id).select().single()
     if (data) onSaved(data)
+    await revalidateBuyBands()
     setSaving(false)
     onClose()
   }
@@ -34,6 +36,7 @@ export default function RiskOverlaySheet({ band, onClose, onSaved }: {
     const { data } = await getSupabaseBrowser()
       .from('buy_bands').update({ risk_multiplier: null }).eq('id', band.id).select().single()
     if (data) onSaved(data)
+    await revalidateBuyBands()
     setSaving(false)
     onClose()
   }

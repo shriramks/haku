@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import BottomNav from '@/components/BottomNav'
 import { todayISO, formatINRFine } from '@/lib/formatter'
+import { fyIdForDate } from '@/lib/fy-utils'
 import { Num } from '@/components/Num'
 
 export default function AddPage() {
@@ -48,18 +49,11 @@ export default function AddPage() {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const d = new Date(date)
-    const fyEndYear = (d.getMonth() + 1) >= 4 ? d.getFullYear() + 1 : d.getFullYear()
-    const { data: fyRows } = await sb
-      .from('fiscal_years').select('id')
-      .gte('start_date', `${fyEndYear - 1}-04-01`)
-      .lte('end_date', `${fyEndYear}-03-31`).limit(1)
-
     const { error } = await sb.from('transactions').insert({
       user_id: user.id, symbol, exchange: 'NSE',
       trade_date: date, trade_type: type,
       quantity: parseFloat(qty), price: parseFloat(price),
-      fy_id: fyRows?.[0]?.id ?? null,
+      fy_id: await fyIdForDate(sb, date),
     })
 
     setLoading(false)

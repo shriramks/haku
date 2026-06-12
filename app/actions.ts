@@ -12,6 +12,10 @@ export async function revalidateBuyBands() {
   revalidateTag('buy_bands', {})
 }
 
+export async function revalidateBuyTranches() {
+  revalidateTag('buy_tranches', {})
+}
+
 /** Fetch allocations for a FY — used by PlanClient on FY switch */
 export async function getAllocationsForFY(fyId: string): Promise<StockAllocation[]> {
   return getAllocations(fyId)

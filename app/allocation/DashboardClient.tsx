@@ -51,14 +51,19 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     [rows]
   )
 
-  const { totalBudget, totalDeployed, totalRemaining, pctDeployed } = useMemo(() => {
-    const totalBudget   = rows.reduce((s, r) => s + r.budget, 0)
-    const totalDeployed = rows.reduce((s, r) => s + r.currentCost, 0)
+  // Invested pairs (amount + %) come from currentCost; Left pairs from
+  // budget − spent. Different measures by design (see app-spec investment
+  // math), so the two percentages need not sum to 100.
+  const { totalBudget, totalDeployed, totalRemaining, pctDeployed, pctLeft } = useMemo(() => {
+    const totalBudget    = rows.reduce((s, r) => s + r.budget, 0)
+    const totalDeployed  = rows.reduce((s, r) => s + r.currentCost, 0)
+    const totalRemaining = totalBudget - rows.reduce((s, r) => s + r.spent, 0)
     return {
       totalBudget,
       totalDeployed,
-      totalRemaining: totalBudget - rows.reduce((s, r) => s + r.spent, 0),
+      totalRemaining,
       pctDeployed: totalBudget > 0 ? (totalDeployed / totalBudget) * 100 : 0,
+      pctLeft: totalBudget > 0 ? (Math.max(0, totalRemaining) / totalBudget) * 100 : 0,
     }
   }, [rows])
 
@@ -87,7 +92,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
       {/* Summary strip — Plan | Left | Invested + bar */}
       {selectedFY && (() => {
-        const pctLeft = 100 - pctDeployed
         return (
           <div className="px-4 pt-4 pb-3 border-b" style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
             {/* Three stat columns, top-aligned */}
@@ -173,8 +177,11 @@ import type { StockRow } from '@/lib/types'
 
 function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
   const isDone      = row.remaining <= 0
-  const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.spent / row.budget) * 100)) : 100
-  const leftPct     = 100 - investedPct
+  // Invested % pairs with the currentCost amount below (and the bar fill);
+  // Left % pairs with the remaining (budget − spent) amount. Different bases —
+  // they need not sum to 100.
+  const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
+  const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
   return (
     <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
           className="block px-4 tap-row"
