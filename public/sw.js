@@ -1,5 +1,10 @@
-const CACHE = 'haku-v2'
+const CACHE = 'haku-v3'
 const OFFLINE_URL = '/offline'
+
+// Routes eligible for stale-while-revalidate on navigation requests.
+// Excludes /bands/[symbol] (per-stock financials, more sensitive).
+const NAV_ROUTES = /^\/(allocation|transactions|bands|portfolio|plan|dividends)(\/)?$/
+const NAV_TTL = 60_000
 
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -73,11 +78,38 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Network-first for navigations → offline fallback
+  // Navigations: SWR (with TTL) for main list routes; network-first elsewhere
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
-    )
+    if (NAV_ROUTES.test(pathname)) {
+      event.respondWith(
+        caches.open(CACHE).then(async cache => {
+          const cached = await cache.match(request)
+          const networkFetch = fetch(request).then(response => {
+            if (response.ok) {
+              const stamped = new Response(response.clone().body, {
+                status: response.status,
+                headers: new Headers(response.headers),
+              })
+              stamped.headers.set('x-sw-ts', String(Date.now()))
+              cache.put(request, stamped)
+            }
+            return response
+          }).catch(() => cached ?? caches.match(OFFLINE_URL))
+
+          if (cached) {
+            const ts = cached.headers.get('x-sw-ts')
+            const age = ts ? Date.now() - Number(ts) : Infinity
+            if (age < NAV_TTL) {
+              event.waitUntil(networkFetch)
+              return cached
+            }
+          }
+          return networkFetch
+        })
+      )
+    } else {
+      event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)))
+    }
     return
   }
 
