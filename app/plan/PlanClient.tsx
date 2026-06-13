@@ -16,6 +16,8 @@ import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { Button } from '@/components/Button'
+import { Stepper } from '@/components/Stepper'
+import { ConfirmButtons } from '@/components/ConfirmButtons'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -385,14 +387,12 @@ function PlanTab({
                       Clear All
                     </button>
                   ) : (
-                    <div className="flex items-center gap-2 px-4 py-3">
-                      <button onClick={() => setConfirmClear(false)}
-                        className="text-body px-3 rounded-xl"
-                        style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>Cancel</button>
-                      <button onClick={clearAllStocks}
-                        className="text-body font-semibold px-3 rounded-xl text-negative"
-                        style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>Remove all?</button>
-                    </div>
+                    <ConfirmButtons
+                      className="px-4 py-3"
+                      cancelLabel="Cancel" confirmLabel="Remove all?"
+                      onCancel={() => setConfirmClear(false)} onConfirm={clearAllStocks}
+                      variant="negative"
+                    />
                   )}
                 </div>
               )}
@@ -565,19 +565,12 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
         {/* Delete plan */}
         <div className="px-5 pt-2">
           {confirmDelete ? (
-            <div className="flex items-center gap-3">
-              <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>
-                {fyHasTxns ? 'Clear allocations?' : 'Delete this plan?'}
-              </p>
-              <button onClick={() => setConfirmDelete(false)}
-                className="px-3 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>No</button>
-              <button onClick={onDeleteFY}
-                className="px-3 rounded-xl text-subheadline font-semibold text-negative"
-                style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>
-                {fyHasTxns ? 'Clear' : 'Delete'}
-              </button>
-            </div>
+            <ConfirmButtons
+              message={fyHasTxns ? 'Clear allocations?' : 'Delete this plan?'}
+              cancelLabel="No" confirmLabel={fyHasTxns ? 'Clear' : 'Delete'}
+              onCancel={() => setConfirmDelete(false)} onConfirm={onDeleteFY}
+              variant="negative"
+            />
           ) : (
             <button onClick={() => setConfirmDelete(true)}
               className="w-full py-3 rounded-xl text-body font-medium text-negative"
@@ -658,30 +651,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         {/* % stepper → slider → plan context */}
         <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
           {/* Hero % */}
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => setPct(p => Math.max(1, parseFloat((p - 1).toFixed(1))))}
-              className="flex items-center justify-center rounded-full text-2xl font-light"
-              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-              −
-            </button>
-            <div className="flex items-baseline gap-1">
-              <input
-                type="number" inputMode="decimal"
-                value={pct}
-                onChange={e => setPct(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="font-bold tabnum text-right outline-none bg-transparent"
-                style={{ fontSize: 40, width: 72, color: 'var(--text-primary)' }}
-              />
-              <span className="font-bold" style={{ fontSize: 28, color: 'var(--text-primary)' }}>%</span>
-            </div>
-            <button
-              onClick={() => setPct(p => Math.min(sliderMax, parseFloat((p + 1).toFixed(1))))}
-              className="flex items-center justify-center rounded-full text-2xl font-light"
-              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-              +
-            </button>
-          </div>
+          <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
           {/* Stock INR amount */}
           <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
             {formatINRFine((pct / 100) * totalBudget)} allocated
@@ -763,17 +733,12 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         {/* Remove */}
         <div className="px-5 pt-4">
           {confirmRemove ? (
-            <div className="flex items-center gap-3">
-              <p className="flex-1 text-subheadline" style={{ color: 'var(--text-muted)' }}>Transactions kept</p>
-              <button onClick={() => setConfirmRemove(false)}
-                className="px-3 rounded-xl text-subheadline"
-                style={{ color: 'var(--text-muted)', background: 'var(--bg-tertiary)', minHeight: 44 }}>Keep</button>
-              <button onClick={handleRemove} disabled={removing}
-                className="px-3 rounded-xl text-subheadline font-semibold text-negative disabled:opacity-40"
-                style={{ background: 'rgba(255,59,48,0.10)', minHeight: 44 }}>
-                {removing ? 'Removing…' : 'Remove'}
-              </button>
-            </div>
+            <ConfirmButtons
+              message="Transactions kept"
+              cancelLabel="Keep" confirmLabel="Remove"
+              onCancel={() => setConfirmRemove(false)} onConfirm={handleRemove}
+              variant="negative" loading={removing}
+            />
           ) : (
             <button onClick={() => setConfirmRemove(true)}
               className="w-full py-3 rounded-xl text-body font-medium text-negative"
@@ -855,30 +820,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
 
         {/* % stepper + slider + plan context */}
         <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => setPct(p => Math.max(1, parseFloat((p - 1).toFixed(1))))}
-              className="flex items-center justify-center rounded-full text-2xl font-light"
-              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-              −
-            </button>
-            <div className="flex items-baseline gap-1">
-              <input
-                type="number" inputMode="decimal"
-                value={pct}
-                onChange={e => setPct(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="font-bold tabnum text-right outline-none bg-transparent"
-                style={{ fontSize: 40, width: 72, color: 'var(--text-primary)' }}
-              />
-              <span className="font-bold" style={{ fontSize: 28, color: 'var(--text-primary)' }}>%</span>
-            </div>
-            <button
-              onClick={() => setPct(p => Math.min(sliderMax, parseFloat((p + 1).toFixed(1))))}
-              className="flex items-center justify-center rounded-full text-2xl font-light"
-              style={{ width: 44, height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-              +
-            </button>
-          </div>
+          <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
           <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
             {formatINRFine((pct / 100) * totalBudget)} allocated
           </p>
