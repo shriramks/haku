@@ -65,6 +65,11 @@ export async function hasBands(): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
+/** Fetches all stock transactions (all FYs) — used by TransactionsClient to expand history beyond the initial current-FY slice. Hits the unstable_cache so it's fast when warm. */
+export async function loadAllStockTransactions(): Promise<Transaction[]> {
+  return getTransactions()
+}
+
 /** Fetches allocations + transactions for a FY — used by DashboardClient switchFY */
 export async function getFYData(fyId: string): Promise<{
   allocations: StockAllocation[]

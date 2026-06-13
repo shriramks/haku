@@ -47,6 +47,8 @@ Everything else (`getAllocations`, portfolio tables) uses per-request `cache()` 
 
 **Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions in `app/actions.ts` (or API routes for bands/tranches) that write and revalidate together. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. Uncached tables (MF/gold/PPF/EPF transactions, stock_allocations) may be written from the browser under RLS.
 
+**`/transactions` lazy-load pattern:** The RSC ships only current-FY stock transactions (`getTransactions(currentFY.id)`). Portfolio tables (MF/Gold/PPF/EPF + mf_funds) are excluded from the RSC payload and fetched client-side via the browser Supabase client on mount. Older stock history is fetched on demand via the `loadAllStockTransactions()` server action when the date filter extends beyond the current FY. The `?symbol=` view always loads all-time transactions for that stock (no slice).
+
 ---
 
 ## PWA / Service Worker Caching

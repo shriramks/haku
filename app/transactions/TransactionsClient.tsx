@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatDate, formatPriceNum } from '@/lib/formatter'
-import { updateStockTransaction, deleteStockTransaction } from '@/app/actions'
+import { updateStockTransaction, deleteStockTransaction, loadAllStockTransactions } from '@/app/actions'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -91,32 +91,32 @@ export default function TransactionsClient({
   fiscalYears,
   currentFY,
   filterSymbol,
-  mfFunds,
-  mfTransactions,
-  sgbTransactions,
-  ppfTransactions,
-  epfTransactions,
+  initialFyId,
 }: {
   transactions: Transaction[]
   fiscalYears: FiscalYear[]
   currentFY: FiscalYear | null
   filterSymbol?: string
-  mfFunds: MFund[]
-  mfTransactions: MFTransaction[]
-  sgbTransactions: SGBTransaction[]
-  ppfTransactions: PPFTransaction[]
-  epfTransactions: EPFTransaction[]
+  initialFyId?: string
 }) {
   const defaultDateFilter: DateFilter | null = currentFY
     ? { label: currentFY.label, from: currentFY.start_date, to: currentFY.end_date }
     : null
 
+  // `initialAllHistoryLoaded`: true when the RSC already shipped all-time history
+  // (?symbol= view always does; no currentFY means no slice was applied).
+  const initialAllHistoryLoaded = !initialFyId || !!filterSymbol
+
   const [txns,    setTxns]    = useState(initial)
-  const [mfTxns,  setMfTxns]  = useState(mfTransactions)
-  const [sgbTxns, setSgbTxns] = useState(sgbTransactions)
-  const [ppfTxns, setPpfTxns] = useState(ppfTransactions)
-  const [epfTxns, setEpfTxns] = useState(epfTransactions)
+  const [mfFunds, setMfFunds] = useState<MFund[]>([])
+  const [mfTxns,  setMfTxns]  = useState<MFTransaction[]>([])
+  const [sgbTxns, setSgbTxns] = useState<SGBTransaction[]>([])
+  const [ppfTxns, setPpfTxns] = useState<PPFTransaction[]>([])
+  const [epfTxns, setEpfTxns] = useState<EPFTransaction[]>([])
   const [mounted, setMounted] = useState(false)
+  const [portfolioLoaded,    setPortfolioLoaded]    = useState(false)
+  const [allHistoryLoaded,   setAllHistoryLoaded]   = useState(initialAllHistoryLoaded)
+  const [allHistoryLoading,  setAllHistoryLoading]  = useState(false)
 
   // Filters
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
@@ -133,11 +133,49 @@ export default function TransactionsClient({
   const kh = useKeyboardHeight()
 
   useEffect(() => { setMounted(true) }, [])
-  useEffect(() => { setTxns(initial) }, [initial])
-  useEffect(() => { setMfTxns(mfTransactions) }, [mfTransactions])
-  useEffect(() => { setSgbTxns(sgbTransactions) }, [sgbTransactions])
-  useEffect(() => { setPpfTxns(ppfTransactions) }, [ppfTransactions])
-  useEffect(() => { setEpfTxns(epfTransactions) }, [epfTransactions])
+
+  // On RSC refresh (e.g. after a write + router.refresh()), sync the updated slice
+  // and reset allHistoryLoaded so the lazy-load can re-trigger if needed.
+  useEffect(() => {
+    setTxns(initial)
+    setAllHistoryLoaded(initialAllHistoryLoaded)
+  }, [initial, initialAllHistoryLoaded])
+
+  // Lazy-load portfolio tables (MF/Gold/PPF/EPF) after the initial RSC render.
+  // These tables are excluded from the RSC payload to keep it small.
+  useEffect(() => {
+    if (filterSymbol) return // ?symbol= view shows stocks only — no portfolio needed
+    const sb = getSupabaseBrowser()
+    Promise.all([
+      sb.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').order('scheme_name'),
+      sb.from('mf_transactions').select('id, fund_id, trade_date, trade_type, units, nav, amount').order('trade_date', { ascending: false }),
+      sb.from('sgb_transactions').select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name').order('trade_date', { ascending: false }),
+      sb.from('ppf_transactions').select('id, trade_date, trade_type, amount, notes').order('trade_date', { ascending: false }),
+      sb.from('epf_transactions').select('id, trade_date, trade_type, amount, notes').order('trade_date', { ascending: false }),
+    ]).then(([funds, mf, sgb, ppf, epf]) => {
+      setMfFunds((funds.data ?? []) as MFund[])
+      setMfTxns((mf.data ?? []) as MFTransaction[])
+      setSgbTxns((sgb.data ?? []) as SGBTransaction[])
+      setPpfTxns((ppf.data ?? []) as PPFTransaction[])
+      setEpfTxns((epf.data ?? []) as EPFTransaction[])
+      setPortfolioLoaded(true)
+    })
+  }, []) // filterSymbol is a stable URL param — intentionally omitted from deps
+
+  // When the date filter moves outside the current FY, fetch the full all-time
+  // transaction history on demand (hits the server-side cache — fast when warm).
+  useEffect(() => {
+    if (allHistoryLoaded || !initialFyId || !currentFY) return
+    const isCurrFY = !dateFilter ||
+      (dateFilter.from === currentFY.start_date && dateFilter.to === currentFY.end_date)
+    if (isCurrFY) return
+    setAllHistoryLoading(true)
+    loadAllStockTransactions().then(allTxns => {
+      setTxns(allTxns)
+      setAllHistoryLoaded(true)
+      setAllHistoryLoading(false)
+    })
+  }, [dateFilter, allHistoryLoaded, initialFyId, currentFY])
 
   // Clear symbol filter when switching away from stocks
   useEffect(() => {
@@ -465,7 +503,17 @@ export default function TransactionsClient({
       </div>
 
       {/* ── Txn list ── */}
-      {displayed.length === 0 ? (
+      {allHistoryLoading ? (
+        <div className="flex flex-col items-center justify-center gap-2"
+             style={{
+               color: 'var(--text-muted)',
+               minHeight: 'calc(100dvh - var(--nav-h, 64px) - var(--safe-bottom, 0px) - 100px)',
+             }}>
+          <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+               style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+          <p className="text-body mt-1">Loading transactions…</p>
+        </div>
+      ) : displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
              style={{
                color: 'var(--text-muted)',
