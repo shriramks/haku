@@ -49,6 +49,24 @@ Everything else (`getAllocations`, portfolio tables) uses per-request `cache()` 
 
 ---
 
+## PWA / Service Worker Caching
+
+`public/sw.js` is registered by `components/ServiceWorkerRegistrar.tsx` on production only (skipped on `localhost`).
+
+Cache name: `haku-v2` (old versions deleted on activate).
+
+| Request type | Strategy |
+|---|---|
+| `/_next/static/*` | Cache-first — content-hashed filenames, safe forever |
+| Icons, manifest, favicons | Stale-while-revalidate — serve cached copy instantly, update in background |
+| Navigations (`mode === 'navigate'`) | Network-first → `/offline` fallback |
+| Non-GET, cross-origin, `/_next/` non-static, `?_rsc=` | Pass-through (no SW involvement) |
+| Everything else | Pass-through |
+
+Dynamic data (Supabase, RSC fetches, API routes) is never intercepted — no risk of stale financial numbers.
+
+---
+
 ## Snowball Model
 
 `lib/snowball.ts` combines price zone with three fundamental conditions to produce an entry signal.
