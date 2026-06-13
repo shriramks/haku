@@ -5,6 +5,7 @@ import { revalidateBuyBands } from '@/app/actions'
 import type { BuyBand } from '@/lib/types'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
+import { LabeledInput } from '@/components/LabeledInput'
 
 export default function RiskOverlaySheet({ band, onClose, onSaved }: {
   band: BuyBand | null
@@ -59,18 +60,15 @@ export default function RiskOverlaySheet({ band, onClose, onSaved }: {
         </p>
       </div>
       <div className="px-5 pb-4">
-        <label className="text-subheadline block mb-1.5" style={{ color: 'var(--text-muted)' }}>
-          Multiplier (0–1 · e.g. 0.85 = 15% discount)
-        </label>
-        <input
-          type="number" step="0.01" inputMode="decimal"
-          placeholder="e.g. 0.85"
+        <LabeledInput
+          label="Multiplier (0–1 · e.g. 0.85 = 15% discount)"
           value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') save() }}
+          onChange={setValue}
+          placeholder="e.g. 0.85"
+          step="0.01"
           autoFocus
-          className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: `1px solid ${showWarning ? 'var(--c-warning)' : 'var(--border)'}` }}
+          invalid={showWarning}
+          onEnter={save}
         />
         {showWarning && (
           <p className="text-subheadline mt-1.5" style={{ color: 'var(--c-warning)' }}>

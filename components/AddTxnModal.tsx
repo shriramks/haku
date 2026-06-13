@@ -8,6 +8,7 @@ import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Divider } from '@/components/Divider'
 import { Button } from '@/components/Button'
+import { ChipGroup } from '@/components/ChipGroup'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from '@/app/portfolio/actions'
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
@@ -350,20 +351,12 @@ export default function AddTxnModal({
                     )}
                   </div>
                   {planSymbols.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {planSymbols.map(s => (
-                        <button key={s} type="button" onClick={() => setSymbol(s)}
-                          className="px-3 rounded-xl text-body font-semibold transition-colors"
-                          style={{
-                            minHeight: 36,
-                            ...(symbol === s
-                              ? { background: txnType === 'buy' ? 'rgba(52,199,89,0.10)' : 'rgba(255,59,48,0.10)', color: txnType === 'buy' ? '#34C759' : '#FF3B30', border: `1.5px solid ${txnType === 'buy' ? '#34C759' : '#FF3B30'}` }
-                              : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1.5px solid transparent' }),
-                          }}>
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    <ChipGroup
+                      items={planSymbols}
+                      selected={symbol}
+                      onSelect={setSymbol}
+                      variant={txnType === 'buy' ? 'positive' : 'negative'}
+                    />
                   ) : (
                     <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
                   )}

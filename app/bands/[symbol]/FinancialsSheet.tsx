@@ -7,6 +7,7 @@ import { SparkleIcon, RefreshIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { saveSnapshotIfChanged } from '@/app/actions'
 import { Button } from '@/components/Button'
+import { LabeledInput } from '@/components/LabeledInput'
 
 function fiscalQuarterLabel(d: Date): string {
   const year = d.getFullYear()
@@ -192,20 +193,21 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
             <div className="flex flex-col gap-3 mb-4">
               {!isIndex ? (
                 <>
-                  <FinInput label="EPS (₹)" value={eps} onChange={setEps} placeholder="e.g. 18" />
-                  <FinInput label="PAT Now (Cr)" value={patNow} onChange={setPatNow} placeholder="e.g. 5200" />
-                  <FinInput label="PAT 3yr Ago (Cr)" value={pat3yrAgo} onChange={setPat3yrAgo} placeholder="e.g. 3800" />
-                  <FinInput label="Op Profit (Cr)" value={opProfitCr} onChange={setOpProfitCr} placeholder="e.g. 1200" />
-                  <FinInput label="Revenue (Cr)" value={revenueCr} onChange={setRevenueCr} placeholder="e.g. 8500" />
-                  <FinInput label="ROCE 3yr Avg (%)" value={roce3yrAvg} onChange={setRoce3yrAvg} placeholder="e.g. 36.8" />
-                  <FinInput label="Mcap (Cr)" value={mcap} onChange={setMcap} placeholder="e.g. 18737" />
+                  <LabeledInput label="EPS (₹)" value={eps} onChange={setEps} placeholder="e.g. 18" />
+                  <LabeledInput label="PAT Now (Cr)" value={patNow} onChange={setPatNow} placeholder="e.g. 5200" />
+                  <LabeledInput label="PAT 3yr Ago (Cr)" value={pat3yrAgo} onChange={setPat3yrAgo} placeholder="e.g. 3800" />
+                  <LabeledInput label="Op Profit (Cr)" value={opProfitCr} onChange={setOpProfitCr} placeholder="e.g. 1200" />
+                  <LabeledInput label="Revenue (Cr)" value={revenueCr} onChange={setRevenueCr} placeholder="e.g. 8500" />
+                  <LabeledInput label="ROCE 3yr Avg (%)" value={roce3yrAvg} onChange={setRoce3yrAvg} placeholder="e.g. 36.8" />
+                  <LabeledInput label="Mcap (Cr)" value={mcap} onChange={setMcap} placeholder="e.g. 18737" />
                 </>
               ) : (
                 <>
-                  <FinInput label="Index Level" value={indexLevel} onChange={setIndexLevel} placeholder="e.g. 22500" />
-                  <FinInput label="Index PE" value={indexPe} onChange={setIndexPe} placeholder="e.g. 22" />
-                  <FinReadOnly
+                  <LabeledInput label="Index Level" value={indexLevel} onChange={setIndexLevel} placeholder="e.g. 22500" />
+                  <LabeledInput label="Index PE" value={indexPe} onChange={setIndexPe} placeholder="e.g. 22" />
+                  <LabeledInput
                     label="Implied EPS (₹)"
+                    readOnly
                     value={derivedIndexEps != null ? derivedIndexEps.toFixed(2) : '—'}
                   />
                 </>
@@ -223,37 +225,5 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
         </div>
       </div>
     </>
-  )
-}
-
-function FinInput({ label, value, onChange, placeholder, type = 'number' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: 'number' | 'text'
-}) {
-  return (
-    <div>
-      <label className="text-subheadline block mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
-      <input
-        type={type}
-        inputMode={type === 'number' ? 'decimal' : undefined}
-        placeholder={placeholder}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onFocus={e => e.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' })}
-        className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum outline-none"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-    </div>
-  )
-}
-
-function FinReadOnly({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <label className="text-subheadline block mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
-      <div
-        className="w-full px-3.5 py-3.5 rounded-xl text-headline tabnum"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-        {value}
-      </div>
-    </div>
   )
 }

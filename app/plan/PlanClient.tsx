@@ -18,6 +18,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { Button } from '@/components/Button'
 import { Stepper } from '@/components/Stepper'
 import { ConfirmButtons } from '@/components/ConfirmButtons'
+import { LabeledInput } from '@/components/LabeledInput'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -996,14 +997,12 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
             )}
           </div>
 
-          <div>
-            <p className="text-subheadline mb-1.5" style={{ color: 'var(--text-muted)' }}>Total Budget (₹)</p>
-            <input
-              type="number" inputMode="decimal" placeholder="2400000"
-              value={budget} onChange={e => setBudget(e.target.value)}
-              className="w-full px-4 py-3.5 rounded-2xl text-headline tabnum outline-none"
-              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
-          </div>
+          <LabeledInput
+            label="Total Budget (₹)"
+            value={budget}
+            onChange={setBudget}
+            placeholder="2400000"
+          />
 
           {sourceAllocs.length > 0 && (
             <label className="flex items-center gap-3 cursor-pointer">
