@@ -72,4 +72,13 @@ describe('fetchNseIndex', () => {
       '"NIFTY MIDCAP 150" not found in NSE response',
     )
   })
+
+  it('throws when PE is outside the sane consolidated range (basis guard)', async () => {
+    // PE 50 would mean a standalone-basis flip or parse error — bands must not compute.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ index: 'NIFTY 50', last: 24198.5, pe: 50 }] }),
+    }))
+    await expect(fetchNseIndex('NIFTY 50')).rejects.toThrow('outside sane range')
+  })
 })

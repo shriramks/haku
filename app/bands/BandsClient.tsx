@@ -85,7 +85,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     if (data.prices) {
       setBands(prev => prev.map(b => {
         const price = (data.prices as Record<string, number>)[b.symbol]
-        return price != null ? { ...b, manual_cmp: price } : b
+        return price != null ? { ...b, cmp: price } : b
       }))
     }
     if (data.week52) {
@@ -99,7 +99,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     await Promise.all(
       Array.from(allSymbols).map(sym => {
         const patch: Record<string, unknown> = {}
-        if (prices?.[sym] != null)                                  { patch.manual_cmp = prices[sym] }
+        if (prices?.[sym] != null)                                  { patch.cmp = prices[sym] }
         if (week52?.[sym]?.low != null || week52?.[sym]?.high != null) { patch.week_52_low = week52![sym].low; patch.week_52_high = week52![sym].high }
         if (Object.keys(patch).length === 0) return Promise.resolve()
         return sb.from('buy_bands').update(patch).eq('symbol', sym)
@@ -112,7 +112,31 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     setRefreshingAll(true)
     setActionError('')
     try {
-      await fetchAndSaveCmp(rows.map(r => r.symbol))
+      // Index bands are the ones with a stored index_pe. For them, CMP and PE must
+      // refresh together — regen bands (fresh CMP+PE) instead of a CMP-only patch,
+      // so they can never sit in the fresh-CMP / stale-PE broken state. Stocks take
+      // the cheap CMP-only path.
+      const indexSet = new Set(bands.filter(b => b.index_pe != null).map(b => b.symbol))
+      const indexSyms = rows.map(r => r.symbol).filter(s => indexSet.has(s))
+      const stockSyms = rows.map(r => r.symbol).filter(s => !indexSet.has(s))
+
+      await fetchAndSaveCmp(stockSyms)
+
+      for (const symbol of indexSyms) {
+        const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fyId, action: 'bands' }),
+        })
+        const json = await res.json()
+        if (res.ok && json.band) {
+          setBands(prev => prev.map(b => b.symbol === symbol ? json.band as BuyBand : b))
+        }
+      }
+      if (indexSyms.length > 0) {
+        await revalidateBuyBands()
+        router.refresh()
+      }
     } catch {
       setActionError('Failed to refresh CMP for all stocks')
     } finally {
@@ -271,7 +295,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
           // effectiveBands applies the risk overlay so the list bar matches
           // detail/tranches — never read raw buy_low/buy_high here.
           const { buyLow, buyHigh, midHigh, trimPrice } = effectiveBands(band ?? null)
-          const cmp       = band?.manual_cmp ?? null
+          const cmp       = band?.cmp ?? null
           const hasBands  = buyLow != null && trimPrice != null
 
           return (

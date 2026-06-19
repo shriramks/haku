@@ -54,7 +54,7 @@ export interface BuyBand {
   mid_low: number | null
   mid_high: number | null
   trim_price: number | null
-  manual_cmp: number | null
+  cmp: number | null
   week_52_low: number | null
   week_52_high: number | null
   last_updated_at: string

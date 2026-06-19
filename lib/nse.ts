@@ -81,6 +81,14 @@ export async function fetchNseIndex(indexName: string): Promise<NseIndexData> {
   const entry = json.data.find(e => e.index === indexName)
   if (!entry) throw new Error(`Index "${indexName}" not found in NSE response`)
 
+  // Basis guard: bands are calibrated on NSE's consolidated-TTM index PE (the basis
+  // since Mar 2021). A sane Nifty 50 / Next 50 consolidated PE sits in ~8–40x. Out
+  // of range means a parse error or NSE flipping methodology (standalone would jump
+  // ~+30–50%) — fail loudly rather than compute bands off a wrong-basis PE.
+  if (!(entry.pe >= 8 && entry.pe <= 40)) {
+    throw new Error(`NSE index PE ${entry.pe} for "${indexName}" outside sane range (8–40) — possible parse error or methodology change`)
+  }
+
   return {
     level: entry.last,
     pe: entry.pe,

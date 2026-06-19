@@ -53,7 +53,7 @@ export default function BandDetailClient({
   const [band, setBand]               = useState(initialBand)
   const [allocation]                  = useState(initialAllocation)
   const [tranches, setTranches]       = useState(initialTranches)
-  const [cmp, setCmp]                 = useState(initialBand?.manual_cmp ?? null)
+  const [cmp, setCmp]                 = useState(initialBand?.cmp ?? null)
   const [week52, setWeek52]           = useState<{ low: number | null; high: number | null }>({
     low: initialBand?.week_52_low ?? null,
     high: initialBand?.week_52_high ?? null,
@@ -127,23 +127,27 @@ export default function BandDetailClient({
       const sb = getSupabaseBrowser()
       if (band) {
         await sb.from('buy_bands').update({
-          manual_cmp: price,
+          cmp: price,
           week_52_low: week52Low ?? null,
           week_52_high: week52High ?? null,
         }).eq('id', band.id)
-        setBand(prev => prev ? { ...prev, manual_cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : prev)
+        setBand(prev => prev ? { ...prev, cmp: price, week_52_low: week52Low ?? null, week_52_high: week52High ?? null } : prev)
         await revalidateBuyBands()
       } else {
         const { data: { user } } = await sb.auth.getUser()
         if (user) {
           const { data } = await sb.from('buy_bands').upsert({
             user_id: user.id, symbol, anchor_type: 'PE',
-            manual_cmp: price,
+            cmp: price,
           }, { onConflict: 'user_id,symbol' }).select().single()
           if (data) setBand(data)
           await revalidateBuyBands()
         }
       }
+      // Bundling: for index ETFs, CMP and PE must move together. After refreshing
+      // CMP (+52wk), regen bands with a fresh CMP+PE pair so the band can never be
+      // in the broken state of fresh CMP vs stale PE. Cheap (one NSE call).
+      if (isIndex) await runBandAction('bands')
     } catch {
       // silently fail
     } finally {
@@ -151,7 +155,7 @@ export default function BandDetailClient({
     }
   }
 
-  async function runBandAction(action: 'bands' | 'financials') {
+  async function runBandAction(action: 'bands' | 'financials', refetch = true) {
     if (action === 'bands') setGenerating(true)
     if (action === 'financials') setRefreshingFinancials(true)
     setGenError('')
@@ -159,14 +163,14 @@ export default function BandDetailClient({
       const res = await fetch(`/api/bands/generate/${encodeURIComponent(symbol)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fyId, action }),
+        body: JSON.stringify({ fyId, action, refetch }),
       })
       const json = await res.json()
       if (!res.ok) {
         setGenError(json.error ?? 'Generation failed')
       } else if (json.band) {
         setBand(json.band)
-        setCmp(json.band.manual_cmp ?? cmp)
+        setCmp(json.band.cmp ?? cmp)
         if (action === 'bands' && json.tranches?.length > 0) setTranches(json.tranches)
         if (action === 'financials') router.refresh()
       }
@@ -179,6 +183,11 @@ export default function BandDetailClient({
 
   async function generateBands() {
     await runBandAction('bands')
+  }
+
+  // Manual recompute from edited index PE/CMP — recompute-from-stored, no fresh fetch.
+  async function recomputeBands() {
+    await runBandAction('bands', false)
   }
 
   async function refreshFinancials() {
@@ -495,6 +504,7 @@ export default function BandDetailClient({
           refreshingFinancials={refreshingFinancials}
           genError={genError}
           onGenerateBands={generateBands}
+          onRecomputeBands={recomputeBands}
           onRefreshFinancials={refreshFinancials}
           onBandSaved={b => setBand(b)}
           onClose={() => setShowFinancials(false)}

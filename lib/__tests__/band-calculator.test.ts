@@ -124,13 +124,15 @@ describe('shared helper functions', () => {
   })
 
   describe('deriveIndexEps', () => {
-    it('derives ETF EPS from index level and index PE', () => {
-      expect(deriveIndexEps(24_000, 24)).toBeCloseTo(10)
+    it('derives ETF per-unit earnings as CMP / index PE', () => {
+      // NIFTYBEES ~273 at index PE 20.8 → one PE point ≈ ₹13.13
+      expect(deriveIndexEps(273, 20.8)).toBeCloseTo(13.125, 2)
     })
 
-    it('returns null when index PE is missing or invalid', () => {
-      expect(deriveIndexEps(24_000, null)).toBeNull()
-      expect(deriveIndexEps(24_000, 0)).toBeNull()
+    it('returns null when CMP or index PE is missing or invalid', () => {
+      expect(deriveIndexEps(null, 20.8)).toBeNull()
+      expect(deriveIndexEps(273, null)).toBeNull()
+      expect(deriveIndexEps(273, 0)).toBeNull()
     })
   })
 

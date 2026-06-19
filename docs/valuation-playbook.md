@@ -321,36 +321,51 @@ OUTPUT
 Section-B bands, with the overlay applied
 -------------------------------------------------------------------------------
 
-C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)
+C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)   [v10 — CMP/PE method]
 
 ETFs track an index — no EPS, no PAT. Part B does not apply.
-Bands are derived from index-implied EPS at each PE threshold.
+Bands are the ETF rupee price at each target PE, read off the live unit price.
 Output is rupee price per ETF unit, same format as Part B.
 
-RATIONALE
-  index_EPS = index_level / current_index_PE   // implied aggregate EPS
-  band_index_level = target_PE x index_EPS     // what index would be at that PE
-  ETF_unit_price = band_index_level / 100      // 1 unit ~ index / 100
+RATIONALE  (divisor-proof — replaces the old index_level/100 guess)
+  one_PE_point = CMP / current_index_PE      // rupee value of 1 PE point, live
+  band         = target_PE x one_PE_point    // = target_PE x CMP / current_index_PE
+
+  Why CMP and not index_level/100: index_level/100 only *estimated* the unit price
+  (roughly true at ~2002 inception, drifting since via dividends / reconstitution).
+  Live CMP is the real unit price, so any divisor drift or unit split self-corrects
+  each session. Only assumption: the ETF tracks its index (guaranteed for a passive
+  ETF). CMP/PE is genuinely earnings-per-unit (price ÷ PE), so "implied EPS" still
+  names it correctly.
+
+  DECISION LAYER = PE GATE. Because CMP appears on both sides, the rupee zone test
+  reduces exactly to a PE comparison:  CMP <= buyHigh  <=>  PE <= buyHigh_PE. The
+  rupee bands are just a presentation of "where is PE vs thresholds" — buy/hold/trim
+  is ultimately a PE decision. (Holds exactly when the CMP in the band == the CMP
+  being compared; regenerate per session so the stored band's CMP/PE stays current.)
+
+BASIS — PIN IT
+  Thresholds are calibrated on NSE's CONSOLIDATED TTM index PE (the basis since
+  Mar 2021; the standalone->consolidated switch dropped published Nifty PE sharply).
+  Pin the PE source to that basis and never mix. If the source ever flips, the
+  formula is fine but the thresholds need recalibrating. App enforces a range guard
+  on the fetched PE (~8–40x) that fails loudly if it leaves the sane consolidated band.
 
 DATA PULL — ONCE PER SESSION
-  Nifty 50 level   : NSE or trendlyne.com
-  Nifty 50 PE      : trendlyne.com (live composite PE)
-  Next 50 level    : NSE or trendlyne.com
-  Next 50 PE       : trendlyne.com (live composite PE)
+  Nifty 50 PE      : NSE allIndices (consolidated TTM)
+  Next 50 PE       : NSE allIndices (consolidated TTM)
   CMP (NIFTYBEES)  : exchange or yahoo
   CMP (JUNIORBEES) : exchange or yahoo
-  Fallback for PE  : nifty-pe-ratio.com if live fetch fails
+  Index level      : optional — context/display only, NOT in the formula
+  Fallback for PE  : trendlyne.com / nifty-pe-ratio.com if live fetch fails
 
 NIFTYBEES — NIFTY 50
-  Derived:
-    nifty50_implied_EPS = nifty50_level / nifty50_PE
-
-  Band formula:
-    buyLow  = (18 x nifty50_implied_EPS) / 100
-    buyHigh = (20 x nifty50_implied_EPS) / 100
-    midLow  = (20 x nifty50_implied_EPS) / 100
-    midHigh = (22 x nifty50_implied_EPS) / 100
-    trim    = (24 x nifty50_implied_EPS) / 100
+  one_PE_point = CMP / nifty50_PE
+  buyLow  = 18 x one_PE_point
+  buyHigh = 20 x one_PE_point
+  midLow  = 20 x one_PE_point
+  midHigh = 22 x one_PE_point
+  trim    = 24 x one_PE_point
 
   PE interpretation:
     PE < 18x  : deep value
@@ -363,15 +378,12 @@ JUNIORBEES — NIFTY NEXT 50
   Next 50 structurally trades at a premium to Nifty 50 — higher growth, smaller names.
   PE thresholds are higher accordingly.
 
-  Derived:
-    next50_implied_EPS = next50_level / next50_PE
-
-  Band formula:
-    buyLow  = (22 x next50_implied_EPS) / 100
-    buyHigh = (25 x next50_implied_EPS) / 100
-    midLow  = (25 x next50_implied_EPS) / 100
-    midHigh = (28 x next50_implied_EPS) / 100
-    trim    = (32 x next50_implied_EPS) / 100
+  one_PE_point = CMP / next50_PE
+  buyLow  = 22 x one_PE_point
+  buyHigh = 25 x one_PE_point
+  midLow  = 25 x one_PE_point
+  midHigh = 28 x one_PE_point
+  trim    = 32 x one_PE_point
 
   PE interpretation:
     PE < 22x  : deep value
@@ -381,18 +393,22 @@ JUNIORBEES — NIFTY NEXT 50
     PE > 32x  : trim / pause
 
 WORKED EXAMPLE
-  Nifty 50 level=22,500 | PE=20.1
-  nifty50_implied_EPS = 22500 / 20.1 = 1119
-  buyLow  = (18 x 1119) / 100 = 201
-  buyHigh = (20 x 1119) / 100 = 224
-  midLow  = (20 x 1119) / 100 = 224
-  midHigh = (22 x 1119) / 100 = 246
-  trim    = (24 x 1119) / 100 = 269
-  CMP NIFTYBEES ~225 -> mid zone
+  NIFTYBEES CMP=273 | nifty50_PE=20.8
+  one_PE_point = 273 / 20.8 = 13.13
+  buyLow  = 18 x 13.13 = 236
+  buyHigh = 20 x 13.13 = 263
+  midHigh = 22 x 13.13 = 289
+  trim    = 24 x 13.13 = 315
+  CMP 273 sits between buyHigh and midHigh -> mid zone (PE 20.8 is in the 20-22 band)
+
+  JUNIORBEES CMP=783 | next50_PE=19.5
+  one_PE_point = 783 / 19.5 = 40.2
+  buyLow  = 22 x 40.2 = 884
+  CMP 783 is BELOW buyLow -> deep value (PE 19.5 < 22x buy threshold)
 
 OUTPUT (PER SESSION, MACHINE-PARSEABLE)
-  NIFTYBEES | nifty50_PE | nifty50_implied_EPS | buyLow | buyHigh | midLow | midHigh | trim | CMP
-  JUNIORBEES | next50_PE | next50_implied_EPS  | buyLow | buyHigh | midLow | midHigh | trim | CMP
+  NIFTYBEES  | nifty50_PE | CMP | buyLow | buyHigh | midLow | midHigh | trim
+  JUNIORBEES | next50_PE  | CMP | buyLow | buyHigh | midLow | midHigh | trim
 
 -------------------------------------------------------------------------------
 D) BUY LEVEL (TRANCHE) GENERATION — CONVICTION MATRIX

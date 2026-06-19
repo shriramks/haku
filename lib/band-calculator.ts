@@ -16,7 +16,7 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   'Niche Cap Goods': { buyLow: 24, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 },
   'Jewellery':       { buyLow: 24, buyHigh: 32, midLow: 33, midHigh: 42, trim: 43 },
-  // Index ETFs (v9): eps = indexLevel / indexPE / 100
+  // Index ETFs (v10): eps = cmp / indexPE  (rupee value of 1 PE point, live)
   'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
   'Nifty Next 50 Index': { buyLow: 22, buyHigh: 25, midLow: 25, midHigh: 28, trim: 32 },
 }
@@ -88,9 +88,12 @@ export function computeHospitalGrowth(
   return { g, growthSource: 'calculated_3y_pat_cagr' }
 }
 
-export function deriveIndexEps(indexLevel: number | null, indexPE: number | null): number | null {
-  return (indexLevel != null && indexPE != null && indexPE > 0)
-    ? indexLevel / indexPE / 100
+// CMP/PE method: cmp ÷ PE is the rupee value of one PE point — i.e. earnings per
+// ETF unit, read off the live price. Divisor-proof: no index_level/100 guess, so
+// dividend drift / reconstitution / splits self-correct each session via live CMP.
+export function deriveIndexEps(cmp: number | null, indexPE: number | null): number | null {
+  return (cmp != null && indexPE != null && indexPE > 0)
+    ? cmp / indexPE
     : null
 }
 

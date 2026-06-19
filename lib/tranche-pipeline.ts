@@ -43,7 +43,7 @@ export async function generateTranchesForSymbol(
       .eq('user_id', userId).eq('fy_id', fyId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_bands')
-      .select('buy_low, buy_high, manual_cmp, mid_low, mid_high, trim_price, risk_multiplier')
+      .select('buy_low, buy_high, cmp, mid_low, mid_high, trim_price, risk_multiplier')
       .eq('user_id', userId).eq('symbol', upperSymbol)
       .maybeSingle(),
     supabase.from('buy_band_snapshots')
@@ -126,7 +126,7 @@ export async function generateTranchesForSymbol(
 
   // 1-year daily chart: live CMP (from meta) + 52-week low (from daily lows)
   const chart = await fetchYearChart(upperSymbol)
-  const liveCmp: number | null = chart.price ?? band?.manual_cmp ?? null
+  const liveCmp: number | null = chart.price ?? band?.cmp ?? null
   const fiftyTwoWeekLow = chart.week52Low
 
   // Staged buy: in deep value zone, cap effective CMP below the user's cheapest prior entry.

@@ -20,7 +20,7 @@ function fiscalQuarterLabel(d: Date): string {
   return `FY${String(fyEnd).slice(-2)} ${quarter}`
 }
 
-export default function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinancials, genError, onGenerateBands, onRefreshFinancials, onBandSaved, onClose }: {
+export default function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinancials, genError, onGenerateBands, onRecomputeBands, onRefreshFinancials, onBandSaved, onClose }: {
   symbol: string
   band: BuyBand | null
   allocation: StockAllocation | null
@@ -28,6 +28,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
   refreshingFinancials: boolean
   genError: string
   onGenerateBands: () => void
+  onRecomputeBands: () => void
   onRefreshFinancials: () => void
   onBandSaved: (b: BuyBand) => void
   onClose: () => void
@@ -44,6 +45,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
   const [mcap, setMcap]             = useState(band?.mcap?.toString() ?? '')
   const [indexLevel, setIndexLevel] = useState(band?.index_level?.toString() ?? '')
   const [indexPe, setIndexPe]       = useState(band?.index_pe?.toString() ?? '')
+  const [cmp, setCmp]               = useState(band?.cmp?.toString() ?? '')
   const kh = useKeyboardHeight()
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -61,6 +63,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
     setMcap(band?.mcap?.toString() ?? '')
     setIndexLevel(band?.index_level?.toString() ?? '')
     setIndexPe(band?.index_pe?.toString() ?? '')
+    setCmp(band?.cmp?.toString() ?? '')
   }, [band])
 
   async function save() {
@@ -68,9 +71,9 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
     setSaveFeedback(null)
     try {
       const sb = getSupabaseBrowser()
-      const indexLevelVal = parseFloat(indexLevel) || null
+      const cmpVal        = parseFloat(cmp) || null
       const indexPeVal    = parseFloat(indexPe) || null
-      const derivedIndexEps = deriveIndexEps(indexLevelVal, indexPeVal)
+      const derivedIndexEps = deriveIndexEps(cmpVal, indexPeVal)
       const patNowVal    = parseFloat(patNow) || null
       const pat3yrAgoVal = parseFloat(pat3yrAgo) || null
       const opProfitVal  = parseFloat(opProfitCr) || null
@@ -88,8 +91,11 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
         fields.roce_3yr_avg = parseFloat(roce3yrAvg) || null
         fields.mcap         = parseFloat(mcap) || null
       } else {
-        fields.index_level = parseFloat(indexLevel) || null
-        fields.index_pe    = parseFloat(indexPe) || null
+        // Index: persist the edited (CMP, PE) pair + derived eps. Band prices are
+        // then recomputed from these stored values via onRecomputeBands (no fetch),
+        // so the manual correction holds until the next fresh Regen Bands.
+        fields.index_pe = indexPeVal
+        fields.cmp      = cmpVal
       }
 
       let savedBand: BuyBand | null = null
@@ -109,7 +115,18 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
 
       if (!savedBand) throw new Error('Save returned no data')
 
-      if (!isIndex && patNowVal != null && pat3yrAgoVal != null) {
+      if (isIndex) {
+        // Recompute band prices from the values just saved (refetch:false).
+        onBandSaved(savedBand)
+        onRecomputeBands()
+        setSaveFeedback({ tone: 'positive', message: 'Saved — recomputing bands' })
+        if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+        feedbackTimerRef.current = setTimeout(() => setSaveFeedback(null), 1800)
+        setSaving(false)
+        return
+      }
+
+      if (patNowVal != null && pat3yrAgoVal != null) {
         const category = allocation?.category as StockCategory | undefined
         const g = category === 'Hospitals'
           ? computeHospitalGrowth(patNowVal, pat3yrAgoVal, parseFloat(roce3yrAvg) || null).g
@@ -137,9 +154,9 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
     setSaving(false)
   }
 
-  const indexLevelVal = parseFloat(indexLevel) || null
+  const cmpVal        = parseFloat(cmp) || null
   const indexPeVal    = parseFloat(indexPe) || null
-  const derivedIndexEps = deriveIndexEps(indexLevelVal, indexPeVal)
+  const derivedIndexEps = deriveIndexEps(cmpVal, indexPeVal)
 
   const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
 
@@ -174,12 +191,14 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
                 <SparkleIcon className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
                 {generating ? 'Regenerating…' : 'Regen Bands'}
               </button>
-              <button onClick={onRefreshFinancials} disabled={refreshingFinancials}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl flex-1 text-body font-medium disabled:opacity-40"
-                style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-                <RefreshIcon className={`w-4 h-4 ${refreshingFinancials ? 'animate-spin' : ''}`} />
-                {refreshingFinancials ? 'Refreshing…' : 'Regen Financials'}
-              </button>
+              {!isIndex && (
+                <button onClick={onRefreshFinancials} disabled={refreshingFinancials}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl flex-1 text-body font-medium disabled:opacity-40"
+                  style={{ background: 'color-mix(in srgb, var(--accent) 10%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 22%, transparent)' }}>
+                  <RefreshIcon className={`w-4 h-4 ${refreshingFinancials ? 'animate-spin' : ''}`} />
+                  {refreshingFinancials ? 'Refreshing…' : 'Regen Financials'}
+                </button>
+              )}
             </div>
             {genError && <p className="text-subheadline text-negative mb-3">{genError}</p>}
             {staleBands && (
@@ -203,10 +222,15 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
                 </>
               ) : (
                 <>
-                  <LabeledInput label="Index Level" value={indexLevel} onChange={setIndexLevel} placeholder="e.g. 22500" />
                   <LabeledInput label="Index PE" value={indexPe} onChange={setIndexPe} placeholder="e.g. 22" />
+                  <LabeledInput label="CMP" value={cmp} onChange={setCmp} placeholder="e.g. 273" />
                   <LabeledInput
-                    label="Implied EPS (₹)"
+                    label="Index Level"
+                    readOnly
+                    value={indexLevel || '—'}
+                  />
+                  <LabeledInput
+                    label="EPS per unit (CMP ÷ PE)"
                     readOnly
                     value={derivedIndexEps != null ? derivedIndexEps.toFixed(2) : '—'}
                   />

@@ -99,7 +99,7 @@ export function computeStockRows(
       : seqCost(txns)
 
     const band = bands.find(b => b.symbol === alloc.symbol) ?? null
-    const cmp  = band?.manual_cmp ?? null
+    const cmp  = band?.cmp ?? null
 
     const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
     const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)

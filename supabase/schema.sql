@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS buy_bands (
     mid_high        NUMERIC(10,2),
     trim_price      NUMERIC(10,2),
     -- Current market price (manual entry)
-    manual_cmp      NUMERIC(10,2),
+    cmp      NUMERIC(10,2),
     week_52_low     NUMERIC(10,2),
     week_52_high    NUMERIC(10,2),
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

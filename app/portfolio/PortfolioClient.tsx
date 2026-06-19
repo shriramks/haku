@@ -42,7 +42,7 @@ function computeStockHoldings(
     if (allowed.size > 0 && !allowed.has(t.symbol)) continue
     ;(bySymbol[t.symbol] ??= []).push(t)
   }
-  const cmpBySymbol = new Map(bands.map(b => [b.symbol, b.manual_cmp]))
+  const cmpBySymbol = new Map(bands.map(b => [b.symbol, b.cmp]))
   return Object.entries(bySymbol)
     .flatMap(([symbol, txns]) => {
       const { qty, cost } = seqCost(txns)

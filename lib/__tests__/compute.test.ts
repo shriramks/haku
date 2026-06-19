@@ -33,7 +33,7 @@ function mkBand(symbol: string, overrides: Partial<BuyBand> = {}): BuyBand {
     id: `band-${symbol}`, symbol, anchor_type: 'PE',
     pat_now: null, pat_3yr_ago: null, roce_3yr_avg: null, mcap: null, index_level: null, index_pe: null,
     eps: null, buy_low: null, buy_high: null, mid_low: null, mid_high: null, trim_price: null,
-    manual_cmp: null, week_52_low: null, week_52_high: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
+    cmp: null, week_52_low: null, week_52_high: null, last_updated_at: '', generated_at: '', is_current: true, notes: '',
     ...overrides,
   }
 }
