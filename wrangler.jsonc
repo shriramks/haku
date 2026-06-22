@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "haku",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // R2 bucket backing the Next incremental cache (unstable_cache / revalidateTag).
+  // Bucket "haku-cache" is created in the Cloudflare dashboard in 64.2; until then
+  // `wrangler dev` simulates it locally via miniflare (no real bucket needed).
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "haku-cache"
+    }
+  ]
+}
