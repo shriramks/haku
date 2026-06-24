@@ -6,6 +6,11 @@
   "compatibility_flags": ["nodejs_compat"],
   // Worker logs in the Cloudflare dashboard (Observability tab) for debugging deploys.
   "observability": { "enabled": true },
+  // Smart Placement: worker runs near the user by default, but Supabase is in
+  // Singapore. Page renders make several sequential Supabase subrequests (auth +
+  // data), so from an India edge that's N x ~70ms RTT. Smart Placement detects the
+  // chatty backend and relocates execution near Singapore, collapsing those hops.
+  "placement": { "mode": "smart" },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
