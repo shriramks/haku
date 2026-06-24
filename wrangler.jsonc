@@ -18,5 +18,16 @@
       "binding": "NEXT_INC_CACHE_R2_BUCKET",
       "bucket_name": "haku"
     }
+  ],
+  // Durable Object backing the sharded tag cache (revalidateTag invalidation).
+  // The DOShardedTagCache class is exported by the generated .open-next/worker.js;
+  // the migration creates it on deploy — no dashboard setup, no populate step.
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEXT_TAG_CACHE_DO_SHARDED", "class_name": "DOShardedTagCache" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DOShardedTagCache"] }
   ]
 }
