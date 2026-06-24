@@ -54,7 +54,8 @@ self.addEventListener('fetch', event => {
         if (cached) return cached
         return fetch(request).then(response => {
           if (response.ok) {
-            caches.open(CACHE).then(cache => cache.put(request, response.clone()))
+            const copy = response.clone()
+            caches.open(CACHE).then(cache => cache.put(request, copy))
           }
           return response
         })
