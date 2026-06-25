@@ -81,6 +81,12 @@ export default function BottomNav() {
         className="fixed bottom-0 left-0 right-0 z-40 flex items-center gap-2.5 px-3 pointer-events-none"
         style={{ paddingBottom: 'var(--nav-bottom-pad)', paddingTop: 8 }}>
 
+        {/* Bottom fade — dissolves content scrolling behind the pill, anchors it to the edge */}
+        <div aria-hidden className="absolute inset-x-0 bottom-0 pointer-events-none" style={{
+          height: 158, zIndex: -1,
+          background: 'linear-gradient(to top, rgba(var(--bg-primary-rgb),1) 0%, rgba(var(--bg-primary-rgb),0.92) 26%, rgba(var(--bg-primary-rgb),0.55) 58%, rgba(var(--bg-primary-rgb),0) 100%)',
+        }} />
+
         {/* Tabs pill */}
         <div className="flex items-center justify-around flex-1 p-2 backdrop-blur-xl pointer-events-auto" style={pillStyle}>
           {TABS.map(({ href, label, Icon }) => {

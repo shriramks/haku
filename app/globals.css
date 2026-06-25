@@ -5,6 +5,7 @@
 /* ── Theme tokens (light default, dark override) ─────────────────────────── */
 :root {
   --bg-primary:   #FFFFFF;
+  --bg-primary-rgb: 255,255,255;
   --bg-secondary: #FFFFFF;
   --bg-tertiary:  #E5E5EA;
   --bg-nav:       rgba(255,255,255,0.92);
@@ -35,6 +36,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-primary:   #000000;
+    --bg-primary-rgb: 0,0,0;
     --bg-secondary: #1C1C1E;
     --bg-tertiary:  #2C2C2E;
     --bg-nav:       rgba(0,0,0,0.90);
@@ -54,6 +56,7 @@
 /* ── Manual theme overrides (beat the media query via element+attr specificity) */
 html[data-theme="dark"] {
   --bg-primary:   #000000;
+  --bg-primary-rgb: 0,0,0;
   --bg-secondary: #1C1C1E;
   --bg-tertiary:  #2C2C2E;
   --bg-nav:       rgba(0,0,0,0.90);
@@ -70,6 +73,7 @@ html[data-theme="dark"] {
 }
 html[data-theme="light"] {
   --bg-primary:   #FFFFFF;
+  --bg-primary-rgb: 255,255,255;
   --bg-secondary: #FFFFFF;
   --bg-tertiary:  #E5E5EA;
   --bg-nav:       rgba(255,255,255,0.92);
