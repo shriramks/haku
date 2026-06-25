@@ -14,7 +14,7 @@ const TABS = [
 ] as const
 
 const pillStyle: React.CSSProperties = {
-  background: 'var(--bg-secondary)',
+  background: 'var(--bg-nav)',
   borderRadius: 28,
   boxShadow: '0 8px 28px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
 }
@@ -78,11 +78,11 @@ export default function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 z-40 flex items-center gap-2.5 px-3"
-        style={{ paddingBottom: 'var(--nav-bottom-pad)', paddingTop: 8, background: 'var(--bg-primary)' }}>
+        className="fixed bottom-0 left-0 right-0 z-40 flex items-center gap-2.5 px-3 pointer-events-none"
+        style={{ paddingBottom: 'var(--nav-bottom-pad)', paddingTop: 8 }}>
 
         {/* Tabs pill */}
-        <div className="flex items-center justify-around flex-1 p-2" style={pillStyle}>
+        <div className="flex items-center justify-around flex-1 p-2 backdrop-blur-xl pointer-events-auto" style={pillStyle}>
           {TABS.map(({ href, label, Icon }) => {
             const active   = path === href || path.startsWith(href + '/')
             const showPulse = href === '/bands' && pulseBands
@@ -113,7 +113,7 @@ export default function BottomNav() {
         {/* Add pill */}
         <button
           onClick={() => { setAddSymbol(undefined); setAddOpen(true) }}
-          className="flex items-center justify-center active:scale-95 transition-transform"
+          className="flex items-center justify-center active:scale-95 transition-transform backdrop-blur-xl pointer-events-auto"
           style={{ ...pillStyle, padding: '23px 18px' }}>
           <PlusIcon className="w-[25px] h-[25px]" style={{ color: 'var(--text-primary)' }} />
         </button>
