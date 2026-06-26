@@ -139,6 +139,12 @@ body {
 .num-u   { font-size: 0.72em; margin-left: 0.18em; }
 .num-sgn { font-size: 0.80em; vertical-align: 0.06em; margin-right: 0.18em; }
 
+/* Columnar figure: digits right-aligned, unit in a fixed left-aligned slot so
+   units stack and last digits line up cleanly down a column. */
+.num-col    { display: grid; grid-template-columns: 1fr auto; align-items: baseline; width: 100%; }
+.num-digits { text-align: right; white-space: nowrap; }
+.num-uslot  { font-size: 0.72em; margin-left: 0.18em; min-width: 1.7ch; text-align: left; }
+
 /* Keyboard-aware sheet: animates bottom up above keyboard, suppresses safe-area pad */
 .sheet-kb {
   transition: bottom 0.25s ease;

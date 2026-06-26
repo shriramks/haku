@@ -4,9 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFine, formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
 import { mfAssetClass } from '@/lib/tax-compute'
-import { Num } from '@/components/Num'
+import { Num, NumUnit } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
@@ -340,7 +340,7 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          badge={equity.invested > 0 ? `${formatINRFine(equity.invested)} inv` : null}
+          invested={equity.invested > 0 ? <Num amount={equity.invested} align /> : null}
           gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
           currentValue={equity.currentValue > 0 ? equity.currentValue : null}
           open={openSections.has('equity')}
@@ -350,7 +350,7 @@ export default function PortfolioClient({
           <>
             {stockHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Curr" c3="Inv" c4="Return" />
+                <ColHeaders c1="Stock" c2="Inv" c3="Curr" c4="Return" />
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
@@ -372,7 +372,7 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          badge={mfInvested > 0 ? `${formatINRFine(mfInvested)} inv` : null}
+          invested={mfInvested > 0 ? <Num amount={mfInvested} align /> : null}
           gainPct={mfSectionXirr !== null ? mfSectionXirr * 100 : null}
           currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
           open={openSections.has('mf')}
@@ -382,7 +382,7 @@ export default function PortfolioClient({
           <>
             {mfHoldings.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Curr" c3="Inv" c4="Return" />
+                <ColHeaders c1="Fund" c2="Inv" c3="Curr" c4="Return" />
                 {mfHoldings.map(h => (
                   <FundRow key={h.fund.id}
                     name={h.fund.scheme_name}
@@ -405,7 +405,7 @@ export default function PortfolioClient({
         {/* Gold */}
         <SectionHeader
           id="sgb" label="Gold"
-          badge={totalGoldGrams > 0 ? `${trimZero(totalGoldGrams)}g` : null}
+          invested={totalGoldGrams > 0 ? <NumUnit digits={trimZero(totalGoldGrams)} unit="g" /> : null}
           gainPct={goldSectionXirr !== null ? goldSectionXirr * 100 : null}
           currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
           open={openSections.has('sgb')}
@@ -415,7 +415,7 @@ export default function PortfolioClient({
           <>
             {sgbBatches.length > 0 && (
               <>
-                <ColHeaders c1="Gold" c2="Curr" c3="Inv" c4="Return" />
+                <ColHeaders c1="Gold" c2="Inv" c3="Curr" c4="Return" />
                 {sgbBatches.map(b => (
                   <FundRow key={b.key}
                     name={goldDisplayName(b)}
@@ -437,7 +437,7 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          badge={ppf.totalDeposited > 0 ? `${formatINRFine(ppf.totalDeposited)} dep` : null}
+          invested={ppf.totalDeposited > 0 ? <Num amount={ppf.totalDeposited} align /> : null}
           gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
           currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
           open={openSections.has('ppf')}
@@ -450,7 +450,7 @@ export default function PortfolioClient({
         {/* EPF */}
         <SectionHeader
           id="epf" label="EPF"
-          badge={epf.totalDeposited > 0 ? `${formatINRFine(epf.totalDeposited)} dep` : null}
+          invested={epf.totalDeposited > 0 ? <Num amount={epf.totalDeposited} align /> : null}
           gainPct={epf.totalDeposited > 0 ? ((epf.computedBalance - epf.totalDeposited) / epf.totalDeposited * 100) : null}
           currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
           open={openSections.has('epf')}
@@ -599,8 +599,8 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   )
 }
 
-function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle }: {
-  id: string; label: string; badge: string | null
+function SectionHeader({ id, label, invested, gainPct, currentValue, open, onToggle }: {
+  id: string; label: string; invested: React.ReactNode
   gainPct: number | null; currentValue: number | null
   open: boolean; onToggle: () => void
 }) {
@@ -608,36 +608,29 @@ function SectionHeader({ id, label, badge, gainPct, currentValue, open, onToggle
 
   return (
     <button onClick={onToggle}
-            className="grid w-full items-center gap-x-3 px-4"
-            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, gridTemplateColumns: SECTION_HEADER_COLS }}>
-      <div className="flex min-w-0 items-baseline">
-        <span className="text-headline font-bold flex-shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
-        {badge && (
-          <>
-            <span className="flex-shrink-0 mx-1.5" style={{ color: 'var(--border-faint)', fontSize: 15 }}>·</span>
-            <span className="text-subheadline tabnum truncate" style={{ color: 'var(--text-faint)' }}>{badge}</span>
-          </>
-        )}
-      </div>
-      <span className="text-headline font-semibold tabnum text-right"
+            className="grid w-full items-baseline gap-x-2 px-4"
+            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, paddingTop: 14, paddingBottom: 14, gridTemplateColumns: SECTION_HEADER_COLS }}>
+      <span className="text-headline font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <span className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>{invested}</span>
+      <span className="text-headline font-semibold tabnum"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
-        <Num amount={currentValue} />
+        <Num amount={currentValue} align />
       </span>
       {gainPct !== null ? (
-        <span className={`text-subheadline font-bold tabnum text-right ${positive ? 'text-positive' : 'text-negative'}`}>
-          <Num pct={gainPct} signed />
+        <span className={`text-subheadline font-bold tabnum ${positive ? 'text-positive' : 'text-negative'}`}>
+          <Num pct={gainPct} signed align />
         </span>
       ) : (
         <span />
       )}
       <ChevronRightIcon
-        className={`w-4 h-4 transition-transform duration-150 justify-self-end ${open ? 'rotate-90' : ''}`}
+        className={`w-4 h-4 transition-transform duration-150 justify-self-end self-center ${open ? 'rotate-90' : ''}`}
         style={{ color: 'var(--text-muted)' }} />
     </button>
   )
 }
 
-const SECTION_HEADER_COLS = 'minmax(0,1fr) 7.5ch 6.5ch 1rem'
+const SECTION_HEADER_COLS = 'minmax(0,1fr) 5.5ch 8ch 6ch 1rem'
 const FUND_ROW_COLS = '1.4fr 0.9fr 0.9fr 1fr'
 
 function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4: string }) {
@@ -671,21 +664,21 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
         </div>
         <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
-      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={current} />
+      <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+        <Num amount={invested} align />
       </p>
-      <p className="text-body font-semibold tabnum text-right" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={invested} />
+      <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
+        <Num amount={current} align />
       </p>
-      <div className="text-right">
+      <div>
         <p className="text-body font-semibold tabnum"
            style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
-          <Num amount={gain} signed />
+          <Num amount={gain} signed align />
         </p>
         {xirrPct !== null && (
           <p className="text-footnote tabnum mt-0.5"
              style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>
-            <Num pct={xirrPct} signed />
+            <Num pct={xirrPct} signed align />
           </p>
         )}
       </div>
