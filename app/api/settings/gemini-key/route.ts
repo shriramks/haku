@@ -96,7 +96,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid Gemini API key — should start with AIza' }, { status: 400 })
   }
 
-  const encryptedKey = await encrypt(key)
+  let encryptedKey: string
+  try {
+    encryptedKey = await encrypt(key)
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Encryption failed' }, { status: 500 })
+  }
+
   const { error } = await supabase.from('user_settings').upsert(
     { user_id: user.id, gemini_api_key: encryptedKey, ai_provider: 'gemini', updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
