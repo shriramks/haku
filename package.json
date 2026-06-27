@@ -21,8 +21,9 @@
     "react-dom": "^18"
   },
   "overrides": {
-    "vite": "^8.0.5",
-    "postcss": "^8.5.10"
+    "vite": "^8.0.16",
+    "postcss": "^8.5.10",
+    "dompurify": "^3.4.11"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
