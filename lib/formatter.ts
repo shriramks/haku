@@ -55,6 +55,12 @@ export function formatPriceNum(price: number): string {
   return n < 10000 ? `${n}` : `${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
+/** Exact price without ₹: up to 2 decimals, trailing zeros stripped; no commas below 10,000 — e.g. 1250.5, 1250, 1,48,000.25 */
+export function formatPriceFineNum(price: number): string {
+  const v = parseFloat(price.toFixed(2))
+  return v < 10000 ? `${v}` : v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
 /** Full Indian-locale number without ₹ — e.g. 33,40,000 */
 export function formatINRFull(amount: number): string {
   const abs  = Math.abs(amount)

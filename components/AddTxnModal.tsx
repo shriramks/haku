@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { todayISO, formatINRFine, formatINRFull, formatPrice } from '@/lib/formatter'
+import { todayISO, formatINRFine, formatINRFull, formatPriceFineNum } from '@/lib/formatter'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
@@ -306,7 +306,7 @@ export default function AddTxnModal({
               </p>
               {assetType === 'stock' && (
                 <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  {qty} × {formatPrice(parseFloat(price) || 0)}
+                  {qty} × {formatPriceFineNum(parseFloat(price) || 0)}
                 </p>
               )}
               {assetType === 'mf' && (

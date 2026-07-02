@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatDate, formatPriceNum } from '@/lib/formatter'
+import { formatDate, formatPriceNum, formatPriceFineNum } from '@/lib/formatter'
 import { updateStockTransaction, deleteStockTransaction, loadAllStockTransactions } from '@/app/actions'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
@@ -215,7 +215,7 @@ export default function TransactionsClient({
       trade_type:   t.trade_type,
       amount:       t.amount,
       signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount,
-      detail:       `${fmtQty(t.quantity, 1)} sh · ${formatPriceNum(t.price)}`,
+      detail:       `${fmtQty(t.quantity, 1)} sh · ${formatPriceFineNum(t.price)}`,
       rawStock:     t,
     }))
 
