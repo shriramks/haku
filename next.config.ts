@@ -16,9 +16,3 @@ const config: NextConfig = {
 }
 
 export default config
-
-// OpenNext (Cloudflare Workers) dev hook — inert to Vercel/prod `next build`.
-// When running `next dev` under wrangler it wires up the Cloudflare bindings
-// (R2 cache, env). The adapter guards this so it only activates in dev.
-import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare'
-initOpenNextCloudflareForDev()

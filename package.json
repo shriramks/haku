@@ -26,7 +26,6 @@
     "dompurify": "^3.4.11"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -34,7 +33,6 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
-    "vitest": "^4.1.0",
-    "wrangler": "^4.103.0"
+    "vitest": "^4.1.0"
   }
 }
