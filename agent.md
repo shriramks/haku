@@ -131,6 +131,7 @@ Equity, debt, and gold are separate capital gains buckets — losses cannot cros
   - Each entry: `Files:` line listing changed files, then 2–4 terse bullets on what changed and why.
   - When planning a multi-session task, add all sessions as numbered Todo entries first. When a session is completed, move it to Done (renumber if needed to stay sequential) and append the files + bullets.
   - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
+  - A **Done** entry requires its tracked (non-gitignored) files to be committed and pushed to `main`. Work that's implemented and tested but not yet committed stays under `## Todo` — do not mark something Done on the strength of a passing build alone. This never justifies overriding ignore rules to get there: gitignored files (this file itself, `mockups/`, `supabase/migrations/`) are never committed regardless of Done status; for a session that only touches gitignored files, Done means the work is finished, full stop.
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
