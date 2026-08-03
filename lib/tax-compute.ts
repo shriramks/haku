@@ -45,8 +45,12 @@ interface OpenLot {
   fmvJan2018:  number | null  // non-null only for pre-2018 MF lots
 }
 
-const LTCG_DAYS_EQUITY = 365
-const LTCG_DAYS_GOLD   = 1095
+export const LTCG_DAYS_EQUITY = 365
+export const LTCG_DAYS_GOLD   = 1095
+export const LTCG_DAYS_DEBT   = 730  // 24 months — Budget 2024 unified non-equity threshold
+// Finance Act 2023 s.50AA: debt MF units bought on/after this date get no LTCG
+// treatment at all — always taxed at slab, regardless of holding period.
+export const DEBT_SLAB_CUTOFF = '2023-04-01'
 const GRANDFATHER_DATE = '2018-01-31'
 const EPSILON          = 1e-6
 
@@ -54,8 +58,24 @@ function daysBetween(from: string, to: string): number {
   return Math.floor((Date.parse(to) - Date.parse(from)) / 86_400_000)
 }
 
-function ltcgThreshold(assetType: AssetType): number {
-  return assetType === 'gold' ? LTCG_DAYS_GOLD : LTCG_DAYS_EQUITY
+// Classifies a lot into LTCG/STCG given its holding period. `assetType` /
+// `symbol` are for RealisedGain tagging only — the actual bucket a debt or
+// gold-ETF gain lands in downstream is decided entirely by this function via
+// the classify callback passed to fifoConsume, not by assetType.
+type Classify = (lot: OpenLot, holdingDays: number) => GainType
+
+function classifyByDays(thresholdDays: number): Classify {
+  return (_lot, holdingDays) => holdingDays >= thresholdDays ? 'LTCG' : 'STCG'
+}
+
+// Debt MF (and, by the same rate mechanics, gold ETF folded into the debt
+// bucket for tax purposes): units bought on/after the s.50AA cutoff are
+// always STCG (slab), regardless of holding period. Earlier units get LTCG
+// at the 24-month threshold. Gold ETF has no such purchase-date cutoff — call
+// classifyByDays(LTCG_DAYS_DEBT) for that case instead.
+function classifyDebtMF(lot: OpenLot, holdingDays: number): GainType {
+  if (lot.purchaseDate >= DEBT_SLAB_CUTOFF) return 'STCG'
+  return holdingDays >= LTCG_DAYS_DEBT ? 'LTCG' : 'STCG'
 }
 
 // Pre-2018 LTCG grandfathering (equity MFs only):
@@ -87,6 +107,7 @@ function fifoConsume(
   assetType:        AssetType,
   symbol:           string,
   fyRange:          { start: string; end: string },
+  classify:         Classify,
 ): RealisedGain[] {
   const gains: RealisedGain[] = []
   const inFY = sellDate >= fyRange.start && sellDate <= fyRange.end
@@ -97,7 +118,7 @@ function fifoConsume(
     const consumed = Math.min(lot.qty, remaining)
 
     const holdingDays = daysBetween(lot.purchaseDate, sellDate)
-    const gainType    = holdingDays >= ltcgThreshold(assetType) ? 'LTCG' : 'STCG'
+    const gainType    = classify(lot, holdingDays)
     const costPerUnit = grandfatheredCost(lot, salePricePerUnit, gainType)
 
     if (inFY) {
@@ -137,18 +158,19 @@ export function computeStockGains(
 ): { realised: RealisedGain[]; unrealised: UnrealisedPosition[] } {
   const lots:     OpenLot[]      = []
   const realised: RealisedGain[] = []
+  const classify = classifyByDays(LTCG_DAYS_EQUITY)
 
   for (const txn of sortTxns(txns)) {
     if (txn.trade_type === 'buy') {
       lots.push({ purchaseDate: txn.trade_date, qty: txn.quantity, costPerUnit: txn.price, fmvJan2018: null })
     } else {
-      realised.push(...fifoConsume(lots, txn.trade_date, txn.quantity, txn.price, 'stock', symbol, fyRange))
+      realised.push(...fifoConsume(lots, txn.trade_date, txn.quantity, txn.price, 'stock', symbol, fyRange, classify))
     }
   }
 
   const unrealised: UnrealisedPosition[] = lots.map(lot => {
     const holdingDays  = daysBetween(lot.purchaseDate, asOf)
-    const gainType     = holdingDays >= LTCG_DAYS_EQUITY ? 'LTCG' : 'STCG'
+    const gainType     = classify(lot, holdingDays)
     const currentValue = cmp !== null ? lot.qty * cmp : null
     const gain         = currentValue !== null ? currentValue - lot.qty * lot.costPerUnit : null
     return { assetType: 'stock' as AssetType, symbol, purchaseDate: lot.purchaseDate, qty: lot.qty, costPerUnit: lot.costPerUnit, purchaseCost: lot.qty * lot.costPerUnit, currentValue, gain, holdingDays, gainType }
@@ -176,11 +198,15 @@ export function netStockQtyAsOf(txns: Transaction[], date: string): number {
 
 // ── MF ───────────────────────────────────────────────────────────────────────
 
-// fmvJan2018: NAV on Jan 31 2018 for this fund, null if fund had no pre-2018 units
-// or if the value hasn't been fetched yet (grandfathering skipped when null)
+// assetClass: from mfAssetClass(fund) — decides the LTCG threshold and, for
+// debt, whether the s.50AA slab-only cutoff applies.
+// fmvJan2018: NAV on Jan 31 2018 for this fund (equity only — debt funds have
+// no grandfather rule), null if the fund had no pre-2018 units or the value
+// hasn't been fetched yet (grandfathering skipped when null)
 export function computeMFGains(
   txns:        MFTransaction[],
   fundId:      string,
+  assetClass:  'equity' | 'debt',
   fmvJan2018:  number | null,
   currentNav:  number | null,
   fyRange:     { start: string; end: string },
@@ -188,6 +214,7 @@ export function computeMFGains(
 ): { realised: RealisedGain[]; unrealised: UnrealisedPosition[] } {
   const lots:     OpenLot[]      = []
   const realised: RealisedGain[] = []
+  const classify  = assetClass === 'debt' ? classifyDebtMF : classifyByDays(LTCG_DAYS_EQUITY)
 
   for (const txn of sortTxns(txns)) {
     if (txn.trade_type === 'buy') {
@@ -195,16 +222,16 @@ export function computeMFGains(
         purchaseDate: txn.trade_date,
         qty:          txn.units,
         costPerUnit:  txn.nav,
-        fmvJan2018:   txn.trade_date <= GRANDFATHER_DATE ? fmvJan2018 : null,
+        fmvJan2018:   assetClass === 'equity' && txn.trade_date <= GRANDFATHER_DATE ? fmvJan2018 : null,
       })
     } else {
-      realised.push(...fifoConsume(lots, txn.trade_date, txn.units, txn.nav, 'mf', fundId, fyRange))
+      realised.push(...fifoConsume(lots, txn.trade_date, txn.units, txn.nav, 'mf', fundId, fyRange, classify))
     }
   }
 
   const unrealised: UnrealisedPosition[] = lots.map(lot => {
     const holdingDays  = daysBetween(lot.purchaseDate, asOf)
-    const gainType     = holdingDays >= LTCG_DAYS_EQUITY ? 'LTCG' : 'STCG'
+    const gainType     = classify(lot, holdingDays)
     const currentValue = currentNav !== null ? lot.qty * currentNav : null
     const gain         = currentValue !== null ? currentValue - lot.qty * lot.costPerUnit : null
     return { assetType: 'mf' as AssetType, symbol: fundId, purchaseDate: lot.purchaseDate, qty: lot.qty, costPerUnit: lot.costPerUnit, purchaseCost: lot.qty * lot.costPerUnit, currentValue, gain, holdingDays, gainType }
@@ -216,27 +243,33 @@ export function computeMFGains(
 // ── Gold ─────────────────────────────────────────────────────────────────────
 
 // symbol: caller-defined pool key (e.g. gold_type for ETF/physical, series name for SGB)
+// ltcgDays: threshold for LTCG classification — defaults to gold's 3-year rule.
+// Pass LTCG_DAYS_DEBT for ETF lots being folded into the tax page's debt
+// bucket (24-month threshold, same rate mechanics as debt MF — but unlike
+// debt MF, gold ETF has no purchase-date slab-only cutoff).
 export function computeGoldGains(
   txns:                SGBTransaction[],
   symbol:              string,
   currentPricePerGram: number | null,
   fyRange:             { start: string; end: string },
   asOf:                string,
+  ltcgDays:            number = LTCG_DAYS_GOLD,
 ): { realised: RealisedGain[]; unrealised: UnrealisedPosition[] } {
   const lots:     OpenLot[]      = []
   const realised: RealisedGain[] = []
+  const classify  = classifyByDays(ltcgDays)
 
   for (const txn of sortTxns(txns)) {
     if (txn.trade_type === 'buy') {
       lots.push({ purchaseDate: txn.trade_date, qty: txn.grams, costPerUnit: txn.price_per_gram, fmvJan2018: null })
     } else {
-      realised.push(...fifoConsume(lots, txn.trade_date, txn.grams, txn.price_per_gram, 'gold', symbol, fyRange))
+      realised.push(...fifoConsume(lots, txn.trade_date, txn.grams, txn.price_per_gram, 'gold', symbol, fyRange, classify))
     }
   }
 
   const unrealised: UnrealisedPosition[] = lots.map(lot => {
     const holdingDays  = daysBetween(lot.purchaseDate, asOf)
-    const gainType     = holdingDays >= LTCG_DAYS_GOLD ? 'LTCG' : 'STCG'
+    const gainType     = classify(lot, holdingDays)
     const currentValue = currentPricePerGram !== null ? lot.qty * currentPricePerGram : null
     const gain         = currentValue !== null ? currentValue - lot.qty * lot.costPerUnit : null
     return { assetType: 'gold' as AssetType, symbol, purchaseDate: lot.purchaseDate, qty: lot.qty, costPerUnit: lot.costPerUnit, purchaseCost: lot.qty * lot.costPerUnit, currentValue, gain, holdingDays, gainType }

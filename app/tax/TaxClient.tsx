@@ -125,7 +125,7 @@ export default function TaxClient({
     for (const [fundId, txns] of mfMap) {
       const fund = mfFunds.find(f => f.id === fundId)
       const cls  = fund ? mfAssetClass(fund) : 'equity'
-      const { realised, unrealised } = computeMFGains(txns, fundId, null, null, fyRange, asOf)
+      const { realised, unrealised } = computeMFGains(txns, fundId, cls, null, null, fyRange, asOf)
       for (const g of realised) {
         if (cls === 'debt') { if (g.gainType === 'LTCG') dtLTCG += g.gain; else dtSTCG += g.gain }
         else                { if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain }

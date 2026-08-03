@@ -4,6 +4,7 @@ import type { Transaction } from '../types'
 import type { MFTransaction, SGBTransaction } from '../portfolio-types'
 
 const FY26  = { start: '2025-04-01', end: '2026-03-31' }
+const FY24  = { start: '2023-04-01', end: '2024-03-31' }
 const AS_OF = '2026-05-21'
 
 // ── Builders ─────────────────────────────────────────────────────────────────
@@ -179,7 +180,7 @@ describe('computeMFGains — grandfathering', () => {
   // effective cost = max(50, min(120, 200)) = 120 → gain = (200-120)*100
   it('LTCG pre-2018: effective cost steps up to FMV when FMV > actual cost', () => {
     const txns = [mfBuy('2016-06-01', 100, 50), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', 120, null, FY26, AS_OF)
+    const r = computeMFGains(txns, 'fund1', 'equity', 120, null, FY26, AS_OF)
     expect(r.realised[0].gainType).toBe('LTCG')
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 120)
     expect(r.realised[0].gain).toBeCloseTo(100 * (200 - 120))
@@ -189,7 +190,7 @@ describe('computeMFGains — grandfathering', () => {
   // effective cost = max(150, min(120, 200)) = 150 → use actual cost
   it('LTCG pre-2018: actual cost used when actual cost > FMV', () => {
     const txns = [mfBuy('2016-06-01', 100, 150), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', 120, null, FY26, AS_OF)
+    const r = computeMFGains(txns, 'fund1', 'equity', 120, null, FY26, AS_OF)
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 150)
     expect(r.realised[0].gain).toBeCloseTo(100 * 50)
   })
@@ -197,7 +198,7 @@ describe('computeMFGains — grandfathering', () => {
   // Scenario C: FMV (300) > sale price (200) → effective cost capped at sale price → gain = 0
   it('LTCG pre-2018: effective cost capped at sale price when FMV > sale price (no artificial loss)', () => {
     const txns = [mfBuy('2016-06-01', 100, 50), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', 300, null, FY26, AS_OF)  // fmvJan2018 = 300
+    const r = computeMFGains(txns, 'fund1', 'equity', 300, null, FY26, AS_OF)  // fmvJan2018 = 300
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 200)
     expect(r.realised[0].gain).toBeCloseTo(0)
   })
@@ -205,20 +206,20 @@ describe('computeMFGains — grandfathering', () => {
   it('STCG on pre-2018 lot: grandfathering not applied', () => {
     const FY19 = { start: '2018-04-01', end: '2019-03-31' }
     const txns = [mfBuy('2018-01-01', 100, 50), mfSell('2018-06-01', 100, 80)]  // ~150 days → STCG
-    const r = computeMFGains(txns, 'fund1', 120, null, FY19, AS_OF)
+    const r = computeMFGains(txns, 'fund1', 'equity', 120, null, FY19, AS_OF)
     expect(r.realised[0].gainType).toBe('STCG')
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 50)  // actual cost, no step-up
   })
 
   it('post-2018 lot: grandfathering never applied even for LTCG', () => {
     const txns = [mfBuy('2019-01-01', 100, 80), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', 200, null, FY26, AS_OF)
+    const r = computeMFGains(txns, 'fund1', 'equity', 200, null, FY26, AS_OF)
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 80)
   })
 
   it('fmvJan2018 null → actual cost used for pre-2018 lots (grandfather skipped)', () => {
     const txns = [mfBuy('2016-06-01', 100, 50), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', null, null, FY26, AS_OF)  // fmvJan2018 = null
+    const r = computeMFGains(txns, 'fund1', 'equity', null, null, FY26, AS_OF)  // fmvJan2018 = null
     expect(r.realised[0].purchaseCost).toBeCloseTo(100 * 50)
   })
 
@@ -227,7 +228,7 @@ describe('computeMFGains — grandfathering', () => {
     // lot2: post-2018, 50 units @ 120 → effective cost = 120
     // sell 100 units @ 200
     const txns = [mfBuy('2016-06-01', 50, 40), mfBuy('2019-01-01', 50, 120), mfSell('2026-01-01', 100, 200)]
-    const r = computeMFGains(txns, 'fund1', 100, null, FY26, AS_OF)
+    const r = computeMFGains(txns, 'fund1', 'equity', 100, null, FY26, AS_OF)
     expect(r.realised).toHaveLength(2)
     expect(r.realised[0].purchaseCost).toBeCloseTo(50 * 100)   // pre-2018, FMV-based
     expect(r.realised[1].purchaseCost).toBeCloseTo(50 * 120)   // post-2018, actual cost
@@ -239,8 +240,6 @@ describe('computeMFGains — grandfathering', () => {
 // 2021-01-01 → 2024-01-01 = 1095 days (LTCG)
 
 describe('computeGoldGains — LTCG/STCG', () => {
-  const FY24 = { start: '2023-04-01', end: '2024-03-31' }
-
   it('1094 days → STCG', () => {
     const txns = [gldBuy('2021-01-01', 10, 4000), gldSell('2023-12-31', 10, 6000)]
     const r = computeGoldGains(txns, 'sgb', null, FY24, AS_OF)
@@ -270,5 +269,68 @@ describe('computeGoldGains — LTCG/STCG', () => {
     expect(r.realised[0].gain).toBeCloseTo(6 * (6000 - 4000))
     expect(r.unrealised[0].qty).toBeCloseTo(4)
     expect(r.unrealised[0].currentValue).toBeCloseTo(4 * 7000)
+  })
+})
+
+// ── computeMFGains — debt classification ─────────────────────────────────────
+// Debt MF: units bought on/after 2023-04-01 are always STCG (s.50AA, slab,
+// regardless of holding). Earlier units get LTCG at the 24-month (730-day)
+// threshold, same as equity's 365-day rule but doubled.
+
+describe('computeMFGains — debt classification', () => {
+  it('pre-cutoff lot, 729 days held → STCG', () => {
+    const txns = [mfBuy('2022-01-01', 100, 50), mfSell('2023-12-31', 100, 80)]
+    const r = computeMFGains(txns, 'fund1', 'debt', null, null, FY24, AS_OF)
+    expect(r.realised[0].holdingDays).toBe(729)
+    expect(r.realised[0].gainType).toBe('STCG')
+  })
+
+  it('pre-cutoff lot, 730 days held → LTCG', () => {
+    const txns = [mfBuy('2022-01-01', 100, 50), mfSell('2024-01-01', 100, 80)]
+    const r = computeMFGains(txns, 'fund1', 'debt', null, null, FY24, AS_OF)
+    expect(r.realised[0].holdingDays).toBe(730)
+    expect(r.realised[0].gainType).toBe('LTCG')
+  })
+
+  it('post-cutoff lot → always STCG even when held well past 24 months', () => {
+    const txns = [mfBuy('2023-04-01', 100, 50), mfSell('2026-01-01', 100, 90)]
+    const r = computeMFGains(txns, 'fund1', 'debt', null, null, FY26, AS_OF)
+    expect(r.realised[0].holdingDays).toBeGreaterThan(730)
+    expect(r.realised[0].gainType).toBe('STCG')
+  })
+
+  it('lot bought the day before cutoff still gets LTCG treatment at 24 months', () => {
+    const txns = [mfBuy('2023-03-31', 100, 50), mfSell('2026-01-01', 100, 90)]
+    const r = computeMFGains(txns, 'fund1', 'debt', null, null, FY26, AS_OF)
+    expect(r.realised[0].gainType).toBe('LTCG')
+  })
+
+  it('unrealised debt lot uses the 24-month threshold, not equity’s 365-day one', () => {
+    // held 399 days: LTCG under equity's 365-day rule, STCG under debt's 730-day rule
+    const r = computeMFGains([mfBuy('2025-01-01', 100, 50)], 'fund1', 'debt', null, 80, FY26, '2026-02-04')
+    expect(r.unrealised[0].holdingDays).toBe(399)
+    expect(r.unrealised[0].gainType).toBe('STCG')
+  })
+})
+
+// ── computeGoldGains — ETF folded into the debt bucket ───────────────────────
+// Gold ETF (not SGB) uses the same 24-month threshold as debt for tax-page
+// bucketing, passed as an explicit ltcgDays override — no purchase-date
+// cutoff, unlike debt MF.
+
+describe('computeGoldGains — ltcgDays override for ETF', () => {
+  it('729 days at a 730-day override → STCG', () => {
+    const txns = [gldBuy('2022-01-01', 10, 4000), gldSell('2023-12-31', 10, 6000)]
+    const r = computeGoldGains(txns, 'etf', null, FY24, AS_OF, 730)
+    expect(r.realised[0].holdingDays).toBe(729)
+    expect(r.realised[0].gainType).toBe('STCG')
+  })
+
+  it('730 days at a 730-day override → LTCG, while gold’s default 1095-day rule would still say STCG', () => {
+    const txns = [gldBuy('2022-01-01', 10, 4000), gldSell('2024-01-01', 10, 6000)]
+    const withOverride = computeGoldGains(txns, 'etf', null, FY24, AS_OF, 730)
+    const withDefault   = computeGoldGains(txns, 'etf', null, FY24, AS_OF)
+    expect(withOverride.realised[0].gainType).toBe('LTCG')
+    expect(withDefault.realised[0].gainType).toBe('STCG')
   })
 })
