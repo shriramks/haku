@@ -1,4 +1,9 @@
-import type { FiscalYear } from './types'
+import type { FiscalYear, Transaction, DividendTransaction } from './types'
+import type { MFund, MFTransaction, SGBTransaction } from './portfolio-types'
+import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, LTCG_DAYS_DEBT } from './tax-compute'
+import type { RealisedGain } from './tax-compute'
+import { bucketGains, applySetOff, computeTax, dividendTDS } from './tax-liability'
+import type { CarryForwardAmounts } from './tax-liability'
 
 export type MilestoneKey = 'jun' | 'sep' | 'dec' | 'mar'
 
@@ -71,4 +76,63 @@ export function computeInstalments(
 /** Advance tax reminders are noise below the s.208 threshold. */
 export function shouldSuppressInstalments(projectedAnnualLiability: number): boolean {
   return projectedAnnualLiability < SUPPRESS_BELOW
+}
+
+export interface LiabilityAsOfInputs {
+  stockMap:             Map<string, Transaction[]>
+  mfMap:                Map<string, MFTransaction[]>
+  mfFunds:              MFund[]
+  goldMap:              Map<string, SGBTransaction[]>   // keyed by gold_type: 'sgb' | 'etf' | 'physical'
+  dividends:            DividendTransaction[]
+  fyStart:              string
+  incomingCarryForward: CarryForwardAmounts
+  slabRatePct:          number
+}
+
+/**
+ * Builds the `liabilityAsOf` callback `computeInstalments()` needs — reruns
+ * the #77 gains/bucket/set-off/tax pipeline truncated to a given date. FIFO
+ * lot state is rebuilt fresh per call from the full transaction history, so
+ * truncating the range is safe: `fifoConsume` still advances through sells
+ * after the cutoff, it just omits them from the returned realised gains.
+ *
+ * Gold: only 'etf' lots are taxed here, folded into the debt bucket at the
+ * 24-month threshold — the one gold case #77 resolved. 'sgb' and 'physical'
+ * gold have no resolved bucket yet and are excluded (same as before this
+ * pipeline existed, gold was never taxed at all) — left for whoever builds
+ * the Gains section to resolve.
+ */
+export function buildLiabilityAsOf(inputs: LiabilityAsOfInputs): (date: string) => number {
+  const { stockMap, mfMap, mfFunds, goldMap, dividends, fyStart, incomingCarryForward, slabRatePct } = inputs
+
+  return function liabilityAsOf(date: string): number {
+    const range = { start: fyStart, end: date }
+    const equity: RealisedGain[] = []
+    const debt:   RealisedGain[] = []
+
+    for (const [symbol, txns] of stockMap) {
+      equity.push(...computeStockGains(txns, symbol, null, range, date).realised)
+    }
+
+    for (const [fundId, txns] of mfMap) {
+      const fund     = mfFunds.find(f => f.id === fundId)
+      const cls      = fund ? mfAssetClass(fund) : 'equity'
+      const realised = computeMFGains(txns, fundId, cls, null, null, range, date).realised
+      if (cls === 'debt') debt.push(...realised)
+      else                equity.push(...realised)
+    }
+
+    const etfTxns = goldMap.get('etf')
+    if (etfTxns) {
+      debt.push(...computeGoldGains(etfTxns, 'etf', null, range, date, LTCG_DAYS_DEBT).realised)
+    }
+
+    const dividendIncome = dividends
+      .filter(d => d.ex_date >= range.start && d.ex_date <= range.end)
+      .reduce((s, d) => s + d.amount, 0)
+
+    const { final }  = applySetOff(bucketGains(equity, debt), incomingCarryForward, slabRatePct)
+    const taxResult   = computeTax(final, dividendIncome, slabRatePct)
+    return taxResult.total - dividendTDS(dividendIncome)
+  }
 }

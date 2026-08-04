@@ -205,3 +205,69 @@ export function computeTax(final: BucketTotals, dividendIncome: number, slabRate
 export function dividendTDS(dividendIncome: number): number {
   return dividendIncome * DIVIDEND_TDS_RATE
 }
+
+// ── Carryforward ledger ─────────────────────────────────────────────────────
+// One row per FY per loss_type in `capital_loss_carryforward`. `remaining`
+// decrements FIFO — oldest FY first, since losses expire after 8 years and
+// the oldest ones are closest to that — as later years' set-off absorbs them.
+
+export interface CarryForwardRow {
+  id:          string
+  fyStartDate: string   // for FIFO ordering, oldest first
+  lossType:    'short' | 'long'
+  remaining:   number
+}
+
+/** Prior-year rows (any FY before the one being viewed) summed by type — this
+ * is applySetOff()'s `incomingCarryForward` input. */
+export function sumCarryForward(rows: CarryForwardRow[]): CarryForwardAmounts {
+  const totals: CarryForwardAmounts = { shortTerm: 0, longTerm: 0 }
+  for (const r of rows) {
+    if (r.lossType === 'short') totals.shortTerm += r.remaining
+    else                        totals.longTerm  += r.remaining
+  }
+  return totals
+}
+
+export interface CarryForwardDecrement {
+  id:           string
+  newRemaining: number
+}
+
+/** FIFO-decrements `rows` (oldest `fyStartDate` first, per `lossType`
+ * independently) by the amounts in `used` — applySetOff()'s `carryForwardUsed`
+ * output. Returns only the rows that actually changed; write each back with
+ * its `newRemaining`. */
+export function consumeCarryForward(rows: CarryForwardRow[], used: CarryForwardAmounts): CarryForwardDecrement[] {
+  const decrements: CarryForwardDecrement[] = []
+  for (const lossType of ['short', 'long'] as const) {
+    let pool = lossType === 'short' ? used.shortTerm : used.longTerm
+    const sorted = rows
+      .filter(r => r.lossType === lossType)
+      .sort((a, b) => a.fyStartDate < b.fyStartDate ? -1 : a.fyStartDate > b.fyStartDate ? 1 : 0)
+    for (const row of sorted) {
+      if (pool <= EPSILON) break
+      const take = Math.min(pool, row.remaining)
+      if (take <= EPSILON) continue
+      decrements.push({ id: row.id, newRemaining: row.remaining - take })
+      pool -= take
+    }
+  }
+  return decrements
+}
+
+export interface NewCarryForwardRow {
+  lossType:  'short' | 'long'
+  amount:    number
+  remaining: number
+}
+
+/** This FY's own fresh unabsorbed loss — applySetOff()'s `newCarryForward` —
+ * as new ledger rows to insert. Omits a `lossType` entirely when it's zero
+ * (no empty rows written). */
+export function buildNewCarryForwardRows(newCarryForward: CarryForwardAmounts): NewCarryForwardRow[] {
+  const rows: NewCarryForwardRow[] = []
+  if (newCarryForward.shortTerm > EPSILON) rows.push({ lossType: 'short', amount: newCarryForward.shortTerm, remaining: newCarryForward.shortTerm })
+  if (newCarryForward.longTerm  > EPSILON) rows.push({ lossType: 'long',  amount: newCarryForward.longTerm,  remaining: newCarryForward.longTerm })
+  return rows
+}

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { fyEndYear, fyDateRange, fiscalQuarterLabel } from '../fy-utils'
+import { fyEndYear, fyDateRange, fiscalQuarterLabel, isFYClosed } from '../fy-utils'
+import type { FiscalYear } from '../types'
 
 describe('fyEndYear — Indian FY runs Apr–Mar', () => {
   it('April onwards belongs to the FY ending next year', () => {
@@ -36,5 +37,21 @@ describe('fiscalQuarterLabel', () => {
   })
   it('Jan–Mar is Q4 of the FY ending this year', () => {
     expect(fiscalQuarterLabel(new Date('2026-02-10'))).toBe('FY26 Q4')
+  })
+})
+
+describe('isFYClosed', () => {
+  const FY: FiscalYear = {
+    id: 'fy1', label: 'FY25-26', start_date: '2025-04-01', end_date: '2026-03-31',
+    total_budget_inr: 0, unallocated_carryover_inr: null, deploy_capital_inr: null,
+  }
+
+  it('open while asOfDate is on or before end_date', () => {
+    expect(isFYClosed(FY, '2026-03-31')).toBe(false)
+    expect(isFYClosed(FY, '2025-06-01')).toBe(false)
+  })
+
+  it('closed once asOfDate is after end_date', () => {
+    expect(isFYClosed(FY, '2026-04-01')).toBe(true)
   })
 })

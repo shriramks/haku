@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   bucketGains, applySetOff, computeTax, dividendTDS,
+  sumCarryForward, consumeCarryForward, buildNewCarryForwardRows,
   LTCG_EXEMPTION, RATE_EQUITY_LTCG, RATE_EQUITY_STCG, CESS_RATE, DIVIDEND_TDS_RATE,
 } from '../tax-liability'
 import type { RealisedGain, GainType } from '../tax-compute'
-import type { BucketTotals } from '../tax-liability'
+import type { BucketTotals, CarryForwardRow } from '../tax-liability'
 
 function gain(gainType: GainType, amount: number): RealisedGain {
   return {
@@ -178,5 +179,82 @@ describe('computeTax', () => {
 describe('dividendTDS', () => {
   it('flat 10%, independent of slab rate', () => {
     expect(dividendTDS(11_300)).toBeCloseTo(11_300 * DIVIDEND_TDS_RATE)
+  })
+})
+
+// ── Carryforward ledger ──────────────────────────────────────────────────────
+
+function cfRow(id: string, fyStartDate: string, lossType: 'short' | 'long', remaining: number): CarryForwardRow {
+  return { id, fyStartDate, lossType, remaining }
+}
+
+describe('sumCarryForward', () => {
+  it('sums remaining by lossType across FYs', () => {
+    const rows = [
+      cfRow('a', '2022-04-01', 'short', 10_000),
+      cfRow('b', '2023-04-01', 'short', 5_000),
+      cfRow('c', '2022-04-01', 'long', 40_000),
+    ]
+    expect(sumCarryForward(rows)).toEqual({ shortTerm: 15_000, longTerm: 40_000 })
+  })
+
+  it('empty rows -> zero', () => {
+    expect(sumCarryForward([])).toEqual({ shortTerm: 0, longTerm: 0 })
+  })
+})
+
+describe('consumeCarryForward', () => {
+  it('decrements the oldest FY first within a lossType', () => {
+    const rows = [
+      cfRow('newer', '2023-04-01', 'short', 20_000),
+      cfRow('older', '2022-04-01', 'short', 10_000),
+    ]
+    const result = consumeCarryForward(rows, { shortTerm: 15_000, longTerm: 0 })
+    expect(result).toContainEqual({ id: 'older', newRemaining: 0 })
+    expect(result).toContainEqual({ id: 'newer', newRemaining: 15_000 })
+  })
+
+  it('short and long pools are consumed independently', () => {
+    const rows = [
+      cfRow('s', '2022-04-01', 'short', 10_000),
+      cfRow('l', '2022-04-01', 'long', 10_000),
+    ]
+    const result = consumeCarryForward(rows, { shortTerm: 4_000, longTerm: 6_000 })
+    expect(result).toContainEqual({ id: 's', newRemaining: 6_000 })
+    expect(result).toContainEqual({ id: 'l', newRemaining: 4_000 })
+  })
+
+  it('rows left untouched (pool exhausted before reaching them) are omitted from the result', () => {
+    const rows = [
+      cfRow('older', '2022-04-01', 'short', 5_000),
+      cfRow('newer', '2023-04-01', 'short', 20_000),
+    ]
+    const result = consumeCarryForward(rows, { shortTerm: 5_000, longTerm: 0 })
+    expect(result).toEqual([{ id: 'older', newRemaining: 0 }])
+  })
+
+  it('zero used -> no decrements', () => {
+    const rows = [cfRow('a', '2022-04-01', 'short', 5_000)]
+    expect(consumeCarryForward(rows, { shortTerm: 0, longTerm: 0 })).toEqual([])
+  })
+})
+
+describe('buildNewCarryForwardRows', () => {
+  it('builds one row per non-zero lossType', () => {
+    const rows = buildNewCarryForwardRows({ shortTerm: 12_000, longTerm: 8_000 })
+    expect(rows).toEqual([
+      { lossType: 'short', amount: 12_000, remaining: 12_000 },
+      { lossType: 'long',  amount: 8_000,  remaining: 8_000 },
+    ])
+  })
+
+  it('omits a lossType entirely when it is zero', () => {
+    expect(buildNewCarryForwardRows({ shortTerm: 0, longTerm: 5_000 })).toEqual([
+      { lossType: 'long', amount: 5_000, remaining: 5_000 },
+    ])
+  })
+
+  it('all zero -> no rows', () => {
+    expect(buildNewCarryForwardRows({ shortTerm: 0, longTerm: 0 })).toEqual([])
   })
 })

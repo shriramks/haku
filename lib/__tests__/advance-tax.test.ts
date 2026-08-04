@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
-  advanceTaxMilestones, computeInstalments, shouldSuppressInstalments,
+  advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf,
 } from '../advance-tax'
-import type { FiscalYear } from '../types'
+import type { FiscalYear, Transaction, DividendTransaction } from '../types'
 import type { AdvanceTaxPaid } from '../advance-tax'
+import type { MFund, MFTransaction, SGBTransaction } from '../portfolio-types'
 
 const FY: FiscalYear = {
   id: 'fy1', label: 'FY25-26', start_date: '2025-04-01', end_date: '2026-03-31',
@@ -110,5 +111,103 @@ describe('shouldSuppressInstalments', () => {
   it('shows the section at or above the threshold', () => {
     expect(shouldSuppressInstalments(10_000)).toBe(false)
     expect(shouldSuppressInstalments(15_000)).toBe(false)
+  })
+})
+
+// ── buildLiabilityAsOf ───────────────────────────────────────────────────────
+
+const NO_CF = { shortTerm: 0, longTerm: 0 }
+const FY_START = '2025-04-01'
+
+function stkBuy(date: string, qty: number, price: number): Transaction {
+  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'buy', quantity: qty, price, amount: qty * price, fy_id: null, notes: '' }
+}
+function stkSell(date: string, qty: number, price: number): Transaction {
+  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'sell', quantity: qty, price, amount: qty * price, fy_id: null, notes: '' }
+}
+function mfBuy(date: string, units: number, nav: number): MFTransaction {
+  return { id: Math.random().toString(), fund_id: 'f1', trade_date: date, trade_type: 'buy', units, nav, amount: units * nav }
+}
+function mfSell(date: string, units: number, nav: number): MFTransaction {
+  return { id: Math.random().toString(), fund_id: 'f1', trade_date: date, trade_type: 'sell', units, nav, amount: units * nav }
+}
+function gldBuy(date: string, grams: number, price: number, goldType: 'sgb' | 'etf' | 'physical'): SGBTransaction {
+  return { id: Math.random().toString(), trade_date: date, trade_type: 'buy', grams, price_per_gram: price, amount: grams * price, maturity_date: null, gold_type: goldType, name: null }
+}
+function gldSell(date: string, grams: number, price: number, goldType: 'sgb' | 'etf' | 'physical'): SGBTransaction {
+  return { id: Math.random().toString(), trade_date: date, trade_type: 'sell', grams, price_per_gram: price, amount: grams * price, maturity_date: null, gold_type: goldType, name: null }
+}
+function dividend(exDate: string, amount: number): DividendTransaction {
+  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', ex_date: exDate, per_share: amount, shares: 1, amount }
+}
+
+const DEBT_FUND: MFund = { id: 'f1', scheme_code: 'C1', scheme_name: 'ABC Debt Fund', scheme_type: 'Debt' }
+const EMPTY_MAP = new Map<string, never[]>()
+
+describe('buildLiabilityAsOf', () => {
+  it('only counts sells through the cutoff date, not ones after it', () => {
+    // Both sells are well within 365 days of the buy, so both are STCG —
+    // avoids the 1.25L LTCG exemption masking the truncation effect.
+    const stockMap = new Map([['ITC', [
+      stkBuy('2025-04-10', 100, 100),
+      stkSell('2025-05-01', 50, 300),   // gain 10,000, before the cutoff
+      stkSell('2025-08-01', 50, 300),   // gain 10,000, after the cutoff
+    ]]])
+    const liabilityAsOf = buildLiabilityAsOf({
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+    })
+
+    // Only the first sell: 10,000 * 20% = 2,000 + 4% cess = 2,080.
+    expect(liabilityAsOf('2025-06-15')).toBeCloseTo(2_080)
+    // Both sells: 20,000 * 20% = 4,000 + 4% cess = 4,160.
+    expect(liabilityAsOf('2025-09-15')).toBeCloseTo(4_160)
+  })
+
+  it('folds debt MF and gold ETF sells into the debt bucket; sgb/physical gold is excluded', () => {
+    const mfMap = new Map([['f1', [mfBuy('2025-04-05', 1_000, 10), mfSell('2025-05-01', 1_000, 11)]]])
+    const goldMap = new Map([
+      ['etf',      [gldBuy('2025-04-01', 10, 5_000, 'etf'),      gldSell('2025-05-01', 10, 5_100, 'etf')]],
+      ['sgb',      [gldBuy('2025-04-01', 10, 5_000, 'sgb'),      gldSell('2025-05-01', 10, 15_000, 'sgb')]],       // huge gain, must not count
+      ['physical', [gldBuy('2025-04-01', 10, 5_000, 'physical'), gldSell('2025-05-01', 10, 15_000, 'physical')]],  // huge gain, must not count
+    ])
+    const liabilityAsOf = buildLiabilityAsOf({
+      stockMap: EMPTY_MAP, mfMap, mfFunds: [DEBT_FUND], goldMap, dividends: [],
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+    })
+
+    // Debt MF gain 1,000 + ETF gain 1,000 = 2,000 debt STCG (s.50AA slab-only
+    // cutoff on the MF; ETF has no such cutoff but is well under 24 months
+    // either way). Taxed at the 30% slab: 600 + 4% cess = 624.
+    expect(liabilityAsOf('2025-06-15')).toBeCloseTo(624)
+  })
+
+  it('dividend income is truncated to the cutoff date and credited via TDS', () => {
+    const dividends = [dividend('2025-04-15', 5_000), dividend('2025-07-01', 3_000)]
+    const liabilityAsOf = buildLiabilityAsOf({
+      stockMap: EMPTY_MAP, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends,
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+    })
+
+    // 5,000 @ 30% slab = 1,500 + 4% cess = 1,560, minus 10% TDS (500) = 1,060.
+    expect(liabilityAsOf('2025-06-15')).toBeCloseTo(1_060)
+    // 8,000 @ 30% = 2,400 + cess 96 = 2,496, minus TDS 800 = 1,696.
+    expect(liabilityAsOf('2025-09-15')).toBeCloseTo(1_696)
+  })
+
+  it('applies incoming carryforward before computing liability', () => {
+    const stockMap = new Map([['ITC', [stkBuy('2025-04-10', 100, 100), stkSell('2025-05-01', 100, 200)]]])
+    // gain = 100 * (200-100) = 10,000 STCG
+    const withoutCF = buildLiabilityAsOf({
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+    })
+    const withCF = buildLiabilityAsOf({
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      fyStart: FY_START, incomingCarryForward: { shortTerm: 4_000, longTerm: 0 }, slabRatePct: 30,
+    })
+
+    expect(withoutCF('2025-06-15')).toBeCloseTo(10_000 * 0.20 * 1.04)          // 2,080
+    expect(withCF('2025-06-15')).toBeCloseTo((10_000 - 4_000) * 0.20 * 1.04)   // 1,248
   })
 })

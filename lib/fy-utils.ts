@@ -40,6 +40,13 @@ export async function fyIdForDate(sb: SupabaseClient, dateStr: string, userId?: 
   return data?.[0]?.id ?? null
 }
 
+/** A FY's carryforward/closing figures are only final once it has ended —
+ * writing them mid-year would lock in numbers before the year's gains are
+ * complete, so the carryforward ledger only gets written for closed FYs. */
+export function isFYClosed(fy: FiscalYear, asOfDate: string): boolean {
+  return fy.end_date < asOfDate
+}
+
 /** Fiscal quarter label, e.g. "FY26 Q1" for a date in Apr–Jun 2025. */
 export function fiscalQuarterLabel(d: Date): string {
   const month = d.getMonth() + 1 // 1-based
