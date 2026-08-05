@@ -9,7 +9,6 @@ import type { CarryForwardRow, Bucket } from '@/lib/tax-liability'
 import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
 import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
-import { isFYClosed } from '@/lib/fy-utils'
 import { todayISO, formatINRFine } from '@/lib/formatter'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
@@ -195,7 +194,6 @@ export default function TaxClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
 
-  const isOpen              = selectedFY ? !isFYClosed(selectedFY, todayISO()) : true
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
@@ -307,7 +305,7 @@ export default function TaxClient({
 
       {selectedFY && !suppressInstalments && (
         <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}>
-          <InstalmentsBody results={instalments} isOpen={isOpen} onEdit={setEditingMilestone} />
+          <InstalmentsBody results={instalments} onEdit={setEditingMilestone} />
         </Section>
       )}
 

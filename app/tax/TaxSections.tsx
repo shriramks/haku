@@ -46,14 +46,11 @@ export function Section({
 // ── Advance Tax — plain list ─────────────────────────────────────────────────
 
 export function InstalmentsBody({
-  results, isOpen, onEdit,
+  results, onEdit,
 }: {
   results: InstalmentResult[]
-  isOpen:  boolean
   onEdit:  (r: InstalmentResult) => void
 }) {
-  const firstUpcomingIdx = results.findIndex(r => !r.isPast)
-
   return (
     <div>
       {results.map((r, i) => (
@@ -61,7 +58,7 @@ export function InstalmentsBody({
           key={r.milestone.key}
           result={r}
           previousTarget={i > 0 ? results[i - 1].target : 0}
-          highlight={isOpen && i === firstUpcomingIdx}
+          priorInterest={i > 0 ? results[i - 1].interest : 0}
           onTap={() => onEdit(r)}
         />
       ))}
@@ -74,24 +71,26 @@ export function InstalmentsBody({
 // number on every row whenever nothing new happened between quarters. The
 // row's own headline number is this quarter's slice of that cumulative
 // total instead; the cumulative itself becomes the secondary line.
-function MilestoneRow({ result, previousTarget, highlight, onTap }: {
-  result: InstalmentResult; previousTarget: number; highlight: boolean; onTap: () => void
+//
+// s.234C interest is assessed independently per quarter (never retroactive,
+// per #81), but it isn't paid "at" the quarter that caused it — that
+// quarter's due date has already passed by the time the shortfall is known.
+// It's shown as a carry-over on the *next* row instead of the row whose own
+// shortfall produced it.
+function MilestoneRow({ result, previousTarget, priorInterest, onTap }: {
+  result: InstalmentResult; previousTarget: number; priorInterest: number; onTap: () => void
 }) {
-  const { milestone, isPast, target, paid, interest } = result
+  const { milestone, isPast, target, paid } = result
   const thisQuarter = Math.max(0, target - previousTarget)
   const shortfall    = Math.max(0, target - paid)
 
-  let meta: string
-  let dueLabel: string | null = null
-  if (isPast) {
-    meta = shortfall > 0
-      ? `Paid ${formatINRFine(paid)}${interest > 0 ? ` · +${formatINRFine(interest)} interest` : ''}`
-      : `Paid ${formatINRFine(paid)} · paid in full`
-  } else {
-    meta = `Paid ${formatINRFine(paid)}`
-    const days = Math.round((Date.parse(milestone.date) - Date.parse(new Date().toISOString().slice(0, 10))) / 86_400_000)
-    dueLabel = highlight ? `due in ${days}d` : 'not yet due'
+  const parts: string[] = []
+  if (isPast || paid > 0) {
+    parts.push(`Paid ${formatINRFine(paid)}`)
+    if (isPast && shortfall <= 0) parts.push('paid in full')
   }
+  if (priorInterest > 0) parts.push(`+${formatINRFine(priorInterest)} interest`)
+  const meta = parts.length > 0 ? parts.join(' · ') : null
 
   return (
     <button
@@ -100,10 +99,7 @@ function MilestoneRow({ result, previousTarget, highlight, onTap }: {
       style={{ minHeight: 56 }}>
       <div className="flex flex-col gap-0.5 items-start min-w-0">
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
-        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>
-        {dueLabel && (
-          <span className="text-footnote font-semibold" style={{ color: highlight ? 'var(--accent)' : 'var(--text-faint)' }}>{dueLabel}</span>
-        )}
+        {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
       </div>
       <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
         <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={thisQuarter} align /></span>
