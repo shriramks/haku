@@ -55,22 +55,36 @@ export function InstalmentsBody({
   const firstUpcomingIdx = results.findIndex(r => !r.isPast)
 
   return (
-    <div className="pb-2">
+    <div>
       {results.map((r, i) => (
-        <MilestoneRow key={r.milestone.key} result={r} highlight={isOpen && i === firstUpcomingIdx} onTap={() => onEdit(r)} />
+        <MilestoneRow
+          key={r.milestone.key}
+          result={r}
+          previousTarget={i > 0 ? results[i - 1].target : 0}
+          highlight={isOpen && i === firstUpcomingIdx}
+          onTap={() => onEdit(r)}
+        />
       ))}
     </div>
   )
 }
 
-function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; highlight: boolean; onTap: () => void }) {
+// `target` is cumulative (tax on everything realised from FY start through
+// that milestone's date, per #81) — showing it directly repeats the same
+// number on every row whenever nothing new happened between quarters. The
+// row's own headline number is this quarter's slice of that cumulative
+// total instead; the cumulative itself becomes the secondary line.
+function MilestoneRow({ result, previousTarget, highlight, onTap }: {
+  result: InstalmentResult; previousTarget: number; highlight: boolean; onTap: () => void
+}) {
   const { milestone, isPast, target, paid, interest } = result
-  const due = Math.max(0, target - paid)
+  const thisQuarter = Math.max(0, target - previousTarget)
+  const shortfall    = Math.max(0, target - paid)
 
   let meta: string
   let dueLabel: string | null = null
   if (isPast) {
-    meta = due > 0
+    meta = shortfall > 0
       ? `Paid ${formatINRFine(paid)}${interest > 0 ? ` · +${formatINRFine(interest)} interest` : ''}`
       : `Paid ${formatINRFine(paid)} · paid in full`
   } else {
@@ -92,8 +106,8 @@ function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; 
         )}
       </div>
       <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
-        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={due} align /></span>
-        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{due > 0 ? 'to pay' : 'settled'}</span>
+        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={thisQuarter} align /></span>
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} total</span>
       </div>
     </button>
   )
@@ -141,7 +155,7 @@ export function TaxBody({
   onSlabRateChange:    (v: number) => void
 }) {
   return (
-    <div className="pb-2">
+    <div>
       <div className="flex items-center justify-between px-4" style={{ minHeight: 44, paddingTop: 8 }}>
         <span className="text-body" style={{ color: 'var(--text-2)' }}>Slab Rate</span>
         <SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />
@@ -207,7 +221,7 @@ export function HarvestingBody({
   const barPct    = Math.min(100, Math.max(0, (exemptionUsed / LTCG_EXEMPTION) * 100))
 
   return (
-    <div className="pb-2">
+    <div>
       <SectionLabel label="Equity LTCG Exemption" className="px-4" />
       <DetailRow label="Annual limit" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
       <DetailRow label="Used" noRupee><Num amount={exemptionUsed} align /></DetailRow>
