@@ -57,7 +57,6 @@ export function InstalmentsBody({
         <MilestoneRow
           key={r.milestone.key}
           result={r}
-          previousTarget={i > 0 ? results[i - 1].target : 0}
           priorInterest={i > 0 ? results[i - 1].interest : 0}
           onTap={() => onEdit(r)}
         />
@@ -66,28 +65,29 @@ export function InstalmentsBody({
   )
 }
 
-// `target` is cumulative (tax on everything realised from FY start through
-// that milestone's date, per #81) — showing it directly repeats the same
-// number on every row whenever nothing new happened between quarters. The
-// row's own headline number is this quarter's slice of that cumulative
-// total instead; the cumulative itself becomes the secondary line.
+// `target` and `paid` are both cumulative-to-date by design (paid tracks
+// "cumulative amount paid by this milestone's due date" per the DB schema),
+// so `target - paid` already correctly folds in anything missed at an
+// earlier milestone — it's the true amount to pay right now to be caught
+// up, not just this quarter's own slice. Shown as the primary figure, with
+// the cumulative target itself as secondary context: target - paid(left) =
+// amountDue(right) is meant to be directly verifiable from the row alone.
 //
 // s.234C interest is assessed independently per quarter (never retroactive,
 // per #81), but it isn't paid "at" the quarter that caused it — that
 // quarter's due date has already passed by the time the shortfall is known.
 // It's shown as a carry-over on the *next* row instead of the row whose own
 // shortfall produced it.
-function MilestoneRow({ result, previousTarget, priorInterest, onTap }: {
-  result: InstalmentResult; previousTarget: number; priorInterest: number; onTap: () => void
+function MilestoneRow({ result, priorInterest, onTap }: {
+  result: InstalmentResult; priorInterest: number; onTap: () => void
 }) {
   const { milestone, isPast, target, paid } = result
-  const thisQuarter = Math.max(0, target - previousTarget)
-  const shortfall    = Math.max(0, target - paid)
+  const amountDue = Math.max(0, target - paid)
 
   const parts: string[] = []
   if (isPast || paid > 0) {
     parts.push(`Paid ${formatINRFine(paid)}`)
-    if (isPast && shortfall <= 0) parts.push('paid in full')
+    if (isPast && amountDue <= 0) parts.push('paid in full')
   }
   if (priorInterest > 0) parts.push(`+${formatINRFine(priorInterest)} interest`)
   const meta = parts.length > 0 ? parts.join(' · ') : null
@@ -102,8 +102,8 @@ function MilestoneRow({ result, previousTarget, priorInterest, onTap }: {
         {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
       </div>
       <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
-        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={thisQuarter} align /></span>
-        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} total</span>
+        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>
       </div>
     </button>
   )
