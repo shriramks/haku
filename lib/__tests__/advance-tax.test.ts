@@ -23,6 +23,11 @@ describe('advanceTaxMilestones', () => {
     const m = advanceTaxMilestones(FY)
     expect(m.map(x => x.monthsIfShort)).toEqual([3, 3, 3, 1])
   })
+
+  it('carries the s.211 cumulative percentages: 15/45/75/100%', () => {
+    const m = advanceTaxMilestones(FY)
+    expect(m.map(x => x.cumulativePct)).toEqual([0.15, 0.45, 0.75, 1.00])
+  })
 })
 
 // ── computeInstalments ─────────────────────────────────────────────────────────
@@ -40,25 +45,26 @@ const LIABILITY_AT: Record<string, number> = {
 const liabilityAsOf = (date: string) => LIABILITY_AT[date] ?? 0
 
 describe('computeInstalments', () => {
-  it('target is 100% of the running liability at each date, not a % of it', () => {
+  it('target is the s.211 cumulative percentage of the running liability at each date, not 100% of it', () => {
     const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-03-15')
-    expect(results.map(r => r.target)).toEqual([5_000, 20_000, 20_000, 40_000])
+    // 15%*5,000=750, 45%*20,000=9,000, 75%*20,000=15,000, 100%*40,000=40,000
+    expect(results.map(r => r.target)).toEqual([750, 9_000, 15_000, 40_000])
   })
 
   it('shortfall = target - paid, and 234C interest = 1%/month x shortfall x months-for-that-quarter', () => {
-    const paid: AdvanceTaxPaid = { jun: 0, sep: 10_000, dec: 20_000, mar: 0 }
+    const paid: AdvanceTaxPaid = { jun: 0, sep: 5_000, dec: 10_000, mar: 0 }
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-01-01')
 
     const [jun, sep, dec, mar] = results
-    expect(jun.shortfall).toBe(5_000)
-    expect(jun.interest).toBeCloseTo(5_000 * 0.01 * 3)   // 150
+    expect(jun.shortfall).toBe(750)                      // 750 - 0
+    expect(jun.interest).toBeCloseTo(750 * 0.01 * 3)      // 22.5
 
-    expect(sep.shortfall).toBe(10_000)
-    expect(sep.interest).toBeCloseTo(10_000 * 0.01 * 3)  // 300
+    expect(sep.shortfall).toBe(4_000)                     // 9,000 - 5,000
+    expect(sep.interest).toBeCloseTo(4_000 * 0.01 * 3)    // 120
 
-    expect(dec.shortfall).toBe(0)
-    expect(dec.interest).toBe(0)
+    expect(dec.shortfall).toBe(5_000)                     // 15,000 - 10,000
+    expect(dec.interest).toBeCloseTo(5_000 * 0.01 * 3)    // 150
 
     // asOfToday (1 Jan) is before Mar's due date — not yet due.
     expect(mar.isPast).toBe(false)

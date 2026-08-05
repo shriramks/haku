@@ -11,6 +11,7 @@ export interface AdvanceTaxMilestone {
   label:         string   // '15 Jun'
   date:          string   // 'YYYY-MM-DD'
   monthsIfShort: number   // s.234C multiplier: 3 for Jun/Sep/Dec, 1 for Mar
+  cumulativePct: number   // s.211 cumulative %: 0.15/0.45/0.75/1.00
 }
 
 export const INTEREST_RATE_PER_MONTH = 0.01
@@ -22,10 +23,10 @@ export function advanceTaxMilestones(fy: FiscalYear): AdvanceTaxMilestone[] {
   const startYear = new Date(fy.start_date).getFullYear()
   const endYear    = new Date(fy.end_date).getFullYear()
   return [
-    { key: 'jun', label: '15 Jun', date: `${startYear}-06-15`, monthsIfShort: 3 },
-    { key: 'sep', label: '15 Sep', date: `${startYear}-09-15`, monthsIfShort: 3 },
-    { key: 'dec', label: '15 Dec', date: `${startYear}-12-15`, monthsIfShort: 3 },
-    { key: 'mar', label: '15 Mar', date: `${endYear}-03-15`,   monthsIfShort: 1 },
+    { key: 'jun', label: '15 Jun', date: `${startYear}-06-15`, monthsIfShort: 3, cumulativePct: 0.15 },
+    { key: 'sep', label: '15 Sep', date: `${startYear}-09-15`, monthsIfShort: 3, cumulativePct: 0.45 },
+    { key: 'dec', label: '15 Dec', date: `${startYear}-12-15`, monthsIfShort: 3, cumulativePct: 0.75 },
+    { key: 'mar', label: '15 Mar', date: `${endYear}-03-15`,   monthsIfShort: 1, cumulativePct: 1.00 },
   ]
 }
 
@@ -44,10 +45,17 @@ export interface InstalmentResult {
  * `liabilityAsOf(date)` must return the net tax liability (post cess, post
  * dividend-TDS credit) on everything realised from FY start through `date`
  * — the caller re-runs the #77 bucketing/set-off/tax pipeline truncated to
- * that date. Each instalment's target is 100% of that figure, not a
- * percentage of an annual estimate: capital gains carry a s.234C carve-out
- * where tax is only owed once a gain actually happens, so there's nothing to
- * forecast against.
+ * that date, standing in for "estimated total tax" since Haku only tracks
+ * capital gains + dividends (no salary/business income to forecast).
+ *
+ * Each instalment's target is the s.211 cumulative percentage (15/45/75/100%)
+ * of that running estimate, recomputed fresh at each milestone from
+ * gains-to-date — not 100% of it. An earlier version of this function used
+ * 100% at every milestone, which is wrong: it demanded the full year's tax be
+ * paid by the first quarter alone. The s.234C capital-gains carve-out means
+ * you're not penalised for a shortfall caused by a gain that hadn't happened
+ * yet by an earlier due date — it does not mean each checkpoint's target is
+ * the full amount instead of its statutory share.
  *
  * `shortfall`/`interest` are 0 for milestones whose due date hasn't passed
  * yet. Once a milestone is past, its `target` is derived from historical
@@ -64,7 +72,7 @@ export function computeInstalments(
 ): InstalmentResult[] {
   return milestones.map(milestone => {
     const isPast     = asOfToday >= milestone.date
-    const target     = liabilityAsOf(milestone.date)
+    const target     = milestone.cumulativePct * liabilityAsOf(milestone.date)
     const paidAmount = paid[milestone.key]
     const shortfall  = isPast ? Math.max(0, target - paidAmount) : 0
     const interest   = isPast ? shortfall * INTEREST_RATE_PER_MONTH * milestone.monthsIfShort : 0
