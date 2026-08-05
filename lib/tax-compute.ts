@@ -1,5 +1,5 @@
 import type { Transaction } from './types'
-import type { MFTransaction, SGBTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, SGBTransaction } from './portfolio-types'
 
 export type AssetType = 'stock' | 'mf' | 'gold'
 export type GainType  = 'STCG'  | 'LTCG'
@@ -276,4 +276,46 @@ export function computeGoldGains(
   })
 
   return { realised, unrealised }
+}
+
+// ── Bucketed gains (equity/debt) ────────────────────────────────────────────
+// Shared by the tax page, the advance-tax liability projection, and
+// carryforward reconciliation — all three need the same realised-gains-split
+// for a date range. Stock + equity MF go to `equity`; debt MF + gold ETF sold
+// (not held to maturity) share `debt`, since post-Budget-2024 they carry the
+// same rate mechanics (see lib/tax-liability.ts). SGB and physical gold have
+// no resolved bucket in the 4-bucket model and are excluded entirely.
+
+export interface GatherBucketedGainsInputs {
+  stockMap: Map<string, Transaction[]>
+  mfMap:    Map<string, MFTransaction[]>
+  mfFunds:  MFund[]
+  goldMap:  Map<string, SGBTransaction[]>   // keyed by gold_type: 'sgb' | 'etf' | 'physical'
+  fyRange:  { start: string; end: string }
+  asOf:     string
+}
+
+export function gatherBucketedGains(inputs: GatherBucketedGainsInputs): { equity: RealisedGain[]; debt: RealisedGain[] } {
+  const { stockMap, mfMap, mfFunds, goldMap, fyRange, asOf } = inputs
+  const equity: RealisedGain[] = []
+  const debt:   RealisedGain[] = []
+
+  for (const [symbol, txns] of stockMap) {
+    equity.push(...computeStockGains(txns, symbol, null, fyRange, asOf).realised)
+  }
+
+  for (const [fundId, txns] of mfMap) {
+    const fund     = mfFunds.find(f => f.id === fundId)
+    const cls      = fund ? mfAssetClass(fund) : 'equity'
+    const realised = computeMFGains(txns, fundId, cls, null, null, fyRange, asOf).realised
+    if (cls === 'debt') debt.push(...realised)
+    else                equity.push(...realised)
+  }
+
+  const etfTxns = goldMap.get('etf')
+  if (etfTxns) {
+    debt.push(...computeGoldGains(etfTxns, 'etf', null, fyRange, asOf, LTCG_DAYS_DEBT).realised)
+  }
+
+  return { equity, debt }
 }

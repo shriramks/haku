@@ -1,297 +1,236 @@
 'use client'
-import { useState } from 'react'
-import type { RealisedGain, GainType, UnrealisedPosition } from '@/lib/tax-compute'
-import { formatDate } from '@/lib/formatter'
-import BottomSheet from '@/components/BottomSheet'
-import EmptyState from '@/components/EmptyState'
+import type { InstalmentResult } from '@/lib/advance-tax'
+import type { Bucket } from '@/lib/tax-liability'
+import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
-import { ChevronDownIcon } from '@/components/icons'
-import { Divider } from '@/components/Divider'
-import { ProgressBar } from '@/components/ProgressBar'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
-import { LTCG_EXEMPTION } from './tax-export'
-import type { SellRow } from './tax-export'
+import { ProgressBar } from '@/components/ProgressBar'
+import { formatINRFine } from '@/lib/formatter'
+import SlabRateSelect from '@/components/SlabRateSelect'
 
-export type SectionKey = 'summary' | 'details' | 'harvesting' | 'export'
+// ── Fixed section header — no chevron, no collapse ──────────────────────────
 
-export interface NearThresholdRow {
-  position:   UnrealisedPosition
-  daysToLTCG: number
-  name:       string
-}
-
-// ── Section wrapper ────────────────────────────────────────────────────────────
-
-export function Section({
-  title,
-  sectionKey,
-  expanded,
-  onToggle,
-  children,
-}: {
-  title:      string
-  sectionKey: SectionKey
-  expanded:   Set<SectionKey>
-  onToggle:   (k: SectionKey) => void
-  children:   React.ReactNode
-}) {
-  const isOpen = expanded.has(sectionKey)
+export function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
-    <div className="border-b" style={{ borderColor: 'var(--border-faint)' }}>
-      <button
-        onClick={() => onToggle(sectionKey)}
-        className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 48 }}>
-        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-        <ChevronDownIcon
-          className="w-4 h-4 transition-transform"
-          style={{
-            color: 'var(--text-faint)',
-            transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-          }}
-        />
-      </button>
-      {isOpen && children}
+    <div className="flex items-center justify-between px-4" style={{ minHeight: 44, marginTop: 22 }}>
+      <span className="text-title-2 font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+      {right}
     </div>
   )
 }
 
-// ── Summary section body ───────────────────────────────────────────────────────
+// ── Next Due / Instalments ───────────────────────────────────────────────────
 
-export function SummaryBody({
-  equityLTCG,
-  taxableLTCG,
-  ltcgTax,
-  equitySTCG,
-  stcgTax,
-  debtLTCG,
-  debtSTCG,
-  goldLTCG,
-  goldSTCG,
-  dividendIncome,
+export function InstalmentsBody({
+  title, results, isOpen, onEdit,
 }: {
-  equityLTCG:     number
-  taxableLTCG:    number
-  ltcgTax:        number
-  equitySTCG:     number
-  stcgTax:        number
-  debtLTCG:       number
-  debtSTCG:       number
-  goldLTCG:       number
-  goldSTCG:       number
-  dividendIncome: number
+  title:   string
+  results: InstalmentResult[]
+  isOpen:  boolean
+  onEdit:  (r: InstalmentResult) => void
 }) {
-  const hasDebt = debtLTCG !== 0 || debtSTCG !== 0
-  const hasGold = goldLTCG !== 0 || goldSTCG !== 0
+  const firstUpcomingIdx = results.findIndex(r => !r.isPast)
 
   return (
     <div className="pb-2">
-
-      <SectionLabel label="Equity LTCG" className="px-4" />
-      <DetailRow label="Gains" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
-      <DetailRow label="Exemption" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
-      <DetailRow label="Taxable Gains" bold noRupee><Num amount={taxableLTCG} signed /></DetailRow>
-      <DetailRow label="Tax @ 12.5%" bold noRupee><Num amount={ltcgTax} /></DetailRow>
-
-      <SectionLabel label="Equity STCG" className="px-4" />
-      <DetailRow label="Gains" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
-      <DetailRow label="Tax @ 20%" bold noRupee><Num amount={stcgTax} /></DetailRow>
-
-      {hasDebt && (
-        <>
-          <SectionLabel label="Debt" className="px-4" />
-          <DetailRow label="LTCG" bold noRupee><Num amount={debtLTCG} signed /></DetailRow>
-          <DetailRow label="STCG" bold noRupee><Num amount={debtSTCG} signed /></DetailRow>
-          <div className="px-4 pb-2">
-            <p className="text-footnote" style={{ color: 'var(--text-faint)' }}>Debt gains taxed at slab rate — verify with your CA</p>
-          </div>
-        </>
-      )}
-
-      {hasGold && (
-        <>
-          <SectionLabel label="Gold" className="px-4" />
-          <DetailRow label="LTCG" bold noRupee><Num amount={goldLTCG} signed /></DetailRow>
-          <DetailRow label="STCG" bold noRupee><Num amount={goldSTCG} signed /></DetailRow>
-        </>
-      )}
-
-      <SectionLabel label="Dividend Income" className="px-4" />
-      <DetailRow label="Received" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
-
+      <SectionHeader title={title} />
+      {results.map((r, i) => (
+        <MilestoneRow key={r.milestone.key} result={r} highlight={isOpen && i === firstUpcomingIdx} onTap={() => onEdit(r)} />
+      ))}
     </div>
   )
 }
 
-// ── Details section body ───────────────────────────────────────────────────────
+function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; highlight: boolean; onTap: () => void }) {
+  const { milestone, isPast, target, paid, shortfall, interest } = result
 
-export function DetailsBody({ rows }: { rows: SellRow[] }) {
-  const [selected, setSelected] = useState<SellRow | null>(null)
-
-  if (rows.length === 0) {
-    return <EmptyState>No realised gains this FY</EmptyState>
+  let meta: string
+  let due: string | null = null
+  if (isPast) {
+    meta = shortfall > 0
+      ? `Paid ${formatINRFine(paid)} · shortfall ${formatINRFine(shortfall)}${interest > 0 ? ` · +${formatINRFine(interest)} interest` : ''}`
+      : `Paid ${formatINRFine(paid)} · paid in full`
+  } else {
+    meta = `Paid ${formatINRFine(paid)}`
+    const days = Math.round((Date.parse(milestone.date) - Date.parse(new Date().toISOString().slice(0, 10))) / 86_400_000)
+    due = highlight ? `due in ${days}d` : 'not yet due'
   }
-
-  const stockRows = rows.filter(r => r.assetType === 'stock')
-  const mfRows    = rows.filter(r => r.assetType === 'mf')
-  const goldRows  = rows.filter(r => r.assetType === 'gold')
-
-  return (
-    <div className="pb-2">
-      {stockRows.length > 0 && (
-        <>
-          <SectionLabel label="Stocks" className="px-4" />
-          {stockRows.map(row => (
-            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
-          ))}
-        </>
-      )}
-      {mfRows.length > 0 && (
-        <>
-          <SectionLabel label="Mutual Funds" className="px-4" />
-          {mfRows.map(row => (
-            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
-          ))}
-        </>
-      )}
-      {goldRows.length > 0 && (
-        <>
-          <SectionLabel label="Gold" className="px-4" />
-          {goldRows.map(row => (
-            <GainRow key={`${row.symbol}-${row.sellDate}`} row={row} onTap={() => setSelected(row)} />
-          ))}
-        </>
-      )}
-      {selected && <LotDetailSheet row={selected} onClose={() => setSelected(null)} />}
-    </div>
-  )
-}
-
-export function GainBadge({ gainType }: { gainType: GainType | 'mixed' }) {
-  const isLTCG = gainType === 'LTCG'
-  const isSTCG = gainType === 'STCG'
-  const color  = isLTCG ? 'var(--c-positive)' : isSTCG ? 'var(--c-warning)' : 'var(--text-muted)'
-  const bg     = isLTCG
-    ? 'color-mix(in srgb, var(--c-positive) 12%, transparent)'
-    : isSTCG
-      ? 'color-mix(in srgb, var(--c-warning) 12%, transparent)'
-      : 'var(--bg-tertiary)'
-  const label  = isLTCG ? 'LTCG' : isSTCG ? 'STCG' : 'Mixed'
-  return (
-    <span
-      className="text-footnote font-semibold"
-      style={{ color, background: bg, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.03em', flexShrink: 0 }}>
-      {label}
-    </span>
-  )
-}
-
-export function GainRow({ row, onTap }: { row: SellRow; onTap: () => void }) {
-  const daysLabel = row.minDays === row.maxDays
-    ? `held ${row.minDays} days`
-    : `held ${row.minDays}–${row.maxDays} days`
 
   return (
     <button
       onClick={onTap}
-      className="flex items-center justify-between w-full px-4 tap-row"
-      style={{ minHeight: 52 }}>
+      className="flex items-center justify-between w-full tap-row"
+      style={{
+        padding: highlight ? '10px 8px' : '10px 16px',
+        margin: highlight ? '0 8px' : undefined,
+        minHeight: 56,
+        borderRadius: highlight ? 12 : undefined,
+        background: highlight ? 'color-mix(in srgb, var(--accent) 7%, transparent)' : undefined,
+      }}>
       <div className="flex flex-col gap-0.5 items-start min-w-0">
-        <span className="text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-          {row.name}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <GainBadge gainType={row.gainType} />
-          <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
-            Sold {formatDate(row.sellDate)} · {daysLabel}
-          </span>
-        </div>
+        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>
+        {due && (
+          <span className="text-footnote font-semibold" style={{ color: highlight ? 'var(--accent)' : 'var(--text-faint)' }}>{due}</span>
+        )}
       </div>
-      <span className="tabnum text-body ml-3 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={row.totalGain} signed />
-      </span>
+      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
+        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={target} /></span>
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>target</span>
+      </div>
     </button>
   )
 }
 
-export function LotDetailSheet({ row, onClose }: { row: SellRow; onClose: () => void }) {
-  return (
-    <BottomSheet onClose={onClose}>
-      <div className="px-4 pt-1 pb-3">
-        <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{row.name}</p>
-        <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>Sold {formatDate(row.sellDate)}</p>
-      </div>
-      <Divider />
-      {row.lots.map((lot, i) => <LotRow key={i} lot={lot} />)}
-    </BottomSheet>
-  )
-}
+// ── Realised (gains or losses) ───────────────────────────────────────────────
 
-export function LotRow({ lot }: { lot: RealisedGain }) {
-  const qtyStr = Number.isInteger(lot.qty) ? String(lot.qty) : lot.qty.toFixed(3).replace(/\.?0+$/, '')
+export function RealisedBody({
+  equityLTCG, equitySTCG, debtLTCG, debtSTCG, dividendIncome,
+}: {
+  equityLTCG: number; equitySTCG: number; debtLTCG: number; debtSTCG: number; dividendIncome: number
+}) {
   return (
-    <div className="flex items-center justify-between px-4" style={{ minHeight: 52 }}>
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-body" style={{ color: 'var(--text-primary)' }}>
-            Bought {formatDate(lot.purchaseDate)}
-          </span>
-          <GainBadge gainType={lot.gainType} />
-        </div>
-        <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
-          {qtyStr} units · <Num amount={lot.purchaseCost} /> → <Num amount={lot.saleValue} /> · {lot.holdingDays} days
-        </span>
-      </div>
-      <span className="tabnum text-body ml-3 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={lot.gain} signed />
-      </span>
+    <div className="pb-2">
+      <SectionHeader title="Realised" />
+
+      <SectionLabel label="Equity" className="px-4" />
+      <DetailRow label="LTCG" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
+      <DetailRow label="STCG" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
+
+      <SectionLabel label="Debt" className="px-4" />
+      <DetailRow label="LTCG" bold noRupee><Num amount={debtLTCG} signed /></DetailRow>
+      <DetailRow label="STCG" bold noRupee><Num amount={debtSTCG} signed /></DetailRow>
+      <p className="px-4 pb-2 pt-1 text-footnote" style={{ color: 'var(--text-faint)' }}>
+        Includes gold ETF sold before maturity. Shown at purchase cost — indexation not computed, verify with your CA.
+      </p>
+
+      <SectionLabel label="Dividends" className="px-4" />
+      <DetailRow label="Received" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
     </div>
   )
 }
 
-// ── Harvesting section body ────────────────────────────────────────────────────
+// ── Tax ──────────────────────────────────────────────────────────────────────
+
+export interface TaxBucketRow {
+  bucket:    Bucket
+  label:     string
+  rateLabel: string
+  rawGain:   number
+  exemption: number
+  setOff:    number
+  taxable:   number
+  tax:       number | null
+}
+
+export function TaxBody({
+  rows, dividendIncome, dividendRateLabel, dividendTax,
+  setOffLines, newCarryForwardLine,
+  tax, cess, total,
+  slabRatePct, onSlabRateChange,
+}: {
+  rows:                TaxBucketRow[]
+  dividendIncome:      number
+  dividendRateLabel:   string
+  dividendTax:         number
+  setOffLines:         string[]
+  newCarryForwardLine: string | null
+  tax:                 number
+  cess:                number
+  total:               number
+  slabRatePct:         number
+  onSlabRateChange:    (v: number) => void
+}) {
+  return (
+    <div className="pb-2">
+      <SectionHeader title="Tax" right={<SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />} />
+
+      {rows.map(r => (
+        <div key={r.bucket}>
+          <SectionLabel label={`${r.label} · ${r.rateLabel}`} className="px-4" />
+          {(r.exemption > 0 || r.setOff > 0) && (
+            <DetailRow label="Raw gain" noRupee><Num amount={r.rawGain} signed /></DetailRow>
+          )}
+          {r.exemption > 0 && <DetailRow label="Exemption" muted noRupee><Num amount={-r.exemption} /></DetailRow>}
+          {r.setOff > 0 && <DetailRow label="Loss set off" muted noRupee><Num amount={-r.setOff} /></DetailRow>}
+          <DetailRow label="Taxable" bold noRupee><Num amount={r.taxable} signed /></DetailRow>
+          {r.tax !== null && <DetailRow label="Tax" noRupee><Num amount={r.tax} /></DetailRow>}
+        </div>
+      ))}
+
+      <SectionLabel label={`Dividends · ${dividendRateLabel}`} className="px-4" />
+      <DetailRow label="Taxable" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
+      <DetailRow label="Tax" noRupee><Num amount={dividendTax} /></DetailRow>
+
+      {setOffLines.length > 0 && (
+        <>
+          <SectionLabel label="Set-off" className="px-4" />
+          {setOffLines.map((line, i) => (
+            <p key={i} className="px-4 pb-1.5 text-footnote" style={{ color: 'var(--text-muted)' }}>{line}</p>
+          ))}
+        </>
+      )}
+
+      {newCarryForwardLine && (
+        <p className="px-4 pb-1.5 pt-1 text-footnote" style={{ color: 'var(--text-muted)' }}>{newCarryForwardLine}</p>
+      )}
+
+      <SectionLabel label="Total" className="px-4" />
+      <DetailRow label="Tax" noRupee><Num amount={tax} /></DetailRow>
+      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} /></DetailRow>
+      <DetailRow label="Tax + Cess" bold noRupee><Num amount={total} /></DetailRow>
+    </div>
+  )
+}
+
+// ── Payable ──────────────────────────────────────────────────────────────────
+
+export function PayableBody({
+  taxPlusCess, tdsCredit, advancePaid, payable,
+}: {
+  taxPlusCess: number; tdsCredit: number; advancePaid: number; payable: number
+}) {
+  return (
+    <div className="pb-2">
+      <SectionHeader title="Payable" />
+      <DetailRow label="Tax + Cess" noRupee><Num amount={taxPlusCess} /></DetailRow>
+      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} /></DetailRow>
+      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} /></DetailRow>
+      <div className="px-4 pt-2 pb-1">
+        <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Net Payable</p>
+        <p className="text-display font-bold tabnum" style={{ marginTop: 4, color: 'var(--text-primary)' }}>
+          <Num amount={payable} signed />
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Harvesting ───────────────────────────────────────────────────────────────
 
 export function HarvestingBody({
-  equityLTCG,
-  equitySTCG,
-  unrealisedLoss,
-  nearThreshold,
-  pricesLoading,
+  exemptionUsed, unrealisedLoss, pricesLoading,
 }: {
-  equityLTCG:     number
-  equitySTCG:     number
+  exemptionUsed:  number
   unrealisedLoss: number | null
-  nearThreshold:  NearThresholdRow[]
   pricesLoading:  boolean
 }) {
-  const equityTotal   = equityLTCG + equitySTCG
-  const barPct        = Math.min(100, Math.max(0, (equityTotal / LTCG_EXEMPTION) * 100))
-  const overThreshold = equityTotal > LTCG_EXEMPTION
-  const barColor      = overThreshold ? 'var(--c-warning)' : 'var(--c-positive)'
-  const remaining     = LTCG_EXEMPTION - equityTotal
+  const remaining = LTCG_EXEMPTION - exemptionUsed
+  const barPct    = Math.min(100, Math.max(0, (exemptionUsed / LTCG_EXEMPTION) * 100))
 
   return (
     <div className="pb-2">
+      <SectionHeader title="Harvesting" />
 
       <SectionLabel label="LTCG Exemption" className="px-4" />
-      <DetailRow label="Realised gains" bold noRupee><Num amount={equityTotal} signed /></DetailRow>
+      <DetailRow label="Used" noRupee>{formatINRFine(exemptionUsed)} of 1.25<span className="num-u"> L</span></DetailRow>
+      <DetailRow label="Remaining" bold noRupee><Num amount={remaining} /></DetailRow>
       <div className="px-4 pb-3 pt-1">
-        <ProgressBar percent={barPct} color={barColor} />
-        <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>
-          <Num amount={equityTotal} /> of 1.25 L used
-          {overThreshold
-            ? <> · <Num amount={-remaining} /> over limit</>
-            : <> · <Num amount={remaining} /> remaining</>
-          }
-        </p>
+        <ProgressBar percent={barPct} />
       </div>
 
-      <SectionLabel label="Equity Gains" className="px-4" />
-      <DetailRow label="LTCG" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
-      <DetailRow label="STCG" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
-
-      <SectionLabel label="Harvestable Losses" className="px-4" />
-      <DetailRow label="Unrealised losses" bold noRupee>
+      <SectionLabel label="Unrealised Losses" className="px-4" />
+      <DetailRow label="Harvestable now" bold noRupee>
         {pricesLoading
           ? <span style={{ color: 'var(--text-faint)' }}>—</span>
           : unrealisedLoss !== null && unrealisedLoss < 0
@@ -299,32 +238,6 @@ export function HarvestingBody({
             : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>
-
-      <SectionLabel label="Approaching 1-Year Threshold" className="px-4" />
-      <p className="px-4 pb-2 text-footnote" style={{ color: 'var(--text-muted)' }}>
-        Hold until they cross — selling now incurs STCG instead of LTCG.
-      </p>
-      {nearThreshold.length === 0 ? (
-        <EmptyState>None approaching threshold</EmptyState>
-      ) : (
-        nearThreshold.map((row, i) => (
-          <div key={i} className="flex items-center justify-between px-4" style={{ minHeight: 48 }}>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                {row.name}
-              </span>
-              <span className="text-footnote" style={{ color: 'var(--text-muted)' }}>
-                {row.position.holdingDays} days held · bought {formatDate(row.position.purchaseDate)}
-              </span>
-            </div>
-            <span className="tabnum text-body ml-3 flex-shrink-0 font-semibold"
-                  style={{ color: row.daysToLTCG <= 7 ? 'var(--c-warning)' : 'var(--text-primary)' }}>
-              {row.daysToLTCG}d
-            </span>
-          </div>
-        ))
-      )}
-
     </div>
   )
 }

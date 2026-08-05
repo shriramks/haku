@@ -1,62 +1,75 @@
 'use client'
 import { useState, useMemo, useEffect, useRef } from 'react'
-import type { FiscalYear, Transaction, DividendTransaction } from '@/lib/types'
+import type { FiscalYear, Transaction, DividendTransaction, AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
-import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
-import type { RealisedGain, GainType, AssetType, UnrealisedPosition } from '@/lib/tax-compute'
+import { gatherBucketedGains, computeStockGains, computeMFGains, mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
+import type { RealisedGain, UnrealisedPosition } from '@/lib/tax-compute'
+import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward } from '@/lib/tax-liability'
+import type { CarryForwardRow, Bucket } from '@/lib/tax-liability'
+import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
+import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
+import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
+import { isFYClosed } from '@/lib/fy-utils'
+import { todayISO, formatINRFine } from '@/lib/formatter'
+import { getSupabaseBrowser } from '@/lib/supabase-browser'
+import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import FYPicker from '@/components/FYPicker'
-import { Num } from '@/components/Num'
 import UserMenu from '@/components/UserMenu'
-import { LTCG_EXEMPTION } from './tax-export'
-import type { SellRow } from './tax-export'
-import { Section, SummaryBody, DetailsBody, HarvestingBody } from './TaxSections'
-import type { SectionKey, NearThresholdRow } from './TaxSections'
-import { ExportBody } from './TaxExport'
+import { LabeledInput } from '@/components/LabeledInput'
+import { Button } from '@/components/Button'
+import { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
+import { InstalmentsBody, RealisedBody, TaxBody, PayableBody, HarvestingBody } from './TaxSections'
+import type { TaxBucketRow } from './TaxSections'
 
 interface Props {
-  fiscalYears:  FiscalYear[]
-  currentFY:    FiscalYear | null
-  stockTxns:    Transaction[]
-  mfFunds:      MFund[]
-  mfTxns:       MFTransaction[]
-  sgbTxns:      SGBTransaction[]
-  dividends:    DividendTransaction[]
+  fiscalYears:    FiscalYear[]
+  currentFY:      FiscalYear | null
+  stockTxns:      Transaction[]
+  mfFunds:        MFund[]
+  mfTxns:         MFTransaction[]
+  sgbTxns:        SGBTransaction[]
+  dividends:      DividendTransaction[]
+  advanceTaxPaid: AdvanceTaxPaidRow[]
+  carryForward:   CarryForwardDbRow[]
+}
+
+const BUCKET_ORDER: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG']
+const BUCKET_LABEL: Record<Bucket, string> = {
+  equityLTCG: 'Equity LTCG', equitySTCG: 'Equity STCG', debtLTCG: 'Debt LTCG', debtSTCG: 'Debt STCG',
 }
 
 export default function TaxClient({
-  fiscalYears,
-  currentFY,
-  stockTxns,
-  mfFunds,
-  mfTxns,
-  sgbTxns,
-  dividends,
+  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, sgbTxns, dividends, advanceTaxPaid, carryForward,
 }: Props) {
-  const [selectedFY, setSelectedFY]       = useState<FiscalYear | null>(currentFY)
-  const [expanded, setExpanded]           = useState<Set<SectionKey>>(new Set(['summary']))
-  const [cmps, setCmps]                   = useState<Record<string, number>>({})
-  const [navs, setNavs]                   = useState<Record<string, number>>({})
-  const [goldPrice, setGoldPrice]         = useState<number | null>(null)
-  const [pricesLoading, setPricesLoading] = useState(false)
-  const pricesFetchedRef                  = useRef(false)
+  const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
+  const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
+  const [cmps, setCmps]               = useState<Record<string, number>>({})
+  const [navs, setNavs]               = useState<Record<string, number>>({})
+  const [pricesLoading, setPricesLoading] = useState(true)
+  const pricesFetchedRef              = useRef(false)
 
-  const fyRange = useMemo(() => {
-    if (!selectedFY) return null
-    return { start: selectedFY.start_date, end: selectedFY.end_date }
-  }, [selectedFY])
+  const [paidRows, setPaidRows] = useState<AdvanceTaxPaidRow[]>(advanceTaxPaid)
+  const [cfRows, setCfRows]     = useState<CarryForwardDbRow[]>(carryForward)
+  const reconcileRef            = useRef(false)
+
+  const [editingMilestone, setEditingMilestone] = useState<InstalmentResult | null>(null)
 
   const stockMap = useMemo(() => groupBy(stockTxns, t => t.symbol),    [stockTxns])
   const mfMap    = useMemo(() => groupBy(mfTxns,    t => t.fund_id),   [mfTxns])
   const goldMap  = useMemo(() => groupBy(sgbTxns,   t => t.gold_type), [sgbTxns])
 
-  // Fetch live prices when harvesting section is opened (once per page load)
+  const fyById = useMemo(() => new Map(fiscalYears.map(fy => [fy.id, fy])), [fiscalYears])
+  const carryForwardLibRows: CarryForwardRow[] = useMemo(() =>
+    cfRows.map(r => ({ id: r.id, fyStartDate: fyById.get(r.fy_id)?.start_date ?? '', lossType: r.loss_type, remaining: r.remaining })),
+    [cfRows, fyById])
+
+  // Fetch live prices once — only for equity positions (stock + equity MF),
+  // the only ones Harvesting's unrealised-loss figure needs.
   useEffect(() => {
-    if (!expanded.has('harvesting') || pricesFetchedRef.current) return
+    if (pricesFetchedRef.current) return
     pricesFetchedRef.current = true
-    setPricesLoading(true)
 
     const fetches: Promise<void>[] = []
-
     const stockSymbols = [...new Set(stockTxns.map(t => t.symbol))]
     if (stockSymbols.length > 0) {
       fetches.push(
@@ -66,8 +79,7 @@ export default function TaxClient({
           .catch(() => {})
       )
     }
-
-    for (const fund of mfFunds) {
+    for (const fund of mfFunds.filter(f => mfAssetClass(f) === 'equity')) {
       fetches.push(
         fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
           .then(r => r.json())
@@ -78,143 +90,182 @@ export default function TaxClient({
           .catch(() => {})
       )
     }
-
-    if (sgbTxns.length > 0) {
-      fetches.push(
-        fetch('/api/gold-price')
-          .then(r => r.json())
-          .then(d => { if (d.pricePerGram) setGoldPrice(d.pricePerGram) })
-          .catch(() => {})
-      )
-    }
-
     Promise.allSettled(fetches).then(() => setPricesLoading(false))
-  }, [expanded, stockTxns, mfFunds, sgbTxns])
+  }, [stockTxns, mfFunds])
+
+  // Reconcile the carryforward ledger once per load — chains every closed FY
+  // that has no row yet, oldest first, so incoming carryforward is correct
+  // regardless of which FYs were viewed before. See lib/tax-reconcile.ts.
+  useEffect(() => {
+    if (reconcileRef.current) return
+    reconcileRef.current = true
+
+    const plan = planCarryForwardReconciliation({
+      fiscalYears, existingRows: carryForwardLibRows, stockMap, mfMap, mfFunds, goldMap, asOfToday: todayISO(),
+    })
+    if (plan.decrements.length === 0 && plan.upserts.length === 0) return
+
+    async function persist() {
+      const sb = getSupabaseBrowser()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) return
+
+      for (const dec of plan.decrements) {
+        await sb.from('capital_loss_carryforward').update({ remaining: dec.newRemaining }).eq('id', dec.id)
+      }
+
+      const byFyStart = new Map(fiscalYears.map(fy => [fy.start_date, fy.id]))
+      const newRows: CarryForwardDbRow[] = []
+      for (const u of plan.upserts) {
+        const fyId = byFyStart.get(u.fyStartDate)
+        if (!fyId) continue
+        const { data } = await sb.from('capital_loss_carryforward')
+          .upsert({ user_id: user.id, fy_id: fyId, loss_type: u.lossType, amount: u.amount, remaining: u.remaining }, { onConflict: 'user_id,fy_id,loss_type' })
+          .select('id, fy_id, loss_type, remaining')
+          .single()
+        if (data) newRows.push(data as CarryForwardDbRow)
+      }
+
+      setCfRows(prev => {
+        const decById = new Map(plan.decrements.map(d => [d.id, d.newRemaining]))
+        const updated = prev.map(r => decById.has(r.id) ? { ...r, remaining: decById.get(r.id)! } : r)
+        return [...updated, ...newRows]
+      })
+    }
+    persist()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const fyRange = useMemo(() => selectedFY ? { start: selectedFY.start_date, end: selectedFY.end_date } : null, [selectedFY])
 
   const computed = useMemo(() => {
-    const empty = {
-      gains: { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, goldLTCG: 0, goldSTCG: 0, dividendIncome: 0 },
-      detailRows: [] as SellRow[],
-      unrealisedPositions: [] as UnrealisedPosition[],
-    }
-    if (!fyRange) return empty
-
-    const asOf = new Date().toISOString().slice(0, 10)
-    let eqLTCG = 0, eqSTCG = 0, dtLTCG = 0, dtSTCG = 0, gdLTCG = 0, gdSTCG = 0
-    const rows: SellRow[] = []
-    const unrealisedPositions: UnrealisedPosition[] = []
-
-    function addSellRows(gained: RealisedGain[], assetType: AssetType, symbol: string, name: string) {
-      for (const [sellDate, lots] of groupBy(gained, g => g.sellDate)) {
-        const totalGain = lots.reduce((s, g) => s + g.gain, 0)
-        const hasLTCG   = lots.some(g => g.gainType === 'LTCG')
-        const hasSTCG   = lots.some(g => g.gainType === 'STCG')
-        const gainType: GainType | 'mixed' = hasLTCG && hasSTCG ? 'mixed' : hasLTCG ? 'LTCG' : 'STCG'
-        const days      = lots.map(g => g.holdingDays)
-        rows.push({ assetType, symbol, name, sellDate, lots, totalGain, gainType, minDays: Math.min(...days), maxDays: Math.max(...days) })
-      }
-    }
-
-    for (const [symbol, txns] of stockMap) {
-      const { realised, unrealised } = computeStockGains(txns, symbol, null, fyRange, asOf)
-      for (const g of realised) { if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain }
-      addSellRows(realised, 'stock', symbol, symbol)
-      unrealisedPositions.push(...unrealised)
-    }
-
-    for (const [fundId, txns] of mfMap) {
-      const fund = mfFunds.find(f => f.id === fundId)
-      const cls  = fund ? mfAssetClass(fund) : 'equity'
-      const { realised, unrealised } = computeMFGains(txns, fundId, cls, null, null, fyRange, asOf)
-      for (const g of realised) {
-        if (cls === 'debt') { if (g.gainType === 'LTCG') dtLTCG += g.gain; else dtSTCG += g.gain }
-        else                { if (g.gainType === 'LTCG') eqLTCG += g.gain; else eqSTCG += g.gain }
-      }
-      addSellRows(realised, 'mf', fundId, fund?.scheme_name ?? fundId)
-      unrealisedPositions.push(...unrealised)
-    }
-
-    for (const [goldType, txns] of goldMap) {
-      const { realised, unrealised } = computeGoldGains(txns, goldType, null, fyRange, asOf)
-      for (const g of realised) { if (g.gainType === 'LTCG') gdLTCG += g.gain; else gdSTCG += g.gain }
-      addSellRows(realised, 'gold', goldType, goldType)
-      unrealisedPositions.push(...unrealised)
-    }
-
-    const divIncome = dividends
+    if (!fyRange) return { equity: [] as RealisedGain[], debt: [] as RealisedGain[], dividendIncome: 0 }
+    const asOf = todayISO()
+    const { equity, debt } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, fyRange, asOf })
+    const dividendIncome = dividends
       .filter(d => d.ex_date >= fyRange.start && d.ex_date <= fyRange.end)
       .reduce((s, d) => s + d.amount, 0)
-
-    const order: Record<AssetType, number> = { stock: 0, mf: 1, gold: 2 }
-    rows.sort((a, b) => {
-      if (a.assetType !== b.assetType) return order[a.assetType] - order[b.assetType]
-      return b.sellDate.localeCompare(a.sellDate)
-    })
-
-    return {
-      gains: { equityLTCG: eqLTCG, equitySTCG: eqSTCG, debtLTCG: dtLTCG, debtSTCG: dtSTCG, goldLTCG: gdLTCG, goldSTCG: gdSTCG, dividendIncome: divIncome },
-      detailRows: rows,
-      unrealisedPositions,
-    }
+    return { equity, debt, dividendIncome }
   }, [fyRange, stockMap, mfMap, goldMap, mfFunds, dividends])
 
+  const raw = useMemo(() => bucketGains(computed.equity, computed.debt), [computed])
+
+  const incomingCarryForward = useMemo(() => {
+    if (!selectedFY) return { shortTerm: 0, longTerm: 0 }
+    return sumCarryForward(carryForwardLibRows.filter(r => r.fyStartDate < selectedFY.start_date))
+  }, [carryForwardLibRows, selectedFY])
+
+  const setOff     = useMemo(() => applySetOff(raw, incomingCarryForward, slabRatePct), [raw, incomingCarryForward, slabRatePct])
+  const taxResult  = useMemo(() => computeTax(setOff.final, computed.dividendIncome, slabRatePct), [setOff, computed.dividendIncome, slabRatePct])
+  const tds        = dividendTDS(computed.dividendIncome)
+
+  const paidRow = useMemo(() => selectedFY ? paidRows.find(r => r.fy_id === selectedFY.id) : undefined, [paidRows, selectedFY])
+  const paid: AdvanceTaxPaid = {
+    jun: paidRow?.jun ?? 0, sep: paidRow?.sep ?? 0, dec: paidRow?.dec ?? 0, mar: paidRow?.mar ?? 0,
+  }
+  const advancePaidTotal = paid.jun + paid.sep + paid.dec + paid.mar
+
+  const instalments = useMemo(() => {
+    if (!selectedFY) return [] as InstalmentResult[]
+    const milestones     = advanceTaxMilestones(selectedFY)
+    const liabilityAsOf  = buildLiabilityAsOf({ stockMap, mfMap, mfFunds, goldMap, dividends, fyStart: selectedFY.start_date, incomingCarryForward, slabRatePct })
+    return computeInstalments(milestones, liabilityAsOf, paid, todayISO())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
+
+  const isOpen             = selectedFY ? !isFYClosed(selectedFY, todayISO()) : true
+  const annualLiability    = taxResult.total - tds
+  const suppressInstalments = shouldSuppressInstalments(annualLiability)
+  const payable             = annualLiability - advancePaidTotal
+
+  const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER.map(bucket => {
+    const setOffAmt = setOff.moves.filter(m => m.to === bucket).reduce((s, m) => s + m.amount, 0)
+    const exemption = bucket === 'equityLTCG' ? setOff.exemptionApplied : 0
+    const line      = taxResult.lines.find(l => l.bucket === bucket)
+    const rateLabel = bucket === 'equitySTCG' ? '20%' : bucket === 'debtSTCG' ? `${slabRatePct}% slab` : '12.5%'
+    return {
+      bucket, label: BUCKET_LABEL[bucket], rateLabel,
+      rawGain: raw[bucket], exemption, setOff: setOffAmt,
+      taxable: setOff.final[bucket], tax: line ? line.tax : null,
+    }
+  }), [raw, setOff, taxResult, slabRatePct])
+
+  const setOffLines = useMemo(() => {
+    if (setOff.moves.length === 0) return [] as string[]
+    const groups = new Map<string, { total: number; dests: Map<Bucket, number> }>()
+    for (const m of setOff.moves) {
+      const g = groups.get(m.from) ?? { total: 0, dests: new Map<Bucket, number>() }
+      g.total += m.amount
+      g.dests.set(m.to, (g.dests.get(m.to) ?? 0) + m.amount)
+      groups.set(m.from, g)
+    }
+    return [...groups.entries()].map(([from, g]) => {
+      const destStr = [...g.dests.entries()].map(([b, amt]) => `${formatINRFine(amt)} to ${BUCKET_LABEL[b]}`).join(', ')
+      if (from === 'carryForwardLong' || from === 'carryForwardShort') {
+        const lossType = from === 'carryForwardLong' ? 'long' : 'short'
+        const sources = [...new Set(
+          carryForwardLibRows
+            .filter(r => r.lossType === lossType && selectedFY && r.fyStartDate < selectedFY.start_date && r.remaining > 0)
+            .sort((a, b) => a.fyStartDate < b.fyStartDate ? -1 : 1)
+            .map(r => fiscalYears.find(fy => fy.start_date === r.fyStartDate)?.label ?? r.fyStartDate)
+        )].join(', ') || 'a prior FY'
+        return `${formatINRFine(g.total)} ${lossType}-term carryforward from ${sources} used: ${destStr}.`
+      }
+      return `${formatINRFine(g.total)} ${BUCKET_LABEL[from as Bucket]} loss set off: ${destStr}.`
+    })
+  }, [setOff, carryForwardLibRows, selectedFY, fiscalYears])
+
+  const newCarryForwardLine = useMemo(() => {
+    const { shortTerm, longTerm } = setOff.newCarryForward
+    const parts: string[] = []
+    if (shortTerm > 0) parts.push(`${formatINRFine(shortTerm)} short-term`)
+    if (longTerm > 0) parts.push(`${formatINRFine(longTerm)} long-term`)
+    return parts.length === 0 ? null : `Carried to next FY: ${parts.join(', ')}.`
+  }, [setOff])
+
   const harvestingData = useMemo(() => {
-    const { unrealisedPositions } = computed
-    if (unrealisedPositions.length === 0) return { unrealisedLoss: null, nearThreshold: [] as NearThresholdRow[] }
-
-    const withPrices = unrealisedPositions.map(p => {
-      let price: number | null = null
-      if      (p.assetType === 'stock') { price = cmps[p.symbol] ?? null }
-      else if (p.assetType === 'mf')    { const fund = mfFunds.find(f => f.id === p.symbol); price = fund ? (navs[fund.scheme_code] ?? null) : null }
-      else if (p.assetType === 'gold')  { price = goldPrice }
-      const currentValue = price !== null ? p.qty * price : null
-      const gain         = currentValue !== null ? currentValue - p.purchaseCost : null
-      return { ...p, currentValue, gain }
-    })
-
-    const equityPositions = withPrices.filter(p => {
-      if (p.assetType === 'stock') {
-        return netStockQty(stockMap.get(p.symbol) ?? []) > 0
-      }
-      if (p.assetType === 'mf') {
-        const fund = mfFunds.find(f => f.id === p.symbol)
-        return !fund || mfAssetClass(fund) === 'equity'
-      }
-      return false
-    })
-
-    const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(navs).length > 0 || goldPrice !== null
+    if (!fyRange) return { unrealisedLoss: null as number | null }
+    const asOf = todayISO()
+    const positions: UnrealisedPosition[] = []
+    for (const [symbol, txns] of stockMap) {
+      if (netStockQty(txns) <= 0) continue
+      positions.push(...computeStockGains(txns, symbol, cmps[symbol] ?? null, fyRange, asOf).unrealised)
+    }
+    for (const [fundId, txns] of mfMap) {
+      const fund = mfFunds.find(f => f.id === fundId)
+      if (fund && mfAssetClass(fund) === 'debt') continue
+      const nav = fund ? navs[fund.scheme_code] ?? null : null
+      positions.push(...computeMFGains(txns, fundId, 'equity', null, nav, fyRange, asOf).unrealised)
+    }
+    const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(navs).length > 0
     const unrealisedLoss = pricesAvailable
-      ? equityPositions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
+      ? positions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
       : null
+    return { unrealisedLoss }
+  }, [fyRange, stockMap, mfMap, mfFunds, cmps, navs])
 
-    const nearThreshold: NearThresholdRow[] = equityPositions
-      .filter(p => p.gainType === 'STCG' && p.holdingDays >= 335)
-      .map(p => {
-        const daysToLTCG = 365 - p.holdingDays
-        const fund = p.assetType === 'mf' ? mfFunds.find(f => f.id === p.symbol) : null
-        return { position: p, daysToLTCG, name: fund ? fund.scheme_name : p.symbol }
+  async function savePaid(fy: FiscalYear, key: MilestoneKey, amount: number) {
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return
+    const existing = paidRows.find(r => r.fy_id === fy.id)
+    const payload = {
+      user_id: user.id, fy_id: fy.id,
+      jun: existing?.jun ?? 0, sep: existing?.sep ?? 0, dec: existing?.dec ?? 0, mar: existing?.mar ?? 0,
+      [key]: amount,
+    }
+    const { data } = await sb.from('advance_tax_paid')
+      .upsert(payload, { onConflict: 'user_id,fy_id' })
+      .select('id, fy_id, jun, sep, dec, mar')
+      .single()
+    if (data) {
+      const row = data as AdvanceTaxPaidRow
+      setPaidRows(prev => {
+        const idx = prev.findIndex(r => r.fy_id === fy.id)
+        if (idx === -1) return [...prev, row]
+        const next = [...prev]; next[idx] = row; return next
       })
-      .sort((a, b) => a.daysToLTCG - b.daysToLTCG)
-
-    return { unrealisedLoss, nearThreshold }
-  }, [computed, mfFunds, cmps, navs, goldPrice])
-
-  const { gains: { equityLTCG, equitySTCG, debtLTCG, debtSTCG, goldLTCG, goldSTCG, dividendIncome }, detailRows } = computed
-
-  const equityTotal  = equityLTCG + equitySTCG
-  const debtTotal    = debtLTCG + debtSTCG
-  const taxableLTCG  = Math.max(0, equityLTCG - LTCG_EXEMPTION)
-  const ltcgTax      = taxableLTCG * 0.125
-  const stcgTax      = Math.max(0, equitySTCG) * 0.20
-
-  function toggle(key: SectionKey) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+    }
   }
 
   return (
@@ -224,7 +275,7 @@ export default function TaxClient({
       <div className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
            style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between pt-1">
-          <h1 className="text-display font-bold">Tax Report</h1>
+          <h1 className="text-display font-bold">Tax</h1>
           <div className="flex items-center gap-2">
             <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
             <UserMenu />
@@ -232,94 +283,89 @@ export default function TaxClient({
         </div>
       </div>
 
-      {/* Hero strip */}
-      <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      {selectedFY && !suppressInstalments && (
+        <InstalmentsBody
+          title={isOpen ? 'Next Due' : 'Instalments'}
+          results={instalments}
+          isOpen={isOpen}
+          onEdit={setEditingMilestone}
+        />
+      )}
 
-        {/* Equity row */}
-        <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
-          <div className="flex flex-col gap-0.5">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={equityTotal} signed />
-            </p>
-          </div>
-          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-          <div className="flex flex-col gap-0.5 items-center">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity LTCG</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={equityLTCG} signed />
-            </p>
-          </div>
-          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-          <div className="flex flex-col gap-0.5 items-end">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Equity STCG</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={equitySTCG} signed />
-            </p>
-          </div>
-        </div>
+      <RealisedBody
+        equityLTCG={raw.equityLTCG} equitySTCG={raw.equitySTCG}
+        debtLTCG={raw.debtLTCG} debtSTCG={raw.debtSTCG}
+        dividendIncome={computed.dividendIncome}
+      />
 
-        {/* Debt row */}
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
-          <div className="flex flex-col gap-0.5">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={debtTotal} signed />
-            </p>
-          </div>
-          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-          <div className="flex flex-col gap-0.5 items-center">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt LTCG</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={debtLTCG} signed />
-            </p>
-          </div>
-          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-          <div className="flex flex-col gap-0.5 items-end">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Debt STCG</p>
-            <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-              <Num amount={debtSTCG} signed />
-            </p>
-          </div>
-        </div>
+      <TaxBody
+        rows={taxRows}
+        dividendIncome={computed.dividendIncome}
+        dividendRateLabel={`${slabRatePct}% slab`}
+        dividendTax={taxResult.lines.find(l => l.bucket === 'dividends')?.tax ?? 0}
+        setOffLines={setOffLines}
+        newCarryForwardLine={newCarryForwardLine}
+        tax={taxResult.tax}
+        cess={taxResult.cess}
+        total={taxResult.total}
+        slabRatePct={slabRatePct}
+        onSlabRateChange={setSlabRatePct}
+      />
 
-      </div>
+      <PayableBody taxPlusCess={taxResult.total} tdsCredit={tds} advancePaid={advancePaidTotal} payable={payable} />
 
-      {/* Sections */}
-      <div className="mt-2">
-        <Section title="Summary"    sectionKey="summary"    expanded={expanded} onToggle={toggle}>
-          <SummaryBody
-            equityLTCG={equityLTCG}
-            taxableLTCG={taxableLTCG}
-            ltcgTax={ltcgTax}
-            equitySTCG={equitySTCG}
-            stcgTax={stcgTax}
-            debtLTCG={debtLTCG}
-            debtSTCG={debtSTCG}
-            goldLTCG={goldLTCG}
-            goldSTCG={goldSTCG}
-            dividendIncome={dividendIncome}
-          />
-        </Section>
+      <HarvestingBody
+        exemptionUsed={setOff.exemptionApplied}
+        unrealisedLoss={harvestingData.unrealisedLoss}
+        pricesLoading={pricesLoading}
+      />
 
-        <Section title="Details"    sectionKey="details"    expanded={expanded} onToggle={toggle}>
-          <DetailsBody rows={detailRows} />
-        </Section>
-
-        <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
-          <HarvestingBody
-            equityLTCG={equityLTCG}
-            equitySTCG={equitySTCG}
-            unrealisedLoss={harvestingData.unrealisedLoss}
-            nearThreshold={harvestingData.nearThreshold}
-            pricesLoading={pricesLoading}
-          />
-        </Section>
-
-        <Section title="Export"     sectionKey="export"     expanded={expanded} onToggle={toggle}>
-          <ExportBody detailRows={detailRows} selectedFY={selectedFY} />
-        </Section>
-      </div>
+      {editingMilestone && selectedFY && (
+        <PaidAmountSheet
+          result={editingMilestone}
+          onClose={() => setEditingMilestone(null)}
+          onSave={amount => savePaid(selectedFY, editingMilestone.milestone.key, amount)}
+        />
+      )}
     </div>
+  )
+}
+
+// ── Edit paid-amount sheet ───────────────────────────────────────────────────
+
+function PaidAmountSheet({ result, onClose, onSave }: {
+  result: InstalmentResult
+  onClose: () => void
+  onSave: (amount: number) => Promise<void>
+}) {
+  const [value, setValue]   = useState(result.paid ? String(result.paid) : '')
+  const [saving, setSaving] = useState(false)
+  const kh = useKeyboardHeight()
+
+  async function handleSave() {
+    setSaving(true)
+    await onSave(parseFloat(value) || 0)
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+          <p className="font-semibold text-headline">{result.milestone.label}</p>
+          <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>
+        </div>
+        <div className="px-5 py-4">
+          <LabeledInput label="Paid so far" value={value} onChange={setValue} autoFocus onEnter={handleSave} />
+        </div>
+      </div>
+    </>
   )
 }

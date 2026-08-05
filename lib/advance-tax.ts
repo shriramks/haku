@@ -1,7 +1,6 @@
 import type { FiscalYear, Transaction, DividendTransaction } from './types'
 import type { MFund, MFTransaction, SGBTransaction } from './portfolio-types'
-import { computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, LTCG_DAYS_DEBT } from './tax-compute'
-import type { RealisedGain } from './tax-compute'
+import { gatherBucketedGains } from './tax-compute'
 import { bucketGains, applySetOff, computeTax, dividendTDS } from './tax-liability'
 import type { CarryForwardAmounts } from './tax-liability'
 
@@ -96,36 +95,18 @@ export interface LiabilityAsOfInputs {
  * truncating the range is safe: `fifoConsume` still advances through sells
  * after the cutoff, it just omits them from the returned realised gains.
  *
- * Gold: only 'etf' lots are taxed here, folded into the debt bucket at the
- * 24-month threshold — the one gold case #77 resolved. 'sgb' and 'physical'
- * gold have no resolved bucket yet and are excluded (same as before this
- * pipeline existed, gold was never taxed at all) — left for whoever builds
- * the Gains section to resolve.
+ * Gold/bucket-gathering logic lives in `gatherBucketedGains()` (tax-compute.ts)
+ * — shared with the tax page and carryforward reconciliation. Only 'etf' lots
+ * are taxed, folded into the debt bucket; 'sgb' and 'physical' are excluded
+ * entirely (#79.b: no resolved rate for gold's own LTCG threshold within the
+ * equity/debt-only bucket model).
  */
 export function buildLiabilityAsOf(inputs: LiabilityAsOfInputs): (date: string) => number {
   const { stockMap, mfMap, mfFunds, goldMap, dividends, fyStart, incomingCarryForward, slabRatePct } = inputs
 
   return function liabilityAsOf(date: string): number {
     const range = { start: fyStart, end: date }
-    const equity: RealisedGain[] = []
-    const debt:   RealisedGain[] = []
-
-    for (const [symbol, txns] of stockMap) {
-      equity.push(...computeStockGains(txns, symbol, null, range, date).realised)
-    }
-
-    for (const [fundId, txns] of mfMap) {
-      const fund     = mfFunds.find(f => f.id === fundId)
-      const cls      = fund ? mfAssetClass(fund) : 'equity'
-      const realised = computeMFGains(txns, fundId, cls, null, null, range, date).realised
-      if (cls === 'debt') debt.push(...realised)
-      else                equity.push(...realised)
-    }
-
-    const etfTxns = goldMap.get('etf')
-    if (etfTxns) {
-      debt.push(...computeGoldGains(etfTxns, 'etf', null, range, date, LTCG_DAYS_DEBT).realised)
-    }
+    const { equity, debt } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, fyRange: range, asOf: date })
 
     const dividendIncome = dividends
       .filter(d => d.ex_date >= range.start && d.ex_date <= range.end)

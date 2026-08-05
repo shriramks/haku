@@ -124,6 +124,22 @@ export interface DividendTransaction {
   created_at?: string
 }
 
+export interface AdvanceTaxPaidRow {
+  id: string
+  fy_id: string
+  jun: number
+  sep: number
+  dec: number
+  mar: number
+}
+
+export interface CarryForwardDbRow {
+  id: string
+  fy_id: string
+  loss_type: 'short' | 'long'
+  remaining: number
+}
+
 // ── Derived / UI types ───────────────────────────────────────────────────────
 
 
