@@ -15,10 +15,9 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
-import { LabeledInput } from '@/components/LabeledInput'
 import { Button } from '@/components/Button'
 import { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
-import { InstalmentsBody, RealisedBody, TaxBody, PayableBody, HarvestingBody } from './TaxSections'
+import { InstalmentsBody, TaxBody, PayableBody, HarvestingBody } from './TaxSections'
 import type { TaxBucketRow } from './TaxSections'
 
 interface Props {
@@ -285,18 +284,14 @@ export default function TaxClient({
 
       {selectedFY && !suppressInstalments && (
         <InstalmentsBody
-          title={isOpen ? 'Next Due' : 'Instalments'}
           results={instalments}
           isOpen={isOpen}
+          annualLiability={annualLiability}
           onEdit={setEditingMilestone}
         />
       )}
 
-      <RealisedBody
-        equityLTCG={raw.equityLTCG} equitySTCG={raw.equitySTCG}
-        debtLTCG={raw.debtLTCG} debtSTCG={raw.debtSTCG}
-        dividendIncome={computed.dividendIncome}
-      />
+      <PayableBody taxPlusCess={taxResult.total} tdsCredit={tds} advancePaid={advancePaidTotal} payable={payable} />
 
       <TaxBody
         rows={taxRows}
@@ -311,8 +306,6 @@ export default function TaxClient({
         slabRatePct={slabRatePct}
         onSlabRateChange={setSlabRatePct}
       />
-
-      <PayableBody taxPlusCess={taxResult.total} tdsCredit={tds} advancePaid={advancePaidTotal} payable={payable} />
 
       <HarvestingBody
         exemptionUsed={setOff.exemptionApplied}
@@ -352,7 +345,7 @@ function PaidAmountSheet({ result, onClose, onSave }: {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl"
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
            style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
@@ -362,8 +355,20 @@ function PaidAmountSheet({ result, onClose, onSave }: {
           <p className="font-semibold text-headline">{result.milestone.label}</p>
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>
         </div>
-        <div className="px-5 py-4">
-          <LabeledInput label="Paid so far" value={value} onChange={setValue} autoFocus onEnter={handleSave} />
+
+        {/* Paid field — raw input (not LabeledInput) matching PlanClient's
+            BudgetSheet: LabeledInput's onFocus scrollIntoView drags the
+            page's own scroll container around a position:fixed sheet, which
+            doesn't move, producing a jump-to-top instead of a smooth focus. */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <p className="text-body">Paid so far</p>
+          <input
+            type="number" inputMode="decimal"
+            value={value} onChange={e => setValue(e.target.value)}
+            className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+            autoFocus
+          />
         </div>
       </div>
     </>

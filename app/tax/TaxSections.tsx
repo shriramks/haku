@@ -19,41 +19,45 @@ export function SectionHeader({ title, right }: { title: string; right?: React.R
   )
 }
 
-// ── Next Due / Instalments ───────────────────────────────────────────────────
+// ── Advance Tax ───────────────────────────────────────────────────────────────
 
 export function InstalmentsBody({
-  title, results, isOpen, onEdit,
+  results, isOpen, annualLiability, onEdit,
 }: {
-  title:   string
-  results: InstalmentResult[]
-  isOpen:  boolean
-  onEdit:  (r: InstalmentResult) => void
+  results:         InstalmentResult[]
+  isOpen:          boolean
+  annualLiability: number
+  onEdit:          (r: InstalmentResult) => void
 }) {
   const firstUpcomingIdx = results.findIndex(r => !r.isPast)
 
   return (
     <div className="pb-2">
-      <SectionHeader title={title} />
+      <SectionHeader title="Advance Tax" />
       {results.map((r, i) => (
         <MilestoneRow key={r.milestone.key} result={r} highlight={isOpen && i === firstUpcomingIdx} onTap={() => onEdit(r)} />
       ))}
+      <div className="px-4 pt-2">
+        <DetailRow label="Total tax so far this FY" muted noRupee><Num amount={annualLiability} align /></DetailRow>
+      </div>
     </div>
   )
 }
 
 function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; highlight: boolean; onTap: () => void }) {
-  const { milestone, isPast, target, paid, shortfall, interest } = result
+  const { milestone, isPast, target, paid, interest } = result
+  const due = Math.max(0, target - paid)
 
   let meta: string
-  let due: string | null = null
+  let dueLabel: string | null = null
   if (isPast) {
-    meta = shortfall > 0
-      ? `Paid ${formatINRFine(paid)} · shortfall ${formatINRFine(shortfall)}${interest > 0 ? ` · +${formatINRFine(interest)} interest` : ''}`
+    meta = due > 0
+      ? `Paid ${formatINRFine(paid)}${interest > 0 ? ` · +${formatINRFine(interest)} interest` : ''}`
       : `Paid ${formatINRFine(paid)} · paid in full`
   } else {
     meta = `Paid ${formatINRFine(paid)}`
     const days = Math.round((Date.parse(milestone.date) - Date.parse(new Date().toISOString().slice(0, 10))) / 86_400_000)
-    due = highlight ? `due in ${days}d` : 'not yet due'
+    dueLabel = highlight ? `due in ${days}d` : 'not yet due'
   }
 
   return (
@@ -70,47 +74,19 @@ function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; 
       <div className="flex flex-col gap-0.5 items-start min-w-0">
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>
-        {due && (
-          <span className="text-footnote font-semibold" style={{ color: highlight ? 'var(--accent)' : 'var(--text-faint)' }}>{due}</span>
+        {dueLabel && (
+          <span className="text-footnote font-semibold" style={{ color: highlight ? 'var(--accent)' : 'var(--text-faint)' }}>{dueLabel}</span>
         )}
       </div>
-      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
-        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={target} /></span>
-        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>target</span>
+      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3" style={{ minWidth: 76 }}>
+        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={due} align /></span>
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{due > 0 ? 'to pay' : 'settled'}</span>
       </div>
     </button>
   )
 }
 
-// ── Realised (gains or losses) ───────────────────────────────────────────────
-
-export function RealisedBody({
-  equityLTCG, equitySTCG, debtLTCG, debtSTCG, dividendIncome,
-}: {
-  equityLTCG: number; equitySTCG: number; debtLTCG: number; debtSTCG: number; dividendIncome: number
-}) {
-  return (
-    <div className="pb-2">
-      <SectionHeader title="Realised" />
-
-      <SectionLabel label="Equity" className="px-4" />
-      <DetailRow label="LTCG" bold noRupee><Num amount={equityLTCG} signed /></DetailRow>
-      <DetailRow label="STCG" bold noRupee><Num amount={equitySTCG} signed /></DetailRow>
-
-      <SectionLabel label="Debt" className="px-4" />
-      <DetailRow label="LTCG" bold noRupee><Num amount={debtLTCG} signed /></DetailRow>
-      <DetailRow label="STCG" bold noRupee><Num amount={debtSTCG} signed /></DetailRow>
-      <p className="px-4 pb-2 pt-1 text-footnote" style={{ color: 'var(--text-faint)' }}>
-        Includes gold ETF sold before maturity. Shown at purchase cost — indexation not computed, verify with your CA.
-      </p>
-
-      <SectionLabel label="Dividends" className="px-4" />
-      <DetailRow label="Received" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
-    </div>
-  )
-}
-
-// ── Tax ──────────────────────────────────────────────────────────────────────
+// ── Total Tax ────────────────────────────────────────────────────────────────
 
 export interface TaxBucketRow {
   bucket:    Bucket
@@ -143,24 +119,27 @@ export function TaxBody({
 }) {
   return (
     <div className="pb-2">
-      <SectionHeader title="Tax" right={<SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />} />
+      <SectionHeader title="Total Tax" right={<SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />} />
 
       {rows.map(r => (
         <div key={r.bucket}>
           <SectionLabel label={`${r.label} · ${r.rateLabel}`} className="px-4" />
-          {(r.exemption > 0 || r.setOff > 0) && (
-            <DetailRow label="Raw gain" noRupee><Num amount={r.rawGain} signed /></DetailRow>
+          <DetailRow label="Raw gain" noRupee><Num amount={r.rawGain} signed align /></DetailRow>
+          {r.exemption > 0 && <DetailRow label="Exemption" muted noRupee><Num amount={-r.exemption} align /></DetailRow>}
+          {r.setOff > 0 && <DetailRow label="Loss set off" muted noRupee><Num amount={-r.setOff} align /></DetailRow>}
+          <DetailRow label="Taxable" bold noRupee><Num amount={r.taxable} signed align /></DetailRow>
+          {r.tax !== null && <DetailRow label="Tax" noRupee><Num amount={r.tax} align /></DetailRow>}
+          {r.bucket === 'debtLTCG' && (
+            <p className="px-4 pb-2 pt-1 text-footnote" style={{ color: 'var(--text-faint)' }}>
+              Includes gold ETF sold before maturity. Shown at purchase cost — indexation not computed, verify with your CA.
+            </p>
           )}
-          {r.exemption > 0 && <DetailRow label="Exemption" muted noRupee><Num amount={-r.exemption} /></DetailRow>}
-          {r.setOff > 0 && <DetailRow label="Loss set off" muted noRupee><Num amount={-r.setOff} /></DetailRow>}
-          <DetailRow label="Taxable" bold noRupee><Num amount={r.taxable} signed /></DetailRow>
-          {r.tax !== null && <DetailRow label="Tax" noRupee><Num amount={r.tax} /></DetailRow>}
         </div>
       ))}
 
       <SectionLabel label={`Dividends · ${dividendRateLabel}`} className="px-4" />
-      <DetailRow label="Taxable" bold noRupee><Num amount={dividendIncome} signed /></DetailRow>
-      <DetailRow label="Tax" noRupee><Num amount={dividendTax} /></DetailRow>
+      <DetailRow label="Taxable" bold noRupee><Num amount={dividendIncome} signed align /></DetailRow>
+      <DetailRow label="Tax" noRupee><Num amount={dividendTax} align /></DetailRow>
 
       {setOffLines.length > 0 && (
         <>
@@ -176,9 +155,9 @@ export function TaxBody({
       )}
 
       <SectionLabel label="Total" className="px-4" />
-      <DetailRow label="Tax" noRupee><Num amount={tax} /></DetailRow>
-      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} /></DetailRow>
-      <DetailRow label="Tax + Cess" bold noRupee><Num amount={total} /></DetailRow>
+      <DetailRow label="Tax" noRupee><Num amount={tax} align /></DetailRow>
+      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} align /></DetailRow>
+      <DetailRow label="Tax + Cess" bold noRupee><Num amount={total} align /></DetailRow>
     </div>
   )
 }
@@ -193,12 +172,12 @@ export function PayableBody({
   return (
     <div className="pb-2">
       <SectionHeader title="Payable" />
-      <DetailRow label="Tax + Cess" noRupee><Num amount={taxPlusCess} /></DetailRow>
-      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} /></DetailRow>
-      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} /></DetailRow>
-      <div className="px-4 pt-2 pb-1">
-        <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Net Payable</p>
-        <p className="text-display font-bold tabnum" style={{ marginTop: 4, color: 'var(--text-primary)' }}>
+      <DetailRow label="Tax + Cess" noRupee><Num amount={taxPlusCess} align /></DetailRow>
+      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} align /></DetailRow>
+      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} align /></DetailRow>
+      <div className="px-4 pt-3 pb-1">
+        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Net Payable</p>
+        <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
           <Num amount={payable} signed />
         </p>
       </div>
@@ -223,8 +202,9 @@ export function HarvestingBody({
       <SectionHeader title="Harvesting" />
 
       <SectionLabel label="LTCG Exemption" className="px-4" />
-      <DetailRow label="Used" noRupee>{formatINRFine(exemptionUsed)} of 1.25<span className="num-u"> L</span></DetailRow>
-      <DetailRow label="Remaining" bold noRupee><Num amount={remaining} /></DetailRow>
+      <DetailRow label="Annual limit" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
+      <DetailRow label="Used" noRupee><Num amount={exemptionUsed} align /></DetailRow>
+      <DetailRow label="Remaining" bold noRupee><Num amount={remaining} align /></DetailRow>
       <div className="px-4 pb-3 pt-1">
         <ProgressBar percent={barPct} />
       </div>
@@ -234,7 +214,7 @@ export function HarvestingBody({
         {pricesLoading
           ? <span style={{ color: 'var(--text-faint)' }}>—</span>
           : unrealisedLoss !== null && unrealisedLoss < 0
-            ? <Num amount={unrealisedLoss} signed />
+            ? <Num amount={unrealisedLoss} signed align />
             : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>
