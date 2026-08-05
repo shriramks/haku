@@ -125,11 +125,12 @@ Equity, debt, and gold are separate capital gains buckets — losses cannot cros
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
 - **After completing any unit of work**, append an entry to `progress_haku.md`. This file is gitignored — never stage or commit it. Format rules:
-  - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused, even if a later entry's number ends up lower than an earlier one still sitting in Todo (e.g. a split spawns new higher numbers while the original stays put). This is so a session can always be referred to by its number.
+  - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused. This is so a session can always be referred to by its number.
+  - Splitting a Todo entry into multiple sessions: sub-parts take a letter suffix on the original number (`79.a`, `79.b`, ...), not new top-level numbers — keeps them grouped under the parent while each sub-part still has its own stable, permanent identifier.
   - Heading format: `### N — YYYY-MM-DD — Title` (Done) or `### N — Title` (Todo).
   - Done entries are ordered by actual completion recency, most-recent-at-top — not by number. Todo entries sit above `## Done` under `## Todo`.
   - Each entry: `Files:` line listing changed files, then 2–4 terse bullets on what changed and why.
-  - When planning a multi-session task, add all sessions as numbered Todo entries first. When a session is completed, move it to Done under its existing number and append the files + bullets.
+  - When planning a multi-session task, add all sessions as numbered Todo entries first (using letter suffixes for a split, per above). When a session is completed, move it to Done under its existing number/suffix and append the files + bullets.
   - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
   - A **Done** entry requires its tracked (non-gitignored) files to be committed and pushed to `main`. Work that's implemented and tested but not yet committed stays under `## Todo` — do not mark something Done on the strength of a passing build alone. This never justifies overriding ignore rules to get there: gitignored files (this file itself, `mockups/`, `supabase/migrations/`) are never committed regardless of Done status; for a session that only touches gitignored files, Done means the work is finished, full stop.
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
