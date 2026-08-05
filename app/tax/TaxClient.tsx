@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import type { FiscalYear, Transaction, DividendTransaction, AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
-import { gatherBucketedGains, computeStockGains, computeMFGains, mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
+import { gatherBucketedGains, computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy, netStockQty, LTCG_DAYS_DEBT } from '@/lib/tax-compute'
 import type { RealisedGain, UnrealisedPosition } from '@/lib/tax-compute'
 import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward } from '@/lib/tax-liability'
 import type { CarryForwardRow, Bucket } from '@/lib/tax-liability'
@@ -17,8 +17,8 @@ import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { Button } from '@/components/Button'
 import { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
-import { InstalmentsBody, TaxBody, PayableBody, HarvestingBody } from './TaxSections'
-import type { TaxBucketRow } from './TaxSections'
+import { Section, InstalmentsBody, TaxBody, HarvestingBody } from './TaxSections'
+import type { SectionKey, TaxBucketRow, GoldEtfSummary } from './TaxSections'
 
 interface Props {
   fiscalYears:    FiscalYear[]
@@ -42,6 +42,7 @@ export default function TaxClient({
 }: Props) {
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
   const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
+  const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
   const [cmps, setCmps]               = useState<Record<string, number>>({})
   const [navs, setNavs]               = useState<Record<string, number>>({})
   const [pricesLoading, setPricesLoading] = useState(true)
@@ -52,6 +53,15 @@ export default function TaxClient({
   const reconcileRef            = useRef(false)
 
   const [editingMilestone, setEditingMilestone] = useState<InstalmentResult | null>(null)
+
+  function toggle(key: SectionKey) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   const stockMap = useMemo(() => groupBy(stockTxns, t => t.symbol),    [stockTxns])
   const mfMap    = useMemo(() => groupBy(mfTxns,    t => t.fund_id),   [mfTxns])
@@ -149,6 +159,19 @@ export default function TaxClient({
 
   const raw = useMemo(() => bucketGains(computed.equity, computed.debt), [computed])
 
+  // Gold ETF's own LTCG/STCG, for the informational Breakdown group only —
+  // it's already counted inside raw.debtLTCG/debtSTCG above (same bucket,
+  // same rate mechanics per #77); this doesn't feed the tax pipeline twice.
+  const goldEtf: GoldEtfSummary = useMemo(() => {
+    if (!fyRange) return { hasActivity: false, ltcg: 0, stcg: 0 }
+    const etfTxns = goldMap.get('etf')
+    if (!etfTxns) return { hasActivity: false, ltcg: 0, stcg: 0 }
+    const { realised } = computeGoldGains(etfTxns, 'etf', null, fyRange, todayISO(), LTCG_DAYS_DEBT)
+    let ltcg = 0, stcg = 0
+    for (const g of realised) { if (g.gainType === 'LTCG') ltcg += g.gain; else stcg += g.gain }
+    return { hasActivity: realised.length > 0, ltcg, stcg }
+  }, [fyRange, goldMap])
+
   const incomingCarryForward = useMemo(() => {
     if (!selectedFY) return { shortTerm: 0, longTerm: 0 }
     return sumCarryForward(carryForwardLibRows.filter(r => r.fyStartDate < selectedFY.start_date))
@@ -172,10 +195,10 @@ export default function TaxClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
 
-  const isOpen             = selectedFY ? !isFYClosed(selectedFY, todayISO()) : true
-  const annualLiability    = taxResult.total - tds
+  const isOpen              = selectedFY ? !isFYClosed(selectedFY, todayISO()) : true
+  const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
-  const payable             = annualLiability - advancePaidTotal
+  const payable              = annualLiability - advancePaidTotal
 
   const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER.map(bucket => {
     const setOffAmt = setOff.moves.filter(m => m.to === bucket).reduce((s, m) => s + m.amount, 0)
@@ -283,35 +306,37 @@ export default function TaxClient({
       </div>
 
       {selectedFY && !suppressInstalments && (
-        <InstalmentsBody
-          results={instalments}
-          isOpen={isOpen}
-          annualLiability={annualLiability}
-          onEdit={setEditingMilestone}
-        />
+        <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}>
+          <InstalmentsBody results={instalments} isOpen={isOpen} onEdit={setEditingMilestone} />
+        </Section>
       )}
 
-      <PayableBody taxPlusCess={taxResult.total} tdsCredit={tds} advancePaid={advancePaidTotal} payable={payable} />
+      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle}>
+        <TaxBody
+          rows={taxRows}
+          goldEtf={goldEtf}
+          dividendIncome={computed.dividendIncome}
+          dividendRateLabel={`${slabRatePct}% slab`}
+          dividendTax={taxResult.lines.find(l => l.bucket === 'dividends')?.tax ?? 0}
+          setOffLines={setOffLines}
+          newCarryForwardLine={newCarryForwardLine}
+          tax={taxResult.tax}
+          cess={taxResult.cess}
+          tdsCredit={tds}
+          advancePaid={advancePaidTotal}
+          payable={payable}
+          slabRatePct={slabRatePct}
+          onSlabRateChange={setSlabRatePct}
+        />
+      </Section>
 
-      <TaxBody
-        rows={taxRows}
-        dividendIncome={computed.dividendIncome}
-        dividendRateLabel={`${slabRatePct}% slab`}
-        dividendTax={taxResult.lines.find(l => l.bucket === 'dividends')?.tax ?? 0}
-        setOffLines={setOffLines}
-        newCarryForwardLine={newCarryForwardLine}
-        tax={taxResult.tax}
-        cess={taxResult.cess}
-        total={taxResult.total}
-        slabRatePct={slabRatePct}
-        onSlabRateChange={setSlabRatePct}
-      />
-
-      <HarvestingBody
-        exemptionUsed={setOff.exemptionApplied}
-        unrealisedLoss={harvestingData.unrealisedLoss}
-        pricesLoading={pricesLoading}
-      />
+      <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
+        <HarvestingBody
+          exemptionUsed={setOff.exemptionApplied}
+          unrealisedLoss={harvestingData.unrealisedLoss}
+          pricesLoading={pricesLoading}
+        />
+      </Section>
 
       {editingMilestone && selectedFY && (
         <PaidAmountSheet
@@ -335,6 +360,21 @@ function PaidAmountSheet({ result, onClose, onSave }: {
   const [saving, setSaving] = useState(false)
   const kh = useKeyboardHeight()
 
+  // Lock body scroll while the sheet is open — matches AddTxnModal. Without
+  // this, iOS auto-scrolls the page to keep the focused input visible at the
+  // same time this sheet's own `bottom: kh` offset repositions it — the two
+  // fight each other and split the sheet across the screen.
+  useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    return () => {
+      document.body.style.position = ''
+      document.body.style.width = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   async function handleSave() {
     setSaving(true)
     await onSave(parseFloat(value) || 0)
@@ -356,10 +396,6 @@ function PaidAmountSheet({ result, onClose, onSave }: {
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>
         </div>
 
-        {/* Paid field — raw input (not LabeledInput) matching PlanClient's
-            BudgetSheet: LabeledInput's onFocus scrollIntoView drags the
-            page's own scroll container around a position:fixed sheet, which
-            doesn't move, producing a jump-to-top instead of a smooth focus. */}
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
           <p className="text-body">Paid so far</p>
           <input

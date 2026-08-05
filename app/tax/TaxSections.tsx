@@ -5,41 +5,60 @@ import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
+import { ChevronDownIcon } from '@/components/icons'
 import { formatINRFine } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
 
-// ── Fixed section header — no chevron, no collapse ──────────────────────────
+export type SectionKey = 'advance' | 'tax' | 'harvesting'
 
-export function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+// ── Collapsible section — same pattern as the rest of the app. No border —
+// sections are separated by spacing and the header label itself, per
+// docs/design.md ("groups are separated by SectionDividers — text labels —
+// ... not by background colour changes or rounded containers"). ───────────
+
+export function Section({
+  title, sectionKey, expanded, onToggle, children,
+}: {
+  title:      string
+  sectionKey: SectionKey
+  expanded:   Set<SectionKey>
+  onToggle:   (k: SectionKey) => void
+  children:   React.ReactNode
+}) {
+  const isOpen = expanded.has(sectionKey)
   return (
-    <div className="flex items-center justify-between px-4" style={{ minHeight: 44, marginTop: 22 }}>
-      <span className="text-title-2 font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-      {right}
+    <div style={{ marginTop: 24 }}>
+      <button
+        onClick={() => onToggle(sectionKey)}
+        className="flex items-center justify-between w-full px-4 tap-row"
+        style={{ minHeight: 48 }}>
+        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <ChevronDownIcon
+          className="w-4 h-4 transition-transform"
+          style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+      </button>
+      {isOpen && children}
     </div>
   )
 }
 
-// ── Advance Tax ───────────────────────────────────────────────────────────────
+// ── Advance Tax — plain list ─────────────────────────────────────────────────
 
 export function InstalmentsBody({
-  results, isOpen, annualLiability, onEdit,
+  results, isOpen, onEdit,
 }: {
-  results:         InstalmentResult[]
-  isOpen:          boolean
-  annualLiability: number
-  onEdit:          (r: InstalmentResult) => void
+  results: InstalmentResult[]
+  isOpen:  boolean
+  onEdit:  (r: InstalmentResult) => void
 }) {
   const firstUpcomingIdx = results.findIndex(r => !r.isPast)
 
   return (
     <div className="pb-2">
-      <SectionHeader title="Advance Tax" />
       {results.map((r, i) => (
         <MilestoneRow key={r.milestone.key} result={r} highlight={isOpen && i === firstUpcomingIdx} onTap={() => onEdit(r)} />
       ))}
-      <div className="px-4 pt-2">
-        <DetailRow label="Total tax so far this FY" muted noRupee><Num amount={annualLiability} align /></DetailRow>
-      </div>
     </div>
   )
 }
@@ -63,14 +82,8 @@ function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; 
   return (
     <button
       onClick={onTap}
-      className="flex items-center justify-between w-full tap-row"
-      style={{
-        padding: highlight ? '10px 8px' : '10px 16px',
-        margin: highlight ? '0 8px' : undefined,
-        minHeight: 56,
-        borderRadius: highlight ? 12 : undefined,
-        background: highlight ? 'color-mix(in srgb, var(--accent) 7%, transparent)' : undefined,
-      }}>
+      className="flex items-center justify-between w-full px-4 tap-row"
+      style={{ minHeight: 56 }}>
       <div className="flex flex-col gap-0.5 items-start min-w-0">
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>
@@ -78,7 +91,7 @@ function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; 
           <span className="text-footnote font-semibold" style={{ color: highlight ? 'var(--accent)' : 'var(--text-faint)' }}>{dueLabel}</span>
         )}
       </div>
-      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3" style={{ minWidth: 76 }}>
+      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
         <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={due} align /></span>
         <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{due > 0 ? 'to pay' : 'settled'}</span>
       </div>
@@ -86,7 +99,8 @@ function MilestoneRow({ result, highlight, onTap }: { result: InstalmentResult; 
   )
 }
 
-// ── Total Tax ────────────────────────────────────────────────────────────────
+// ── Total Tax — answer first (slab select, Tax/Cess/TDS/Paid/Net Payable),
+// then a Breakdown of every bucket that feeds it. ───────────────────────────
 
 export interface TaxBucketRow {
   bucket:    Bucket
@@ -99,13 +113,20 @@ export interface TaxBucketRow {
   tax:       number | null
 }
 
+export interface GoldEtfSummary {
+  hasActivity: boolean
+  ltcg:        number
+  stcg:        number
+}
+
 export function TaxBody({
-  rows, dividendIncome, dividendRateLabel, dividendTax,
+  rows, goldEtf, dividendIncome, dividendRateLabel, dividendTax,
   setOffLines, newCarryForwardLine,
-  tax, cess, total,
+  tax, cess, tdsCredit, advancePaid, payable,
   slabRatePct, onSlabRateChange,
 }: {
   rows:                TaxBucketRow[]
+  goldEtf:             GoldEtfSummary
   dividendIncome:      number
   dividendRateLabel:   string
   dividendTax:         number
@@ -113,13 +134,26 @@ export function TaxBody({
   newCarryForwardLine: string | null
   tax:                 number
   cess:                number
-  total:               number
+  tdsCredit:           number
+  advancePaid:         number
+  payable:             number
   slabRatePct:         number
   onSlabRateChange:    (v: number) => void
 }) {
   return (
     <div className="pb-2">
-      <SectionHeader title="Total Tax" right={<SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />} />
+      <div className="flex items-center justify-between px-4" style={{ minHeight: 44, paddingTop: 8 }}>
+        <span className="text-body" style={{ color: 'var(--text-2)' }}>Slab Rate</span>
+        <SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />
+      </div>
+
+      <DetailRow label="Tax" noRupee><Num amount={tax} align /></DetailRow>
+      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} align /></DetailRow>
+      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} align /></DetailRow>
+      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} align /></DetailRow>
+      <DetailRow label="Net Payable" bold noRupee><Num amount={payable} signed align /></DetailRow>
+
+      <SectionLabel label="Breakdown" className="px-4" />
 
       {rows.map(r => (
         <div key={r.bucket}>
@@ -129,13 +163,16 @@ export function TaxBody({
           {r.setOff > 0 && <DetailRow label="Loss set off" muted noRupee><Num amount={-r.setOff} align /></DetailRow>}
           <DetailRow label="Taxable" bold noRupee><Num amount={r.taxable} signed align /></DetailRow>
           {r.tax !== null && <DetailRow label="Tax" noRupee><Num amount={r.tax} align /></DetailRow>}
-          {r.bucket === 'debtLTCG' && (
-            <p className="px-4 pb-2 pt-1 text-footnote" style={{ color: 'var(--text-faint)' }}>
-              Includes gold ETF sold before maturity. Shown at purchase cost — indexation not computed, verify with your CA.
-            </p>
-          )}
         </div>
       ))}
+
+      {goldEtf.hasActivity && (
+        <>
+          <SectionLabel label="Gold ETF" className="px-4" />
+          <DetailRow label="LTCG" bold noRupee><Num amount={goldEtf.ltcg} signed align /></DetailRow>
+          <DetailRow label="STCG" bold noRupee><Num amount={goldEtf.stcg} signed align /></DetailRow>
+        </>
+      )}
 
       <SectionLabel label={`Dividends · ${dividendRateLabel}`} className="px-4" />
       <DetailRow label="Taxable" bold noRupee><Num amount={dividendIncome} signed align /></DetailRow>
@@ -153,34 +190,6 @@ export function TaxBody({
       {newCarryForwardLine && (
         <p className="px-4 pb-1.5 pt-1 text-footnote" style={{ color: 'var(--text-muted)' }}>{newCarryForwardLine}</p>
       )}
-
-      <SectionLabel label="Total" className="px-4" />
-      <DetailRow label="Tax" noRupee><Num amount={tax} align /></DetailRow>
-      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} align /></DetailRow>
-      <DetailRow label="Tax + Cess" bold noRupee><Num amount={total} align /></DetailRow>
-    </div>
-  )
-}
-
-// ── Payable ──────────────────────────────────────────────────────────────────
-
-export function PayableBody({
-  taxPlusCess, tdsCredit, advancePaid, payable,
-}: {
-  taxPlusCess: number; tdsCredit: number; advancePaid: number; payable: number
-}) {
-  return (
-    <div className="pb-2">
-      <SectionHeader title="Payable" />
-      <DetailRow label="Tax + Cess" noRupee><Num amount={taxPlusCess} align /></DetailRow>
-      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} align /></DetailRow>
-      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} align /></DetailRow>
-      <div className="px-4 pt-3 pb-1">
-        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Net Payable</p>
-        <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2, color: 'var(--text-primary)' }}>
-          <Num amount={payable} signed />
-        </p>
-      </div>
     </div>
   )
 }
@@ -199,9 +208,7 @@ export function HarvestingBody({
 
   return (
     <div className="pb-2">
-      <SectionHeader title="Harvesting" />
-
-      <SectionLabel label="LTCG Exemption" className="px-4" />
+      <SectionLabel label="Equity LTCG Exemption" className="px-4" />
       <DetailRow label="Annual limit" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
       <DetailRow label="Used" noRupee><Num amount={exemptionUsed} align /></DetailRow>
       <DetailRow label="Remaining" bold noRupee><Num amount={remaining} align /></DetailRow>
