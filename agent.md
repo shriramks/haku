@@ -141,6 +141,7 @@ Equity, debt, and gold are separate capital gains buckets — losses cannot cros
 - **Never override ignore rules.** No `git add -f`, never stage ignored files.
 - **Diagnose bugs from code only.** If an error maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
 - **Targeted reads only.** Use grep/glob for lookups; open files only when something is genuinely missing. Avoid full-codebase explore agents unless clearly needed.
+- **Ask for a screenshot before a second guess.** If the user reports a UI/number mismatch and you have no way to verify visually yourself, don't reverse-engineer a fix from approximate numbers typed in chat — ask for a screenshot (or exact on-screen text) before trying again. Escalating the fix's scope on a second guess (bigger rewrites, deeper theories) only compounds the risk of being wrong twice.
 
 ---
 
