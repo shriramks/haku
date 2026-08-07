@@ -51,6 +51,10 @@ export function InstalmentsBody({
   results: InstalmentResult[]
   onEdit:  (r: InstalmentResult) => void
 }) {
+  // The last milestone (Mar, 100% cumulative) *is* the full year's estimated
+  // tax — shown once at the end as "what I have to pay this year", not
+  // repeated per-row (each row already shows what's due at its own date).
+  const annualTarget = results.at(-1)?.target ?? 0
   return (
     <div>
       {results.map((r, i) => (
@@ -61,6 +65,9 @@ export function InstalmentsBody({
           onTap={() => onEdit(r)}
         />
       ))}
+      <p className="px-4 pt-1 text-right text-footnote" style={{ color: 'var(--text-faint)' }}>
+        {formatINRFine(annualTarget)} total for the year
+      </p>
     </div>
   )
 }
@@ -78,9 +85,7 @@ export function InstalmentsBody({
 // quarter's due date has already passed by the time the shortfall is known.
 // It's carried into *this* row's headline instead (via `priorInterest`, the
 // previous row's own `interest`), since that's the next amount actually
-// payable. The cumulative target is shown below as secondary context:
-// target(bottom) - paid = the missed-instalment component of
-// amountDue(top), with priorInterest as the rest.
+// payable.
 function MilestoneRow({ result, priorInterest, onTap }: {
   result: InstalmentResult; priorInterest: number; onTap: () => void
 }) {
@@ -104,10 +109,7 @@ function MilestoneRow({ result, priorInterest, onTap }: {
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
       </div>
-      <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
-        <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
-        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>
-      </div>
+      <span className="text-headline font-bold tabnum flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
     </button>
   )
 }
