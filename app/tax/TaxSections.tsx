@@ -106,10 +106,7 @@ function MilestoneRow({ result, priorInterest, onTap }: {
       </div>
       <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
         <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
-        {/* Only shown when it differs from amountDue — when paid is 0 and
-            no interest carried in, amountDue === target exactly, so this
-            would just repeat the headline number. */}
-        {(paid > 0 || priorInterest > 0) && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>}
+        <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>
       </div>
     </button>
   )
