@@ -94,6 +94,58 @@ describe('computeInstalments', () => {
     expect(sep.interest).toBe(0)
   })
 
+  describe('payableNow — what is actually due at each milestone\'s own date', () => {
+    it('with nothing carried forward, payableNow is just each milestone\'s own fresh slice, not the cumulative total', () => {
+      // asOfToday before Jun 15 — nothing is past yet, so nothing carries.
+      const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
+      const [jun, sep, dec, mar] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-05-01')
+
+      // targets: 750, 9_000, 15_000, 40_000 — payableNow is each gap, not
+      // the running total. Dec's own slice (6_000) is *smaller* than Sep's
+      // (8_250) even though Dec's cumulative % is higher — exactly the
+      // real-world case that was wrong before: Dec never owes 75% of the
+      // whole year, only its own fresh slice since Sep.
+      expect(jun.payableNow).toBe(750)          // 750 - 0
+      expect(sep.payableNow).toBe(8_250)        // 9,000 - 750
+      expect(dec.payableNow).toBe(6_000)        // 15,000 - 9,000
+      expect(mar.payableNow).toBe(25_000)       // 40,000 - 15,000
+    })
+
+    it('carries a missed milestone\'s shortfall + interest into the next one\'s payableNow, on top of its own slice', () => {
+      const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
+      const [jun, sep] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-10-01')
+
+      // Jun (past, unpaid): shortfall 750, interest 22.5 — carried forward.
+      expect(jun.payableNow).toBe(750)
+      // Sep's own slice (8,250) + Jun's carried shortfall+interest (772.5).
+      expect(sep.payableNow).toBeCloseTo(8_250 + 772.5)   // 9,022.5
+    })
+
+    it('waterfalls a combined payment: carried debt first, then this milestone\'s own slice', () => {
+      // Paying exactly Sep's cumulative target (9,000) covers Jun's 750
+      // principal and leaves 8,250 toward Sep's own 8,250 slice — but Jun's
+      // 22.5 interest was never covered by that 9,000, so 22.5 remains due,
+      // even though the cumulative `shortfall` check alone reads as 0.
+      const shortPay = computeInstalments(MILESTONES, liabilityAsOf, { jun: 0, sep: 9_000, dec: 0, mar: 0 }, '2025-10-01')
+      expect(shortPay[1].shortfall).toBe(0)
+      expect(shortPay[1].payableNow).toBeCloseTo(22.5)
+
+      // Paying enough to cover Jun's principal + interest + Sep's own slice
+      // (750 + 22.5 + 8,250 = 9,022.5) zeroes payableNow completely.
+      const fullPay = computeInstalments(MILESTONES, liabilityAsOf, { jun: 0, sep: 9_022.5, dec: 0, mar: 0 }, '2025-10-01')
+      expect(fullPay[1].payableNow).toBeCloseTo(0)
+    })
+
+    it('ownPaid is the raw per-milestone field, not the accumulated running total', () => {
+      const paid: AdvanceTaxPaid = { jun: 0, sep: 5_000, dec: 10_000, mar: 0 }
+      const [jun, sep, dec] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-01-01')
+      expect(jun.ownPaid).toBe(0)
+      expect(sep.ownPaid).toBe(5_000)     // matches `paid` here only because jun contributed 0
+      expect(dec.ownPaid).toBe(10_000)    // diverges from `paid` (15,000, the cumulative field) below
+      expect(dec.paid).toBe(15_000)
+    })
+  })
+
   it('a milestone before its due date never accrues shortfall/interest even if underpaid', () => {
     const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-05-01')

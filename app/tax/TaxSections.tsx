@@ -72,30 +72,22 @@ export function InstalmentsBody({
   )
 }
 
-// `target` and `paid` are both cumulative-to-date by design — the DB stores
-// what was logged against each quarter individually (a missed Jun paid off
-// together with Sep just gets logged entirely under `sep`), and
-// `computeInstalments()` (lib/advance-tax.ts) sums those up through this
-// milestone before returning `paid`, so `target - paid` already correctly
-// folds in anything missed at an earlier milestone — it's the true amount to
-// pay right now to be caught up, not just this quarter's own slice.
-//
-// s.234C interest is assessed independently per quarter (never retroactive,
-// per #81), but it isn't paid "at" the quarter that caused it — that
-// quarter's due date has already passed by the time the shortfall is known.
-// It's carried into *this* row's headline instead (via `priorInterest`, the
-// previous row's own `interest`), since that's the next amount actually
-// payable.
+// Headline is `payableNow` (lib/advance-tax.ts) — what's newly due AT this
+// milestone's own date: its own fresh s.211 slice (this milestone's target
+// minus the previous one's), net of whatever's been logged specifically
+// against this quarter, plus anything still outstanding — principal and
+// interest — from the *previous* milestone's own shortfall. Not the
+// cumulative-since-FY-start total: by Dec 15 you owe Dec's own slice, not
+// 75% of the whole year's estimated tax.
 function MilestoneRow({ result, priorInterest, onTap }: {
   result: InstalmentResult; priorInterest: number; onTap: () => void
 }) {
-  const { milestone, isPast, target, paid } = result
-  const amountDue = Math.max(0, target - paid) + priorInterest
+  const { milestone, isPast, ownPaid, payableNow } = result
 
   const parts: string[] = []
-  if (isPast || paid > 0) {
-    parts.push(`Paid ${formatINRFine(paid)}`)
-    if (isPast && amountDue <= 0) parts.push('paid in full')
+  if (isPast || ownPaid > 0) {
+    parts.push(`Paid ${formatINRFine(ownPaid)}`)
+    if (isPast && payableNow <= 0) parts.push('paid in full')
   }
   if (priorInterest > 0) parts.push(`+${formatINRFine(priorInterest)} interest`)
   const meta = parts.length > 0 ? parts.join(' · ') : null
@@ -109,7 +101,7 @@ function MilestoneRow({ result, priorInterest, onTap }: {
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
       </div>
-      <span className="text-headline font-bold tabnum flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
+      <span className="text-headline font-bold tabnum flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}><Num amount={payableNow} align /></span>
     </button>
   )
 }

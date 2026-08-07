@@ -367,7 +367,7 @@ function PaidAmountSheet({ result, onClose, onSave }: {
   onClose: () => void
   onSave: (amount: number) => Promise<void>
 }) {
-  const [value, setValue]   = useState(result.paid ? String(result.paid) : '')
+  const [value, setValue]   = useState(result.ownPaid ? String(result.ownPaid) : '')
   const [saving, setSaving] = useState(false)
   const kh = useKeyboardHeight()
 
