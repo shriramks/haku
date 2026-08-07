@@ -65,11 +65,13 @@ export function InstalmentsBody({
   )
 }
 
-// `target` and `paid` are both cumulative-to-date by design (paid tracks
-// "cumulative amount paid by this milestone's due date" per the DB schema),
-// so `target - paid` already correctly folds in anything missed at an
-// earlier milestone — it's the true amount to pay right now to be caught
-// up, not just this quarter's own slice.
+// `target` and `paid` are both cumulative-to-date by design — the DB stores
+// what was logged against each quarter individually (a missed Jun paid off
+// together with Sep just gets logged entirely under `sep`), and
+// `computeInstalments()` (lib/advance-tax.ts) sums those up through this
+// milestone before returning `paid`, so `target - paid` already correctly
+// folds in anything missed at an earlier milestone — it's the true amount to
+// pay right now to be caught up, not just this quarter's own slice.
 //
 // s.234C interest is assessed independently per quarter (never retroactive,
 // per #81), but it isn't paid "at" the quarter that caused it — that

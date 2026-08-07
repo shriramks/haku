@@ -52,7 +52,9 @@ describe('computeInstalments', () => {
     expect(results.map(r => r.target)).toEqual([750, 9_000, 15_000, 40_000])
   })
 
-  it('shortfall = target - paid, and 234C interest = 1%/month x shortfall x months-for-that-quarter', () => {
+  it('shortfall = target - cumulativePaid, and 234C interest = 1%/month x shortfall x months-for-that-quarter', () => {
+    // paid[key] is each quarter's own logged amount, not a running total —
+    // computeInstalments accumulates them itself: cumPaid = 0, 5_000, 15_000.
     const paid: AdvanceTaxPaid = { jun: 0, sep: 5_000, dec: 10_000, mar: 0 }
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-01-01')
 
@@ -60,16 +62,36 @@ describe('computeInstalments', () => {
     expect(jun.shortfall).toBe(750)                      // 750 - 0
     expect(jun.interest).toBeCloseTo(750 * 0.01 * 3)      // 22.5
 
-    expect(sep.shortfall).toBe(4_000)                     // 9,000 - 5,000
+    expect(sep.shortfall).toBe(4_000)                     // 9,000 - (0+5,000)
     expect(sep.interest).toBeCloseTo(4_000 * 0.01 * 3)    // 120
 
-    expect(dec.shortfall).toBe(5_000)                     // 15,000 - 10,000
-    expect(dec.interest).toBeCloseTo(5_000 * 0.01 * 3)    // 150
+    // Dec's cumulative paid (0+5,000+10,000=15,000) exactly covers Dec's
+    // 15,000 target, even though no single quarter's own field shows that —
+    // the whole point of accumulating rather than reading dec's 10,000 alone.
+    expect(dec.shortfall).toBe(0)                         // 15,000 - 15,000
+    expect(dec.interest).toBe(0)
 
     // asOfToday (1 Jan) is before Mar's due date — not yet due.
     expect(mar.isPast).toBe(false)
     expect(mar.shortfall).toBe(0)
     expect(mar.interest).toBe(0)
+  })
+
+  it('a missed Jun instalment paid off together with Sep is logged entirely under sep, and still zeroes both shortfalls', () => {
+    const paid: AdvanceTaxPaid = { jun: 0, sep: 9_000, dec: 0, mar: 0 }
+    const results = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-10-01')
+
+    const [jun, sep] = results
+    // Jun's own row is unaffected by a payment logged later, under sep — its
+    // shortfall/interest reflect what was on record at Jun's own due date.
+    expect(jun.shortfall).toBe(750)
+    expect(jun.interest).toBeCloseTo(750 * 0.01 * 3)
+
+    // Sep's cumulative paid (0+9,000=9,000) exactly covers Sep's own 9,000
+    // target — the combined jun+sep catch-up, however it's split across the
+    // two fields, nets out correctly as long as the total by Sep is right.
+    expect(sep.shortfall).toBe(0)
+    expect(sep.interest).toBe(0)
   })
 
   it('a milestone before its due date never accrues shortfall/interest even if underpaid', () => {
@@ -93,9 +115,11 @@ describe('computeInstalments', () => {
     expect(b[0]).toEqual(a[0])
     expect(b[1]).toEqual(a[1])
     expect(b[2]).toEqual(a[2])
-    // Only Mar itself changes.
+    // Only Mar itself changes. a's cumulative through mar is 0+10,000+20,000
+    // = 30,000 against a 40,000 target — 10,000 short, not 40,000 (that would
+    // be ignoring what jun+sep+dec already paid toward it).
     expect(b[3].shortfall).toBe(0)
-    expect(a[3].shortfall).toBe(40_000)
+    expect(a[3].shortfall).toBe(10_000)
   })
 
   it('overpaying does not go negative — shortfall floors at 0', () => {

@@ -57,12 +57,21 @@ export interface InstalmentResult {
  * yet by an earlier due date — it does not mean each checkpoint's target is
  * the full amount instead of its statutory share.
  *
+ * `paid[key]` is what was actually logged against that specific quarter, not
+ * a running year-to-date total the caller must maintain — a missed Jun
+ * instalment paid off together with Sep just gets logged entirely under
+ * `sep`. This function accumulates `paid` across milestones itself, in
+ * milestone order, before comparing to each `target`, so it doesn't matter
+ * which field a catch-up payment landed in. `InstalmentResult.paid` is this
+ * running cumulative total through that milestone — what the UI displays.
+ *
  * `shortfall`/`interest` are 0 for milestones whose due date hasn't passed
  * yet. Once a milestone is past, its `target` is derived from historical
  * transactions and can't change; only `paid` can be edited later (correcting
- * a missed log entry), which recomputes that milestone's own shortfall and
- * interest without touching any other milestone — a later quarter's payment
- * never retroactively absorbs an earlier quarter's shortfall.
+ * a missed log entry). Because accumulation only runs forward through
+ * milestone order, a *later* milestone's own `paid` field never feeds back
+ * into an *earlier* milestone's shortfall — editing `mar` can't retroactively
+ * erase a shortfall already accrued at `jun`/`sep`/`dec`.
  */
 export function computeInstalments(
   milestones:    AdvanceTaxMilestone[],
@@ -70,13 +79,14 @@ export function computeInstalments(
   paid:          AdvanceTaxPaid,
   asOfToday:     string,
 ): InstalmentResult[] {
+  let cumulativePaid = 0
   return milestones.map(milestone => {
-    const isPast     = asOfToday >= milestone.date
-    const target     = milestone.cumulativePct * liabilityAsOf(milestone.date)
-    const paidAmount = paid[milestone.key]
-    const shortfall  = isPast ? Math.max(0, target - paidAmount) : 0
-    const interest   = isPast ? shortfall * INTEREST_RATE_PER_MONTH * milestone.monthsIfShort : 0
-    return { milestone, isPast, target, paid: paidAmount, shortfall, interest }
+    const isPast    = asOfToday >= milestone.date
+    const target    = milestone.cumulativePct * liabilityAsOf(milestone.date)
+    cumulativePaid += paid[milestone.key]
+    const shortfall = isPast ? Math.max(0, target - cumulativePaid) : 0
+    const interest  = isPast ? shortfall * INTEREST_RATE_PER_MONTH * milestone.monthsIfShort : 0
+    return { milestone, isPast, target, paid: cumulativePaid, shortfall, interest }
   })
 }
 
