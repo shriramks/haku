@@ -69,20 +69,21 @@ export function InstalmentsBody({
 // "cumulative amount paid by this milestone's due date" per the DB schema),
 // so `target - paid` already correctly folds in anything missed at an
 // earlier milestone — it's the true amount to pay right now to be caught
-// up, not just this quarter's own slice. Shown as the primary figure, with
-// the cumulative target itself as secondary context: target - paid(left) =
-// amountDue(right) is meant to be directly verifiable from the row alone.
+// up, not just this quarter's own slice.
 //
 // s.234C interest is assessed independently per quarter (never retroactive,
 // per #81), but it isn't paid "at" the quarter that caused it — that
 // quarter's due date has already passed by the time the shortfall is known.
-// It's shown as a carry-over on the *next* row instead of the row whose own
-// shortfall produced it.
+// It's carried into *this* row's headline instead (via `priorInterest`, the
+// previous row's own `interest`), since that's the next amount actually
+// payable. The cumulative target is shown below as secondary context:
+// target(bottom) - paid = the missed-instalment component of
+// amountDue(top), with priorInterest as the rest.
 function MilestoneRow({ result, priorInterest, onTap }: {
   result: InstalmentResult; priorInterest: number; onTap: () => void
 }) {
   const { milestone, isPast, target, paid } = result
-  const amountDue = Math.max(0, target - paid)
+  const amountDue = Math.max(0, target - paid) + priorInterest
 
   const parts: string[] = []
   if (isPast || paid > 0) {
@@ -103,10 +104,10 @@ function MilestoneRow({ result, priorInterest, onTap }: {
       </div>
       <div className="flex flex-col gap-0.5 items-end flex-shrink-0 ml-3">
         <span className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amountDue} align /></span>
-        {/* Only shown when it differs from amountDue — when paid is 0,
-            amountDue === target exactly, so this would just repeat the
-            headline number. */}
-        {paid > 0 && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>}
+        {/* Only shown when it differs from amountDue — when paid is 0 and
+            no interest carried in, amountDue === target exactly, so this
+            would just repeat the headline number. */}
+        {(paid > 0 || priorInterest > 0) && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{formatINRFine(target)} target</span>}
       </div>
     </button>
   )

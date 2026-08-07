@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import type { FiscalYear, Transaction, DividendTransaction, AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
 import { gatherBucketedGains, computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy, netStockQty, LTCG_DAYS_DEBT } from '@/lib/tax-compute'
@@ -39,6 +40,7 @@ const BUCKET_LABEL: Record<Bucket, string> = {
 export default function TaxClient({
   fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, sgbTxns, dividends, advanceTaxPaid, carryForward,
 }: Props) {
+  const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
   const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
   const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
@@ -295,7 +297,18 @@ export default function TaxClient({
       <div className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
            style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between pt-1">
-          <h1 className="text-display font-bold">Tax</h1>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => router.push('/portfolio')}
+              className="flex items-center justify-center flex-shrink-0"
+              style={{ width: 32, height: 32, marginLeft: -6, color: 'var(--accent)' }}
+              aria-label="Back to Portfolio">
+              <svg width="10" height="16" viewBox="0 0 9 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M7 1L1 7l6 6" />
+              </svg>
+            </button>
+            <h1 className="text-display font-bold">Tax</h1>
+          </div>
           <div className="flex items-center gap-2">
             <FYPicker fiscalYears={fiscalYears} selectedFY={selectedFY} onSelect={setSelectedFY} />
             <UserMenu />
