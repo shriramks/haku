@@ -91,12 +91,14 @@ export default function TransactionsClient({
   fiscalYears,
   currentFY,
   filterSymbol,
+  filterFundId,
   initialFyId,
 }: {
   transactions: Transaction[]
   fiscalYears: FiscalYear[]
   currentFY: FiscalYear | null
   filterSymbol?: string
+  filterFundId?: string
   initialFyId?: string
 }) {
   const defaultDateFilter: DateFilter | null = currentFY
@@ -104,8 +106,8 @@ export default function TransactionsClient({
     : null
 
   // `initialAllHistoryLoaded`: true when the RSC already shipped all-time history
-  // (?symbol= view always does; no currentFY means no slice was applied).
-  const initialAllHistoryLoaded = !initialFyId || !!filterSymbol
+  // (?symbol=/?fund= views always do; no currentFY means no slice was applied).
+  const initialAllHistoryLoaded = !initialFyId || !!filterSymbol || !!filterFundId
 
   const [txns,    setTxns]    = useState(initial)
   const [mfFunds, setMfFunds] = useState<MFund[]>([])
@@ -281,23 +283,27 @@ export default function TransactionsClient({
   const symbols = useMemo(() =>
     Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
 
+  // ── Display title for a ?fund= view — resolved once mfFunds loads client-side ──
+  const filterFundName = filterFundId ? mfFunds.find(f => f.id === filterFundId)?.scheme_name : undefined
+
   // ── Apply filters ──
   const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
   const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !isDefaultDate || assetFilter.size > 0
 
   const displayed = useMemo(() => allDisplayTxns
     .filter(t => !filterSymbol || (t.asset === 'stock' && t.name === filterSymbol))
+    .filter(t => !filterFundId || (t.asset === 'mf' && t.rawMF?.fund_id === filterFundId))
     .filter(t => assetFilter.size === 0 || assetFilter.has(t.asset))
     .filter(t => typeFilter === 'all' || (typeFilter === 'buy' ? t.direction === 'in' : t.direction === 'out'))
     .filter(t => symbolFilter === 'all' || (t.asset === 'stock' && t.name === symbolFilter))
     .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
-    [allDisplayTxns, filterSymbol, assetFilter, typeFilter, symbolFilter, dateFilter]
+    [allDisplayTxns, filterSymbol, filterFundId, assetFilter, typeFilter, symbolFilter, dateFilter]
   )
 
   const grouped = useMemo(() => groupByMonth(displayed), [displayed])
 
   // Show asset tag in rows only when multiple asset types are visible
-  const showAssetTag = assetFilter.size !== 1 && !filterSymbol
+  const showAssetTag = assetFilter.size !== 1 && !filterSymbol && !filterFundId
 
   // ── Dismissible filter tags ──
   const activeTags: { key: string; label: string; clear: () => void }[] = []
@@ -361,7 +367,7 @@ export default function TransactionsClient({
       </div>
 
       {/* Stock picker — only when stocks are in view */}
-      {!filterSymbol && (assetFilter.size === 0 || assetFilter.has('stock')) && (
+      {!filterSymbol && !filterFundId && (assetFilter.size === 0 || assetFilter.has('stock')) && (
         <button
           onClick={() => setStockSheetOpen(true)}
           className="w-full flex items-center justify-between px-5 border-b"
@@ -452,9 +458,11 @@ export default function TransactionsClient({
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between px-4 pt-1">
-          <div>
-            <h1 className="text-display font-bold">{filterSymbol ?? 'Transactions'}</h1>
-            {filterSymbol && (
+          <div className="min-w-0">
+            <h1 className="text-display font-bold truncate">
+              {filterSymbol ?? (filterFundId ? (filterFundName ?? 'Mutual Fund') : 'Transactions')}
+            </h1>
+            {(filterSymbol || filterFundId) && (
               <a href="/transactions" className="text-subheadline text-accent">← All</a>
             )}
           </div>

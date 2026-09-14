@@ -1,19 +1,17 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, fyLabel } from '@/lib/formatter'
+import { trimZero, fyLabel } from '@/lib/formatter'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
-import BottomSheet from '@/components/BottomSheet'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
-import { mfXirr, sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, portfolioXirr } from '@/lib/xirr'
+import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { computeMFLots } from '@/lib/mf-compute'
+import { computeMFHolding } from '@/lib/mf-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, SGBBatch, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
 
@@ -65,20 +63,14 @@ function computeMFHoldings(
   for (const t of transactions) {
     ;(byFund[t.fund_id] ??= []).push(t)
   }
-  return funds.flatMap(fund => {
-    const txns = byFund[fund.id] ?? []
-    if (txns.length === 0) return []
-    const { units, invested } = computeMFLots(txns)
-    if (units < 0.001) return []
-    const currentNav   = navs[fund.scheme_code] ?? null
-    const currentValue = currentNav !== null ? units * currentNav : null
-    const gain         = currentValue !== null ? currentValue - invested : null
-    return [{
-      fund, transactions: txns, units, invested,
-      currentNav, currentValue, gain,
-      xirr: currentValue !== null ? mfXirr(txns, currentValue) : null,
-    }]
-  }).sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
+  return funds
+    .flatMap(fund => {
+      const txns = byFund[fund.id] ?? []
+      if (txns.length === 0) return []
+      const holding = computeMFHolding(fund, txns, navs[fund.scheme_code] ?? null)
+      return holding ? [holding] : []
+    })
+    .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
 }
 
 function computeSGBBatches(transactions: SGBTransaction[], goldPrice: number | null): SGBBatch[] {
@@ -176,9 +168,7 @@ export default function PortfolioClient({
   sgbTransactions, ppfTransactions, ppfOverride, epfTransactions,
 }: Props) {
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
   const [openSections, setOpenSections] = useState(new Set<string>())
-  const [selectedMFHolding, setSelectedMFHolding] = useState<MFHolding | null>(null)
   const [navs, setNavs]         = useState<Record<string, number>>({})
   const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -188,8 +178,6 @@ export default function PortfolioClient({
   })
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
-
-  useEffect(() => setMounted(true), [])
 
   // Live gold price via Yahoo Finance proxy; persists last known price in localStorage
   useEffect(() => {
@@ -290,14 +278,6 @@ export default function PortfolioClient({
     })
   }
 
-  const mfDetailSheet = mounted && selectedMFHolding && createPortal(
-    <MFDetailSheet
-      holding={selectedMFHolding}
-      onClose={() => setSelectedMFHolding(null)}
-    />,
-    document.body
-  )
-
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
       {/* Header */}
@@ -391,7 +371,7 @@ export default function PortfolioClient({
                     current={h.currentValue}
                     gain={h.gain}
                     xirr={h.xirr}
-                    onClick={() => setSelectedMFHolding(h)}
+                    onClick={() => router.push(`/portfolio/mf/${h.fund.id}`)}
                     mfAssetClass={assetClass(h.fund)}
                   />
                 ))}
@@ -499,8 +479,6 @@ export default function PortfolioClient({
         </button>
 
       </div>
-
-      {mfDetailSheet}
     </div>
   )
 }
@@ -700,59 +678,6 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick, mfAssetCl
     <button onClick={onClick} className="block w-full text-left tap-row">
       {content}
     </button>
-  )
-}
-
-function MFDetailSheet({ holding, onClose }: { holding: MFHolding; onClose: () => void }) {
-  return (
-    <BottomSheet onClose={onClose}>
-      <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b"
-           style={{ borderColor: 'var(--border)' }}>
-        <div style={{ width: 60 }} />
-        <p className="font-semibold text-headline">Mutual Fund</p>
-        <button onClick={onClose} className="text-headline text-accent" style={{ width: 60, textAlign: 'right' }}>
-          Done
-        </button>
-      </div>
-
-      <div className="px-5 pt-4 pb-2">
-        <p className="text-title-2 font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
-          {holding.fund.scheme_name}
-        </p>
-        <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
-          {holding.units.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} units
-        </p>
-      </div>
-
-      <div className="mt-4 px-5 pt-4">
-        <DetailRow label="Current Value" value={holding.currentValue !== null ? formatINRFull(holding.currentValue) : '—'} />
-        <DetailRow label="Invested Value" value={formatINRFull(holding.invested)} />
-        <DetailRow
-          label="Current Return"
-          value={formatPnLFull(holding.gain)}
-          valueColor={getGainColor(holding.gain)}
-        />
-        <DetailRow
-          label="XIRR p.a."
-          value={holding.xirr !== null ? `${trimPct(Math.abs(holding.xirr * 100))}%` : '—'}
-          valueColor={getGainColor(holding.xirr)}
-        />
-        <DetailRow label="Current NAV" value={holding.currentNav !== null ? formatPriceFine(holding.currentNav) : '—'} last />
-      </div>
-    </BottomSheet>
-  )
-}
-
-function DetailRow({ label, value, valueColor, last: _last }: {
-  label: string; value: string; valueColor?: string; last?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between py-3" style={{ minHeight: 52 }}>
-      <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
-      <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
-        {value}
-      </p>
-    </div>
   )
 }
 

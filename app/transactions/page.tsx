@@ -5,14 +5,14 @@ import BottomNav from '@/components/BottomNav'
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string }>
+  searchParams: Promise<{ symbol?: string; fund?: string }>
 }) {
-  const { symbol } = await searchParams
+  const { symbol, fund } = await searchParams
 
   const fiscalYears = await getFiscalYears()
   const currentFY = getCurrentFY(fiscalYears) ?? null
 
-  // ?symbol= view loads all-time transactions for that stock.
+  // ?symbol=/?fund= views load all-time transactions for that holding.
   // Main view loads only the current FY; older history is lazy-loaded client-side.
   const transactions = await getTransactions(symbol ? undefined : currentFY?.id)
 
@@ -23,7 +23,8 @@ export default async function TransactionsPage({
         fiscalYears={fiscalYears}
         currentFY={currentFY}
         filterSymbol={symbol?.toUpperCase()}
-        initialFyId={symbol ? undefined : currentFY?.id}
+        filterFundId={fund}
+        initialFyId={(symbol || fund) ? undefined : currentFY?.id}
       />
       <BottomNav />
     </>

@@ -1,6 +1,20 @@
-import type { MFTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, MFHolding } from './portfolio-types'
+import { mfXirr } from './xirr'
 
 type TxnSlice = Pick<MFTransaction, 'trade_type' | 'units' | 'nav'>
+
+/** Single-fund holding math shared by the Portfolio list and the Fund Detail page. */
+export function computeMFHolding(fund: MFund, transactions: MFTransaction[], currentNav: number | null): MFHolding | null {
+  const { units, invested } = computeMFLots(transactions)
+  if (units < 0.001) return null
+  const currentValue = currentNav !== null ? units * currentNav : null
+  const gain         = currentValue !== null ? currentValue - invested : null
+  return {
+    fund, transactions, units, invested,
+    currentNav, currentValue, gain,
+    xirr: currentValue !== null ? mfXirr(transactions, currentValue) : null,
+  }
+}
 
 export function computeMFLots(txns: TxnSlice[]): { units: number; invested: number } {
   const lots: { units: number; nav: number }[] = []
