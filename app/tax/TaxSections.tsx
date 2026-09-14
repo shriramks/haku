@@ -5,7 +5,7 @@ import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
-import { ChevronDownIcon, CheckCircleIcon, XCircleIcon } from '@/components/icons'
+import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
 import { formatINRFine } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
 
@@ -17,27 +17,39 @@ export type SectionKey = 'advance' | 'tax' | 'harvesting'
 // ... not by background colour changes or rounded containers"). ───────────
 
 export function Section({
-  title, sectionKey, expanded, onToggle, children,
+  title, sectionKey, expanded, onToggle, onShare, children,
 }: {
   title:      string
   sectionKey: SectionKey
   expanded:   Set<SectionKey>
   onToggle:   (k: SectionKey) => void
+  onShare?:   () => void
   children:   React.ReactNode
 }) {
   const isOpen = expanded.has(sectionKey)
   return (
     <div style={{ marginTop: 24 }}>
-      <button
-        onClick={() => onToggle(sectionKey)}
-        className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 48 }}>
-        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-        <ChevronDownIcon
-          className="w-4 h-4 transition-transform"
-          style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-        />
-      </button>
+      <div className="flex items-center pl-4">
+        <button
+          onClick={() => onToggle(sectionKey)}
+          className="flex-1 flex items-center justify-between tap-row"
+          style={{ minHeight: 48, paddingRight: onShare ? 4 : 16 }}>
+          <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+          <ChevronDownIcon
+            className="w-4 h-4 transition-transform"
+            style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+          />
+        </button>
+        {onShare && (
+          <button
+            onClick={onShare}
+            aria-label={`Share ${title}`}
+            className="flex items-center justify-center flex-shrink-0 tap-row"
+            style={{ width: 44, height: 44, marginRight: -14, color: 'var(--accent)' }}>
+            <ShareIcon className="w-4 h-4" />
+          </button>
+        )}
+      </div>
       {isOpen && children}
     </div>
   )

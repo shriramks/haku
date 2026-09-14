@@ -245,6 +245,52 @@ export default function TaxClient({
     return parts.length === 0 ? null : `Carried to next FY: ${parts.join(', ')}.`
   }, [setOff])
 
+  // Plain text for the Total Tax share button — walks the same data TaxBody
+  // renders, in the same order (topline, then Breakdown's bucket/Gold
+  // ETF/Dividends/Set-off/carry-forward groups).
+  const taxShareText = useMemo(() => {
+    const signed = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + formatINRFine(Math.abs(n))
+    const dividendTax = taxResult.lines.find(l => l.bucket === 'dividends')?.tax ?? 0
+    const lines: string[] = [
+      `Total Tax — ${selectedFY?.label ?? ''}`,
+      '',
+      `Tax: ${formatINRFine(taxResult.tax)}`,
+      `Cess @ 4%: ${formatINRFine(taxResult.cess)}`,
+      `Dividend TDS credit: −${formatINRFine(tds)}`,
+      `Advance tax paid: −${formatINRFine(advancePaidTotal)}`,
+      `Net Payable: ${signed(payable)}`,
+      '',
+      'BREAKDOWN',
+    ]
+    for (const r of taxRows) {
+      lines.push('', `${r.label} · ${r.rateLabel}`.toUpperCase())
+      lines.push(`Raw gain: ${signed(r.rawGain)}`)
+      if (r.exemption > 0) lines.push(`Exemption: −${formatINRFine(r.exemption)}`)
+      if (r.setOff > 0) lines.push(`Loss set off: −${formatINRFine(r.setOff)}`)
+      lines.push(`Taxable: ${signed(r.taxable)}`)
+      if (r.tax !== null) lines.push(`Tax: ${formatINRFine(r.tax)}`)
+    }
+    if (goldEtf.hasActivity) {
+      lines.push('', 'GOLD ETF')
+      lines.push(`LTCG: ${signed(goldEtf.ltcg)}`)
+      lines.push(`STCG: ${signed(goldEtf.stcg)}`)
+    }
+    lines.push('', `Dividends · ${slabRatePct}% slab`.toUpperCase())
+    lines.push(`Taxable: ${signed(computed.dividendIncome)}`)
+    lines.push(`Tax: ${formatINRFine(dividendTax)}`)
+    if (setOffLines.length > 0) lines.push('', 'SET-OFF', ...setOffLines)
+    if (newCarryForwardLine) lines.push('', newCarryForwardLine)
+    return lines.join('\n')
+  }, [selectedFY, taxResult, tds, advancePaidTotal, payable, taxRows, goldEtf, slabRatePct, computed.dividendIncome, setOffLines, newCarryForwardLine])
+
+  async function shareTax() {
+    if (navigator.share) {
+      await navigator.share({ title: `Total Tax — ${selectedFY?.label ?? ''}`, text: taxShareText })
+    } else {
+      await navigator.clipboard.writeText(taxShareText)
+    }
+  }
+
   const harvestingData = useMemo(() => {
     if (!fyRange) return { unrealisedLoss: null as number | null }
     const asOf = todayISO()
@@ -322,7 +368,7 @@ export default function TaxClient({
         </Section>
       )}
 
-      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle}>
+      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle} onShare={shareTax}>
         <TaxBody
           rows={taxRows}
           goldEtf={goldEtf}
