@@ -392,6 +392,7 @@ export default function PortfolioClient({
                     gain={h.gain}
                     xirr={h.xirr}
                     onClick={() => setSelectedMFHolding(h)}
+                    mfAssetClass={assetClass(h.fund)}
                   />
                 ))}
               </>
@@ -561,7 +562,7 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
   let offset = 0
   const slices = [
     { pct: equity, color: 'var(--c-equity)', darkLabel: false },
-    { pct: debt,   color: 'var(--accent)',   darkLabel: false },
+    { pct: debt,   color: 'var(--c-debt)',   darkLabel: false },
     { pct: gold,   color: 'var(--c-gold)',   darkLabel: true  },
   ].map((s, i) => {
     const d        = arcPath(offset, s.pct)
@@ -645,9 +646,10 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   )
 }
 
-function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
+function FundRow({ name, meta, invested, current, gain, xirr, onClick, mfAssetClass }: {
   name: string; meta: string; invested: number; current: number | null
   gain: number | null; xirr: number | null; onClick?: () => void
+  mfAssetClass?: 'equity' | 'debt'
 }) {
   const positive = (gain ?? 0) > 0
   const xirrPct = xirr !== null ? xirr * 100
@@ -662,7 +664,14 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
             <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
           )}
         </div>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
+        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>
+          {meta}
+          {mfAssetClass && (
+            <> · <span className="font-semibold" style={{ color: mfAssetClass === 'equity' ? 'var(--c-equity)' : 'var(--c-debt)' }}>
+              {mfAssetClass === 'equity' ? 'Equity' : 'Debt'}
+            </span></>
+          )}
+        </p>
       </div>
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
         <Num amount={invested} align />

@@ -18,6 +18,7 @@ const config: Config = {
         accent:   'var(--accent)',
         warning:  'var(--c-warning)',
         equity:   'var(--c-equity)',
+        debt:     'var(--c-debt)',
         gold:     'var(--c-gold)',
 
         // Text hierarchy
