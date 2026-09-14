@@ -5,7 +5,7 @@ import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
-import { ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon, CheckCircleIcon } from '@/components/icons'
 import { formatINRFine } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
 
@@ -84,11 +84,31 @@ function MilestoneRow({ result, priorInterest, onTap }: {
 }) {
   const { milestone, isPast, ownPaid, payableNow } = result
 
-  const parts: string[] = []
-  if (isPast || ownPaid > 0) {
-    parts.push(`Paid ${formatINRFine(ownPaid)}`)
-    if (isPast && payableNow <= 0) parts.push('paid in full')
+  // Settled — paid in full, whether that happened before or after the due
+  // date. `payableNow` is 0/negative here, and a bare "0" headline doesn't
+  // say why: was it paid, or was nothing ever owed? Lead with the state that
+  // actually matters (nothing to do) instead of a non-actionable amount; the
+  // amount that cleared it stays as muted reference underneath.
+  if (payableNow <= 0 && ownPaid > 0) {
+    return (
+      <button
+        onClick={onTap}
+        className="flex items-center justify-between w-full px-4 tap-row"
+        style={{ minHeight: 56 }}>
+        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
+        <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
+          <span className="flex items-center gap-1.5 text-positive">
+            <CheckCircleIcon className="w-[15px] h-[15px]" />
+            <span className="text-headline font-semibold">Paid</span>
+          </span>
+          <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}><Num amount={ownPaid} /></span>
+        </span>
+      </button>
+    )
   }
+
+  const parts: string[] = []
+  if (isPast || ownPaid > 0) parts.push(`Paid ${formatINRFine(ownPaid)}`)
   if (priorInterest > 0) parts.push(`+${formatINRFine(priorInterest)} interest`)
   const meta = parts.length > 0 ? parts.join(' · ') : null
 
