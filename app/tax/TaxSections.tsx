@@ -5,7 +5,7 @@ import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
-import { ChevronDownIcon, CheckCircleIcon } from '@/components/icons'
+import { ChevronDownIcon, CheckCircleIcon, XCircleIcon } from '@/components/icons'
 import { formatINRFine } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
 
@@ -83,25 +83,38 @@ function MilestoneRow({ result, priorInterest, onTap }: {
   result: InstalmentResult; priorInterest: number; onTap: () => void
 }) {
   const { milestone, isPast, ownPaid, payableNow } = result
+  const settled = payableNow <= 0 && ownPaid > 0
+  const missed  = isPast && !settled && payableNow > 0
 
-  // Settled — paid in full, whether that happened before or after the due
-  // date. `payableNow` is 0/negative here, and a bare "0" headline doesn't
-  // say why: was it paid, or was nothing ever owed? Lead with the state that
-  // actually matters (nothing to do) instead of a non-actionable amount; the
-  // amount that cleared it stays as muted reference underneath.
-  if (payableNow <= 0 && ownPaid > 0) {
+  // Once a milestone's own due date has passed, its shortfall + interest has
+  // already rolled forward into whichever milestone is next (see
+  // `computeInstalments` in lib/advance-tax.ts) — so a past row is never
+  // something to separately act on again, paid or not. It recedes; only the
+  // nearest still-open row stays full-weight.
+  const recede = isPast
+
+  // Settled or missed — either way `payableNow` alone (a bare "0", or a
+  // stale non-zero amount that's already baked into a later row) doesn't say
+  // what happened. Lead with the state that matters instead: green check +
+  // "Paid" or red cross + "Missed", with the amount demoted to a muted
+  // reference line underneath.
+  if (settled || missed) {
+    const Icon       = settled ? CheckCircleIcon : XCircleIcon
+    const colorClass = settled ? 'text-positive'  : 'text-negative'
+    const word        = settled ? 'Paid'           : 'Missed'
+    const refAmount   = settled ? ownPaid          : payableNow
     return (
       <button
         onClick={onTap}
         className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 56 }}>
+        style={{ minHeight: 56, opacity: recede ? 0.35 : 1 }}>
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
-          <span className="flex items-center gap-1.5 text-positive">
-            <CheckCircleIcon className="w-[15px] h-[15px]" />
-            <span className="text-headline font-semibold">Paid</span>
+          <span className={`flex items-center gap-1.5 ${colorClass}`}>
+            <Icon className="w-[15px] h-[15px]" />
+            <span className="text-headline font-semibold">{word}</span>
           </span>
-          <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}><Num amount={ownPaid} /></span>
+          <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}><Num amount={refAmount} /></span>
         </span>
       </button>
     )
@@ -116,7 +129,7 @@ function MilestoneRow({ result, priorInterest, onTap }: {
     <button
       onClick={onTap}
       className="flex items-center justify-between w-full px-4 tap-row"
-      style={{ minHeight: 56 }}>
+      style={{ minHeight: 56, opacity: recede ? 0.35 : 1 }}>
       <div className="flex flex-col gap-0.5 items-start min-w-0">
         <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
         {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
