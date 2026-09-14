@@ -105,11 +105,12 @@ Finance Act 2023 split debt MF treatment by purchase date (effective April 1, 20
 - **SGB/ETF sold before maturity:** normal gold LTCG rules apply.
 
 ### Loss set-off rules
-Equity, debt, and gold are separate capital gains buckets — losses cannot cross between them.
-- **Equity STCG losses** can be set off against equity STCG gains **and** equity LTCG gains.
-- **Equity LTCG losses** can only be set off against equity LTCG gains.
-- Equity losses cannot offset debt MF gains or gold gains (and vice versa).
-- Harvesting analysis therefore applies only to equity positions; debt and gold are reported separately.
+Set-off follows the **term of the loss** (short-term vs long-term), not the asset class — this matches actual Indian tax law (s.70): equity vs debt only changes the *rate*, not who can absorb whose loss.
+- **Short-term losses** (equity STCG, debt STCG) can be set off against **any** of the four buckets — equity STCG, equity LTCG, debt STCG, or debt LTCG — highest-rate-first.
+- **Long-term losses** (equity LTCG, debt LTCG) can only be set off against the two LTCG buckets (equity or debt) — never against a short-term gain.
+- "Debt" bucket = debt MF **and** gold ETF sold before maturity combined (`gatherBucketedGains`) — so gold ETF fully participates in the above, including crossing into equity via the short-term leg.
+- **SGB held to maturity and physical gold are excluded from the bucketed model entirely** — no resolved bucket, no participation in set-off, reported separately. (SGB-to-maturity is tax-exempt anyway.)
+- Harvesting analysis therefore applies only to equity positions; debt, gold ETF, SGB, and physical gold are reported separately.
 
 ---
 

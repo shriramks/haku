@@ -233,6 +233,9 @@ export function TaxBody({
       {setOffLines.length > 0 && (
         <>
           <SectionLabel label="Set-off" className="px-4" />
+          <p className="px-4 pb-1.5 text-footnote" style={{ color: 'var(--text-faint)' }}>
+            Short-term losses offset any gain; long-term losses offset only long-term gains.
+          </p>
           {setOffLines.map((line, i) => (
             <p key={i} className="px-4 pb-1.5 text-footnote" style={{ color: 'var(--text-muted)' }}>{line}</p>
           ))}
