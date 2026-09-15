@@ -15,13 +15,13 @@ export default async function PortfolioPage() {
   const userId = session.user.id
   const svc    = createSupabaseServiceClient()
 
-  const fiscalYears = await getFiscalYears()
-  const currentFY   = getCurrentFY(fiscalYears)
-
+  // fiscalYears only gates the small getAllocations call below — fire it alongside
+  // everything else instead of awaiting it first, so a cold fiscal_years cache
+  // doesn't serialize in front of the other 8 independent queries.
   const [
+    fiscalYears,
     allTransactions,
     bands,
-    currentFYAllocations,
     { data: mfFunds },
     { data: mfTransactions },
     { data: sgbTransactions },
@@ -29,9 +29,9 @@ export default async function PortfolioPage() {
     { data: ppfOverrideRows },
     { data: epfTransactions },
   ] = await Promise.all([
+    getFiscalYears(),
     getTransactions(),
     getBuyBands(),
-    currentFY ? getAllocations(currentFY.id) : Promise.resolve([]),
     svc.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').eq('user_id', userId).order('scheme_name'),
     svc.from('mf_transactions').select('id, fund_id, trade_date, trade_type, units, nav, amount').eq('user_id', userId).order('trade_date', { ascending: true }).order('trade_type', { ascending: true }),
     svc.from('sgb_transactions').select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name').eq('user_id', userId).order('trade_date', { ascending: true }),
@@ -40,7 +40,9 @@ export default async function PortfolioPage() {
     svc.from('epf_transactions').select('id, trade_date, trade_type, amount, notes').eq('user_id', userId).order('trade_date', { ascending: true }),
   ])
 
-  const latestYearSymbols = currentFYAllocations.map(a => a.symbol)
+  const currentFY           = getCurrentFY(fiscalYears)
+  const currentFYAllocations = currentFY ? await getAllocations(currentFY.id) : []
+  const latestYearSymbols   = currentFYAllocations.map(a => a.symbol)
 
   return (
     <>

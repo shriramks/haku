@@ -160,6 +160,16 @@ function computeEPF(transactions: EPFTransaction[]): EPFSummary {
 
 const assetClass = mfAssetClass
 
+const NAV_CACHE_KEY = 'mfNavCache'
+
+function readNavCache(): Record<string, number> {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(localStorage.getItem(NAV_CACHE_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -169,8 +179,8 @@ export default function PortfolioClient({
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>())
-  const [navs, setNavs]         = useState<Record<string, number>>({})
-  const [navsLoading, setNavsLoading] = useState(mfFunds.length > 0)
+  const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
+  const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null
     const v = localStorage.getItem('goldPricePerGram')
@@ -192,10 +202,10 @@ export default function PortfolioClient({
       .catch(() => {})
   }, [refreshKey])
 
-  // Live NAV fetch from mfapi.in
+  // Live NAV fetch from mfapi.in; seeded from localStorage above so the MF section
+  // renders real numbers immediately, then this refreshes in the background.
   useEffect(() => {
     if (mfFunds.length === 0) return
-    setNavsLoading(true)
     Promise.all(
       mfFunds.map(f =>
         fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
@@ -204,9 +214,12 @@ export default function PortfolioClient({
           .catch(() => [f.scheme_code, 0] as [string, number])
       )
     ).then(results => {
-      const m: Record<string, number> = {}
-      for (const [code, nav] of results) { if (nav > 0) m[code] = nav }
-      setNavs(m)
+      setNavs(prev => {
+        const next = { ...prev }
+        for (const [code, nav] of results) { if (nav > 0) next[code] = nav }
+        try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(next)) } catch {}
+        return next
+      })
       setNavsLoading(false)
     })
   }, [mfFunds, refreshKey])
