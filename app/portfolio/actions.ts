@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getUserId } from '@/lib/data'
 
@@ -18,7 +18,9 @@ export async function upsertMFund(schemeCode: string, schemeName: string, scheme
     .select('id')
     .single()
 
-  return error ? { error: error.message } : { fundId: data.id }
+  if (error) return { error: error.message }
+  revalidateTag('mf_funds', {})
+  return { fundId: data.id }
 }
 
 export async function addMFTransaction(
@@ -38,8 +40,14 @@ export async function addMFTransaction(
   })
 
   if (error) return { error: error.message }
+  revalidateTag('mf_transactions', {})
   revalidatePath('/portfolio')
   return { ok: true }
+}
+
+/** Called right after a client-side edit/delete of an mf_transactions row (TransactionsClient.tsx) — that write bypasses this file's server actions, so the mf_transactions cache tag needs an explicit bust. */
+export async function revalidateMFTransactions() {
+  revalidateTag('mf_transactions', {})
 }
 
 // ── Gold (SGB / ETF / Physical) ───────────────────────────────────────────────

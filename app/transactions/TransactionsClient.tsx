@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatDate, formatPriceNum, formatPriceFineNum } from '@/lib/formatter'
 import { updateStockTransaction, deleteStockTransaction, loadAllStockTransactions } from '@/app/actions'
+import { revalidateMFTransactions } from '@/app/portfolio/actions'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -987,6 +988,8 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
         txn.asset === 'ppf'  ? 'ppf_transactions' :
                                'epf_transactions'
       await getSupabaseBrowser().from(table).delete().eq('id', txn.id)
+      // Client-side write bypasses server actions — bust the mf_transactions cache tag directly.
+      if (txn.asset === 'mf') await revalidateMFTransactions()
     }
     onDelete(txn.id, txn.asset)
   }
@@ -1010,6 +1013,7 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       if (!units || !nav || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
       const patch = { units, nav, trade_date: activeEdit.date, amount: units * nav }
       await getSupabaseBrowser().from('mf_transactions').update(patch).eq('id', txn.id)
+      await revalidateMFTransactions()
       onSavedMF({ ...mf, ...patch })
 
     } else if (activeEdit.kind === 'sgb' && sgb) {

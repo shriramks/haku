@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
+import type { MFund, MFTransaction } from './portfolio-types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -14,6 +15,9 @@ import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Inv
 //   getBuyTranches  : 2 min    — on-demand revalidated via revalidateTag('buy_tranches') on generate
 //   getTransactions / getTransactionsBySymbol : 1 hour — all writes go through
 //     server actions in app/actions.ts which revalidateTag('transactions')
+//   getMFFunds / getMFTransactions : 1 hour — writes go through app/portfolio/actions.ts
+//     (revalidateTag('mf_funds' / 'mf_transactions')); the client-side edit/delete paths in
+//     TransactionsClient.tsx call revalidateMFTransactions() right after writing, PlanClient-style
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
@@ -129,6 +133,44 @@ export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
   return _fetchBuyBands(userId)
 })
 
+const _fetchMFFunds = unstable_cache(
+  async (userId: string): Promise<MFund[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('mf_funds')
+      .select('id, scheme_code, scheme_name, scheme_type')
+      .eq('user_id', userId)
+      .order('scheme_name')
+    return (data ?? []) as MFund[]
+  },
+  ['mf_funds'],
+  { revalidate: 3600, tags: ['mf_funds'] }
+)
+
+export const getMFFunds = cache(async (): Promise<MFund[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchMFFunds(userId)
+})
+
+const _fetchMFTransactions = unstable_cache(
+  async (userId: string): Promise<MFTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('mf_transactions')
+      .select('id, fund_id, trade_date, trade_type, units, nav, amount')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: true })
+      .order('trade_type', { ascending: true })
+    return (data ?? []) as MFTransaction[]
+  },
+  ['mf_transactions'],
+  { revalidate: 3600, tags: ['mf_transactions'] }
+)
+
+export const getMFTransactions = cache(async (): Promise<MFTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchMFTransactions(userId)
+})
 
 const _fetchBuyTranches = unstable_cache(
   async (userId: string, fyId: string): Promise<BuyTranche[]> => {
