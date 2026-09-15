@@ -8,17 +8,21 @@ export default async function BandsPage({
 }: {
   searchParams: Promise<{ fy?: string }>
 }) {
-  const fiscalYears = await getFiscalYears()
-  const { fy: fyParam } = await searchParams
+  // getBuyBands() doesn't depend on the current FY — fire it alongside
+  // getFiscalYears() instead of behind it, mirroring the allocation page fix.
+  const [fiscalYears, { fy: fyParam }, bands] = await Promise.all([
+    getFiscalYears(),
+    searchParams,
+    getBuyBands(),
+  ])
   const fy = getCurrentFY(fiscalYears, fyParam) ?? fiscalYears[fiscalYears.length - 1]
 
-  const [allocations, transactions, bands] = fy
+  const [allocations, transactions] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
-        getBuyBands(),
       ])
-    : [[], [], []]
+    : [[], []]
 
   const symbols = allocations.map((a: { symbol: string }) => a.symbol)
   const investabilities = await getInvestability(symbols)

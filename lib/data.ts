@@ -4,7 +4,7 @@ import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
-import type { MFund, MFTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -18,6 +18,9 @@ import type { MFund, MFTransaction } from './portfolio-types'
 //   getMFFunds / getMFTransactions : 1 hour — writes go through app/portfolio/actions.ts
 //     (revalidateTag('mf_funds' / 'mf_transactions')); the client-side edit/delete paths in
 //     TransactionsClient.tsx call revalidateMFTransactions() right after writing, PlanClient-style
+//   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
+//     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
+//     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
@@ -170,6 +173,82 @@ export const getMFTransactions = cache(async (): Promise<MFTransaction[]> => {
   const userId = await getUserId()
   if (!userId) return []
   return _fetchMFTransactions(userId)
+})
+
+const _fetchSGBTransactions = unstable_cache(
+  async (userId: string): Promise<SGBTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('sgb_transactions')
+      .select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: true })
+    return (data ?? []) as SGBTransaction[]
+  },
+  ['sgb_transactions'],
+  { revalidate: 3600, tags: ['sgb_transactions'] }
+)
+
+export const getSGBTransactions = cache(async (): Promise<SGBTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchSGBTransactions(userId)
+})
+
+const _fetchPPFTransactions = unstable_cache(
+  async (userId: string): Promise<PPFTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('ppf_transactions')
+      .select('id, trade_date, trade_type, amount, notes')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: true })
+    return (data ?? []) as PPFTransaction[]
+  },
+  ['ppf_transactions'],
+  { revalidate: 3600, tags: ['ppf_transactions'] }
+)
+
+export const getPPFTransactions = cache(async (): Promise<PPFTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchPPFTransactions(userId)
+})
+
+const _fetchPPFOverride = unstable_cache(
+  async (userId: string): Promise<PPFBalanceOverride | null> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('ppf_balance_override')
+      .select('id, balance, as_of_date')
+      .eq('user_id', userId)
+      .limit(1)
+    return (data?.[0] ?? null) as PPFBalanceOverride | null
+  },
+  ['ppf_balance_override'],
+  { revalidate: 3600, tags: ['ppf_balance_override'] }
+)
+
+export const getPPFOverride = cache(async (): Promise<PPFBalanceOverride | null> => {
+  const userId = await getUserId()
+  if (!userId) return null
+  return _fetchPPFOverride(userId)
+})
+
+const _fetchEPFTransactions = unstable_cache(
+  async (userId: string): Promise<EPFTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('epf_transactions')
+      .select('id, trade_date, trade_type, amount, notes')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: true })
+    return (data ?? []) as EPFTransaction[]
+  },
+  ['epf_transactions'],
+  { revalidate: 3600, tags: ['epf_transactions'] }
+)
+
+export const getEPFTransactions = cache(async (): Promise<EPFTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchEPFTransactions(userId)
 })
 
 const _fetchBuyTranches = unstable_cache(

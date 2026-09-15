@@ -8,19 +8,24 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ fy?: string }>
 }) {
-  const fiscalYears = await getFiscalYears()
-  const { fy: fyParam } = await searchParams
+  // getTransactions()/getBuyBands() don't depend on the current FY — fire them
+  // alongside getFiscalYears() instead of behind it, so a cold fiscal_years cache
+  // doesn't serialize in front of two otherwise-independent queries.
+  const [fiscalYears, { fy: fyParam }, allTransactions, bands] = await Promise.all([
+    getFiscalYears(),
+    searchParams,
+    getTransactions(),
+    getBuyBands(),
+  ])
 
   const currentFY = getCurrentFY(fiscalYears, fyParam)
 
-  const [allocations, transactions, allTransactions, bands] = currentFY
+  const [allocations, transactions] = currentFY
     ? await Promise.all([
         getAllocations(currentFY.id),
         getTransactions(currentFY.id),
-        getTransactions(),
-        getBuyBands(),
       ])
-    : [[], [], [], []]
+    : [[], []]
 
   // Per-symbol all-time aggregates only — the full history stays server-side
   const allTimeHoldings = computeAllTimeHoldings(allTransactions)

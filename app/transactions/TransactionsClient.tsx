@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatDate, formatPriceNum, formatPriceFineNum } from '@/lib/formatter'
 import { updateStockTransaction, deleteStockTransaction, loadAllStockTransactions } from '@/app/actions'
-import { revalidateMFTransactions } from '@/app/portfolio/actions'
+import { revalidateMFTransactions, revalidateSGBTransactions, revalidatePPFTransactions, revalidateEPFTransactions, loadPortfolioTables } from '@/app/portfolio/actions'
 import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -149,22 +149,17 @@ export default function TransactionsClient({
   }, [initial, initialAllHistoryLoaded])
 
   // Lazy-load portfolio tables (MF/Gold/PPF/EPF) after the initial RSC render.
-  // These tables are excluded from the RSC payload to keep it small.
+  // These tables are excluded from the RSC payload to keep it small. Goes through
+  // the unstable_cache-wrapped getters (loadPortfolioTables) instead of querying
+  // Supabase directly, so repeat visits hit the warm Data Cache.
   useEffect(() => {
     if (filterSymbol) return // ?symbol= view shows stocks only — no portfolio needed
-    const sb = getSupabaseBrowser()
-    Promise.all([
-      sb.from('mf_funds').select('id, scheme_code, scheme_name, scheme_type').order('scheme_name'),
-      sb.from('mf_transactions').select('id, fund_id, trade_date, trade_type, units, nav, amount').order('trade_date', { ascending: false }),
-      sb.from('sgb_transactions').select('id, trade_date, trade_type, grams, price_per_gram, amount, maturity_date, gold_type, name').order('trade_date', { ascending: false }),
-      sb.from('ppf_transactions').select('id, trade_date, trade_type, amount, notes').order('trade_date', { ascending: false }),
-      sb.from('epf_transactions').select('id, trade_date, trade_type, amount, notes').order('trade_date', { ascending: false }),
-    ]).then(([funds, mf, sgb, ppf, epf]) => {
-      setMfFunds((funds.data ?? []) as MFund[])
-      setMfTxns((mf.data ?? []) as MFTransaction[])
-      setSgbTxns((sgb.data ?? []) as SGBTransaction[])
-      setPpfTxns((ppf.data ?? []) as PPFTransaction[])
-      setEpfTxns((epf.data ?? []) as EPFTransaction[])
+    loadPortfolioTables().then(({ mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions }) => {
+      setMfFunds(mfFunds)
+      setMfTxns(mfTransactions)
+      setSgbTxns(sgbTransactions)
+      setPpfTxns(ppfTransactions)
+      setEpfTxns(epfTransactions)
       setPortfolioLoaded(true)
     })
   }, []) // filterSymbol is a stable URL param — intentionally omitted from deps
@@ -988,8 +983,11 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
         txn.asset === 'ppf'  ? 'ppf_transactions' :
                                'epf_transactions'
       await getSupabaseBrowser().from(table).delete().eq('id', txn.id)
-      // Client-side write bypasses server actions — bust the mf_transactions cache tag directly.
-      if (txn.asset === 'mf') await revalidateMFTransactions()
+      // Client-side write bypasses server actions — bust the matching cache tag directly.
+      if (txn.asset === 'mf')   await revalidateMFTransactions()
+      if (txn.asset === 'gold') await revalidateSGBTransactions()
+      if (txn.asset === 'ppf')  await revalidatePPFTransactions()
+      if (txn.asset === 'epf')  await revalidateEPFTransactions()
     }
     onDelete(txn.id, txn.asset)
   }
@@ -1022,6 +1020,7 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       if (!grams || !price_per_gram || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
       const patch = { grams, price_per_gram, trade_date: activeEdit.date, name: activeEdit.name || null, amount: grams * price_per_gram }
       await getSupabaseBrowser().from('sgb_transactions').update(patch).eq('id', txn.id)
+      await revalidateSGBTransactions()
       onSavedSGB({ ...sgb, ...patch })
 
     } else if (activeEdit.kind === 'ppf' && ppf) {
@@ -1029,6 +1028,7 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       if (!amount || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
       const patch = { amount, trade_date: activeEdit.date, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
       await getSupabaseBrowser().from('ppf_transactions').update(patch).eq('id', txn.id)
+      await revalidatePPFTransactions()
       onSavedPPF({ ...ppf, ...patch })
 
     } else if (activeEdit.kind === 'epf' && epf) {
@@ -1036,6 +1036,7 @@ function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedS
       if (!amount || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
       const patch = { amount, trade_date: activeEdit.date, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
       await getSupabaseBrowser().from('epf_transactions').update(patch).eq('id', txn.id)
+      await revalidateEPFTransactions()
       onSavedEPF({ ...epf, ...patch })
     }
 

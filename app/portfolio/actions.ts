@@ -2,7 +2,30 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getUserId } from '@/lib/data'
+import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions } from '@/lib/data'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
+
+/**
+ * Fetches all portfolio-table data (MF/Gold/PPF/EPF) via the unstable_cache-wrapped
+ * getters in lib/data.ts — used by TransactionsClient's lazy portfolio load so repeat
+ * visits hit the warm Data Cache instead of a fresh Supabase round trip per table.
+ */
+export async function loadPortfolioTables(): Promise<{
+  mfFunds: MFund[]
+  mfTransactions: MFTransaction[]
+  sgbTransactions: SGBTransaction[]
+  ppfTransactions: PPFTransaction[]
+  epfTransactions: EPFTransaction[]
+}> {
+  const [mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions] = await Promise.all([
+    getMFFunds(),
+    getMFTransactions(),
+    getSGBTransactions(),
+    getPPFTransactions(),
+    getEPFTransactions(),
+  ])
+  return { mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions }
+}
 
 // ── MF ────────────────────────────────────────────────────────────────────────
 
@@ -78,8 +101,14 @@ export async function addGoldTransaction(
   })
 
   if (error) return { error: error.message }
+  revalidateTag('sgb_transactions', {})
   revalidatePath('/portfolio')
   return { ok: true }
+}
+
+/** Called right after a client-side edit/delete of an sgb_transactions row (TransactionsClient.tsx). */
+export async function revalidateSGBTransactions() {
+  revalidateTag('sgb_transactions', {})
 }
 
 // ── PPF ───────────────────────────────────────────────────────────────────────
@@ -99,8 +128,14 @@ export async function addPPFTransaction(
   })
 
   if (error) return { error: error.message }
+  revalidateTag('ppf_transactions', {})
   revalidatePath('/portfolio')
   return { ok: true }
+}
+
+/** Called right after a client-side edit/delete of a ppf_transactions row (TransactionsClient.tsx). */
+export async function revalidatePPFTransactions() {
+  revalidateTag('ppf_transactions', {})
 }
 
 // ── EPF ───────────────────────────────────────────────────────────────────────
@@ -120,8 +155,14 @@ export async function addEPFTransaction(
   })
 
   if (error) return { error: error.message }
+  revalidateTag('epf_transactions', {})
   revalidatePath('/portfolio')
   return { ok: true }
+}
+
+/** Called right after a client-side edit/delete of an epf_transactions row (TransactionsClient.tsx). */
+export async function revalidateEPFTransactions() {
+  revalidateTag('epf_transactions', {})
 }
 
 export async function setPPFBalanceOverride(balance: number, asOfDate: string) {
@@ -135,6 +176,7 @@ export async function setPPFBalanceOverride(balance: number, asOfDate: string) {
              { onConflict: 'user_id' })
 
   if (error) return { error: error.message }
+  revalidateTag('ppf_balance_override', {})
   revalidatePath('/portfolio')
   return { ok: true }
 }
