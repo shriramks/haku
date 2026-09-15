@@ -17,39 +17,27 @@ export type SectionKey = 'advance' | 'tax' | 'harvesting'
 // ... not by background colour changes or rounded containers"). ───────────
 
 export function Section({
-  title, sectionKey, expanded, onToggle, onShare, children,
+  title, sectionKey, expanded, onToggle, children,
 }: {
   title:      string
   sectionKey: SectionKey
   expanded:   Set<SectionKey>
   onToggle:   (k: SectionKey) => void
-  onShare?:   () => void
   children:   React.ReactNode
 }) {
   const isOpen = expanded.has(sectionKey)
   return (
     <div style={{ marginTop: 24 }}>
-      <div className="flex items-center pl-4">
-        <button
-          onClick={() => onToggle(sectionKey)}
-          className="flex-1 flex items-center justify-between tap-row"
-          style={{ minHeight: 48, paddingRight: onShare ? 4 : 16 }}>
-          <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-          <ChevronDownIcon
-            className="w-4 h-4 transition-transform"
-            style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-          />
-        </button>
-        {onShare && (
-          <button
-            onClick={onShare}
-            aria-label={`Share ${title}`}
-            className="flex items-center justify-center flex-shrink-0 tap-row"
-            style={{ width: 44, height: 44, marginRight: -14, color: 'var(--accent)' }}>
-            <ShareIcon className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      <button
+        onClick={() => onToggle(sectionKey)}
+        className="flex items-center justify-between w-full px-4 tap-row"
+        style={{ minHeight: 48 }}>
+        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <ChevronDownIcon
+          className="w-4 h-4 transition-transform"
+          style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+      </button>
       {isOpen && children}
     </div>
   )
@@ -175,7 +163,7 @@ export function TaxBody({
   rows, goldEtf, dividendIncome, dividendRateLabel, dividendTax,
   setOffLines, newCarryForwardLine,
   tax, cess, tdsCredit, advancePaid, payable,
-  slabRatePct, onSlabRateChange,
+  slabRatePct, onSlabRateChange, onShare,
 }: {
   rows:                TaxBucketRow[]
   goldEtf:             GoldEtfSummary
@@ -191,6 +179,7 @@ export function TaxBody({
   payable:             number
   slabRatePct:         number
   onSlabRateChange:    (v: number) => void
+  onShare:             () => void
 }) {
   return (
     <div>
@@ -245,6 +234,16 @@ export function TaxBody({
       {newCarryForwardLine && (
         <p className="px-4 pb-1.5 pt-1 text-footnote" style={{ color: 'var(--text-muted)' }}>{newCarryForwardLine}</p>
       )}
+
+      <div className="px-4" style={{ paddingTop: 12, paddingBottom: 8 }}>
+        <button
+          onClick={onShare}
+          className="flex items-center justify-center gap-2 w-full tap-row"
+          style={{ minHeight: 44, color: 'var(--accent)' }}>
+          <ShareIcon className="w-[17px] h-[17px]" />
+          <span className="text-headline font-semibold">Share</span>
+        </button>
+      </div>
     </div>
   )
 }

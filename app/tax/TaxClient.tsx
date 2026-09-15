@@ -368,7 +368,7 @@ export default function TaxClient({
         </Section>
       )}
 
-      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle} onShare={shareTax}>
+      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle}>
         <TaxBody
           rows={taxRows}
           goldEtf={goldEtf}
@@ -384,6 +384,7 @@ export default function TaxClient({
           payable={payable}
           slabRatePct={slabRatePct}
           onSlabRateChange={setSlabRatePct}
+          onShare={shareTax}
         />
       </Section>
 
