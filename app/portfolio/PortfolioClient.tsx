@@ -363,17 +363,24 @@ export default function PortfolioClient({
             {mfHoldings.length > 0 && (
               <>
                 <ColHeaders c1="Fund" c2="Inv" c3="Curr" c4="Return" />
-                {mfHoldings.map(h => (
-                  <FundRow key={h.fund.id}
-                    name={h.fund.scheme_name}
-                    meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
-                    invested={h.invested}
-                    current={h.currentValue}
-                    gain={h.gain}
-                    xirr={h.xirr}
-                    onClick={() => router.push(`/portfolio/mf/${h.fund.id}`)}
-                    mfAssetClass={assetClass(h.fund)}
-                  />
+                {[
+                  { label: 'Equity', color: 'var(--c-equity)', amount: mfEquity, holdings: mfHoldings.filter(h => assetClass(h.fund) === 'equity') },
+                  { label: 'Debt',   color: 'var(--c-debt)',   amount: mfDebt,   holdings: mfHoldings.filter(h => assetClass(h.fund) === 'debt') },
+                ].map(group => group.holdings.length > 0 && (
+                  <React.Fragment key={group.label}>
+                    <MFGroupDivider label={group.label} color={group.color} amount={group.amount} />
+                    {group.holdings.map(h => (
+                      <FundRow key={h.fund.id}
+                        name={h.fund.scheme_name}
+                        meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
+                        invested={h.invested}
+                        current={h.currentValue}
+                        gain={h.gain}
+                        xirr={h.xirr}
+                        onClick={() => router.push(`/portfolio/mf/${h.fund.id}`)}
+                      />
+                    ))}
+                  </React.Fragment>
                 ))}
               </>
             )}
@@ -624,10 +631,19 @@ function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4
   )
 }
 
-function FundRow({ name, meta, invested, current, gain, xirr, onClick, mfAssetClass }: {
+function MFGroupDivider({ label, color, amount }: { label: string; color: string; amount: number }) {
+  return (
+    <div className="px-4 py-1" style={{ background: 'rgba(255,255,255,0.02)' }}>
+      <span className="text-footnote font-bold uppercase tabnum" style={{ color, letterSpacing: '0.07em' }}>
+        {label} · <Num amount={amount} />
+      </span>
+    </div>
+  )
+}
+
+function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
   name: string; meta: string; invested: number; current: number | null
   gain: number | null; xirr: number | null; onClick?: () => void
-  mfAssetClass?: 'equity' | 'debt'
 }) {
   const positive = (gain ?? 0) > 0
   const xirrPct = xirr !== null ? xirr * 100
@@ -642,14 +658,7 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick, mfAssetCl
             <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
           )}
         </div>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>
-          {meta}
-          {mfAssetClass && (
-            <> · <span className="font-semibold" style={{ color: mfAssetClass === 'equity' ? 'var(--c-equity)' : 'var(--c-debt)' }}>
-              {mfAssetClass === 'equity' ? 'Equity' : 'Debt'}
-            </span></>
-          )}
-        </p>
+        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
       </div>
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
         <Num amount={invested} align />
