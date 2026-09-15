@@ -92,6 +92,7 @@ export default function TransactionsClient({
   currentFY,
   filterSymbol,
   filterFundId,
+  initialAssetFilter,
   initialFyId,
 }: {
   transactions: Transaction[]
@@ -99,6 +100,7 @@ export default function TransactionsClient({
   currentFY: FiscalYear | null
   filterSymbol?: string
   filterFundId?: string
+  initialAssetFilter?: AssetType
   initialFyId?: string
 }) {
   const defaultDateFilter: DateFilter | null = currentFY
@@ -124,7 +126,9 @@ export default function TransactionsClient({
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
   const [symbolFilter, setSymbolFilter] = useState('all')
   const [dateFilter,   setDateFilter]   = useState<DateFilter | null>(defaultDateFilter)
-  const [assetFilter,  setAssetFilter]  = useState<Set<AssetType>>(new Set())
+  const [assetFilter,  setAssetFilter]  = useState<Set<AssetType>>(
+    new Set(initialAssetFilter ? [initialAssetFilter] : [])
+  )
 
   // Sheet visibility
   const [filterOpen,     setFilterOpen]     = useState(false)

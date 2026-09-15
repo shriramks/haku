@@ -731,6 +731,11 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
           </div>
         )
       })}
+      <Link href="/transactions?asset=ppf"
+            className="flex items-center justify-center text-body font-medium"
+            style={{ color: 'var(--accent)', minHeight: 52, marginTop: 4 }}>
+        Edit in Transactions →
+      </Link>
     </>
   )
 }
@@ -762,6 +767,11 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
           </div>
         )
       })}
+      <Link href="/transactions?asset=epf"
+            className="flex items-center justify-center text-body font-medium"
+            style={{ color: 'var(--accent)', minHeight: 52, marginTop: 4 }}>
+        Edit in Transactions →
+      </Link>
     </>
   )
 }

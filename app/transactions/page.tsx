@@ -5,9 +5,9 @@ import BottomNav from '@/components/BottomNav'
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string; fund?: string }>
+  searchParams: Promise<{ symbol?: string; fund?: string; asset?: string }>
 }) {
-  const { symbol, fund } = await searchParams
+  const { symbol, fund, asset } = await searchParams
 
   const fiscalYears = await getFiscalYears()
   const currentFY = getCurrentFY(fiscalYears) ?? null
@@ -24,6 +24,7 @@ export default async function TransactionsPage({
         currentFY={currentFY}
         filterSymbol={symbol?.toUpperCase()}
         filterFundId={fund}
+        initialAssetFilter={asset === 'ppf' || asset === 'epf' ? asset : undefined}
         initialFyId={(symbol || fund) ? undefined : currentFY?.id}
       />
       <BottomNav />
