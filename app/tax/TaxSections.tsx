@@ -6,7 +6,7 @@ import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
 import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
-import { formatINRFine } from '@/lib/formatter'
+import { formatINRFine, todayISO } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
 
 export type SectionKey = 'advance' | 'tax' | 'harvesting'
@@ -84,14 +84,23 @@ function MilestoneRow({ result, priorInterest, onTap }: {
 }) {
   const { milestone, isPast, ownPaid, payableNow } = result
   const settled = payableNow <= 0 && ownPaid > 0
-  const missed  = isPast && !settled && payableNow > 0
 
-  // Once a milestone's own due date has passed, its shortfall + interest has
-  // already rolled forward into whichever milestone is next (see
+  // `isPast` (lib/advance-tax.ts) is `>=` the due date — inclusive of the
+  // due date itself, because that's also when s.234C interest/carry-forward
+  // maths have to start applying, and that boundary is shared, tested logic
+  // we don't want to touch here. But flagging a row "Missed" while its due
+  // date is still today is premature — there's the rest of the day left to
+  // pay. Use a stricter, display-only boundary instead: only the day AFTER
+  // the due date counts as past for this row's own missed/recede treatment.
+  const duePast = todayISO() > milestone.date
+  const missed  = duePast && !settled && payableNow > 0
+
+  // Once a milestone's own due date is behind us, its shortfall + interest
+  // has already rolled forward into whichever milestone is next (see
   // `computeInstalments` in lib/advance-tax.ts) — so a past row is never
   // something to separately act on again, paid or not. It recedes; only the
   // nearest still-open row stays full-weight.
-  const recede = isPast
+  const recede = duePast
 
   // Settled or missed — either way `payableNow` alone (a bare "0", or a
   // stale non-zero amount that's already baked into a later row) doesn't say
