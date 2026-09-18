@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor, formatDate } from '@/lib/formatter'
-import { Num } from '@/components/Num'
+import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor } from '@/lib/formatter'
 import UserMenu from '@/components/UserMenu'
 import EmptyState from '@/components/EmptyState'
 import { computeMFHolding } from '@/lib/mf-compute'
+import { TxnRow, mfToDisplayTxn } from '@/components/EditableTxnRow'
 import type { MFund, MFTransaction } from '@/lib/portfolio-types'
 
 interface Props {
@@ -23,10 +23,14 @@ function groupByMonth(txns: MFTransaction[]) {
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export default function MFFundDetailClient({ fund, transactions }: Props) {
+export default function MFFundDetailClient({ fund, transactions: initialTransactions }: Props) {
   const router = useRouter()
+  const [transactions, setTransactions] = useState(initialTransactions)
   const [nav, setNav]               = useState<number | null>(null)
   const [navLoading, setNavLoading] = useState(true)
+
+  function updateTxn(u: MFTransaction) { setTransactions(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function deleteTxn(id: string)       { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
   useEffect(() => {
     fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
@@ -108,17 +112,20 @@ export default function MFFundDetailClient({ fund, transactions }: Props) {
               <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{month}</span>
             </div>
             {items.map(t => (
-              <TxnRow key={t.id} txn={t} />
+              <TxnRow key={t.id}
+                txn={mfToDisplayTxn(t, fund.scheme_name)}
+                showAssetTag={false}
+                onDelete={deleteTxn}
+                onSavedStock={() => {}}
+                onSavedMF={updateTxn}
+                onSavedSGB={() => {}}
+                onSavedPPF={() => {}}
+                onSavedEPF={() => {}}
+              />
             ))}
           </div>
         ))
       )}
-
-      <a href={`/transactions?fund=${fund.id}`}
-         className="flex items-center justify-center text-body font-medium"
-         style={{ color: 'var(--accent)', minHeight: 52, marginTop: 4 }}>
-        Edit in Transactions →
-      </a>
     </div>
   )
 }
@@ -131,28 +138,6 @@ function DetailRow({ label, value, valueColor, last: _last }: {
       <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
       <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
         {value}
-      </p>
-    </div>
-  )
-}
-
-function TxnRow({ txn }: { txn: MFTransaction }) {
-  const isBuy  = txn.trade_type === 'buy'
-  const signed = isBuy ? txn.amount : -txn.amount
-  return (
-    <div className="flex items-center px-4 py-2.5 gap-3" style={{ borderBottom: '1px solid var(--divider)' }}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{isBuy ? 'Buy' : 'Sell'}</span>
-          <span className="text-subheadline" style={{ color: 'var(--text-muted)' }}>·</span>
-          <span className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>{formatDate(txn.trade_date)}</span>
-        </div>
-        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {trimZero(txn.units, 3)} units · NAV {trimZero(txn.nav, 2)}
-        </p>
-      </div>
-      <p className={`text-headline font-bold tabnum flex-shrink-0 ${isBuy ? 'text-positive' : 'text-negative'}`}>
-        <Num amount={signed} signed />
       </p>
     </div>
   )

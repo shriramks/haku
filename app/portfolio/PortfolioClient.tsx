@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { trimZero, fyLabel } from '@/lib/formatter'
+import { trimZero } from '@/lib/formatter'
+import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
@@ -175,10 +176,13 @@ function readNavCache(): Record<string, number> {
 
 export default function PortfolioClient({
   allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
-  sgbTransactions, ppfTransactions, ppfOverride, epfTransactions,
+  sgbTransactions, ppfTransactions: initialPpfTransactions, ppfOverride,
+  epfTransactions: initialEpfTransactions,
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>())
+  const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
+  const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
   const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
   const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -233,8 +237,8 @@ export default function PortfolioClient({
   }), [stockHoldings])
   const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
-  const ppf           = useMemo(() => computePPF(ppfTransactions, ppfOverride), [ppfTransactions, ppfOverride])
-  const epf           = useMemo(() => computeEPF(epfTransactions), [epfTransactions])
+  const ppf           = useMemo(() => computePPF(ppfTxns, ppfOverride), [ppfTxns, ppfOverride])
+  const epf           = useMemo(() => computeEPF(epfTxns), [epfTxns])
 
   // Summary numbers
   const mfInvested      = mfHoldings.reduce((s, h) => s + h.invested, 0)
@@ -252,8 +256,8 @@ export default function PortfolioClient({
     const equityTxns = latestYearSymbols.length > 0
       ? allTransactions.filter(t => latestYearSymbols.includes(t.symbol))
       : allTransactions
-    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
-  }, [allTransactions, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
+    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent)
+  }, [allTransactions, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
 
   // Section-level XIRR for MF and Gold headers
   const mfSectionXirr = useMemo(() => {
@@ -290,6 +294,11 @@ export default function PortfolioClient({
       return next
     })
   }
+
+  function updatePPFTxn(u: PPFTransaction) { setPpfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updateEPFTxn(u: EPFTransaction) { setEpfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function deletePPFTxn(id: string) { setPpfTxns(prev => prev.filter(t => t.id !== id)) }
+  function deleteEPFTxn(id: string) { setEpfTxns(prev => prev.filter(t => t.id !== id)) }
 
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
@@ -445,7 +454,7 @@ export default function PortfolioClient({
           onToggle={() => toggleSection('ppf')}
         />
         {openSections.has('ppf') && (
-          <PPFRow ppf={ppf} />
+          <PPFRow ppf={ppf} onSaved={updatePPFTxn} onDeleted={deletePPFTxn} />
         )}
 
         {/* EPF */}
@@ -458,7 +467,7 @@ export default function PortfolioClient({
           onToggle={() => toggleSection('epf')}
         />
         {openSections.has('epf') && (
-          <EPFRow epf={epf} />
+          <EPFRow epf={epf} onSaved={updateEPFTxn} onDeleted={deleteEPFTxn} />
         )}
 
         {/* Reports */}
@@ -703,7 +712,11 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
   )
 }
 
-function PPFRow({ ppf }: { ppf: PPFSummary }) {
+function PPFRow({ ppf, onSaved, onDeleted }: {
+  ppf: PPFSummary
+  onSaved: (u: PPFTransaction) => void
+  onDeleted: (id: string) => void
+}) {
   const rows = [...ppf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
@@ -712,35 +725,27 @@ function PPFRow({ ppf }: { ppf: PPFSummary }) {
 
   return (
     <>
-      {rows.map(t => {
-        const isInterest = t.trade_type === 'interest'
-        const label = isInterest
-          ? `Interest ${fyLabel(t.trade_date)}`
-          : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-        const amtColor = t.trade_type === 'withdrawal' ? 'var(--c-negative)' : 'var(--text-primary)'
-        return (
-          <div key={t.id} className="flex items-center px-4 py-3">
-            <p className="flex-1 text-body tabnum"
-               style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
-              {label}
-            </p>
-            <p className="text-body tabnum"
-               style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: amtColor }}>
-              <Num amount={t.amount} />
-            </p>
-          </div>
-        )
-      })}
-      <Link href="/transactions?asset=ppf"
-            className="flex items-center justify-center text-body font-medium"
-            style={{ color: 'var(--accent)', minHeight: 52, marginTop: 4 }}>
-        Edit in Transactions →
-      </Link>
+      {rows.map(t => (
+        <TxnRow key={t.id}
+          txn={ppfToDisplayTxn(t)}
+          showAssetTag={false}
+          onDelete={id => onDeleted(id)}
+          onSavedStock={() => {}}
+          onSavedMF={() => {}}
+          onSavedSGB={() => {}}
+          onSavedPPF={onSaved}
+          onSavedEPF={() => {}}
+        />
+      ))}
     </>
   )
 }
 
-function EPFRow({ epf }: { epf: EPFSummary }) {
+function EPFRow({ epf, onSaved, onDeleted }: {
+  epf: EPFSummary
+  onSaved: (u: EPFTransaction) => void
+  onDeleted: (id: string) => void
+}) {
   const rows = [...epf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
@@ -749,29 +754,18 @@ function EPFRow({ epf }: { epf: EPFSummary }) {
 
   return (
     <>
-      {rows.map(t => {
-        const isInterest = t.trade_type === 'interest'
-        const label = isInterest
-          ? `Interest ${fyLabel(t.trade_date)}`
-          : new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-        return (
-          <div key={t.id} className="flex items-center px-4 py-3">
-            <p className="flex-1 text-body tabnum"
-               style={{ color: 'var(--text-2)', fontStyle: isInterest ? 'italic' : 'normal' }}>
-              {label}
-            </p>
-            <p className="text-body tabnum"
-               style={{ fontWeight: isInterest ? 400 : 600, fontStyle: isInterest ? 'italic' : 'normal', color: 'var(--text-primary)' }}>
-              <Num amount={t.amount} />
-            </p>
-          </div>
-        )
-      })}
-      <Link href="/transactions?asset=epf"
-            className="flex items-center justify-center text-body font-medium"
-            style={{ color: 'var(--accent)', minHeight: 52, marginTop: 4 }}>
-        Edit in Transactions →
-      </Link>
+      {rows.map(t => (
+        <TxnRow key={t.id}
+          txn={epfToDisplayTxn(t)}
+          showAssetTag={false}
+          onDelete={id => onDeleted(id)}
+          onSavedStock={() => {}}
+          onSavedMF={() => {}}
+          onSavedSGB={() => {}}
+          onSavedPPF={() => {}}
+          onSavedEPF={onSaved}
+        />
+      ))}
     </>
   )
 }
