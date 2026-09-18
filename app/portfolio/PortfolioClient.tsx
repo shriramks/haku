@@ -13,7 +13,8 @@ import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
 import { computeMFHolding } from '@/lib/mf-compute'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, SGBBatch, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
+import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
 
 interface Props {
@@ -72,67 +73,6 @@ function computeMFHoldings(
       return holding ? [holding] : []
     })
     .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
-}
-
-function computeSGBBatches(transactions: SGBTransaction[], goldPrice: number | null): SGBBatch[] {
-  const map = new Map<string, {
-    transactions: SGBTransaction[]; grams: number; invested: number
-    maturityDate: string | null; goldType: 'sgb' | 'etf' | 'physical'; name: string | null
-  }>()
-  for (const t of transactions) {
-    const goldType = t.gold_type ?? 'sgb'
-    const key = goldType === 'sgb'
-      ? new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-      : (t.name ?? (goldType === 'physical' ? 'Physical Gold' : 'Gold ETF'))
-    const b = map.get(key) ?? { transactions: [], grams: 0, invested: 0, maturityDate: null, goldType, name: t.name }
-    b.transactions.push(t)
-    if (t.trade_type === 'buy') {
-      b.grams    += t.grams
-      b.invested += t.amount
-      if (!b.maturityDate && goldType === 'sgb') b.maturityDate = t.maturity_date
-    } else {
-      const avgPpg = b.grams > 0 ? b.invested / b.grams : 0
-      b.grams    -= t.grams
-      b.invested -= t.grams * avgPpg
-    }
-    map.set(key, b)
-  }
-  return Array.from(map.entries())
-    .filter(([, b]) => b.grams > 0.001)
-    .map(([key, b]) => {
-      const inv          = Math.max(0, b.invested)
-      const currentValue = goldPrice !== null ? b.grams * goldPrice : null
-      const gain         = currentValue !== null ? currentValue - inv : null
-      return {
-        key,
-        transactions: b.transactions,
-        grams:        b.grams,
-        invested:     inv,
-        maturityDate: b.maturityDate,
-        currentValue,
-        gain,
-        xirr: currentValue !== null ? sgbXirr(b.transactions, currentValue) : null,
-        goldType:     b.goldType,
-        name:         b.name,
-      }
-    })
-}
-
-function goldDisplayName(b: SGBBatch): string {
-  if (b.goldType === 'sgb') return `SGB ${b.key}`
-  if (b.goldType === 'etf') return b.name ?? b.key
-  return b.name || 'Physical Gold'
-}
-
-function goldMeta(b: SGBBatch): string {
-  if (b.goldType === 'sgb') {
-    const matDate = b.maturityDate
-      ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-      : '—'
-    return `${trimZero(b.grams)}g · ${matDate}`
-  }
-  if (b.goldType === 'etf') return `${trimZero(b.grams)} units`
-  return `${trimZero(b.grams)}g`
 }
 
 function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
@@ -361,6 +301,7 @@ export default function PortfolioClient({
                     current={h.currentValue}
                     gain={h.gain}
                     xirr={h.xirr}
+                    onClick={() => router.push(`/portfolio/stock/${encodeURIComponent(h.symbol)}`)}
                   />
                 ))}
               </>
@@ -434,6 +375,7 @@ export default function PortfolioClient({
                     current={b.currentValue}
                     gain={b.gain}
                     xirr={b.xirr}
+                    onClick={() => router.push(`/portfolio/gold/${encodeURIComponent(b.key)}`)}
                   />
                 ))}
               </>
