@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, formatINRFine, formatINRFull, formatPriceFineNum } from '@/lib/formatter'
+import { lastFYEnd } from '@/lib/fy-utils'
+import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
@@ -13,6 +15,19 @@ import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, a
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
 type GoldType  = 'sgb' | 'etf' | 'physical'
+type PPFType   = PPFTransaction['trade_type']
+type EPFType   = EPFTransaction['trade_type']
+
+// Interest is neither cash in nor cash out, so it takes the accent colour instead of green/red.
+const PPF_TYPES: readonly { id: PPFType; label: string; color: string }[] = [
+  { id: 'deposit',    label: 'Deposit',    color: '#34C759' },
+  { id: 'withdrawal', label: 'Withdrawal', color: '#FF3B30' },
+  { id: 'interest',   label: 'Interest',   color: 'var(--accent)' },
+]
+const EPF_TYPES: readonly { id: EPFType; label: string; color: string }[] = [
+  { id: 'deposit',  label: 'Deposit',  color: 'var(--accent)' },
+  { id: 'interest', label: 'Interest', color: 'var(--accent)' },
+]
 
 const ASSET_TYPES = [
   { id: 'stock' as AssetType, label: 'Stocks',      Icon: StockIcon },
@@ -68,11 +83,14 @@ export default function AddTxnModal({
   const [goldPrice, setGoldPrice] = useState('')
 
   // ── PPF ────────────────────────────────────────────────────────────────────
-  const [ppfType, setPPFType]     = useState<'deposit' | 'withdrawal'>('deposit')
+  const [ppfType, setPPFType]     = useState<PPFType>('deposit')
   const [ppfAmount, setPPFAmount] = useState('')
+  const [ppfNotes, setPPFNotes]   = useState('')
 
   // ── EPF ────────────────────────────────────────────────────────────────────
+  const [epfType, setEPFType]     = useState<EPFType>('deposit')
   const [epfAmount, setEPFAmount] = useState('')
+  const [epfNotes, setEPFNotes]   = useState('')
 
   // ── Body scroll lock ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -137,9 +155,19 @@ export default function AddTxnModal({
     : assetType === 'ppf'  ? (parseFloat(ppfAmount) || 0)
     :                        (parseFloat(epfAmount) || 0)
 
+  const ppfColor  = PPF_TYPES.find(o => o.id === ppfType)!.color
   const heroColor = assetType === 'epf'  ? 'var(--accent)'
-    : assetType === 'ppf'  ? (ppfType === 'deposit' ? '#34C759' : '#FF3B30')
+    : assetType === 'ppf'  ? ppfColor
     :                        (txnType === 'buy' ? '#34C759' : '#FF3B30')
+
+  // Interest is booked once a year against its FY's 31 Mar, so the row lands in (and is labelled
+  // with) the right year. Switching into interest defaults the date there; switching out restores today.
+  const isInterestMode = (assetType === 'ppf' && ppfType === 'interest') || (assetType === 'epf' && epfType === 'interest')
+  function syncInterestDate(wasInterest: boolean, isInterest: boolean) {
+    if (wasInterest !== isInterest) setDate(isInterest ? lastFYEnd(todayISO()) : todayISO())
+  }
+  function pickPPFType(t: PPFType) { syncInterestDate(ppfType === 'interest', t === 'interest'); setPPFType(t) }
+  function pickEPFType(t: EPFType) { syncInterestDate(epfType === 'interest', t === 'interest'); setEPFType(t) }
 
   const goldMaturityDate = assetType === 'gold' && goldType === 'sgb' && txnType === 'buy' && date
     ? (() => { const d = new Date(date); d.setFullYear(d.getFullYear() + 8); return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) })()
@@ -178,12 +206,12 @@ export default function AddTxnModal({
 
     } else if (assetType === 'ppf') {
       if (!ppfAmount) { setLoading(false); return }
-      const { error: txnErr } = await addPPFTransaction(date, ppfType, parseFloat(ppfAmount))
+      const { error: txnErr } = await addPPFTransaction(date, ppfType, parseFloat(ppfAmount), ppfNotes.trim())
       err = txnErr ?? null
 
     } else if (assetType === 'epf') {
       if (!epfAmount) { setLoading(false); return }
-      const { error: txnErr } = await addEPFTransaction(date, 'deposit', parseFloat(epfAmount))
+      const { error: txnErr } = await addEPFTransaction(date, epfType, parseFloat(epfAmount), epfNotes.trim())
       err = txnErr ?? null
     }
 
@@ -244,7 +272,7 @@ export default function AddTxnModal({
               <p className="px-5 pt-1 pb-3 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Asset type</p>
               {ASSET_TYPES.map(({ id, label, Icon }) => (
                 <button key={id} type="button"
-                  onClick={() => { setAssetType(id); setAssetPickerOpen(false); setError(null); setDone(false) }}
+                  onClick={() => { if (isInterestMode) setDate(todayISO()); setAssetType(id); setAssetPickerOpen(false); setError(null); setDone(false) }}
                   className="flex items-center w-full px-5 border-t"
                   style={{ minHeight: 56, borderColor: 'var(--divider)' }}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mr-4 flex-shrink-0"
@@ -280,22 +308,11 @@ export default function AddTxnModal({
           </div>
         )}
 
-        {/* Deposit / Withdrawal toggle — ppf */}
-        {assetType === 'ppf' && (
-          <div className="px-4 flex-shrink-0">
-            <div className="flex rounded-xl overflow-hidden" style={{ border: '1.5px solid var(--border)', height: 54 }}>
-              {(['deposit', 'withdrawal'] as const).map(t => (
-                <button key={t} type="button" onClick={() => setPPFType(t)}
-                  className="flex-1 text-headline font-bold transition-colors"
-                  style={ppfType === t
-                    ? { background: t === 'deposit' ? '#34C759' : '#FF3B30', color: '#fff' }
-                    : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-                  {t === 'deposit' ? 'Deposit' : 'Withdrawal'}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Deposit / Withdrawal / Interest toggle — ppf */}
+        {assetType === 'ppf' && <SegmentToggle options={PPF_TYPES} value={ppfType} onChange={pickPPFType} />}
+
+        {/* Deposit / Interest toggle — epf */}
+        {assetType === 'epf' && <SegmentToggle options={EPF_TYPES} value={epfType} onChange={pickEPFType} />}
 
         {/* Amount hero */}
         <div className="flex flex-col items-center py-3 flex-shrink-0">
@@ -537,6 +554,7 @@ export default function AddTxnModal({
                 <div>
                   <FieldLabel>Date</FieldLabel>
                   <DateInput value={date} onChange={setDate} />
+                  {ppfType === 'interest' && <InterestDateHint />}
                 </div>
                 <div>
                   <FieldLabel>Amount ₹</FieldLabel>
@@ -546,10 +564,11 @@ export default function AddTxnModal({
                     className="w-full px-3 rounded-xl text-headline font-bold tabnum outline-none"
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
+                <NotesInput value={ppfNotes} onChange={setPPFNotes} />
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
                 <Button type="submit" loading={loading} disabled={!ppfAmount} fullWidth
-                  style={{ background: done ? 'var(--border)' : (ppfType === 'deposit' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : ppfType === 'deposit' ? 'Save Deposit' : 'Save Withdrawal'}
+                  style={{ background: done ? 'var(--border)' : ppfColor }}>
+                  {done ? '✓ Added' : `Save ${PPF_TYPES.find(o => o.id === ppfType)!.label}`}
                 </Button>
               </>
             )}
@@ -558,8 +577,9 @@ export default function AddTxnModal({
             {assetType === 'epf' && (
               <>
                 <div>
-                  <FieldLabel>Month</FieldLabel>
+                  <FieldLabel>{epfType === 'interest' ? 'Date' : 'Month'}</FieldLabel>
                   <DateInput value={date} onChange={setDate} />
+                  {epfType === 'interest' && <InterestDateHint />}
                 </div>
                 <div>
                   <FieldLabel>Amount ₹</FieldLabel>
@@ -569,10 +589,11 @@ export default function AddTxnModal({
                     className="w-full px-3 rounded-xl text-headline font-bold tabnum outline-none"
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
+                <NotesInput value={epfNotes} onChange={setEPFNotes} />
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
                 <Button type="submit" loading={loading} disabled={!epfAmount} fullWidth
                   style={{ background: done ? 'var(--border)' : undefined }}>
-                  {done ? '✓ Added' : 'Save Deposit'}
+                  {done ? '✓ Added' : `Save ${EPF_TYPES.find(o => o.id === epfType)!.label}`}
                 </Button>
               </>
             )}
@@ -591,6 +612,48 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
     <p className="text-footnote mb-1.5 uppercase"
        style={{ color: 'var(--text-faint)', fontWeight: 700, letterSpacing: '0.07em' }}>
       {children}
+    </p>
+  )
+}
+
+function SegmentToggle<T extends string>({ options, value, onChange }: {
+  options: readonly { id: T; label: string; color: string }[]
+  value: T
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="px-4 flex-shrink-0">
+      <div className="flex rounded-xl overflow-hidden" style={{ border: '1.5px solid var(--border)', height: 54 }}>
+        {options.map(o => (
+          <button key={o.id} type="button" onClick={() => onChange(o.id)}
+            className="flex-1 text-headline font-bold transition-colors"
+            style={value === o.id
+              ? { background: o.color, color: '#fff' }
+              : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function NotesInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <FieldLabel>Note (optional)</FieldLabel>
+      <input type="text" value={value} onChange={e => onChange(e.target.value)}
+        onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+        className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+    </div>
+  )
+}
+
+function InterestDateHint() {
+  return (
+    <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>
+      Use 31 Mar of the FY this interest is for
     </p>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fyEndYear, fyDateRange, fiscalQuarterLabel, isFYClosed } from '../fy-utils'
+import { fyEndYear, fyDateRange, fiscalQuarterLabel, isFYClosed, lastFYEnd } from '../fy-utils'
 import type { FiscalYear } from '../types'
 
 describe('fyEndYear — Indian FY runs Apr–Mar', () => {
@@ -53,5 +53,19 @@ describe('isFYClosed', () => {
 
   it('closed once asOfDate is after end_date', () => {
     expect(isFYClosed(FY, '2026-04-01')).toBe(true)
+  })
+})
+
+describe('lastFYEnd', () => {
+  it('after Mar 31 returns this calendar year\'s Mar 31', () => {
+    expect(lastFYEnd('2026-09-19')).toBe('2026-03-31')
+    expect(lastFYEnd('2026-04-01')).toBe('2026-03-31')
+  })
+  it('on Mar 31 returns that same day', () => {
+    expect(lastFYEnd('2026-03-31')).toBe('2026-03-31')
+  })
+  it('before Mar 31 returns last calendar year\'s Mar 31', () => {
+    expect(lastFYEnd('2026-02-10')).toBe('2025-03-31')
+    expect(lastFYEnd('2026-01-01')).toBe('2025-03-31')
   })
 })

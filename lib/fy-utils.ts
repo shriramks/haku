@@ -23,6 +23,13 @@ export function fyDateRange(date: Date | string): { start: string; end: string }
   return { start: `${end - 1}-04-01`, end: `${end}-03-31` }
 }
 
+/** Most recent Mar 31 on or before `asOf` (ISO date). Yearly PPF/EPF interest is booked against this date so the row lands in the FY it belongs to. */
+export function lastFYEnd(asOf: string): string {
+  const year = parseInt(asOf.slice(0, 4), 10)
+  const thisMarch = `${year}-03-31`
+  return asOf >= thisMarch ? thisMarch : `${year - 1}-03-31`
+}
+
 /**
  * Looks up the fiscal_years row whose range contains the given trade date.
  * fy_id must always be derived from trade_date — including on edits — never

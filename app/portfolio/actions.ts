@@ -115,7 +115,7 @@ export async function revalidateSGBTransactions() {
 
 export async function addPPFTransaction(
   tradeDate: string,
-  tradeType: 'deposit' | 'withdrawal',
+  tradeType: PPFTransaction['trade_type'],
   amount: number,
   notes = '',
 ) {
