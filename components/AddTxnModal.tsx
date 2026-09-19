@@ -85,12 +85,10 @@ export default function AddTxnModal({
   // ── PPF ────────────────────────────────────────────────────────────────────
   const [ppfType, setPPFType]     = useState<PPFType>('deposit')
   const [ppfAmount, setPPFAmount] = useState('')
-  const [ppfNotes, setPPFNotes]   = useState('')
 
   // ── EPF ────────────────────────────────────────────────────────────────────
   const [epfType, setEPFType]     = useState<EPFType>('deposit')
   const [epfAmount, setEPFAmount] = useState('')
-  const [epfNotes, setEPFNotes]   = useState('')
 
   // ── Body scroll lock ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -206,12 +204,12 @@ export default function AddTxnModal({
 
     } else if (assetType === 'ppf') {
       if (!ppfAmount) { setLoading(false); return }
-      const { error: txnErr } = await addPPFTransaction(date, ppfType, parseFloat(ppfAmount), ppfNotes.trim())
+      const { error: txnErr } = await addPPFTransaction(date, ppfType, parseFloat(ppfAmount))
       err = txnErr ?? null
 
     } else if (assetType === 'epf') {
       if (!epfAmount) { setLoading(false); return }
-      const { error: txnErr } = await addEPFTransaction(date, epfType, parseFloat(epfAmount), epfNotes.trim())
+      const { error: txnErr } = await addEPFTransaction(date, epfType, parseFloat(epfAmount))
       err = txnErr ?? null
     }
 
@@ -564,7 +562,6 @@ export default function AddTxnModal({
                     className="w-full px-3 rounded-xl text-headline font-bold tabnum outline-none"
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
-                <NotesInput value={ppfNotes} onChange={setPPFNotes} />
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
                 <Button type="submit" loading={loading} disabled={!ppfAmount} fullWidth
                   style={{ background: done ? 'var(--border)' : ppfColor }}>
@@ -589,7 +586,6 @@ export default function AddTxnModal({
                     className="w-full px-3 rounded-xl text-headline font-bold tabnum outline-none"
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
-                <NotesInput value={epfNotes} onChange={setEPFNotes} />
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
                 <Button type="submit" loading={loading} disabled={!epfAmount} fullWidth
                   style={{ background: done ? 'var(--border)' : undefined }}>
@@ -634,18 +630,6 @@ function SegmentToggle<T extends string>({ options, value, onChange }: {
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-function NotesInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <FieldLabel>Note (optional)</FieldLabel>
-      <input type="text" value={value} onChange={e => onChange(e.target.value)}
-        onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-        className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
     </div>
   )
 }
