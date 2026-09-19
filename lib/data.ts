@@ -241,7 +241,7 @@ const _fetchEPFTransactions = unstable_cache(
       .order('trade_date', { ascending: true })
     return (data ?? []) as EPFTransaction[]
   },
-  ['epf_transactions'],
+  ['epf_transactions', 'wage_month'],  // key part marks the row shape — unstable_cache keys ignore the query, so adding a column needs a new key or old-shaped rows serve for up to an hour
   { revalidate: 3600, tags: ['epf_transactions'] }
 )
 
