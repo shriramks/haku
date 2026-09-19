@@ -1,30 +1,19 @@
 // Gold (SGB/ETF/physical) batch grouping + valuation — shared by the Portfolio
 // list (app/portfolio/PortfolioClient.tsx) and the Gold batch detail page
 // (app/portfolio/gold/[key]/).
-import { trimZero } from './formatter'
+import { trimZero, monthYear } from './formatter'
 import { sgbXirr } from './xirr'
 import type { SGBTransaction, SGBBatch } from './portfolio-types'
 
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-// "YYYY-MM-DD" → "Mon YYYY", parsed straight from the string — never through a
-// Date object. This key round-trips through a URL (PortfolioClient builds the
-// link client-side, app/portfolio/gold/[key]/page.tsx matches it server-side),
-// so it must be byte-identical in both places; going through
-// `new Date(...).toLocaleDateString(...)` is timezone-dependent (server and
-// browser can disagree on which side of midnight a date falls), which made the
-// server-side match silently fail and redirect back to /portfolio.
-function monthYearLabel(dateStr: string): string {
-  const month = parseInt(dateStr.slice(5, 7), 10)
-  return `${MONTH_ABBR[month - 1]} ${dateStr.slice(0, 4)}`
-}
-
 // Pure grouping key, no price needed — lets the detail page filter the full
-// transaction list down to one batch server-side.
+// transaction list down to one batch server-side. Must be byte-identical
+// whether computed client-side (PortfolioClient builds the /portfolio/gold/[key]
+// link) or server-side (the detail page matches it) — monthYear() is a plain
+// string parse with no timezone dependence, unlike a Date-object round-trip.
 export function keyForSGBTransaction(t: SGBTransaction): string {
   const goldType = t.gold_type ?? 'sgb'
   return goldType === 'sgb'
-    ? monthYearLabel(t.trade_date)
+    ? monthYear(t.trade_date)
     : (t.name ?? (goldType === 'physical' ? 'Physical Gold' : 'Gold ETF'))
 }
 
@@ -87,7 +76,7 @@ export function goldDisplayName(b: Pick<SGBBatch, 'goldType' | 'key' | 'name'>):
 
 export function goldMeta(b: Pick<SGBBatch, 'goldType' | 'grams' | 'maturityDate'>): string {
   if (b.goldType === 'sgb') {
-    const matDate = b.maturityDate ? monthYearLabel(b.maturityDate) : '—'
+    const matDate = b.maturityDate ? monthYear(b.maturityDate) : '—'
     return `${trimZero(b.grams)}g · ${matDate}`
   }
   if (b.goldType === 'etf') return `${trimZero(b.grams)} units`

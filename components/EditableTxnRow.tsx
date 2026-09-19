@@ -213,9 +213,14 @@ function EditActions({ confirming, saveDisabled, saving, onStartDelete, onKeep, 
 
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
-export function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, onSavedSGB, onSavedPPF, onSavedEPF }: {
+export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock, onSavedMF, onSavedSGB, onSavedPPF, onSavedEPF }: {
   txn: DisplayTxn
   showAssetTag: boolean
+  // Overrides the resting-state name/date/detail block with a single plain line —
+  // used where txn.name would just repeat the section header (e.g. Portfolio's
+  // EPF list, where every row is already under an "EPF" heading and the month
+  // of contribution is the only thing worth reading at rest).
+  compactLabel?: { text: string; italic?: boolean }
   onDelete: (id: string, asset: AssetType) => void
   onSavedStock: (updated: Transaction) => void
   onSavedMF: (updated: MFTransaction) => void
@@ -534,27 +539,36 @@ export function TxnRow({ txn, showAssetTag, onDelete, onSavedStock, onSavedMF, o
   return (
     <div className="flex items-center px-4 py-3 gap-3 tap-row">
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-1.5 min-w-0">
-          <span className={`font-semibold truncate ${txn.asset === 'mf' ? 'text-body' : 'text-headline'}`}>
-            {txn.name}
-          </span>
-          <span className="flex-shrink-0 text-subheadline" style={{ color: 'var(--text-muted)' }}>·</span>
-          <span className="flex-shrink-0 text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-            {formatDate(txn.trade_date)}
-          </span>
-        </div>
-        <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {showAssetTag && (
-            <>
-              <span className="font-semibold uppercase inline-flex items-center rounded px-1 leading-[1.5]"
-                    style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-muted)', background: 'var(--border-faint)', border: '1px solid var(--border)' }}>
-                {ASSET_LABELS[txn.asset]}
+        {compactLabel ? (
+          <p className="text-body tabnum truncate"
+             style={{ color: 'var(--text-2)', fontStyle: compactLabel.italic ? 'italic' : 'normal' }}>
+            {compactLabel.text}
+          </p>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className={`font-semibold truncate ${txn.asset === 'mf' ? 'text-body' : 'text-headline'}`}>
+                {txn.name}
               </span>
-              <span style={{ color: 'var(--text-faint)' }}>·</span>
-            </>
-          )}
-          {txn.detail}
-        </p>
+              <span className="flex-shrink-0 text-subheadline" style={{ color: 'var(--text-muted)' }}>·</span>
+              <span className="flex-shrink-0 text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
+                {formatDate(txn.trade_date)}
+              </span>
+            </div>
+            <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {showAssetTag && (
+                <>
+                  <span className="font-semibold uppercase inline-flex items-center rounded px-1 leading-[1.5]"
+                        style={{ fontSize: 10, letterSpacing: '0.04em', color: 'var(--text-muted)', background: 'var(--border-faint)', border: '1px solid var(--border)' }}>
+                    {ASSET_LABELS[txn.asset]}
+                  </span>
+                  <span style={{ color: 'var(--text-faint)' }}>·</span>
+                </>
+              )}
+              {txn.detail}
+            </p>
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">

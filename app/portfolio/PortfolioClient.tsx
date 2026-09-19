@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { trimZero } from '@/lib/formatter'
+import { trimZero, fyLabel, monthYear } from '@/lib/formatter'
 import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
@@ -696,18 +696,25 @@ function EPFRow({ epf, onSaved, onDeleted }: {
 
   return (
     <>
-      {rows.map(t => (
-        <TxnRow key={t.id}
-          txn={epfToDisplayTxn(t)}
-          showAssetTag={false}
-          onDelete={id => onDeleted(id)}
-          onSavedStock={() => {}}
-          onSavedMF={() => {}}
-          onSavedSGB={() => {}}
-          onSavedPPF={() => {}}
-          onSavedEPF={onSaved}
-        />
-      ))}
+      {rows.map(t => {
+        const isInterest = t.trade_type === 'interest'
+        return (
+          <TxnRow key={t.id}
+            txn={epfToDisplayTxn(t)}
+            showAssetTag={false}
+            compactLabel={{
+              text: isInterest ? `Interest ${fyLabel(t.trade_date)}` : monthYear(t.trade_date),
+              italic: isInterest,
+            }}
+            onDelete={id => onDeleted(id)}
+            onSavedStock={() => {}}
+            onSavedMF={() => {}}
+            onSavedSGB={() => {}}
+            onSavedPPF={() => {}}
+            onSavedEPF={onSaved}
+          />
+        )
+      })}
     </>
   )
 }

@@ -124,3 +124,18 @@ export function fyLabel(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return `FY${(fyEndYear(d) % 100).toString().padStart(2, '0')}`
 }
+
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * "YYYY-MM-DD" → "Mon YYYY", parsed straight from the string — never through a
+ * Date object. `new Date(dateStr).toLocaleDateString(...)` renders in the
+ * runtime's local timezone, so the same date string can format to a different
+ * month depending on where it runs (this bit a batch-grouping key derived the
+ * same way — see lib/sgb-compute.ts). Use this wherever the label must be
+ * identical regardless of server vs. browser timezone.
+ */
+export function monthYear(dateStr: string): string {
+  const month = parseInt(dateStr.slice(5, 7), 10)
+  return `${MONTH_ABBR[month - 1]} ${dateStr.slice(0, 4)}`
+}
