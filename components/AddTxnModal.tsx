@@ -353,7 +353,7 @@ export default function AddTxnModal({
         <Divider className="flex-shrink-0" style={{ margin: '0 16px 14px' }} />
 
         {/* Scrollable form */}
-        <div className="overflow-y-auto" style={{ paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
+        <div className="overflow-y-auto overflow-x-hidden" style={{ paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>
           <form onSubmit={submit} className="px-4 space-y-3">
 
             {/* ── STOCKS ─────────────────────────────────────────────────── */}
@@ -662,7 +662,7 @@ function MonthInput({ value, onChange }: { value: string; onChange: (v: string) 
   return (
     <input type="month" value={value} onChange={e => onChange(e.target.value)} required
       onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-      className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
+      className="w-full min-w-0 px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
   )
 }
@@ -671,7 +671,7 @@ function DateInput({ value, onChange }: { value: string; onChange: (v: string) =
   return (
     <input type="date" value={value} onChange={e => onChange(e.target.value)} required
       onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-      className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
+      className="w-full min-w-0 px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
   )
 }

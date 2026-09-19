@@ -400,7 +400,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
               <EditField label="Date">
                 <input type="date" value={activeEdit.date}
                   onChange={e => setActiveEdit(prev => prev?.kind === 'stock' ? { ...prev, date: e.target.value } : prev)}
-                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
               <div />
@@ -428,7 +428,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
               <EditField label="Date">
                 <input type="date" value={activeEdit.date}
                   onChange={e => setActiveEdit(prev => prev?.kind === 'mf' ? { ...prev, date: e.target.value } : prev)}
-                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
               <div />
@@ -456,7 +456,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
               <EditField label="Date">
                 <input type="date" value={activeEdit.date}
                   onChange={e => setActiveEdit(prev => prev?.kind === 'sgb' ? { ...prev, date: e.target.value } : prev)}
-                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
               <EditField label="Name (optional)">
@@ -482,7 +482,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
               <EditField label={activeEdit.kind === 'epf' ? 'Date added' : 'Date'}>
                 <input type="date" value={activeEdit.date}
                   onChange={e => setActiveEdit(prev => (prev?.kind === 'ppf' || prev?.kind === 'epf') ? { ...prev, date: e.target.value } : prev)}
-                  className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
             </div>
@@ -491,7 +491,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
                 <EditField label="Wage month">
                   <input type="month" value={activeEdit.wage_month}
                     onChange={e => setActiveEdit(prev => prev?.kind === 'epf' ? { ...prev, wage_month: e.target.value } : prev)}
-                    className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                    className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
                     style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
                 </EditField>
               </div>
