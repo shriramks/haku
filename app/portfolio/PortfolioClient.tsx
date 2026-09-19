@@ -403,7 +403,7 @@ export default function PortfolioClient({
         <SectionHeader
           id="epf" label="EPF"
           invested={epf.totalDeposited > 0 ? <Num amount={epf.totalDeposited} align /> : null}
-          gainPct={epf.totalDeposited > 0 ? ((epf.computedBalance - epf.totalDeposited) / epf.totalDeposited * 100) : null}
+          gainPct={epf.xirr !== null ? epf.xirr * 100 : null}
           currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
           open={openSections.has('epf')}
           onToggle={() => toggleSection('epf')}

@@ -86,9 +86,10 @@ export function ppfXirr(
 
 export function epfXirr(
   transactions: Pick<import('./portfolio-types').EPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
-  currentBalance: number
+  currentBalance: number,
+  asOfDate: Date = new Date()
 ): number | null {
-  return flowsXirr(buildCashflows(transactions, EPF_RULE), currentBalance)
+  return flowsXirr(buildCashflows(transactions, EPF_RULE), currentBalance, asOfDate)
 }
 
 export function computeEPFBalance(
@@ -97,51 +98,12 @@ export function computeEPFBalance(
   return transactions.reduce((sum, t) => sum + t.amount, 0)
 }
 
-// Compute PPF balance from stored transactions.
-// If 'interest' rows exist (imported from passbook), sum deposits + interest directly.
-// Otherwise fall back to month-by-month rate estimation using the RBI rule:
-//   - Deposits on or before the 5th earn interest for that month.
-//   - Interest accrues monthly, credited on 31 March each year.
+// PPF balance is the sum of stored rows: deposits and interest add, withdrawals subtract.
+// Interest is never estimated — it is whatever the passbook credited, entered as 'interest' rows.
 export function computePPFBalance(
-  transactions: Pick<import('./portfolio-types').PPFTransaction, 'trade_date' | 'trade_type' | 'amount'>[],
-  asOfDate: Date = new Date()
+  transactions: Pick<import('./portfolio-types').PPFTransaction, 'trade_type' | 'amount'>[]
 ): number {
-  if (transactions.length === 0) return 0
-
-  if (transactions.some(t => t.trade_type === 'interest')) {
-    return transactions.reduce((sum, t) => {
-      if (t.trade_type === 'deposit')    return sum + t.amount
-      if (t.trade_type === 'withdrawal') return sum - t.amount
-      if (t.trade_type === 'interest')   return sum + t.amount
-      return sum
-    }, 0)
-  }
-
-  // Legacy rate-based fallback (no interest rows stored yet)
-  const RATE = 0.071
-  const sorted = [...transactions].sort((a, b) => a.trade_date.localeCompare(b.trade_date))
-  const first  = new Date(sorted[0].trade_date)
-
-  let balance = 0
-  let accrued = 0
-  let y = first.getFullYear()
-  let m = first.getMonth()
-
-  while (y < asOfDate.getFullYear() || (y === asOfDate.getFullYear() && m <= asOfDate.getMonth())) {
-    let interestBase = balance
-    for (const t of sorted) {
-      const d = new Date(t.trade_date)
-      if (d.getFullYear() !== y || d.getMonth() !== m) continue
-      const delta = t.trade_type === 'deposit' ? t.amount : -t.amount
-      balance += delta
-      if (d.getDate() <= 5) interestBase += delta
-    }
-    accrued += Math.max(0, interestBase) * (RATE / 12)
-    if (m === 2) { balance += accrued; accrued = 0 }
-    if (++m > 11) { m = 0; y++ }
-  }
-
-  return Math.max(0, balance + accrued)
+  return transactions.reduce((sum, t) => sum + (t.trade_type === 'withdrawal' ? -t.amount : t.amount), 0)
 }
 
 // Stock XIRR: buys are negative (cash out), sells positive (cash in),

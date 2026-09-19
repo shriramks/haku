@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { xirr, computePPFBalance, stockXirr, portfolioXirr } from '../xirr'
+import { xirr, computePPFBalance, stockXirr, portfolioXirr, epfXirr } from '../xirr'
 
 function d(s: string): Date { return new Date(s) }
 
@@ -66,74 +66,25 @@ describe('xirr solver', () => {
 })
 
 // ── computePPFBalance ─────────────────────────────────────────────────────────
+// A plain sum of stored rows — interest is never estimated.
 
 describe('computePPFBalance', () => {
+  const ppfInterest = (date: string, amount: number) => ({ trade_date: date, trade_type: 'interest' as const, amount })
+
   it('returns 0 for empty transactions', () => {
-    expect(computePPFBalance([], d('2024-01-01'))).toBe(0)
+    expect(computePPFBalance([])).toBe(0)
   })
 
-  it('deposit on the 1st earns 3 months of interest by March 31', () => {
-    // Simple interest check: 100000 × 7.1%/12 × 3 months = 1775
-    const result = computePPFBalance([dep('2020-01-01', 100000)], d('2020-03-31'))
-    expect(result).toBeCloseTo(101775, 0)
+  it('deposits alone sum to exactly the deposited amount — no interest is invented', () => {
+    expect(computePPFBalance([dep('2016-02-11', 100000), dep('2020-04-01', 150000)])).toBe(250000)
   })
 
-  it('deposit after the 5th earns no interest for that month', () => {
-    // Deposited Jan 10 → only Feb + Mar interest = 100000 × 7.1%/12 × 2 = 1183.33
-    const result = computePPFBalance([dep('2020-01-10', 100000)], d('2020-03-31'))
-    expect(result).toBeCloseTo(101183, 0)
-  })
-
-  it('deposit on exactly the 5th qualifies for that month', () => {
-    // Jan 5 deposit → Jan + Feb + Mar interest (3 months)
-    const result = computePPFBalance([dep('2020-01-05', 100000)], d('2020-03-31'))
-    expect(result).toBeCloseTo(101775, 0)
-  })
-
-  it('deposit on the 6th does NOT qualify for January', () => {
-    // Jan 6 → only Feb + Mar (same as depositing on the 10th)
-    const result = computePPFBalance([dep('2020-01-06', 100000)], d('2020-03-31'))
-    expect(result).toBeCloseTo(101183, 0)
-  })
-
-  it('interest compounds annually: balance after first March credit earns interest in year 2', () => {
-    // Jan 1 2020 deposit: first credit Mar 2020 → 101775
-    // Apr 2020–Mar 2021: 101775 × 7.1% = 7226.03 → second credit → 109001
-    const result = computePPFBalance([dep('2020-01-01', 100000)], d('2021-03-31'))
-    expect(result).toBeCloseTo(109001, 0)
-  })
-
-  it('includes accrued-but-not-yet-credited interest in the mid-year estimate', () => {
-    // One month after deposit: 1 month of accrued interest not yet credited (March hasn't happened)
-    const result = computePPFBalance([dep('2020-01-01', 100000)], d('2020-01-31'))
-    expect(result).toBeCloseTo(100000 + 100000 * 0.071 / 12, 1)
-  })
-
-  it('accrued interest resets to 0 after March credit and resumes on the new balance', () => {
-    // After Mar 2020 credit: balance = 101775. In April, accrued on 101775.
-    const afterMarch = computePPFBalance([dep('2020-01-01', 100000)], d('2020-03-31'))
-    const afterApril = computePPFBalance([dep('2020-01-01', 100000)], d('2020-04-30'))
-    expect(afterApril).toBeCloseTo(afterMarch + afterMarch * 0.071 / 12, 1)
-  })
-
-  it('handles withdrawals by reducing the interest base', () => {
-    // Deposit 200000 Jan 1, withdraw 100000 Jan 3 (before 5th)
-    // Effective balance for interest in Jan: 200000 − 100000 = 100000
-    const withWithdrawal = computePPFBalance([
+  it('adds interest rows and subtracts withdrawals', () => {
+    expect(computePPFBalance([
       dep('2020-01-01', 200000),
-      withdrawal('2020-01-03', 100000),
-    ], d('2020-03-31'))
-    const singleDeposit = computePPFBalance([dep('2020-01-01', 100000)], d('2020-03-31'))
-    expect(withWithdrawal).toBeCloseTo(singleDeposit, 0)
-  })
-
-  it('handles multiple deposits across years', () => {
-    // Two equal deposits at start of each year; balance should exceed 2 × 100000
-    const result = computePPFBalance([
-      dep('2020-01-01', 100000),
-      dep('2021-01-01', 100000),
-    ], d('2022-03-31'))
-    expect(result).toBeGreaterThan(200000)
+      ppfInterest('2020-03-31', 14200),
+      withdrawal('2021-01-03', 50000),
+    ])).toBe(164200)
   })
 })
 
@@ -230,5 +181,36 @@ describe('portfolioXirr', () => {
   it('returns null when all cashflows are outflows (no sells and zero terminal)', () => {
     const stocks = [stockBuy('2023-01-01', 100000)]
     expect(portfolioXirr(stocks, [], [], [], [], 0, d('2024-01-01'))).toBeNull()
+  })
+})
+
+// ── epfXirr ───────────────────────────────────────────────────────────────────
+// Deposits are the only outflows; interest rows are not cashflows — they are
+// already inside the terminal balance.
+
+describe('epfXirr', () => {
+  const interest = (date: string, amount: number) => ({ trade_date: date, trade_type: 'interest' as const, amount })
+
+  it('one deposit growing 8% over a year is ~8%', () => {
+    const r = epfXirr([dep('2025-01-01', 100_000)], 108_000, d('2026-01-01'))
+    expect(r).toBeCloseTo(0.08, 2)
+  })
+
+  it('interest rows do not count as outflows — only the terminal balance carries them', () => {
+    const withInterest = epfXirr([dep('2025-01-01', 100_000), interest('2025-12-31', 8_000)], 108_000, d('2026-01-01'))
+    const without      = epfXirr([dep('2025-01-01', 100_000)], 108_000, d('2026-01-01'))
+    expect(withInterest).toBeCloseTo(without!, 10)
+  })
+
+  it('a balance missing not-yet-credited interest understates the return', () => {
+    const deposits = [dep('2025-04-01', 100_000)]
+    const credited = epfXirr(deposits, 100_000, d('2025-10-01'))          // no interest credited yet
+    const accrued  = epfXirr(deposits, 100_000 * 1.0413, d('2025-10-01')) // ~6 months at ~8.25%
+    expect(credited).toBeCloseTo(0, 2)
+    expect(accrued!).toBeGreaterThan(0.08)
+  })
+
+  it('returns null with no deposits', () => {
+    expect(epfXirr([interest('2025-03-31', 5_000)], 5_000, d('2026-01-01'))).toBeNull()
   })
 })
