@@ -5,12 +5,26 @@ import { trimZero } from './formatter'
 import { sgbXirr } from './xirr'
 import type { SGBTransaction, SGBBatch } from './portfolio-types'
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// "YYYY-MM-DD" → "Mon YYYY", parsed straight from the string — never through a
+// Date object. This key round-trips through a URL (PortfolioClient builds the
+// link client-side, app/portfolio/gold/[key]/page.tsx matches it server-side),
+// so it must be byte-identical in both places; going through
+// `new Date(...).toLocaleDateString(...)` is timezone-dependent (server and
+// browser can disagree on which side of midnight a date falls), which made the
+// server-side match silently fail and redirect back to /portfolio.
+function monthYearLabel(dateStr: string): string {
+  const month = parseInt(dateStr.slice(5, 7), 10)
+  return `${MONTH_ABBR[month - 1]} ${dateStr.slice(0, 4)}`
+}
+
 // Pure grouping key, no price needed — lets the detail page filter the full
 // transaction list down to one batch server-side.
 export function keyForSGBTransaction(t: SGBTransaction): string {
   const goldType = t.gold_type ?? 'sgb'
   return goldType === 'sgb'
-    ? new Date(t.trade_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    ? monthYearLabel(t.trade_date)
     : (t.name ?? (goldType === 'physical' ? 'Physical Gold' : 'Gold ETF'))
 }
 
@@ -73,9 +87,7 @@ export function goldDisplayName(b: Pick<SGBBatch, 'goldType' | 'key' | 'name'>):
 
 export function goldMeta(b: Pick<SGBBatch, 'goldType' | 'grams' | 'maturityDate'>): string {
   if (b.goldType === 'sgb') {
-    const matDate = b.maturityDate
-      ? new Date(b.maturityDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-      : '—'
+    const matDate = b.maturityDate ? monthYearLabel(b.maturityDate) : '—'
     return `${trimZero(b.grams)}g · ${matDate}`
   }
   if (b.goldType === 'etf') return `${trimZero(b.grams)} units`
