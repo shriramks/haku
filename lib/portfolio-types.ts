@@ -48,7 +48,8 @@ export interface PPFTransaction {
 export interface EPFTransaction {
   id: string
   user_id?: string
-  trade_date: string
+  trade_date: string          // date added (credited); for interest, 31 Mar of its FY
+  wage_month: string | null   // first of the wage month (YYYY-MM-01); null for interest and transfer-ins — label falls back to trade_date's month
   trade_type: 'deposit' | 'interest'
   amount: number
   notes: string

@@ -117,14 +117,13 @@ export async function addPPFTransaction(
   tradeDate: string,
   tradeType: PPFTransaction['trade_type'],
   amount: number,
-  notes = '',
 ) {
   const userId = await getUserId()
   if (!userId) return { error: 'Not authenticated' }
 
   const sb = await createSupabaseServerClient()
   const { error } = await sb.from('ppf_transactions').insert({
-    user_id: userId, trade_date: tradeDate, trade_type: tradeType, amount, notes,
+    user_id: userId, trade_date: tradeDate, trade_type: tradeType, amount,
   })
 
   if (error) return { error: error.message }
@@ -140,18 +139,19 @@ export async function revalidatePPFTransactions() {
 
 // ── EPF ───────────────────────────────────────────────────────────────────────
 
+/** `tradeDate` is the date added (credited); `wageMonth` is the first of the wage month (YYYY-MM-01), null for interest. */
 export async function addEPFTransaction(
   tradeDate: string,
   tradeType: 'deposit' | 'interest',
   amount: number,
-  notes = '',
+  wageMonth: string | null,
 ) {
   const userId = await getUserId()
   if (!userId) return { error: 'Not authenticated' }
 
   const sb = await createSupabaseServerClient()
   const { error } = await sb.from('epf_transactions').insert({
-    user_id: userId, trade_date: tradeDate, trade_type: tradeType, amount, notes,
+    user_id: userId, trade_date: tradeDate, wage_month: wageMonth, trade_type: tradeType, amount,
   })
 
   if (error) return { error: error.message }

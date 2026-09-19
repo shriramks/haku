@@ -119,6 +119,16 @@ export function todayISO(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+/** The month before a "YYYY-MM-DD" date, as "YYYY-MM" (Jan → previous Dec). Parsed from the string, never a Date.
+ * EPF contributions are credited the month after the wage month they belong to. */
+export function previousMonth(dateStr: string): string {
+  const year = parseInt(dateStr.slice(0, 4), 10)
+  const month = parseInt(dateStr.slice(5, 7), 10)
+  return month === 1
+    ? `${year - 1}-12`
+    : `${year}-${String(month - 1).padStart(2, '0')}`
+}
+
 /** Infer FY label from a date: Apr–Mar cycle → "FY25" */
 export function fyLabel(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { todayISO, formatINRFine, formatINRFull, formatPriceFineNum } from '@/lib/formatter'
+import { todayISO, previousMonth, formatINRFine, formatINRFull, formatPriceFineNum } from '@/lib/formatter'
 import { lastFYEnd } from '@/lib/fy-utils'
 import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
@@ -89,6 +89,8 @@ export default function AddTxnModal({
   // ── EPF ────────────────────────────────────────────────────────────────────
   const [epfType, setEPFType]     = useState<EPFType>('deposit')
   const [epfAmount, setEPFAmount] = useState('')
+  // Contributions are credited the month after the wage month they belong to.
+  const [epfWageMonth, setEPFWageMonth] = useState(() => previousMonth(todayISO()))
 
   // ── Body scroll lock ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,8 +210,8 @@ export default function AddTxnModal({
       err = txnErr ?? null
 
     } else if (assetType === 'epf') {
-      if (!epfAmount) { setLoading(false); return }
-      const { error: txnErr } = await addEPFTransaction(date, epfType, parseFloat(epfAmount))
+      if (!epfAmount || (epfType === 'deposit' && !epfWageMonth)) { setLoading(false); return }
+      const { error: txnErr } = await addEPFTransaction(date, epfType, parseFloat(epfAmount), epfType === 'deposit' ? `${epfWageMonth}-01` : null)
       err = txnErr ?? null
     }
 
@@ -573,11 +575,24 @@ export default function AddTxnModal({
             {/* ── EPF ─────────────────────────────────────────────────────── */}
             {assetType === 'epf' && (
               <>
-                <div>
-                  <FieldLabel>{epfType === 'interest' ? 'Date' : 'Month'}</FieldLabel>
-                  <DateInput value={date} onChange={setDate} />
-                  {epfType === 'interest' && <InterestDateHint />}
-                </div>
+                {epfType === 'deposit' ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="min-w-0">
+                      <FieldLabel>Wage month</FieldLabel>
+                      <MonthInput value={epfWageMonth} onChange={setEPFWageMonth} />
+                    </div>
+                    <div className="min-w-0">
+                      <FieldLabel>Date added</FieldLabel>
+                      <DateInput value={date} onChange={setDate} />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <FieldLabel>Date</FieldLabel>
+                    <DateInput value={date} onChange={setDate} />
+                    <InterestDateHint />
+                  </div>
+                )}
                 <div>
                   <FieldLabel>Amount ₹</FieldLabel>
                   <input type="number" inputMode="numeric" placeholder="51550" value={epfAmount}
@@ -587,7 +602,7 @@ export default function AddTxnModal({
                     style={{ height: 52, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                 </div>
                 {error && <p className="text-negative text-subheadline text-center">{error}</p>}
-                <Button type="submit" loading={loading} disabled={!epfAmount} fullWidth
+                <Button type="submit" loading={loading} disabled={!epfAmount || (epfType === 'deposit' && !epfWageMonth)} fullWidth
                   style={{ background: done ? 'var(--border)' : undefined }}>
                   {done ? '✓ Added' : `Save ${EPF_TYPES.find(o => o.id === epfType)!.label}`}
                 </Button>
@@ -639,6 +654,16 @@ function InterestDateHint() {
     <p className="text-footnote mt-1.5" style={{ color: 'var(--text-faint)' }}>
       Use 31 Mar of the FY this interest is for
     </p>
+  )
+}
+
+/** Month picker; value and onChange use "YYYY-MM". */
+function MonthInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <input type="month" value={value} onChange={e => onChange(e.target.value)} required
+      onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
+      className="w-full px-3 py-2.5 rounded-xl text-body outline-none max-w-full"
+      style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
   )
 }
 

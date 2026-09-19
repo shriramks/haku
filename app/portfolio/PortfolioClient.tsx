@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { trimZero, fyLabel, monthYear } from '@/lib/formatter'
+import { trimZero, fyLabel, monthYear, formatDate } from '@/lib/formatter'
 import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
@@ -703,7 +703,8 @@ function EPFRow({ epf, onSaved, onDeleted }: {
             txn={epfToDisplayTxn(t)}
             showAssetTag={false}
             compactLabel={{
-              text: isInterest ? `Interest ${fyLabel(t.trade_date)}` : monthYear(t.trade_date),
+              text: isInterest ? `Interest ${fyLabel(t.trade_date)}` : monthYear(t.wage_month ?? t.trade_date),
+              faint: formatDate(t.trade_date),
               italic: isInterest,
             }}
             onDelete={id => onDeleted(id)}

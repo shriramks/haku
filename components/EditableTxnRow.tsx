@@ -149,7 +149,7 @@ interface PPFEditState {
 }
 interface EPFEditState {
   kind: 'epf'
-  amount: string; date: string; trade_type: 'deposit' | 'interest'; notes: string
+  amount: string; date: string; wage_month: string; trade_type: 'deposit' | 'interest'; notes: string  // wage_month is "YYYY-MM", '' when none
   saving: boolean; confirming: boolean
 }
 type ActiveEdit = StockEditState | MFEditState | SGBEditState | PPFEditState | EPFEditState
@@ -218,9 +218,10 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
   showAssetTag: boolean
   // Overrides the resting-state name/date/detail block with a single plain line —
   // used where txn.name would just repeat the section header (e.g. Portfolio's
-  // EPF list, where every row is already under an "EPF" heading and the month
-  // of contribution is the only thing worth reading at rest).
-  compactLabel?: { text: string; italic?: boolean }
+  // EPF list, where every row is already under an "EPF" heading and the wage
+  // month is the main thing worth reading at rest). `faint` trails the text in a
+  // fainter, smaller style — the date the amount was added.
+  compactLabel?: { text: string; faint?: string; italic?: boolean }
   onDelete: (id: string, asset: AssetType) => void
   onSavedStock: (updated: Transaction) => void
   onSavedMF: (updated: MFTransaction) => void
@@ -246,7 +247,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
     } else if (ppf) {
       setActiveEdit({ kind: 'ppf', amount: String(ppf.amount), date: ppf.trade_date, trade_type: ppf.trade_type, notes: ppf.notes ?? '', saving: false, confirming: false })
     } else if (epf) {
-      setActiveEdit({ kind: 'epf', amount: String(epf.amount), date: epf.trade_date, trade_type: epf.trade_type, notes: epf.notes ?? '', saving: false, confirming: false })
+      setActiveEdit({ kind: 'epf', amount: String(epf.amount), date: epf.trade_date, wage_month: epf.wage_month?.slice(0, 7) ?? '', trade_type: epf.trade_type, notes: epf.notes ?? '', saving: false, confirming: false })
     }
   }
 
@@ -314,7 +315,8 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
     } else if (activeEdit.kind === 'epf' && epf) {
       const amount = parseFloat(activeEdit.amount)
       if (!amount || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
-      const patch = { amount, trade_date: activeEdit.date, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
+      const wage_month = activeEdit.trade_type === 'deposit' && activeEdit.wage_month ? `${activeEdit.wage_month}-01` : null
+      const patch = { amount, trade_date: activeEdit.date, wage_month, trade_type: activeEdit.trade_type, notes: activeEdit.notes }
       await getSupabaseBrowser().from('epf_transactions').update(patch).eq('id', txn.id)
       await revalidateEPFTransactions()
       onSavedEPF({ ...epf, ...patch })
@@ -477,13 +479,23 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
                   className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
               </EditField>
-              <EditField label="Date">
+              <EditField label={activeEdit.kind === 'epf' ? 'Date added' : 'Date'}>
                 <input type="date" value={activeEdit.date}
                   onChange={e => setActiveEdit(prev => (prev?.kind === 'ppf' || prev?.kind === 'epf') ? { ...prev, date: e.target.value } : prev)}
                   className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
             </div>
+            {activeEdit.kind === 'epf' && activeEdit.trade_type === 'deposit' && (
+              <div className="mb-2">
+                <EditField label="Wage month">
+                  <input type="month" value={activeEdit.wage_month}
+                    onChange={e => setActiveEdit(prev => prev?.kind === 'epf' ? { ...prev, wage_month: e.target.value } : prev)}
+                    className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
+                </EditField>
+              </div>
+            )}
             <div className="mb-2">
               <EditField label="Type">
                 <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
@@ -543,6 +555,9 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
           <p className="text-body tabnum truncate"
              style={{ color: 'var(--text-2)', fontStyle: compactLabel.italic ? 'italic' : 'normal' }}>
             {compactLabel.text}
+            {compactLabel.faint && (
+              <span className="text-subheadline" style={{ color: 'var(--text-faint)', fontStyle: 'normal' }}> · {compactLabel.faint}</span>
+            )}
           </p>
         ) : (
           <>

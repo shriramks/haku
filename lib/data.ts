@@ -236,7 +236,7 @@ const _fetchEPFTransactions = unstable_cache(
   async (userId: string): Promise<EPFTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('epf_transactions')
-      .select('id, trade_date, trade_type, amount, notes')
+      .select('id, trade_date, wage_month, trade_type, amount, notes')
       .eq('user_id', userId)
       .order('trade_date', { ascending: true })
     return (data ?? []) as EPFTransaction[]

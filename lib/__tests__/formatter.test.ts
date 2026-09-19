@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fyLabel, formatINRFine, formatPriceFine } from '../formatter'
+import { fyLabel, formatINRFine, formatPriceFine, previousMonth } from '../formatter'
 
 const THIN = ' '
 
@@ -80,5 +80,15 @@ describe('fyLabel — April-March fiscal year', () => {
   })
   it('accepts Date objects', () => {
     expect(fyLabel(new Date('2025-06-15'))).toBe('FY26')
+  })
+})
+
+describe('previousMonth', () => {
+  it('returns the month before, zero-padded', () => {
+    expect(previousMonth('2026-09-19')).toBe('2026-08')
+    expect(previousMonth('2026-11-02')).toBe('2026-10')
+  })
+  it('January rolls back to December of the previous year', () => {
+    expect(previousMonth('2026-01-15')).toBe('2025-12')
   })
 })
