@@ -32,10 +32,18 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
   function updateTxn(u: MFTransaction) { setTransactions(prev => prev.map(t => t.id === u.id ? u : t)) }
   function deleteTxn(id: string)       { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
+  // Latest NAV from AMFI's official file (lib/amfi.ts) — mfapi.in as fallback
+  // if AMFI's file doesn't have this scheme_code or the fetch fails. See #113.
   useEffect(() => {
-    fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
-      .then(r => r.json())
-      .then(d => setNav(parseFloat(d.data?.[0]?.nav ?? '0') || null))
+    fetch(`/api/mf-nav?codes=${encodeURIComponent(fund.scheme_code)}`)
+      .then(r => r.ok ? r.json() : { navs: {} })
+      .then(d => {
+        const amfiNav = d.navs?.[fund.scheme_code]?.nav
+        if (amfiNav) return setNav(amfiNav)
+        return fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
+          .then(r => r.json())
+          .then(d => setNav(parseFloat(d.data?.[0]?.nav ?? '0') || null))
+      })
       .catch(() => setNav(null))
       .finally(() => setNavLoading(false))
   }, [fund.scheme_code])

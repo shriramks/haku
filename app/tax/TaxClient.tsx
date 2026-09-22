@@ -89,15 +89,37 @@ export default function TaxClient({
           .catch(() => {})
       )
     }
-    for (const fund of mfFunds.filter(f => mfAssetClass(f) === 'equity')) {
+    const equityFunds = mfFunds.filter(f => mfAssetClass(f) === 'equity')
+    if (equityFunds.length > 0) {
+      // Latest NAV from AMFI's official file (lib/amfi.ts), one batched request
+      // instead of one per fund; mfapi.in per-fund fallback for any scheme_code
+      // AMFI's file doesn't have. See #113.
       fetches.push(
-        fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
-          .then(r => r.json())
+        fetch(`/api/mf-nav?codes=${encodeURIComponent(equityFunds.map(f => f.scheme_code).join(','))}`)
+          .then(r => r.ok ? r.json() : { navs: {} })
           .then(d => {
-            const nav = parseFloat(d.data?.[0]?.nav)
-            if (!isNaN(nav)) setNavs(prev => ({ ...prev, [fund.scheme_code]: nav }))
+            const amfiNavs = d.navs ?? {}
+            setNavs(prev => {
+              const next = { ...prev }
+              for (const fund of equityFunds) {
+                const nav = amfiNavs[fund.scheme_code]?.nav
+                if (nav) next[fund.scheme_code] = nav
+              }
+              return next
+            })
+            return equityFunds.filter(f => !amfiNavs[f.scheme_code]?.nav)
           })
-          .catch(() => {})
+          .catch(() => equityFunds)
+          .then(async missing => {
+            await Promise.allSettled(missing.map(fund =>
+              fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
+                .then(r => r.json())
+                .then(d => {
+                  const nav = parseFloat(d.data?.[0]?.nav)
+                  if (!isNaN(nav)) setNavs(prev => ({ ...prev, [fund.scheme_code]: nav }))
+                })
+            ))
+          })
       )
     }
     Promise.allSettled(fetches).then(() => setPricesLoading(false))

@@ -1,18 +1,5 @@
 import type { DividendEntry } from '@/lib/screener'
-
-const NSE_MONTH: Record<string, string> = {
-  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
-}
-
-function parseNseDate(raw: string): string | null {
-  // "30-Jan-2026" → "2026-01-30"
-  const m = raw.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/)
-  if (!m) return null
-  const month = NSE_MONTH[m[2]]
-  if (!month) return null
-  return `${m[3]}-${month}-${m[1].padStart(2, '0')}`
-}
+import { parseDDMonYYYY } from '@/lib/formatter'
 
 function parseNseAmount(subject: string): number {
   // Sums all "Rs X.XX Per Share" occurrences — handles combined subjects like
@@ -44,7 +31,7 @@ export async function fetchNseDividends(symbol: string): Promise<DividendEntry[]
   const results: DividendEntry[] = []
   for (const action of actions) {
     if (!action.subject.toLowerCase().includes('dividend')) continue
-    const ex_date = parseNseDate(action.exDate)
+    const ex_date = parseDDMonYYYY(action.exDate)
     if (!ex_date) continue
     const per_share = parseNseAmount(action.subject)
     if (per_share <= 0) continue

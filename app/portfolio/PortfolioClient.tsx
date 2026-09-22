@@ -174,33 +174,49 @@ export default function PortfolioClient({
       .catch(() => {})
   }, [refreshKey])
 
-  // Live NAV fetch from mfapi.in; seeded from localStorage above so the MF section
-  // renders real numbers immediately, then this refreshes in the background.
-  // Only activeMfFunds — mf_funds keeps every fund ever created, and fetching for
-  // sold-out ones (some with a garbage non-numeric scheme_code from old imports)
-  // was firing dead requests to api.mfapi.in and leaving navsLoading stuck.
-  // The same response's data[1] is the previous *published* NAV (not strictly
-  // "yesterday" — lags further over a weekend/holiday gap) — used for 1D gain,
-  // no extra request needed.
+  // Latest NAV comes from AMFI's official bulk file (lib/amfi.ts, via
+  // /api/mf-nav) — mfapi.in was found to serve it up to 3+ calendar days stale
+  // (see progress log #113), which fed a stale multi-day move into oneDayXirr's
+  // 1-day annualization and produced #112's 202% XIRR bug. mfapi.in per-fund is
+  // kept for two things: the previous-day NAV (1D gain; AMFI's file has no
+  // history), and as a fallback current NAV for any scheme_code AMFI's file
+  // doesn't have (or if the AMFI fetch fails outright).
+  // Seeded from localStorage above so the MF section renders real numbers
+  // immediately, then this refreshes in the background. Only activeMfFunds —
+  // mf_funds keeps every fund ever created, and fetching for sold-out ones
+  // (some with a garbage non-numeric scheme_code from old imports) was firing
+  // dead requests and leaving navsLoading stuck.
   useEffect(() => {
     if (activeMfFunds.length === 0) return
-    Promise.all(
-      activeMfFunds.map(f =>
-        fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
-          .then(r => r.json())
-          .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0'), parseFloat(d.data?.[1]?.nav ?? '0') || null] as [string, number, number | null])
-          .catch(() => [f.scheme_code, 0, null] as [string, number, number | null])
-      )
-    ).then(results => {
+    const codes = activeMfFunds.map(f => f.scheme_code)
+    Promise.all([
+      fetch(`/api/mf-nav?codes=${encodeURIComponent(codes.join(','))}`)
+        .then(r => r.ok ? r.json() : { navs: {} })
+        .catch(() => ({ navs: {} })) as Promise<{ navs: Record<string, { nav: number; date: string; stale: boolean }> }>,
+      Promise.all(
+        activeMfFunds.map(f =>
+          fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
+            .then(r => r.json())
+            .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0') || null, parseFloat(d.data?.[1]?.nav ?? '0') || null] as [string, number | null, number | null])
+            .catch(() => [f.scheme_code, null, null] as [string, number | null, number | null])
+        )
+      ),
+    ]).then(([amfiResult, mfapiResults]) => {
+      const amfiNavs = amfiResult.navs ?? {}
       setNavs(prev => {
         const next = { ...prev }
-        for (const [code, nav] of results) { if (nav > 0) next[code] = nav }
+        for (const [code, mfapiNav] of mfapiResults) {
+          const nav = amfiNavs[code]?.nav ?? mfapiNav
+          if (nav) next[code] = nav
+        }
         try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(next)) } catch {}
         return next
       })
       setPrevNavs(prev => {
         const next = { ...prev }
-        for (const [code, , prevNav] of results) next[code] = prevNav
+        for (const [code, , mfapiPrevNav] of mfapiResults) {
+          next[code] = amfiNavs[code]?.stale ? null : mfapiPrevNav
+        }
         return next
       })
       setNavsLoading(false)

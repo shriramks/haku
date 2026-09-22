@@ -149,3 +149,12 @@ export function monthYear(dateStr: string): string {
   const month = parseInt(dateStr.slice(5, 7), 10)
   return `${MONTH_ABBR[month - 1]} ${dateStr.slice(0, 4)}`
 }
+
+/** "30-Jan-2026" → "2026-01-30". Shared by NSE and AMFI feeds, which both use this format. */
+export function parseDDMonYYYY(raw: string): string | null {
+  const m = raw.match(/(\d{1,2})-([A-Za-z]{3})-(\d{4})/)
+  if (!m) return null
+  const month = MONTH_ABBR.indexOf(m[2])
+  if (month === -1) return null
+  return `${m[3]}-${String(month + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`
+}
