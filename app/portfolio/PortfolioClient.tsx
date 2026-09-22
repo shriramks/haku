@@ -35,6 +35,7 @@ function computeStockHoldings(
   transactions: Transaction[],
   bands: BuyBand[],
   allowedSymbols: string[],
+  liveCmp: Record<string, number>,
 ): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null }[] {
   const allowed = new Set(allowedSymbols)
   const bySymbol: Record<string, Transaction[]> = {}
@@ -47,7 +48,9 @@ function computeStockHoldings(
     .flatMap(([symbol, txns]) => {
       const { qty, cost } = seqCost(txns)
       if (qty <= 0.001) return []
-      const cmp = cmpBySymbol.get(symbol)
+      // Prefer a live-fetched CMP over the stored band snapshot, which only
+      // updates when bands are (re)generated and can be stale for days.
+      const cmp = liveCmp[symbol] ?? cmpBySymbol.get(symbol) ?? null
       const currentValue = cmp ? qty * cmp : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
@@ -125,6 +128,7 @@ export default function PortfolioClient({
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
   const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
   const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
+  const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null
     const v = localStorage.getItem('goldPricePerGram')
@@ -168,7 +172,23 @@ export default function PortfolioClient({
     })
   }, [mfFunds, refreshKey])
 
-  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols), [allTransactions, bands, latestYearSymbols])
+  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp), [allTransactions, bands, latestYearSymbols, liveCmp])
+
+  // Live CMP fetch for held stocks — bands.cmp above is a stored snapshot that only
+  // refreshes when bands are (re)generated on the Bands screen, so it can be stale
+  // for days. Mirrors the NAV/gold-price live-fetch pattern; the symbol set is
+  // derived from holdings but doesn't depend on cmp, so this can't loop with the
+  // state update below. No DB write-back — unlike BandsClient's refresh, this is
+  // local display state only, so it can't race with band generation elsewhere.
+  const heldSymbolsKey = stockHoldings.map(h => h.symbol).join(',')
+  useEffect(() => {
+    if (!heldSymbolsKey) return
+    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(heldSymbolsKey)}`)
+      .then(r => r.json())
+      .then(d => { if (d.prices) setLiveCmp(prev => ({ ...prev, ...d.prices })) })
+      .catch(() => {})
+  }, [heldSymbolsKey, refreshKey])
+
   // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
   const equity: EquitySummary = useMemo(() => ({
     holdingsCount: stockHoldings.length,
