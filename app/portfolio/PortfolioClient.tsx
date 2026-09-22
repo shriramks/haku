@@ -36,7 +36,8 @@ function computeStockHoldings(
   bands: BuyBand[],
   allowedSymbols: string[],
   liveCmp: Record<string, number>,
-): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null }[] {
+  prevClose: Record<string, number | null>,
+): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null; gain1d: number | null; gain1dPct: number | null }[] {
   const allowed = new Set(allowedSymbols)
   const bySymbol: Record<string, Transaction[]> = {}
   for (const t of transactions) {
@@ -54,7 +55,10 @@ function computeStockHoldings(
       const currentValue = cmp ? qty * cmp : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
-      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal }]
+      const prev = prevClose[symbol] ?? null
+      const gain1d = cmp && prev ? qty * (cmp - prev) : null
+      const gain1dPct = cmp && prev ? (cmp / prev - 1) * 100 : null
+      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal, gain1d, gain1dPct }]
     })
     .sort((a, b) => a.symbol.localeCompare(b.symbol))
 }
@@ -129,6 +133,7 @@ export default function PortfolioClient({
   const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
   const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
   const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
+  const [prevClose, setPrevClose] = useState<Record<string, number | null>>({})
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null
     const v = localStorage.getItem('goldPricePerGram')
@@ -172,7 +177,7 @@ export default function PortfolioClient({
     })
   }, [mfFunds, refreshKey])
 
-  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp), [allTransactions, bands, latestYearSymbols, liveCmp])
+  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp, prevClose), [allTransactions, bands, latestYearSymbols, liveCmp, prevClose])
 
   // Live CMP fetch for held stocks — bands.cmp above is a stored snapshot that only
   // refreshes when bands are (re)generated on the Bands screen, so it can be stale
@@ -185,7 +190,10 @@ export default function PortfolioClient({
     if (!heldSymbolsKey) return
     fetch(`/api/cmp/batch?symbols=${encodeURIComponent(heldSymbolsKey)}`)
       .then(r => r.json())
-      .then(d => { if (d.prices) setLiveCmp(prev => ({ ...prev, ...d.prices })) })
+      .then(d => {
+        if (d.prices) setLiveCmp(prev => ({ ...prev, ...d.prices }))
+        if (d.prevClose) setPrevClose(prev => ({ ...prev, ...d.prevClose }))
+      })
       .catch(() => {})
   }, [heldSymbolsKey, refreshKey])
 
@@ -194,6 +202,7 @@ export default function PortfolioClient({
     holdingsCount: stockHoldings.length,
     invested:      stockHoldings.reduce((s, h) => s + h.invested, 0),
     currentValue:  stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0),
+    gain1d:        stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0),
   }), [stockHoldings])
   const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])

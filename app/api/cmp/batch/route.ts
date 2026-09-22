@@ -11,6 +11,6 @@ export async function GET(req: NextRequest) {
   if (symbols.length === 0)
     return NextResponse.json({ error: 'symbols param required' }, { status: 400 })
 
-  const { prices, week52 } = await fetchCmpBatch(symbols)
-  return NextResponse.json({ prices, week52 })
+  const { prices, prevClose, changePercent, week52 } = await fetchCmpBatch(symbols)
+  return NextResponse.json({ prices, prevClose, changePercent, week52 })
 }

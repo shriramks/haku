@@ -94,6 +94,7 @@ export interface EquitySummary {
   holdingsCount: number
   invested: number
   currentValue: number
+  gain1d: number | null
 }
 
 export interface PPFSummary {

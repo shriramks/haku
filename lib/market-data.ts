@@ -7,11 +7,13 @@ const YAHOO_UA = 'Mozilla/5.0'
 
 export interface CmpQuote {
   price: number
+  previousClose: number | null
+  changePercent: number | null
   week52Low: number | null
   week52High: number | null
 }
 
-/** Fetches CMP + 52W low/high for a single NSE symbol. Returns null on any failure. */
+/** Fetches CMP + prev close + 52W low/high for a single NSE symbol. Returns null on any failure. */
 export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.NS`
@@ -21,9 +23,11 @@ export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
     const meta = json?.chart?.result?.[0]?.meta
     if (!meta?.regularMarketPrice) return null
     return {
-      price:      meta.regularMarketPrice as number,
-      week52Low:  (meta.fiftyTwoWeekLow  as number) ?? null,
-      week52High: (meta.fiftyTwoWeekHigh as number) ?? null,
+      price:         meta.regularMarketPrice as number,
+      previousClose: (meta.previousClose as number) ?? null,
+      changePercent: (meta.regularMarketChangePercent as number) ?? null,
+      week52Low:     (meta.fiftyTwoWeekLow  as number) ?? null,
+      week52High:    (meta.fiftyTwoWeekHigh as number) ?? null,
     }
   } catch {
     return null
@@ -62,10 +66,12 @@ export async function fetchYearChart(symbol: string): Promise<YearChart> {
 
 export interface CmpQuoteBatch {
   prices: Record<string, number>
+  prevClose: Record<string, number | null>
+  changePercent: Record<string, number | null>
   week52: Record<string, { low: number | null; high: number | null }>
 }
 
-/** Fetches CMP + 52W low/high for multiple NSE symbols in one request.
+/** Fetches CMP + prev close + 52W low/high for multiple NSE symbols in one request.
  *  Tries Yahoo v7 batch first; falls back to parallel v8 chart calls if the
  *  batch returns empty results (Yahoo frequently blocks server-side batch
  *  requests while the per-symbol chart endpoint remains accessible). */
@@ -80,18 +86,24 @@ export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
       const results: {
         symbol: string
         regularMarketPrice: number
+        regularMarketPreviousClose?: number
+        regularMarketChangePercent?: number
         fiftyTwoWeekLow?: number
         fiftyTwoWeekHigh?: number
       }[] = json?.quoteResponse?.result ?? []
       if (results.length > 0) {
         const prices: Record<string, number> = {}
+        const prevClose: Record<string, number | null> = {}
+        const changePercent: Record<string, number | null> = {}
         const week52: Record<string, { low: number | null; high: number | null }> = {}
         for (const r of results) {
           const sym = r.symbol.replace(/\.NS$/, '')
           if (r.regularMarketPrice) prices[sym] = r.regularMarketPrice
+          prevClose[sym] = r.regularMarketPreviousClose ?? null
+          changePercent[sym] = r.regularMarketChangePercent ?? null
           week52[sym] = { low: r.fiftyTwoWeekLow ?? null, high: r.fiftyTwoWeekHigh ?? null }
         }
-        return { prices, week52 }
+        return { prices, prevClose, changePercent, week52 }
       }
     }
   } catch { /* fall through to per-symbol fallback */ }
@@ -99,10 +111,14 @@ export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
   // Attempt 2: Parallel per-symbol v8 chart calls
   const quotes = await Promise.all(symbols.map(sym => fetchCmpQuote(sym).then(q => ({ sym, q }))))
   const prices: Record<string, number> = {}
+  const prevClose: Record<string, number | null> = {}
+  const changePercent: Record<string, number | null> = {}
   const week52: Record<string, { low: number | null; high: number | null }> = {}
   for (const { sym, q } of quotes) {
     if (q?.price) prices[sym] = q.price
+    prevClose[sym] = q?.previousClose ?? null
+    changePercent[sym] = q?.changePercent ?? null
     week52[sym] = { low: q?.week52Low ?? null, high: q?.week52High ?? null }
   }
-  return { prices, week52 }
+  return { prices, prevClose, changePercent, week52 }
 }
