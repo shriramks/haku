@@ -12,7 +12,7 @@ import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr, oneDayXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { computeMFHolding } from '@/lib/mf-compute'
+import { computeMFHolding, computeMFLots } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
@@ -83,6 +83,18 @@ function computeMFHoldings(
     .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
 }
 
+// `mf_funds` holds every fund ever created (getMFFunds has no active-holding
+// filter), including long-sold-out entries — some tagged with a garbage
+// non-numeric scheme_code (a fund name, not an AMFI code) from old imports.
+// Only funds with a live unit balance need a live NAV fetch.
+function filterActiveMfFunds(funds: MFund[], transactions: MFTransaction[]): MFund[] {
+  const byFund: Record<string, MFTransaction[]> = {}
+  for (const t of transactions) {
+    ;(byFund[t.fund_id] ??= []).push(t)
+  }
+  return funds.filter(f => computeMFLots(byFund[f.id] ?? []).units >= 0.001)
+}
+
 function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
   const totalDeposited = transactions
     .filter(t => t.trade_type === 'deposit')
@@ -131,8 +143,9 @@ export default function PortfolioClient({
   const [openSections, setOpenSections] = useState(new Set<string>())
   const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
+  const activeMfFunds = useMemo(() => filterActiveMfFunds(mfFunds, mfTransactions), [mfFunds, mfTransactions])
   const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
-  const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
+  const [navsLoading, setNavsLoading] = useState(() => activeMfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
   const [prevNavs, setPrevNavs] = useState<Record<string, number | null>>({})
   const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
   const [prevClose, setPrevClose] = useState<Record<string, number | null>>({})
@@ -163,13 +176,16 @@ export default function PortfolioClient({
 
   // Live NAV fetch from mfapi.in; seeded from localStorage above so the MF section
   // renders real numbers immediately, then this refreshes in the background.
+  // Only activeMfFunds — mf_funds keeps every fund ever created, and fetching for
+  // sold-out ones (some with a garbage non-numeric scheme_code from old imports)
+  // was firing dead requests to api.mfapi.in and leaving navsLoading stuck.
   // The same response's data[1] is the previous *published* NAV (not strictly
   // "yesterday" — lags further over a weekend/holiday gap) — used for 1D gain,
   // no extra request needed.
   useEffect(() => {
-    if (mfFunds.length === 0) return
+    if (activeMfFunds.length === 0) return
     Promise.all(
-      mfFunds.map(f =>
+      activeMfFunds.map(f =>
         fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
           .then(r => r.json())
           .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0'), parseFloat(d.data?.[1]?.nav ?? '0') || null] as [string, number, number | null])
@@ -189,7 +205,7 @@ export default function PortfolioClient({
       })
       setNavsLoading(false)
     })
-  }, [mfFunds, refreshKey])
+  }, [activeMfFunds, refreshKey])
 
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp, prevClose), [allTransactions, bands, latestYearSymbols, liveCmp, prevClose])
 
