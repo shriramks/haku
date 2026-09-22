@@ -141,10 +141,13 @@ export default function PortfolioClient({
     const v = localStorage.getItem('goldPricePerGram')
     return v ? parseFloat(v) : null
   })
+  const [prevGoldPrice, setPrevGoldPrice] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Live gold price via Yahoo Finance proxy; persists last known price in localStorage
+  // Live gold price via Yahoo Finance proxy; persists last known price in localStorage.
+  // prevPricePerGram (yesterday's close) feeds 1D gain only — not persisted, same as
+  // prevNavs/prevClose above.
   useEffect(() => {
     fetch('/api/gold-price')
       .then(r => r.json())
@@ -153,6 +156,7 @@ export default function PortfolioClient({
           setGoldPrice(d.pricePerGram)
           localStorage.setItem('goldPricePerGram', String(d.pricePerGram))
         }
+        setPrevGoldPrice(d.prevPricePerGram ?? null)
       })
       .catch(() => {})
   }, [refreshKey])
@@ -259,6 +263,8 @@ export default function PortfolioClient({
   const goldPct = 100 - eqPct - debtPct
 
   const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
+  // Portfolio-level only — no per-batch line item (gold rows don't get a 1D figure, unlike Stock/MF).
+  const goldGain1d = goldPrice !== null && prevGoldPrice !== null ? totalGoldGrams * (goldPrice - prevGoldPrice) : null
 
   function handleRefresh() {
     setRefreshing(true)
