@@ -116,6 +116,30 @@ export function stockXirr(
   return flowsXirr(buildCashflows(transactions, TRADE_RULE), currentValue, asOfDate)
 }
 
+// 1D XIRR: today's blended portfolio return, annualised. Feeds the existing xirr()
+// engine two cashflows exactly 1 day apart — yesterday's total (today − 1D gain) as
+// an outflow, today's total as an inflow — which reduces to (today/yesterday)^365 − 1.
+// A single-day gap makes the exponent in xirr()'s Newton-Raphson tiny (~1/365.25), so
+// the function is nearly flat in r and the solver's default guess (10%) doesn't
+// converge for a loss. The exact root has a closed form here — pass it as the guess
+// so the shared solver still runs, but lands in one step instead of drifting.
+export function oneDayXirr(
+  currentValue: number,
+  gain1d: number,
+  asOfDate: Date = new Date()
+): number | null {
+  const previousValue = currentValue - gain1d
+  if (currentValue <= 0 || previousValue <= 0) return null
+  const yesterday = new Date(asOfDate)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const t = (asOfDate.getTime() - yesterday.getTime()) / MS_PER_YEAR
+  const guess = Math.pow(currentValue / previousValue, 1 / t) - 1
+  return xirr([
+    { date: yesterday, amount: -previousValue },
+    { date: asOfDate,  amount: currentValue },
+  ], guess)
+}
+
 // Portfolio-level XIRR across all asset classes.
 // totalCurrentValue must equal the sum of equity + MF + gold + PPF current values
 // used in the portfolio summary — consistency between cashflows and terminal value matters.

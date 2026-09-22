@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { trimZero, fyLabel, monthYear, formatDate } from '@/lib/formatter'
+import { trimZero, fyLabel, monthYear, formatDate, getGainColor } from '@/lib/formatter'
 import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
-import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
+import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr, oneDayXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
 import { computeMFHolding } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
@@ -266,6 +266,12 @@ export default function PortfolioClient({
   // Portfolio-level only — no per-batch line item (gold rows don't get a 1D figure, unlike Stock/MF).
   const goldGain1d = goldPrice !== null && prevGoldPrice !== null ? totalGoldGrams * (goldPrice - prevGoldPrice) : null
 
+  // 1D Gain rolls in Stocks + MF + Gold — PPF/EPF excluded (no daily price). 1D XIRR
+  // treats totalCurrent as "today" and totalCurrent − totalGain1d as "yesterday",
+  // so static PPF/EPF dilute the annualised figure exactly like they should.
+  const totalGain1d = (equity.gain1d ?? 0) + mfGain1d + (goldGain1d ?? 0)
+  const dayXirr      = oneDayXirr(totalCurrent, totalGain1d)
+
   function handleRefresh() {
     setRefreshing(true)
     setRefreshKey(k => k + 1)
@@ -314,10 +320,12 @@ export default function PortfolioClient({
         <div className="flex flex-col gap-2">
           <SCell label="Current Value" amount={totalCurrent} />
           <SCell label="Gain" amount={totalGain} signed />
+          <SCell label="1D Gain" amount={totalGain1d} signed />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
           <SCell label="Invested" amount={totalInvested} />
           <SCell label="XIRR p.a." pct={overallXirr !== null ? overallXirr * 100 : null} signed />
+          <SCell label="1D XIRR" pct={dayXirr !== null ? dayXirr * 100 : null} signed />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
@@ -342,7 +350,7 @@ export default function PortfolioClient({
                 {stockHoldings.map(h => (
                   <FundRow key={h.symbol}
                     name={h.symbol}
-                    meta={`${h.qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} shares`}
+                    dayGain={{ amount: h.gain1d, pct: h.gain1dPct }}
                     invested={h.invested}
                     current={h.currentValue}
                     gain={h.gain}
@@ -381,7 +389,7 @@ export default function PortfolioClient({
                     {group.holdings.map(h => (
                       <FundRow key={h.fund.id}
                         name={h.fund.scheme_name}
-                        meta={`${h.units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units`}
+                        dayGain={{ amount: h.gain1d, pct: h.gain1dPct }}
                         invested={h.invested}
                         current={h.currentValue}
                         gain={h.gain}
@@ -651,9 +659,11 @@ function MFGroupDivider({ label, color, amount }: { label: string; color: string
   )
 }
 
-function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
-  name: string; meta: string; invested: number; current: number | null
-  gain: number | null; xirr: number | null; onClick?: () => void
+function FundRow({ name, meta, dayGain, invested, current, gain, xirr, onClick }: {
+  name: string; meta?: string; invested: number; current: number | null
+  gain: number | null; xirr: number | null
+  dayGain?: { amount: number | null; pct: number | null }
+  onClick?: () => void
 }) {
   const positive = (gain ?? 0) > 0
   const xirrPct = xirr !== null ? xirr * 100
@@ -668,7 +678,16 @@ function FundRow({ name, meta, invested, current, gain, xirr, onClick }: {
             <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
           )}
         </div>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)' }}>{meta}</p>
+        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+          {dayGain ? (
+            <>
+              <span style={{ color: 'var(--text-faint)' }}>1D</span>{' '}
+              <span style={{ color: dayGain.amount !== null ? getGainColor(dayGain.amount) : 'var(--text-2)' }}>
+                <Num amount={dayGain.amount} signed />{'  '}<Num pct={dayGain.pct} signed />
+              </span>
+            </>
+          ) : meta}
+        </p>
       </div>
       <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
         <Num amount={invested} align />
