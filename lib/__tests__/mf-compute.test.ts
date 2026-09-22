@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { computeMFLots } from '../mf-compute'
+import { computeMFLots, filterActiveMfFunds } from '../mf-compute'
+import type { MFund, MFTransaction } from '../portfolio-types'
 
 type T = { trade_type: 'buy' | 'sell'; units: number; nav: number }
 
@@ -108,5 +109,43 @@ describe('computeMFLots — oversell', () => {
     const r = computeMFLots([sell(100, 50)])
     expect(r.units).toBeCloseTo(0)
     expect(r.invested).toBeCloseTo(0)
+  })
+})
+
+// ── filterActiveMfFunds ──────────────────────────────────────────────────────
+
+function mkFund(id: string, schemeCode: string): MFund {
+  return { id, scheme_code: schemeCode, scheme_name: `Fund ${id}`, scheme_type: 'Equity' }
+}
+
+function mkTxn(fundId: string, tradeType: 'buy' | 'sell', units: number, nav: number): MFTransaction {
+  return { id: `${fundId}-${tradeType}-${units}`, fund_id: fundId, trade_date: '2026-01-01', trade_type: tradeType, units, nav, amount: units * nav }
+}
+
+describe('filterActiveMfFunds', () => {
+  it('keeps a fund with a live unit balance', () => {
+    const funds = [mkFund('f1', '100001')]
+    const txns  = [mkTxn('f1', 'buy', 100, 50)]
+    expect(filterActiveMfFunds(funds, txns).map(f => f.id)).toEqual(['f1'])
+  })
+
+  it('drops a fully redeemed fund', () => {
+    const funds = [mkFund('f1', '100001')]
+    const txns  = [mkTxn('f1', 'buy', 100, 50), mkTxn('f1', 'sell', 100, 60)]
+    expect(filterActiveMfFunds(funds, txns)).toEqual([])
+  })
+
+  it('drops a fund with no transactions at all', () => {
+    const funds = [mkFund('f1', '100001')]
+    expect(filterActiveMfFunds(funds, [])).toEqual([])
+  })
+
+  it('keeps only the active fund among a mix', () => {
+    const funds = [mkFund('f1', '100001'), mkFund('f2', '100002')]
+    const txns  = [
+      mkTxn('f1', 'buy', 100, 50), mkTxn('f1', 'sell', 100, 60),
+      mkTxn('f2', 'buy', 50, 80),
+    ]
+    expect(filterActiveMfFunds(funds, txns).map(f => f.id)).toEqual(['f2'])
   })
 })

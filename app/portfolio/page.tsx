@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
+import { getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavHistory, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
 import { getCurrentFY } from '@/lib/fy-utils'
+import { filterActiveMfFunds } from '@/lib/mf-compute'
 import PortfolioClient from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -41,6 +42,16 @@ export default async function PortfolioPage() {
   const currentFYAllocations = currentFY ? await getAllocations(currentFY.id) : []
   const latestYearSymbols   = currentFYAllocations.map(a => a.symbol)
 
+  // Only funds with a live unit balance need a NAV lookup — see filterActiveMfFunds.
+  const activeMfFunds = filterActiveMfFunds(mfFunds, mfTransactions)
+  const mfNavHistory  = await getMFNavHistory(activeMfFunds.map(f => f.scheme_code))
+  const mfNavs: Record<string, number> = {}
+  const mfPrevNavs: Record<string, number | null> = {}
+  for (const [code, info] of Object.entries(mfNavHistory)) {
+    mfNavs[code] = info.nav
+    mfPrevNavs[code] = info.prevNav
+  }
+
   return (
     <>
       <PortfolioClient
@@ -49,6 +60,8 @@ export default async function PortfolioPage() {
         latestYearSymbols={latestYearSymbols}
         mfFunds={mfFunds}
         mfTransactions={mfTransactions}
+        mfNavs={mfNavs}
+        mfPrevNavs={mfPrevNavs}
         sgbTransactions={sgbTransactions}
         ppfTransactions={ppfTransactions}
         ppfOverride={ppfOverride}

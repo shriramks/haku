@@ -12,8 +12,7 @@ import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr, oneDayXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
-import { computeMFHolding, computeMFLots } from '@/lib/mf-compute'
-import { fetchMfapiHistory, isNavStale } from '@/lib/amfi'
+import { computeMFHolding } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
@@ -24,6 +23,8 @@ interface Props {
   latestYearSymbols: string[]
   mfFunds: MFund[]
   mfTransactions: MFTransaction[]
+  mfNavs: Record<string, number>
+  mfPrevNavs: Record<string, number | null>
   sgbTransactions: SGBTransaction[]
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
@@ -84,18 +85,6 @@ function computeMFHoldings(
     .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
 }
 
-// `mf_funds` holds every fund ever created (getMFFunds has no active-holding
-// filter), including long-sold-out entries — some tagged with a garbage
-// non-numeric scheme_code (a fund name, not an AMFI code) from old imports.
-// Only funds with a live unit balance need a live NAV fetch.
-function filterActiveMfFunds(funds: MFund[], transactions: MFTransaction[]): MFund[] {
-  const byFund: Record<string, MFTransaction[]> = {}
-  for (const t of transactions) {
-    ;(byFund[t.fund_id] ??= []).push(t)
-  }
-  return funds.filter(f => computeMFLots(byFund[f.id] ?? []).units >= 0.001)
-}
-
 function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
   const totalDeposited = transactions
     .filter(t => t.trade_type === 'deposit')
@@ -122,21 +111,10 @@ function computeEPF(transactions: EPFTransaction[]): EPFSummary {
 
 const assetClass = mfAssetClass
 
-const NAV_CACHE_KEY = 'mfNavCache'
-
-function readNavCache(): Record<string, number> {
-  if (typeof window === 'undefined') return {}
-  try {
-    return JSON.parse(localStorage.getItem(NAV_CACHE_KEY) ?? '{}')
-  } catch {
-    return {}
-  }
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions,
+  allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
   sgbTransactions, ppfTransactions: initialPpfTransactions, ppfOverride,
   epfTransactions: initialEpfTransactions,
 }: Props) {
@@ -144,10 +122,6 @@ export default function PortfolioClient({
   const [openSections, setOpenSections] = useState(new Set<string>())
   const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
-  const activeMfFunds = useMemo(() => filterActiveMfFunds(mfFunds, mfTransactions), [mfFunds, mfTransactions])
-  const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
-  const [navsLoading, setNavsLoading] = useState(() => activeMfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
-  const [prevNavs, setPrevNavs] = useState<Record<string, number | null>>({})
   const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
   const [prevClose, setPrevClose] = useState<Record<string, number | null>>({})
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -161,7 +135,7 @@ export default function PortfolioClient({
 
   // Live gold price via Yahoo Finance proxy; persists last known price in localStorage.
   // prevPricePerGram (yesterday's close) feeds 1D gain only — not persisted, same as
-  // prevNavs/prevClose above.
+  // prevClose above.
   useEffect(() => {
     fetch('/api/gold-price')
       .then(r => r.json())
@@ -175,61 +149,19 @@ export default function PortfolioClient({
       .catch(() => {})
   }, [refreshKey])
 
-  // Latest NAV comes from AMFI's official bulk file (lib/amfi.ts, via
-  // /api/mf-nav) — mfapi.in was found to serve it up to 3+ calendar days stale
-  // (see progress log #113), which fed a stale multi-day move into oneDayXirr's
-  // 1-day annualization and produced #112's 202% XIRR bug. mfapi.in per-fund
-  // (fetchMfapiHistory, with a hard timeout — see #114) is kept for two things:
-  // the previous-day NAV (1D gain; AMFI's file has no history), and as a
-  // fallback current NAV for any scheme_code AMFI's file doesn't have (or if
-  // the AMFI fetch fails outright).
-  // mfapi.in's previous-NAV is only trusted when it's within ~1 trading day of
-  // AMFI's fresh current NAV (isNavStale reused with AMFI's date as the anchor
-  // and a tight 3-day/no-holiday-grace threshold) — otherwise mfapi.in itself
-  // is lagging (as observed live, still lagging as of #114) and data[1] isn't
-  // really "the day before today," which reproduces the #112 bug on the
-  // previous-NAV leg instead of the current-NAV leg. When AMFI has no entry for
-  // a fund at all, mfapi.in's own current/previous pair is self-consistent
-  // (same source, adjacent entries) and used as-is, same as pre-#113.
-  // Seeded from localStorage above so the MF section renders real numbers
-  // immediately, then this refreshes in the background. Only activeMfFunds —
-  // mf_funds keeps every fund ever created, and fetching for sold-out ones
-  // (some with a garbage non-numeric scheme_code from old imports) was firing
-  // dead requests and leaving navsLoading stuck.
+  // MF NAV now comes from page.tsx's server-side read of our own mf_nav_history
+  // table (lib/data.ts's getMFNavHistory) — see progress log #117/#118. This
+  // effect just keeps that table fresh: fire the daily AMFI sync once after
+  // first paint, then re-render the page so a newly-synced NAV shows up
+  // (stale-while-refresh — the sync itself is rate-limited to once per 12h
+  // server-side, so repeat mounts are cheap no-ops).
   useEffect(() => {
-    if (activeMfFunds.length === 0) return
-    const codes = activeMfFunds.map(f => f.scheme_code)
-    Promise.all([
-      fetch(`/api/mf-nav?codes=${encodeURIComponent(codes.join(','))}`)
-        .then(r => r.ok ? r.json() : { navs: {} })
-        .catch(() => ({ navs: {} })) as Promise<{ navs: Record<string, { nav: number; date: string; stale: boolean }> }>,
-      Promise.all(
-        activeMfFunds.map(f => fetchMfapiHistory(f.scheme_code).then(h => [f.scheme_code, h] as const))
-      ),
-    ]).then(([amfiResult, mfapiResults]) => {
-      const amfiNavs = amfiResult.navs ?? {}
-      setNavs(prev => {
-        const next = { ...prev }
-        for (const [code, h] of mfapiResults) {
-          const nav = amfiNavs[code]?.nav ?? h.nav
-          if (nav) next[code] = nav
-        }
-        try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(next)) } catch {}
-        return next
-      })
-      setPrevNavs(prev => {
-        const next = { ...prev }
-        for (const [code, h] of mfapiResults) {
-          const amfi = amfiNavs[code]
-          if (!amfi) { next[code] = h.prevNav; continue }
-          const trustworthy = !amfi.stale && !!h.prevDate && !isNavStale(h.prevDate, new Date(amfi.date + 'T00:00:00'), 3)
-          next[code] = trustworthy ? h.prevNav : null
-        }
-        return next
-      })
-      setNavsLoading(false)
-    })
-  }, [activeMfFunds, refreshKey])
+    if (mfFunds.length === 0) return
+    fetch('/api/mf-nav/sync', { method: 'POST' })
+      .catch(() => {})
+      .finally(() => router.refresh())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp, prevClose), [allTransactions, bands, latestYearSymbols, liveCmp, prevClose])
 
@@ -258,7 +190,7 @@ export default function PortfolioClient({
     currentValue:  stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0),
     gain1d:        stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0),
   }), [stockHoldings])
-  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs, prevNavs), [mfFunds, mfTransactions, navs, prevNavs])
+  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, mfNavs, mfPrevNavs), [mfFunds, mfTransactions, mfNavs, mfPrevNavs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
   const ppf           = useMemo(() => computePPF(ppfTxns, ppfOverride), [ppfTxns, ppfOverride])
   const epf           = useMemo(() => computeEPF(epfTxns), [epfTxns])
@@ -275,19 +207,20 @@ export default function PortfolioClient({
 
   // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
   // Use the same symbol filter as computeStockHoldings for consistency with totalCurrent.
+  // MF NAV is server-rendered (no client fetch to wait on) — only gold still gates this.
   const overallXirr = useMemo(() => {
-    if (navsLoading || (sgbTransactions.length > 0 && goldPrice === null)) return null
+    if (sgbTransactions.length > 0 && goldPrice === null) return null
     const equityTxns = latestYearSymbols.length > 0
       ? allTransactions.filter(t => latestYearSymbols.includes(t.symbol))
       : allTransactions
     return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent)
-  }, [allTransactions, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, navsLoading, goldPrice, latestYearSymbols])
+  }, [allTransactions, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, goldPrice, latestYearSymbols])
 
   // Section-level XIRR for MF and Gold headers
   const mfSectionXirr = useMemo(() => {
-    if (navsLoading || mfCurrentValue === 0 || mfTransactions.length === 0) return null
+    if (mfCurrentValue === 0 || mfTransactions.length === 0) return null
     return mfXirr(mfTransactions, mfCurrentValue)
-  }, [mfTransactions, mfCurrentValue, navsLoading])
+  }, [mfTransactions, mfCurrentValue])
 
   const goldSectionXirr = useMemo(() => {
     if (goldPrice === null || sgbCurrentValue === 0 || sgbTransactions.length === 0) return null

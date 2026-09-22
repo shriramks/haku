@@ -38,3 +38,15 @@ export function computeMFLots(txns: TxnSlice[]): { units: number; invested: numb
     invested: lots.reduce((s, l) => s + l.units * l.nav, 0),
   }
 }
+
+// `mf_funds` holds every fund ever created (getMFFunds has no active-holding
+// filter), including long-sold-out entries — some tagged with a garbage
+// non-numeric scheme_code (a fund name, not an AMFI code) from old imports.
+// Only funds with a live unit balance need a live NAV lookup.
+export function filterActiveMfFunds(funds: MFund[], transactions: MFTransaction[]): MFund[] {
+  const byFund: Record<string, MFTransaction[]> = {}
+  for (const t of transactions) {
+    ;(byFund[t.fund_id] ??= []).push(t)
+  }
+  return funds.filter(f => computeMFLots(byFund[f.id] ?? []).units >= 0.001)
+}
