@@ -52,6 +52,7 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | `lib/formatter.ts` | `formatPriceNum()`, `formatDate()`, compact Indian number formatting |
 | `lib/screener.ts` | Screener.in HTML parsing for financials (EPS, PAT, ROCE, Mcap) |
 | `lib/nse.ts` | NSE API for index level and PE |
+| `lib/amfi.ts` | AMFI bulk NAV file parsing + `mfapi.in` fallback/staleness reconciliation for MF NAVs — see `docs/architecture.md` "MF NAV Fetch Flow" |
 | `lib/supabase-browser.ts` | Browser Supabase client (for client-side mutations) |
 | `app/actions.ts` | Server actions for DB writes + `revalidateTag` cache invalidation |
 | `components/icons.tsx` | All SVG icons — check here before adding SVGs inline |

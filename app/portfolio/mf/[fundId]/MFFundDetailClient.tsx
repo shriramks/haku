@@ -6,6 +6,7 @@ import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGa
 import UserMenu from '@/components/UserMenu'
 import EmptyState from '@/components/EmptyState'
 import { computeMFHolding } from '@/lib/mf-compute'
+import { fetchMfapiHistory } from '@/lib/amfi'
 import { TxnRow, mfToDisplayTxn } from '@/components/EditableTxnRow'
 import type { MFund, MFTransaction } from '@/lib/portfolio-types'
 
@@ -40,9 +41,7 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
       .then(d => {
         const amfiNav = d.navs?.[fund.scheme_code]?.nav
         if (amfiNav) return setNav(amfiNav)
-        return fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
-          .then(r => r.json())
-          .then(d => setNav(parseFloat(d.data?.[0]?.nav ?? '0') || null))
+        return fetchMfapiHistory(fund.scheme_code).then(h => setNav(h.nav))
       })
       .catch(() => setNav(null))
       .finally(() => setNavLoading(false))

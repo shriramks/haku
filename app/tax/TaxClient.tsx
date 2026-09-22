@@ -11,6 +11,7 @@ import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, bu
 import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
 import { todayISO, formatINRFine } from '@/lib/formatter'
+import { fetchMfapiHistory } from '@/lib/amfi'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import FYPicker from '@/components/FYPicker'
@@ -112,12 +113,9 @@ export default function TaxClient({
           .catch(() => equityFunds)
           .then(async missing => {
             await Promise.allSettled(missing.map(fund =>
-              fetch(`https://api.mfapi.in/mf/${fund.scheme_code}`)
-                .then(r => r.json())
-                .then(d => {
-                  const nav = parseFloat(d.data?.[0]?.nav)
-                  if (!isNaN(nav)) setNavs(prev => ({ ...prev, [fund.scheme_code]: nav }))
-                })
+              fetchMfapiHistory(fund.scheme_code).then(h => {
+                if (h.nav) setNavs(prev => ({ ...prev, [fund.scheme_code]: h.nav! }))
+              })
             ))
           })
       )

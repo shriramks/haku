@@ -168,6 +168,26 @@ Changing `risk_free` marks non-index `buy_bands.last_updated_at` forward so the 
 
 ---
 
+## MF NAV Fetch Flow
+
+MF current/1D-gain data comes from two independent sources with different shapes — reconciling them is the whole complexity here (progress log #113, #114):
+
+- **AMFI's official bulk file** (`lib/amfi.ts` `fetchAmfiNavAll()`, fetched via `GET /api/mf-nav?codes=...`) — one file covering every scheme, refreshed nightly, no per-scheme API calls. Reliable and fresh, but a single snapshot: no history, so no "yesterday" value. One server-side fetch (`next: { revalidate: 1800 }`) backs every caller.
+- **`mfapi.in`** (`lib/amfi.ts` `fetchMfapiHistory()`, one call per scheme_code) — has history (`data[0]` = latest, `data[1]` = previous), so it's the only source for the previous-day NAV that 1D gain needs. In production it has been observed lagging AMFI's file by several days at a time (verified live, still true as of 2026-09-22) and its endpoint can hang 11s+ or fail outright — `fetchMfapiHistory` wraps it in an 8s `AbortController` timeout so one stuck fund can't block the whole batch.
+
+**Why this needs a guard, not just "use both":** stock 1D gain (`/api/cmp/batch`) has no equivalent problem because Yahoo Finance returns current price and previous close *together, from one call* — they can never be out of sync with each other. MF current and previous can now come from two different sources with two different clocks, so nothing guarantees they're 1 trading day apart. Blending a multi-day gap into "1D gain" and annualizing it (`oneDayXirr`, which always assumes exactly 1 calendar day) is what produced #112's 202% XIRR bug — first on the current-NAV leg (mfapi.in's own "latest" was stale), then again on the previous-NAV leg after #113 fixed the first (mfapi.in's "previous" paired against AMFI's now-fresh "current" turned out to span 4+ days, not 1).
+
+**The invariant:** `lib/amfi.ts`'s `isNavStale(navDate, anchorDate, maxDays)` is reused at two different call sites in `PortfolioClient.tsx`, with different anchors and thresholds:
+
+1. `isNavStale(amfiDate, today, 4)` — is AMFI's own file stale relative to right now? (defends against AMFI itself serving a cached/old snapshot; 4 days tolerates an ordinary weekend or a single adjacent holiday.)
+2. `isNavStale(mfapiPrevDate, amfiDateAsAnchor, 3)` — is `mfapi.in`'s previous-NAV actually ~1 trading day before AMFI's fresh current NAV? (3 days, no holiday grace — better to show no 1D figure than a wrong one.) Fails this check → `gain1d`/`gain1dPct` come out `null` (via `computeMFHolding`, unchanged), not a wrong number.
+
+When AMFI's file has no entry for a scheme_code at all (rare — `mfapi.in` fallback), `mfapi.in`'s own current/previous pair is used as-is: same source, adjacent entries, inherently self-consistent, no cross-source check needed.
+
+**Call sites:** `PortfolioClient.tsx` needs the full current+previous reconciliation above. `MFFundDetailClient.tsx` and `TaxClient.tsx` only need the current NAV (no 1D gain shown there), so they're AMFI-first with a plain `fetchMfapiHistory` fallback — no staleness logic.
+
+---
+
 ## Route → Screen Map
 
 | Route | Screen | Notes |
@@ -196,6 +216,7 @@ app/
     bands/generate/[symbol]/route.ts    valuation + financial refresh
     tranches/generate/[symbol]/route.ts tranche regeneration from stored bands
     settings/gemini-key/route.ts        AI key + risk_free settings
+    mf-nav/route.ts                     batched AMFI NAV lookup — see "MF NAV Fetch Flow" above
   bands/
     BandsClient.tsx                     bands list
     [symbol]/BandDetailClient.tsx       stock detail orchestrator — computes snowball, wires all sheets
@@ -214,6 +235,7 @@ app/
     DividendsClient.tsx                 By Stock / Timeline segments, symbol filter, StockDividends sheet
 
 lib/
+  amfi.ts                                AMFI bulk NAV parsing + mfapi.in fallback/reconciliation — see "MF NAV Fetch Flow" above
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   compute.ts                            dashboard row computation + band signals

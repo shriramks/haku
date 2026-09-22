@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseAmfiNavAll, isNavStale } from '../amfi'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { parseAmfiNavAll, isNavStale, parseMfapiDate, fetchMfapiHistory } from '../amfi'
 
 // Trimmed real sample from https://portal.amfiindia.com/spages/NAVAll.txt
 const NAV_ALL_SAMPLE = `Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Plan;Option;Net Asset Value;Date
@@ -51,5 +51,65 @@ describe('isNavStale', () => {
 
   it('is true when the feed is stuck multiple days behind (the mfapi.in bug this guards)', () => {
     expect(isNavStale('2026-09-18', new Date('2026-09-23T12:00:00'))).toBe(true)
+  })
+
+  // PortfolioClient.tsx reuses isNavStale a second time, anchored on AMFI's own
+  // date instead of "today," with maxDays=3 (no holiday grace) — to check
+  // mfapi.in's previous-NAV is genuinely ~1 trading day before AMFI's current,
+  // not "today" itself. See #114.
+  it('anchored on another NAV date (not today), catches a lagging previous-NAV', () => {
+    // The live case that prompted this: AMFI fresh at 21-Sep, mfapi.in's
+    // previous-NAV still dated 17-Sep — a 4-day gap, not a genuine 1-day move.
+    expect(isNavStale('2026-09-17', new Date('2026-09-21T00:00:00'), 3)).toBe(true)
+  })
+
+  it('anchored on another NAV date, tolerates a genuine 1-day-back previous-NAV', () => {
+    expect(isNavStale('2026-09-20', new Date('2026-09-21T00:00:00'), 3)).toBe(false)
+  })
+})
+
+describe('parseMfapiDate', () => {
+  it('parses mfapi.in\'s DD-MM-YYYY format', () => {
+    expect(parseMfapiDate('18-09-2026')).toBe('2026-09-18')
+  })
+
+  it('returns null for an unrecognised format', () => {
+    expect(parseMfapiDate('18-Sep-2026')).toBeNull()
+    expect(parseMfapiDate('not-a-date')).toBeNull()
+  })
+})
+
+describe('fetchMfapiHistory', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('parses the latest and previous NAV entries', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({
+        data: [
+          { date: '18-09-2026', nav: '89.85690' },
+          { date: '17-09-2026', nav: '89.71690' },
+        ],
+      }),
+    }))
+    const result = await fetchMfapiHistory('122639')
+    expect(result).toEqual({ nav: 89.8569, date: '2026-09-18', prevNav: 89.7169, prevDate: '2026-09-17' })
+  })
+
+  it('returns all-null on fetch failure instead of throwing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')))
+    const result = await fetchMfapiHistory('122639')
+    expect(result).toEqual({ nav: null, date: null, prevNav: null, prevDate: null })
+  })
+
+  it('passes an AbortController signal so a hang can be cut short', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ json: async () => ({ data: [] }) })
+    vi.stubGlobal('fetch', mockFetch)
+    await fetchMfapiHistory('122639')
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.mfapi.in/mf/122639',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
   })
 })

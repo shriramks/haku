@@ -13,6 +13,7 @@ import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr, oneDayXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
 import { computeMFHolding, computeMFLots } from '@/lib/mf-compute'
+import { fetchMfapiHistory, isNavStale } from '@/lib/amfi'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
 import type { Transaction, BuyBand } from '@/lib/types'
@@ -177,10 +178,19 @@ export default function PortfolioClient({
   // Latest NAV comes from AMFI's official bulk file (lib/amfi.ts, via
   // /api/mf-nav) — mfapi.in was found to serve it up to 3+ calendar days stale
   // (see progress log #113), which fed a stale multi-day move into oneDayXirr's
-  // 1-day annualization and produced #112's 202% XIRR bug. mfapi.in per-fund is
-  // kept for two things: the previous-day NAV (1D gain; AMFI's file has no
-  // history), and as a fallback current NAV for any scheme_code AMFI's file
-  // doesn't have (or if the AMFI fetch fails outright).
+  // 1-day annualization and produced #112's 202% XIRR bug. mfapi.in per-fund
+  // (fetchMfapiHistory, with a hard timeout — see #114) is kept for two things:
+  // the previous-day NAV (1D gain; AMFI's file has no history), and as a
+  // fallback current NAV for any scheme_code AMFI's file doesn't have (or if
+  // the AMFI fetch fails outright).
+  // mfapi.in's previous-NAV is only trusted when it's within ~1 trading day of
+  // AMFI's fresh current NAV (isNavStale reused with AMFI's date as the anchor
+  // and a tight 3-day/no-holiday-grace threshold) — otherwise mfapi.in itself
+  // is lagging (as observed live, still lagging as of #114) and data[1] isn't
+  // really "the day before today," which reproduces the #112 bug on the
+  // previous-NAV leg instead of the current-NAV leg. When AMFI has no entry for
+  // a fund at all, mfapi.in's own current/previous pair is self-consistent
+  // (same source, adjacent entries) and used as-is, same as pre-#113.
   // Seeded from localStorage above so the MF section renders real numbers
   // immediately, then this refreshes in the background. Only activeMfFunds —
   // mf_funds keeps every fund ever created, and fetching for sold-out ones
@@ -194,19 +204,14 @@ export default function PortfolioClient({
         .then(r => r.ok ? r.json() : { navs: {} })
         .catch(() => ({ navs: {} })) as Promise<{ navs: Record<string, { nav: number; date: string; stale: boolean }> }>,
       Promise.all(
-        activeMfFunds.map(f =>
-          fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
-            .then(r => r.json())
-            .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0') || null, parseFloat(d.data?.[1]?.nav ?? '0') || null] as [string, number | null, number | null])
-            .catch(() => [f.scheme_code, null, null] as [string, number | null, number | null])
-        )
+        activeMfFunds.map(f => fetchMfapiHistory(f.scheme_code).then(h => [f.scheme_code, h] as const))
       ),
     ]).then(([amfiResult, mfapiResults]) => {
       const amfiNavs = amfiResult.navs ?? {}
       setNavs(prev => {
         const next = { ...prev }
-        for (const [code, mfapiNav] of mfapiResults) {
-          const nav = amfiNavs[code]?.nav ?? mfapiNav
+        for (const [code, h] of mfapiResults) {
+          const nav = amfiNavs[code]?.nav ?? h.nav
           if (nav) next[code] = nav
         }
         try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(next)) } catch {}
@@ -214,8 +219,11 @@ export default function PortfolioClient({
       })
       setPrevNavs(prev => {
         const next = { ...prev }
-        for (const [code, , mfapiPrevNav] of mfapiResults) {
-          next[code] = amfiNavs[code]?.stale ? null : mfapiPrevNav
+        for (const [code, h] of mfapiResults) {
+          const amfi = amfiNavs[code]
+          if (!amfi) { next[code] = h.prevNav; continue }
+          const trustworthy = !amfi.stale && !!h.prevDate && !isNavStale(h.prevDate, new Date(amfi.date + 'T00:00:00'), 3)
+          next[code] = trustworthy ? h.prevNav : null
         }
         return next
       })
