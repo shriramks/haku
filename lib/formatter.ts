@@ -135,7 +135,7 @@ export function fyLabel(date: Date | string): string {
   return `FY${(fyEndYear(d) % 100).toString().padStart(2, '0')}`
 }
 
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /**
  * "YYYY-MM-DD" → "Mon YYYY", parsed straight from the string — never through a
