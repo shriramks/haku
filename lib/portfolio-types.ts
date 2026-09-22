@@ -75,6 +75,8 @@ export interface MFHolding {
   currentValue: number | null
   gain: number | null
   xirr: number | null
+  gain1d: number | null
+  gain1dPct: number | null
 }
 
 export interface SGBBatch {

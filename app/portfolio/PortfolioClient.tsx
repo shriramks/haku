@@ -67,6 +67,7 @@ function computeMFHoldings(
   funds: MFund[],
   transactions: MFTransaction[],
   navs: Record<string, number>,
+  prevNavs: Record<string, number | null>,
 ): MFHolding[] {
   const byFund: Record<string, MFTransaction[]> = {}
   for (const t of transactions) {
@@ -76,7 +77,7 @@ function computeMFHoldings(
     .flatMap(fund => {
       const txns = byFund[fund.id] ?? []
       if (txns.length === 0) return []
-      const holding = computeMFHolding(fund, txns, navs[fund.scheme_code] ?? null)
+      const holding = computeMFHolding(fund, txns, navs[fund.scheme_code] ?? null, prevNavs[fund.scheme_code] ?? null)
       return holding ? [holding] : []
     })
     .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
@@ -132,6 +133,7 @@ export default function PortfolioClient({
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
   const [navs, setNavs]         = useState<Record<string, number>>(() => readNavCache())
   const [navsLoading, setNavsLoading] = useState(() => mfFunds.some(f => readNavCache()[f.scheme_code] === undefined))
+  const [prevNavs, setPrevNavs] = useState<Record<string, number | null>>({})
   const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
   const [prevClose, setPrevClose] = useState<Record<string, number | null>>({})
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
@@ -157,20 +159,28 @@ export default function PortfolioClient({
 
   // Live NAV fetch from mfapi.in; seeded from localStorage above so the MF section
   // renders real numbers immediately, then this refreshes in the background.
+  // The same response's data[1] is the previous *published* NAV (not strictly
+  // "yesterday" — lags further over a weekend/holiday gap) — used for 1D gain,
+  // no extra request needed.
   useEffect(() => {
     if (mfFunds.length === 0) return
     Promise.all(
       mfFunds.map(f =>
         fetch(`https://api.mfapi.in/mf/${f.scheme_code}`)
           .then(r => r.json())
-          .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0')] as [string, number])
-          .catch(() => [f.scheme_code, 0] as [string, number])
+          .then(d => [f.scheme_code, parseFloat(d.data?.[0]?.nav ?? '0'), parseFloat(d.data?.[1]?.nav ?? '0') || null] as [string, number, number | null])
+          .catch(() => [f.scheme_code, 0, null] as [string, number, number | null])
       )
     ).then(results => {
       setNavs(prev => {
         const next = { ...prev }
         for (const [code, nav] of results) { if (nav > 0) next[code] = nav }
         try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(next)) } catch {}
+        return next
+      })
+      setPrevNavs(prev => {
+        const next = { ...prev }
+        for (const [code, , prevNav] of results) next[code] = prevNav
         return next
       })
       setNavsLoading(false)
@@ -204,7 +214,7 @@ export default function PortfolioClient({
     currentValue:  stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0),
     gain1d:        stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0),
   }), [stockHoldings])
-  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs), [mfFunds, mfTransactions, navs])
+  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, navs, prevNavs), [mfFunds, mfTransactions, navs, prevNavs])
   const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
   const ppf           = useMemo(() => computePPF(ppfTxns, ppfOverride), [ppfTxns, ppfOverride])
   const epf           = useMemo(() => computeEPF(epfTxns), [epfTxns])
@@ -212,6 +222,7 @@ export default function PortfolioClient({
   // Summary numbers
   const mfInvested      = mfHoldings.reduce((s, h) => s + h.invested, 0)
   const mfCurrentValue  = mfHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  const mfGain1d        = mfHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0)
   const sgbInvested     = sgbBatches.reduce((s, b) => s + b.invested, 0)
   const sgbCurrentValue = sgbBatches.reduce((s, b) => s + (b.currentValue ?? b.invested), 0)
   const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited + epf.totalDeposited

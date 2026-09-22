@@ -4,15 +4,18 @@ import { mfXirr } from './xirr'
 type TxnSlice = Pick<MFTransaction, 'trade_type' | 'units' | 'nav'>
 
 /** Single-fund holding math shared by the Portfolio list and the Fund Detail page. */
-export function computeMFHolding(fund: MFund, transactions: MFTransaction[], currentNav: number | null): MFHolding | null {
+export function computeMFHolding(fund: MFund, transactions: MFTransaction[], currentNav: number | null, prevNav: number | null = null): MFHolding | null {
   const { units, invested } = computeMFLots(transactions)
   if (units < 0.001) return null
   const currentValue = currentNav !== null ? units * currentNav : null
   const gain         = currentValue !== null ? currentValue - invested : null
+  const gain1d    = currentNav !== null && prevNav !== null ? units * (currentNav - prevNav) : null
+  const gain1dPct = currentNav !== null && prevNav !== null ? (currentNav / prevNav - 1) * 100 : null
   return {
     fund, transactions, units, invested,
     currentNav, currentValue, gain,
     xirr: currentValue !== null ? mfXirr(transactions, currentValue) : null,
+    gain1d, gain1dPct,
   }
 }
 
