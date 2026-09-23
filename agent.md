@@ -52,7 +52,7 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | `lib/formatter.ts` | `formatPriceNum()`, `formatDate()`, compact Indian number formatting |
 | `lib/screener.ts` | Screener.in HTML parsing for financials (EPS, PAT, ROCE, Mcap) |
 | `lib/nse.ts` | NSE API for index level and PE |
-| `lib/amfi.ts` | AMFI bulk NAV file parsing + `mfapi.in` fallback/staleness reconciliation for MF NAVs — see `docs/architecture.md` "MF NAV Fetch Flow" |
+| `lib/amfi.ts` | AMFI NAV history parsing + staleness guard for MF NAVs — see `docs/architecture.md` "MF NAV Fetch Flow" |
 | `lib/supabase-browser.ts` | Browser Supabase client (for client-side mutations) |
 | `app/actions.ts` | Server actions for DB writes + `revalidateTag` cache invalidation |
 | `components/icons.tsx` | All SVG icons — check here before adding SVGs inline |
@@ -80,7 +80,7 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 ## Data / caching
 
 - DB writes go through server actions in `app/actions.ts`; always call `revalidateTag(tag)` after a write — otherwise `unstable_cache` serves stale data.
-- Cached tables (see the caching table in `docs/architecture.md`): `fiscal_years`, `transactions`, `buy_bands`, `buy_tranches`, `dividend_transactions`, `buy_band_snapshots` — every write must revalidate the matching tag: prefer a server action that writes + revalidates; a browser write is only OK if immediately followed by the matching revalidate action (PlanClient pattern). Uncached tables (MF/gold/PPF/EPF, `stock_allocations`) may be written client-side under RLS.
+- Cached tables (see the caching table in `docs/architecture.md`): `fiscal_years`, `transactions`, `buy_bands`, `buy_tranches`, `dividend_transactions`, `buy_band_snapshots`, plus MF/gold/PPF/EPF (`mf_funds`, `mf_transactions`, `sgb_transactions`, `ppf_transactions`, `ppf_balance_override`, `epf_transactions`) — every write must revalidate the matching tag: prefer a server action that writes + revalidates (`app/actions.ts` or `app/portfolio/actions.ts`); a browser write is only OK if immediately followed by the matching revalidate action (PlanClient pattern for `fiscal_years`; `revalidateMFTransactions()`/`revalidateSGBTransactions()`/`revalidatePPFTransactions()`/`revalidateEPFTransactions()` for the portfolio tables' client-side edit/delete in `TransactionsClient.tsx`). `stock_allocations` (`getAllocations`) is the one table genuinely uncached and may be written client-side under RLS with nothing to revalidate.
 - Stock transaction writes use `addStockTransaction` / `updateStockTransaction` / `deleteStockTransaction` / `importStockTransactions`; `fy_id` is derived server-side from `trade_date`.
 - DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and filter client-side.
 

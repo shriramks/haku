@@ -42,10 +42,16 @@ Server pages fetch through `lib/data.ts`. Fetchers wrapped in `unstable_cache` p
 | `getTransactions`, `getTransactionsBySymbol` | `transactions` | 1 h | stock txn add/edit/delete/import |
 | `getDividendsForSymbol`, `getAllDividends` | `dividend_transactions` | 5 min | dividend save |
 | `getLatestSnapshot(s)` | `buy_band_snapshots` | 5 min | snapshot save |
+| `getMFFunds` | `mf_funds` | 1 h | fund upsert |
+| `getMFTransactions` | `mf_transactions` | 1 h | txn add, or client edit/delete + `revalidateMFTransactions()` |
+| `getSGBTransactions` | `sgb_transactions` | 1 h | txn add, or client edit/delete + `revalidateSGBTransactions()` |
+| `getPPFTransactions` | `ppf_transactions` | 1 h | txn add, or client edit/delete + `revalidatePPFTransactions()` |
+| `getPPFOverride` | `ppf_balance_override` | 1 h | balance override save |
+| `getEPFTransactions` | `epf_transactions` | 1 h | txn add, or client edit/delete + `revalidateEPFTransactions()` |
 
-Everything else (`getAllocations`, portfolio tables) uses per-request `cache()` only.
+Among the portfolio/allocation tables, `getAllocations` (`stock_allocations`) and `getMFNavHistory` (`mf_nav_history`) are the two left on genuinely per-request `cache()` — see "MF NAV Fetch Flow" above for why `mf_nav_history` deliberately skips `unstable_cache`. (`user_settings` and `investability` fetchers are also per-request-only, but aren't part of this write-revalidation concern — no browser writes to those tables.)
 
-**Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions in `app/actions.ts` (or API routes for bands/tranches) that write and revalidate together. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. Uncached tables (MF/gold/PPF/EPF transactions, stock_allocations) may be written from the browser under RLS.
+**Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions that write and revalidate together — `app/actions.ts` for stock/dividend/snapshot tables (or API routes for bands/tranches), `app/portfolio/actions.ts` for MF/gold/PPF/EPF tables. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. `stock_allocations` is the one table genuinely uncached and written from the browser under RLS with nothing to revalidate.
 
 **`/transactions` lazy-load pattern:** The RSC ships only current-FY stock transactions (`getTransactions(currentFY.id)`). Portfolio tables (MF/Gold/PPF/EPF + mf_funds) are excluded from the RSC payload and fetched client-side via the browser Supabase client on mount. Older stock history is fetched on demand via the `loadAllStockTransactions()` server action when the date filter extends beyond the current FY. The `?symbol=` view always loads all-time transactions for that stock (no slice).
 
@@ -170,21 +176,12 @@ Changing `risk_free` marks non-index `buy_bands.last_updated_at` forward so the 
 
 ## MF NAV Fetch Flow
 
-MF current/1D-gain data comes from two independent sources with different shapes — reconciling them is the whole complexity here (progress log #113, #114):
+One source end to end: our own `mf_nav_history` table (`scheme_code, nav_date, nav`), kept in sync with AMFI's official feed. No per-scheme third-party API, no cross-source reconciliation (progress log #116, #117, #118, #119 — a two-source design with `mfapi.in` was tried and retired; see git history on this section if you need the old rationale).
 
-- **AMFI's official bulk file** (`lib/amfi.ts` `fetchAmfiNavAll()`, fetched via `GET /api/mf-nav?codes=...`) — one file covering every scheme, refreshed nightly, no per-scheme API calls. Reliable and fresh, but a single snapshot: no history, so no "yesterday" value. One server-side fetch (`next: { revalidate: 1800 }`) backs every caller.
-- **`mfapi.in`** (`lib/amfi.ts` `fetchMfapiHistory()`, one call per scheme_code) — has history (`data[0]` = latest, `data[1]` = previous), so it's the only source for the previous-day NAV that 1D gain needs. In production it has been observed lagging AMFI's file by several days at a time (verified live, still true as of 2026-09-22) and its endpoint can hang 11s+ or fail outright — `fetchMfapiHistory` wraps it in an 8s `AbortController` timeout so one stuck fund can't block the whole batch.
+- **Sync** (`POST /api/mf-nav/sync`, `lib/amfi.ts` `fetchAmfiNavHistory()`): fetches AMFI's dated NAV history report (`DownloadNAVHistoryReport_Po.aspx`) for a fixed 10-day window and upserts every row into `mf_nav_history`, filtered to scheme codes in `mf_funds` (all users, not just currently-held funds — a re-bought fund needs continuous history, and the Tax screen needs sold funds' history too). Watermarked on `mf_nav_sync_state.last_attempt_at` — re-syncs at most once per 12h, written on success *and* failure so a down AMFI endpoint isn't retried every load. `PortfolioClient.tsx` fires this on mount (fire-and-forget, then `router.refresh()`); nothing else needs to.
+- **Read** (`getMFNavHistory(schemeCodes)` in `lib/data.ts`): queries `mf_nav_history` for the given codes, bounded to the last 15 days, and reduces to the two most recent rows per scheme in JS. Deliberately uncached (no `unstable_cache`) so a fresh sync is visible on the very next render. Returns `{ nav, prevNav, navDate }` per scheme — `prevNav` is `null` if the gap between the two stored rows exceeds `isNavStale`'s 4-day threshold (a genuine 1-day move, not a stuck feed — same rule `oneDayXirr`'s callers rely on elsewhere; this guard is what stopped #112's 202% XIRR bug from recurring).
 
-**Why this needs a guard, not just "use both":** stock 1D gain (`/api/cmp/batch`) has no equivalent problem because Yahoo Finance returns current price and previous close *together, from one call* — they can never be out of sync with each other. MF current and previous can now come from two different sources with two different clocks, so nothing guarantees they're 1 trading day apart. Blending a multi-day gap into "1D gain" and annualizing it (`oneDayXirr`, which always assumes exactly 1 calendar day) is what produced #112's 202% XIRR bug — first on the current-NAV leg (mfapi.in's own "latest" was stale), then again on the previous-NAV leg after #113 fixed the first (mfapi.in's "previous" paired against AMFI's now-fresh "current" turned out to span 4+ days, not 1).
-
-**The invariant:** `lib/amfi.ts`'s `isNavStale(navDate, anchorDate, maxDays)` is reused at two different call sites in `PortfolioClient.tsx`, with different anchors and thresholds:
-
-1. `isNavStale(amfiDate, today, 4)` — is AMFI's own file stale relative to right now? (defends against AMFI itself serving a cached/old snapshot; 4 days tolerates an ordinary weekend or a single adjacent holiday.)
-2. `isNavStale(mfapiPrevDate, amfiDateAsAnchor, 3)` — is `mfapi.in`'s previous-NAV actually ~1 trading day before AMFI's fresh current NAV? (3 days, no holiday grace — better to show no 1D figure than a wrong one.) Fails this check → `gain1d`/`gain1dPct` come out `null` (via `computeMFHolding`, unchanged), not a wrong number.
-
-When AMFI's file has no entry for a scheme_code at all (rare — `mfapi.in` fallback), `mfapi.in`'s own current/previous pair is used as-is: same source, adjacent entries, inherently self-consistent, no cross-source check needed.
-
-**Call sites:** `PortfolioClient.tsx` needs the full current+previous reconciliation above. `MFFundDetailClient.tsx` and `TaxClient.tsx` only need the current NAV (no 1D gain shown there), so they're AMFI-first with a plain `fetchMfapiHistory` fallback — no staleness logic.
+**Call sites**, all server-side props, no client fetch: `app/portfolio/page.tsx` (current + previous NAV, for 1D gain), `app/portfolio/mf/[fundId]/page.tsx` (current + previous NAV, for the fund detail's 1D gain and "as of" date), `app/tax/page.tsx` (current NAV only, for Harvesting's unrealised-loss figure — no 1D gain shown there).
 
 ---
 
@@ -216,7 +213,7 @@ app/
     bands/generate/[symbol]/route.ts    valuation + financial refresh
     tranches/generate/[symbol]/route.ts tranche regeneration from stored bands
     settings/gemini-key/route.ts        AI key + risk_free settings
-    mf-nav/route.ts                     batched AMFI NAV lookup — see "MF NAV Fetch Flow" above
+    mf-nav/sync/route.ts                AMFI daily NAV sync job — see "MF NAV Fetch Flow" above
   bands/
     BandsClient.tsx                     bands list
     [symbol]/BandDetailClient.tsx       stock detail orchestrator — computes snowball, wires all sheets
@@ -235,7 +232,7 @@ app/
     DividendsClient.tsx                 By Stock / Timeline segments, symbol filter, StockDividends sheet
 
 lib/
-  amfi.ts                                AMFI bulk NAV parsing + mfapi.in fallback/reconciliation — see "MF NAV Fetch Flow" above
+  amfi.ts                                AMFI NAV history parsing + staleness guard — see "MF NAV Fetch Flow" above
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   compute.ts                            dashboard row computation + band signals

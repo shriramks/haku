@@ -11,7 +11,6 @@ import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, bu
 import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
 import { todayISO, formatINRFine } from '@/lib/formatter'
-import { fetchMfapiHistory } from '@/lib/amfi'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import FYPicker from '@/components/FYPicker'
@@ -27,6 +26,7 @@ interface Props {
   stockTxns:      Transaction[]
   mfFunds:        MFund[]
   mfTxns:         MFTransaction[]
+  mfNavs:         Record<string, number>
   sgbTxns:        SGBTransaction[]
   dividends:      DividendTransaction[]
   advanceTaxPaid: AdvanceTaxPaidRow[]
@@ -39,14 +39,13 @@ const BUCKET_LABEL: Record<Bucket, string> = {
 }
 
 export default function TaxClient({
-  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, sgbTxns, dividends, advanceTaxPaid, carryForward,
+  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, mfNavs, sgbTxns, dividends, advanceTaxPaid, carryForward,
 }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
   const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
   const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
   const [cmps, setCmps]               = useState<Record<string, number>>({})
-  const [navs, setNavs]               = useState<Record<string, number>>({})
   const [pricesLoading, setPricesLoading] = useState(true)
   const pricesFetchedRef              = useRef(false)
 
@@ -74,54 +73,23 @@ export default function TaxClient({
     cfRows.map(r => ({ id: r.id, fyStartDate: fyById.get(r.fy_id)?.start_date ?? '', lossType: r.loss_type, remaining: r.remaining })),
     [cfRows, fyById])
 
-  // Fetch live prices once — only for equity positions (stock + equity MF),
-  // the only ones Harvesting's unrealised-loss figure needs.
+  // Fetch live prices once — only for stocks; equity MF NAVs arrive as the
+  // mfNavs prop (server-side, see app/tax/page.tsx).
   useEffect(() => {
     if (pricesFetchedRef.current) return
     pricesFetchedRef.current = true
 
-    const fetches: Promise<void>[] = []
     const stockSymbols = [...new Set(stockTxns.map(t => t.symbol))]
-    if (stockSymbols.length > 0) {
-      fetches.push(
-        fetch(`/api/cmp/batch?symbols=${encodeURIComponent(stockSymbols.join(','))}`)
-          .then(r => r.json())
-          .then(d => { if (d.prices) setCmps(d.prices) })
-          .catch(() => {})
-      )
+    if (stockSymbols.length === 0) {
+      setPricesLoading(false)
+      return
     }
-    const equityFunds = mfFunds.filter(f => mfAssetClass(f) === 'equity')
-    if (equityFunds.length > 0) {
-      // Latest NAV from AMFI's official file (lib/amfi.ts), one batched request
-      // instead of one per fund; mfapi.in per-fund fallback for any scheme_code
-      // AMFI's file doesn't have. See #113.
-      fetches.push(
-        fetch(`/api/mf-nav?codes=${encodeURIComponent(equityFunds.map(f => f.scheme_code).join(','))}`)
-          .then(r => r.ok ? r.json() : { navs: {} })
-          .then(d => {
-            const amfiNavs = d.navs ?? {}
-            setNavs(prev => {
-              const next = { ...prev }
-              for (const fund of equityFunds) {
-                const nav = amfiNavs[fund.scheme_code]?.nav
-                if (nav) next[fund.scheme_code] = nav
-              }
-              return next
-            })
-            return equityFunds.filter(f => !amfiNavs[f.scheme_code]?.nav)
-          })
-          .catch(() => equityFunds)
-          .then(async missing => {
-            await Promise.allSettled(missing.map(fund =>
-              fetchMfapiHistory(fund.scheme_code).then(h => {
-                if (h.nav) setNavs(prev => ({ ...prev, [fund.scheme_code]: h.nav! }))
-              })
-            ))
-          })
-      )
-    }
-    Promise.allSettled(fetches).then(() => setPricesLoading(false))
-  }, [stockTxns, mfFunds])
+    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(stockSymbols.join(','))}`)
+      .then(r => r.json())
+      .then(d => { if (d.prices) setCmps(d.prices) })
+      .catch(() => {})
+      .then(() => setPricesLoading(false))
+  }, [stockTxns])
 
   // Reconcile the carryforward ledger once per load — chains every closed FY
   // that has no row yet, oldest first, so incoming carryforward is correct
@@ -322,15 +290,15 @@ export default function TaxClient({
     for (const [fundId, txns] of mfMap) {
       const fund = mfFunds.find(f => f.id === fundId)
       if (fund && mfAssetClass(fund) === 'debt') continue
-      const nav = fund ? navs[fund.scheme_code] ?? null : null
+      const nav = fund ? mfNavs[fund.scheme_code] ?? null : null
       positions.push(...computeMFGains(txns, fundId, 'equity', null, nav, fyRange, asOf).unrealised)
     }
-    const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(navs).length > 0
+    const pricesAvailable = Object.keys(cmps).length > 0 || Object.keys(mfNavs).length > 0
     const unrealisedLoss = pricesAvailable
       ? positions.filter(p => p.gain !== null && p.gain < 0).reduce((s, p) => s + (p.gain ?? 0), 0)
       : null
     return { unrealisedLoss }
-  }, [fyRange, stockMap, mfMap, mfFunds, cmps, navs])
+  }, [fyRange, stockMap, mfMap, mfFunds, cmps, mfNavs])
 
   async function savePaid(fy: FiscalYear, key: MilestoneKey, amount: number) {
     const sb = getSupabaseBrowser()

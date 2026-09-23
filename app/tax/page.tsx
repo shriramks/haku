@@ -1,5 +1,6 @@
-import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId, getMFFunds, getMFTransactions, getSGBTransactions } from '@/lib/data'
+import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId, getMFFunds, getMFTransactions, getMFNavHistory, getSGBTransactions } from '@/lib/data'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
+import { mfAssetClass } from '@/lib/tax-compute'
 import type { AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import TaxClient from './TaxClient'
 import BottomNav from '@/components/BottomNav'
@@ -32,6 +33,13 @@ export default async function TaxPage() {
 
   const currentFY = getCurrentFY(fiscalYears) ?? null
 
+  // Harvesting's unrealised-loss figure needs the current NAV for equity funds
+  // only (no 1D gain shown on this screen, so no prevNav).
+  const equityFunds = mfFunds.filter(f => mfAssetClass(f) === 'equity')
+  const mfNavHistory = await getMFNavHistory(equityFunds.map(f => f.scheme_code))
+  const mfNavs: Record<string, number> = {}
+  for (const [code, info] of Object.entries(mfNavHistory)) mfNavs[code] = info.nav
+
   return (
     <>
       <TaxClient
@@ -40,6 +48,7 @@ export default async function TaxPage() {
         stockTxns={stockTxns}
         mfFunds={mfFunds}
         mfTxns={mfTxns}
+        mfNavs={mfNavs}
         sgbTxns={sgbTxns}
         dividends={dividends}
         advanceTaxPaid={(advanceTaxPaid ?? []) as AdvanceTaxPaidRow[]}
