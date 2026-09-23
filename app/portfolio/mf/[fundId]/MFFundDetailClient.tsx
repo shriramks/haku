@@ -1,18 +1,22 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatINRFull, formatPriceFine, formatPnLFull, trimZero, trimPct, getGainColor } from '@/lib/formatter'
+import { formatINRFull, formatPriceFine, formatPnLFull, formatDate, trimZero, trimPct, getGainColor } from '@/lib/formatter'
 import UserMenu from '@/components/UserMenu'
 import EmptyState from '@/components/EmptyState'
+import { Num } from '@/components/Num'
 import { computeMFHolding } from '@/lib/mf-compute'
-import { fetchMfapiHistory } from '@/lib/amfi'
 import { TxnRow, mfToDisplayTxn } from '@/components/EditableTxnRow'
 import type { MFund, MFTransaction } from '@/lib/portfolio-types'
 
 interface Props {
   fund: MFund
   transactions: MFTransaction[]
+  nav: number | null
+  prevNav: number | null
+  navDate: string | null
 }
 
 function groupByMonth(txns: MFTransaction[]) {
@@ -24,32 +28,16 @@ function groupByMonth(txns: MFTransaction[]) {
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export default function MFFundDetailClient({ fund, transactions: initialTransactions }: Props) {
+export default function MFFundDetailClient({ fund, transactions: initialTransactions, nav, prevNav, navDate }: Props) {
   const router = useRouter()
   const [transactions, setTransactions] = useState(initialTransactions)
-  const [nav, setNav]               = useState<number | null>(null)
-  const [navLoading, setNavLoading] = useState(true)
 
   function updateTxn(u: MFTransaction) { setTransactions(prev => prev.map(t => t.id === u.id ? u : t)) }
   function deleteTxn(id: string)       { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
-  // Latest NAV from AMFI's official file (lib/amfi.ts) — mfapi.in as fallback
-  // if AMFI's file doesn't have this scheme_code or the fetch fails. See #113.
-  useEffect(() => {
-    fetch(`/api/mf-nav?codes=${encodeURIComponent(fund.scheme_code)}`)
-      .then(r => r.ok ? r.json() : { navs: {} })
-      .then(d => {
-        const amfiNav = d.navs?.[fund.scheme_code]?.nav
-        if (amfiNav) return setNav(amfiNav)
-        return fetchMfapiHistory(fund.scheme_code).then(h => setNav(h.nav))
-      })
-      .catch(() => setNav(null))
-      .finally(() => setNavLoading(false))
-  }, [fund.scheme_code])
-
   const holding = useMemo(
-    () => computeMFHolding(fund, transactions, navLoading ? null : nav),
-    [fund, transactions, nav, navLoading]
+    () => computeMFHolding(fund, transactions, nav, prevNav),
+    [fund, transactions, nav, prevNav]
   )
 
   const sortedTxns = useMemo(
@@ -97,11 +85,21 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
           valueColor={getGainColor(holding?.gain ?? null)}
         />
         <DetailRow
+          label="1D Gain"
+          value={holding ? <><Num amount={holding.gain1d} signed />{'  '}<Num pct={holding.gain1dPct} signed /></> : '—'}
+          valueColor={getGainColor(holding?.gain1d ?? null)}
+        />
+        <DetailRow
           label="XIRR p.a."
           value={holding?.xirr != null ? `${trimPct(Math.abs(holding.xirr * 100))}%` : '—'}
           valueColor={getGainColor(holding?.xirr ?? null)}
         />
-        <DetailRow label="Current NAV" value={holding?.currentNav != null ? formatPriceFine(holding.currentNav) : '—'} last />
+        <DetailRow
+          label="Current NAV"
+          value={holding?.currentNav != null ? formatPriceFine(holding.currentNav) : '—'}
+          caption={navDate ? `as of ${formatDate(navDate)}` : undefined}
+          last
+        />
       </div>
 
       {/* Transactions */}
@@ -137,15 +135,20 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
   )
 }
 
-function DetailRow({ label, value, valueColor, last: _last }: {
-  label: string; value: string; valueColor?: string; last?: boolean
+function DetailRow({ label, value, valueColor, caption, last: _last }: {
+  label: string; value: ReactNode; valueColor?: string; caption?: string; last?: boolean
 }) {
   return (
     <div className="flex items-center justify-between py-3" style={{ minHeight: 52, borderBottom: _last ? 'none' : '1px solid var(--divider)' }}>
       <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
-      <p className="text-headline font-semibold tabnum text-right" style={{ color: valueColor ?? 'var(--text-primary)' }}>
-        {value}
-      </p>
+      <div className="text-right">
+        <p className="text-headline font-semibold tabnum" style={{ color: valueColor ?? 'var(--text-primary)' }}>
+          {value}
+        </p>
+        {caption && (
+          <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>{caption}</p>
+        )}
+      </div>
     </div>
   )
 }

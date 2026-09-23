@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getMFFunds, getMFTransactions } from '@/lib/data'
+import { getMFFunds, getMFTransactions, getMFNavHistory } from '@/lib/data'
 import MFFundDetailClient from './MFFundDetailClient'
 import BottomNav from '@/components/BottomNav'
 
@@ -26,11 +26,17 @@ export default async function MFFundDetailPage({
   if (!fund) redirect('/portfolio')
   const transactions = mfTransactions.filter(t => t.fund_id === fundId)
 
+  const navHistory = await getMFNavHistory([fund.scheme_code])
+  const navInfo = navHistory[fund.scheme_code]
+
   return (
     <>
       <MFFundDetailClient
         fund={fund}
         transactions={transactions}
+        nav={navInfo?.nav ?? null}
+        prevNav={navInfo?.prevNav ?? null}
+        navDate={navInfo?.navDate ?? null}
       />
       <BottomNav />
     </>
