@@ -28,6 +28,8 @@ interface Props {
   mfNavs: Record<string, number>
   mfPrevNavs: Record<string, number | null>
   sgbTransactions: SGBTransaction[]
+  goldPrice: number | null       // INR per gram, from stock_prices (null until the first Prices tap)
+  prevGoldPrice: number | null
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
   epfTransactions: EPFTransaction[]
@@ -117,39 +119,16 @@ const assetClass = mfAssetClass
 
 export default function PortfolioClient({
   allTransactions, bands, latestYearSymbols, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
-  sgbTransactions, ppfTransactions: initialPpfTransactions, ppfOverride,
+  sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions: initialPpfTransactions, ppfOverride,
   epfTransactions: initialEpfTransactions,
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>())
   const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
-  const [goldPrice, setGoldPrice] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null
-    const v = localStorage.getItem('goldPricePerGram')
-    return v ? parseFloat(v) : null
-  })
-  const [prevGoldPrice, setPrevGoldPrice] = useState<number | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
   const [posting, setPosting] = useState(false)
   const [refreshPending, startRefresh] = useTransition()
   const refreshing = posting || refreshPending
-
-  // Live gold price via Yahoo Finance proxy; persists last known price in localStorage.
-  // prevPricePerGram (yesterday's close) feeds 1D gain only — not persisted. Moves into
-  // stock_prices in #120.b, like stock prices already have.
-  useEffect(() => {
-    fetch('/api/gold-price')
-      .then(r => r.json())
-      .then(d => {
-        if (d.pricePerGram) {
-          setGoldPrice(d.pricePerGram)
-          localStorage.setItem('goldPricePerGram', String(d.pricePerGram))
-        }
-        setPrevGoldPrice(d.prevPricePerGram ?? null)
-      })
-      .catch(() => {})
-  }, [refreshKey])
 
   // MF NAV now comes from page.tsx's server-side read of our own mf_nav_history
   // table (lib/data.ts's getMFNavHistory) — see progress log #117/#118. This
@@ -165,7 +144,7 @@ export default function PortfolioClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Stock prices arrive as props (page.tsx reads stock_prices) and only change when the
+  // Stock and gold prices arrive as props (page.tsx reads stock_prices) and only change when the
   // Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, stockPrices), [allTransactions, bands, latestYearSymbols, stockPrices])
 
@@ -234,11 +213,9 @@ export default function PortfolioClient({
 
   // Fetch + save the latest prices server-side, then re-render so the page reads them back.
   // A failed POST still re-renders (harmlessly, with whatever is saved) — the transition
-  // keeps the button busy until the new server render has actually landed. refreshKey
-  // still drives the gold effect until #120.b removes it.
+  // keeps the button busy until the new server render has actually landed.
   async function handleRefresh() {
     setPosting(true)
-    setRefreshKey(k => k + 1)
     try {
       await fetch('/api/portfolio/prices/refresh', { method: 'POST' })
     } catch { /* fall through to the re-render below */ }

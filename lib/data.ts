@@ -4,7 +4,7 @@ import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import { isNavStale } from './amfi'
-import type { StockPriceInfo } from './stock-prices'
+import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 
@@ -23,7 +23,7 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 //   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
 //     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
 //     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
-//   getMFNavHistory / getStockPrices : no cache on purpose — a Prices-button refresh must show on the next render
+//   getMFNavHistory / getStockPrices / getGoldPrice : no cache on purpose — a Prices-button refresh must show on the next render
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
@@ -251,6 +251,11 @@ export async function getStockPrices(symbols: string[]): Promise<Record<string, 
     }
   }
   return result
+}
+
+/** Saved gold price (INR per gram; `prevClose` = prior per-gram) or null if never fetched. Uncached, like getStockPrices. */
+export async function getGoldPrice(): Promise<StockPriceInfo | null> {
+  return (await getStockPrices([GOLD_PRICE_KEY]))[GOLD_PRICE_KEY] ?? null
 }
 
 const _fetchSGBTransactions = unstable_cache(

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatINRFull, formatPriceNum, formatPnLFull, trimPct, getGainColor } from '@/lib/formatter'
 import UserMenu from '@/components/UserMenu'
@@ -12,6 +12,7 @@ import type { SGBTransaction } from '@/lib/portfolio-types'
 interface Props {
   batchKey: string
   transactions: SGBTransaction[]
+  goldPrice: number | null   // INR per gram, from stock_prices (null until the first Prices tap on Portfolio)
 }
 
 function groupByMonth(txns: SGBTransaction[]) {
@@ -23,26 +24,16 @@ function groupByMonth(txns: SGBTransaction[]) {
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export default function GoldDetailClient({ batchKey, transactions: initialTransactions }: Props) {
+export default function GoldDetailClient({ batchKey, transactions: initialTransactions, goldPrice }: Props) {
   const router = useRouter()
   const [transactions, setTransactions] = useState(initialTransactions)
-  const [goldPrice, setGoldPrice]         = useState<number | null>(null)
-  const [priceLoading, setPriceLoading]   = useState(true)
 
   function updateTxn(u: SGBTransaction) { setTransactions(prev => prev.map(t => t.id === u.id ? u : t)) }
   function deleteTxn(id: string)        { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
-  useEffect(() => {
-    fetch('/api/gold-price')
-      .then(r => r.json())
-      .then(d => setGoldPrice(d.pricePerGram ?? null))
-      .catch(() => setGoldPrice(null))
-      .finally(() => setPriceLoading(false))
-  }, [])
-
   const batch = useMemo(
-    () => aggregateSGBBatch(batchKey, transactions, priceLoading ? null : goldPrice),
-    [batchKey, transactions, goldPrice, priceLoading]
+    () => aggregateSGBBatch(batchKey, transactions, goldPrice),
+    [batchKey, transactions, goldPrice]
   )
 
   const sortedTxns = useMemo(

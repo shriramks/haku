@@ -8,6 +8,12 @@ import type { CmpQuoteBatch } from './market-data'
 /** Net quantity above this counts as a held position — the Portfolio list and the refresh route share the cut-off. */
 export const HELD_QTY_EPSILON = 0.001
 
+/**
+ * Gold's row in stock_prices: INR per gram, `prev_close` = the prior per-gram price.
+ * The leading underscore can't collide with an NSE ticker.
+ */
+export const GOLD_PRICE_KEY = '_GOLD_INR_PER_GRAM'
+
 export interface StockPriceInfo {
   cmp: number
   prevClose: number | null

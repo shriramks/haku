@@ -122,3 +122,49 @@ export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
   }
   return { prices, prevClose, changePercent, week52 }
 }
+
+export interface GoldQuote {
+  pricePerGram: number
+  prevPricePerGram: number | null
+}
+
+const GRAMS_PER_TROY_OZ = 31.1035
+
+/** INR per gram from COMEX gold (USD per troy oz) and the USD/INR rate. */
+export function goldPerGram(usdPerOz: number, usdInr: number): number {
+  return (usdPerOz / GRAMS_PER_TROY_OZ) * usdInr
+}
+
+interface FuturesMeta { price: number; prevClose: number | null }
+
+async function fetchFuturesMeta(symbol: string): Promise<FuturesMeta | null> {
+  const res = await fetch(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
+    { headers: { 'User-Agent': YAHOO_UA } },
+  )
+  if (!res.ok) return null
+  const json = await res.json()
+  const meta = json?.chart?.result?.[0]?.meta
+  if (!meta?.regularMarketPrice) return null
+  // Futures/FX chart meta carries the prior close as chartPreviousClose, not
+  // previousClose (unlike NSE equities above).
+  return { price: meta.regularMarketPrice as number, prevClose: (meta.chartPreviousClose as number) ?? null }
+}
+
+/** Fetches gold in INR per gram (GC=F × USDINR=X) plus the prior per-gram price.
+ *  Deliberately uncached — it backs the Prices button, which must return the live price.
+ *  Returns null on any failure. */
+export async function fetchGoldPrice(): Promise<GoldQuote | null> {
+  try {
+    const [gc, usdinr] = await Promise.all([fetchFuturesMeta('GC=F'), fetchFuturesMeta('USDINR=X')])
+    if (!gc || !usdinr) return null
+    return {
+      pricePerGram: goldPerGram(gc.price, usdinr.price),
+      prevPricePerGram: gc.prevClose !== null && usdinr.prevClose !== null
+        ? goldPerGram(gc.prevClose, usdinr.prevClose)
+        : null,
+    }
+  } catch {
+    return null
+  }
+}

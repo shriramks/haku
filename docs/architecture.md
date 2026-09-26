@@ -25,7 +25,7 @@
 | `user_settings` | Gemini API key plus `risk_free` |
 | `investability` | 10-gate qualitative scorecard |
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
-| `stock_prices` | Last-fetched CMP + previous close per NSE symbol (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
+| `stock_prices` | Last-fetched CMP + previous close per NSE symbol, plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
@@ -187,14 +187,15 @@ One source end to end: our own `mf_nav_history` table (`scheme_code, nav_date, n
 ---
 ## Price Fetch Flow
 
-Stock prices on the Portfolio screen change **only when the Prices button is tapped** (progress log #120). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. Gold and MF NAV still use their own paths until #120.b / #120.c fold them in.
+Stock and gold prices on the Portfolio screen change **only when the Prices button is tapped** (progress log #120). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. MF NAV still uses its own path until #120.c folds it in.
 
-- **Refresh** (`POST /api/portfolio/prices/refresh`): auth-checked, takes no body. Derives the symbols to fetch server-side from the caller's own transactions (`heldSymbols` — net qty > 0), fetches them with `fetchCmpBatch`, diffs against the saved rows and upserts. Only symbols that returned a price are written — a Yahoo failure never overwrites a good saved price. Returns `{ fetchedAt, stocks: { requested, updated, moved, failed[] } }`. Prices are written server-side only: nothing client-supplied reaches a table every user reads.
+- **Refresh** (`POST /api/portfolio/prices/refresh`): auth-checked, takes no body. Derives the symbols to fetch server-side from the caller's own transactions (`heldSymbols` — net qty > 0), fetches them with `fetchCmpBatch`, diffs against the saved rows and upserts. Only symbols that returned a price are written — a Yahoo failure never overwrites a good saved price. Returns `{ fetchedAt, stocks: { requested, updated, moved, failed[] }, gold: 'skipped' | 'updated' | 'failed' }`. Prices are written server-side only: nothing client-supplied reaches a table every user reads.
+- **Gold**: one more row in `stock_prices` under `GOLD_PRICE_KEY` (`_GOLD_INR_PER_GRAM`, `lib/stock-prices.ts`) — `cmp` is INR per gram, `prev_close` the prior per-gram price; the leading underscore can't collide with an NSE ticker. The refresh route fetches it (`fetchGoldPrice` in `lib/market-data.ts`: Yahoo `GC=F` × `USDINR=X`, uncached so a tap gets the live price) only when the caller has any `sgb_transactions`, in the same upsert as the stock rows. Same failure rule as stocks: a failed fetch writes no row, so the last saved gold price (and its returns) stays. Reads: `getGoldPrice()` in `lib/data.ts`, uncached. Until the first successful tap there is no row → gold values at cost and overall XIRR is unavailable.
 - **Read** (`getStockPrices(symbols)` in `lib/data.ts`): uncached, filtered by symbol. Symbols with no saved row are absent — callers go through `resolveCmp` (`lib/stock-prices.ts`), which falls back to `buy_bands.cmp` (a stored snapshot that only updates on Bands regen). The Portfolio list and the stock detail page both use it, so they can't show different prices.
 - **Why not `buy_bands.cmp`:** it is user-scoped, only covers stocks that have bands, and the Bands screen's own CMP upsert could race a portfolio write.
 - **Untouched:** `GET /api/cmp/batch` and `/api/cmp/[symbol]` — still used live by the Bands and Tax screens.
 
-**Call sites:** `app/portfolio/page.tsx` (list), `app/portfolio/stock/[symbol]/page.tsx` (detail).
+**Call sites:** `app/portfolio/page.tsx` (list — stocks + gold), `app/portfolio/stock/[symbol]/page.tsx` (stock detail), `app/portfolio/gold/[key]/page.tsx` (gold detail).
 
 ---
 

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavHistory, getStockPrices, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
+import { getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavHistory, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
 import { heldSymbols } from '@/lib/stock-prices'
@@ -15,8 +15,8 @@ export default async function PortfolioPage() {
 
   // Two fetch stages, not a chain. Stage 1: the cached getters (unstable_cache-wrapped in
   // lib/data.ts; see app/portfolio/actions.ts and TransactionsClient.tsx for the matching
-  // revalidation on every write). Stage 2: the three uncached reads, which each need
-  // something from stage 1 but not from each other, so they run in parallel.
+  // revalidation on every write). Stage 2: the four uncached reads — none depends on another
+  // (three need something from stage 1, the gold price needs nothing) — so they run in parallel.
   const [
     fiscalYears,
     allTransactions,
@@ -44,10 +44,11 @@ export default async function PortfolioPage() {
   // Only funds with a live unit balance need a NAV lookup — see filterActiveMfFunds.
   const activeMfFunds = filterActiveMfFunds(mfFunds, mfTransactions)
 
-  const [currentFYAllocations, mfNavHistory, stockPrices] = await Promise.all([
+  const [currentFYAllocations, mfNavHistory, stockPrices, goldPrice] = await Promise.all([
     currentFY ? getAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
     getMFNavHistory(activeMfFunds.map(f => f.scheme_code)),
     getStockPrices(heldSymbols(allTransactions)),
+    getGoldPrice(),
   ])
   const latestYearSymbols = currentFYAllocations.map(a => a.symbol)
 
@@ -70,6 +71,8 @@ export default async function PortfolioPage() {
         mfNavs={mfNavs}
         mfPrevNavs={mfPrevNavs}
         sgbTransactions={sgbTransactions}
+        goldPrice={goldPrice?.cmp ?? null}
+        prevGoldPrice={goldPrice?.prevClose ?? null}
         ppfTransactions={ppfTransactions}
         ppfOverride={ppfOverride}
         epfTransactions={epfTransactions}
