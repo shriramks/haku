@@ -27,6 +27,7 @@ interface Props {
   mfFunds:        MFund[]
   mfTxns:         MFTransaction[]
   mfNavs:         Record<string, number>
+  cmps:           Record<string, number>
   sgbTxns:        SGBTransaction[]
   dividends:      DividendTransaction[]
   advanceTaxPaid: AdvanceTaxPaidRow[]
@@ -39,15 +40,12 @@ const BUCKET_LABEL: Record<Bucket, string> = {
 }
 
 export default function TaxClient({
-  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, mfNavs, sgbTxns, dividends, advanceTaxPaid, carryForward,
+  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, mfNavs, cmps, sgbTxns, dividends, advanceTaxPaid, carryForward,
 }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
   const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
   const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
-  const [cmps, setCmps]               = useState<Record<string, number>>({})
-  const [pricesLoading, setPricesLoading] = useState(true)
-  const pricesFetchedRef              = useRef(false)
 
   const [paidRows, setPaidRows] = useState<AdvanceTaxPaidRow[]>(advanceTaxPaid)
   const [cfRows, setCfRows]     = useState<CarryForwardDbRow[]>(carryForward)
@@ -72,24 +70,6 @@ export default function TaxClient({
   const carryForwardLibRows: CarryForwardRow[] = useMemo(() =>
     cfRows.map(r => ({ id: r.id, fyStartDate: fyById.get(r.fy_id)?.start_date ?? '', lossType: r.loss_type, remaining: r.remaining })),
     [cfRows, fyById])
-
-  // Fetch live prices once — only for stocks; equity MF NAVs arrive as the
-  // mfNavs prop (server-side, see app/tax/page.tsx).
-  useEffect(() => {
-    if (pricesFetchedRef.current) return
-    pricesFetchedRef.current = true
-
-    const stockSymbols = [...new Set(stockTxns.map(t => t.symbol))]
-    if (stockSymbols.length === 0) {
-      setPricesLoading(false)
-      return
-    }
-    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(stockSymbols.join(','))}`)
-      .then(r => r.json())
-      .then(d => { if (d.prices) setCmps(d.prices) })
-      .catch(() => {})
-      .then(() => setPricesLoading(false))
-  }, [stockTxns])
 
   // Reconcile the carryforward ledger once per load — chains every closed FY
   // that has no row yet, oldest first, so incoming carryforward is correct
@@ -380,7 +360,6 @@ export default function TaxClient({
         <HarvestingBody
           exemptionUsed={setOff.exemptionApplied}
           unrealisedLoss={harvestingData.unrealisedLoss}
-          pricesLoading={pricesLoading}
         />
       </Section>
 

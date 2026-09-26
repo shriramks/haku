@@ -197,9 +197,9 @@ Stock and gold prices on the Portfolio screen change **only when the Prices butt
 - **Gold**: one more row in `stock_prices` under `GOLD_PRICE_KEY` (`_GOLD_INR_PER_GRAM`, `lib/stock-prices.ts`) — `cmp` is INR per gram, `prev_close` the prior per-gram price; the leading underscore can't collide with an NSE ticker. The refresh route fetches it (`fetchGoldPrice` in `lib/market-data.ts`: Yahoo `GC=F` × `USDINR=X`, uncached so a tap gets the live price) only when the caller has any `sgb_transactions`, in the same upsert as the stock rows. Same failure rule as stocks: a failed fetch writes no row, so the last saved gold price (and its returns) stays. Reads: `getGoldPrice()` in `lib/data.ts`, uncached. Until the first successful tap there is no row → gold values at cost and overall XIRR is unavailable.
 - **Read** (`getStockPrices(symbols)` in `lib/data.ts`): uncached, filtered by symbol. Symbols with no saved row are absent — callers go through `resolveCmp` (`lib/stock-prices.ts`), which falls back to `buy_bands.cmp` (a stored snapshot that only updates on Bands regen). The Portfolio list and the stock detail page both use it, so they can't show different prices.
 - **Why not `buy_bands.cmp`:** it is user-scoped, only covers stocks that have bands, and the Bands screen's own CMP upsert could race a portfolio write.
-- **Untouched:** `GET /api/cmp/batch` and `/api/cmp/[symbol]` — still used live by the Bands and Tax screens.
+- **Untouched:** `GET /api/cmp/batch` and `/api/cmp/[symbol]` — still used live by the Bands screen (Tax moved to saved prices in #124).
 
-**Call sites:** `app/portfolio/page.tsx` (list — stocks + gold), `app/portfolio/stock/[symbol]/page.tsx` (stock detail), `app/portfolio/gold/[key]/page.tsx` (gold detail).
+**Call sites:** `app/portfolio/page.tsx` (list — stocks + gold), `app/portfolio/stock/[symbol]/page.tsx` (stock detail), `app/portfolio/gold/[key]/page.tsx` (gold detail), `app/tax/page.tsx` (Harvesting's unrealised-loss figure — open-position symbols only, via `resolveCmp` with the band snapshot as fallback; Tax has no Prices button, so its prices move only when Portfolio's is tapped).
 
 ---
 

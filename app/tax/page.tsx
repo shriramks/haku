@@ -1,6 +1,7 @@
-import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId, getMFFunds, getMFTransactions, getMFNavs, getSGBTransactions } from '@/lib/data'
+import { getFiscalYears, getCurrentFY, getTransactions, getBuyBands, getAllDividends, getUserId, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getSGBTransactions } from '@/lib/data'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { mfAssetClass } from '@/lib/tax-compute'
+import { mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
+import { resolveCmp } from '@/lib/stock-prices'
 import type { AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import TaxClient from './TaxClient'
 import BottomNav from '@/components/BottomNav'
@@ -14,6 +15,7 @@ export default async function TaxPage() {
   const [
     fiscalYears,
     stockTxns,
+    bands,
     mfFunds,
     mfTxns,
     sgbTxns,
@@ -23,6 +25,7 @@ export default async function TaxPage() {
   ] = await Promise.all([
     getFiscalYears(),
     getTransactions(),
+    getBuyBands(),
     getMFFunds(),
     getMFTransactions(),
     getSGBTransactions(),
@@ -36,9 +39,27 @@ export default async function TaxPage() {
   // Harvesting's unrealised-loss figure needs the current NAV for equity funds
   // only (no 1D gain shown on this screen, so no prevNav).
   const equityFunds = mfFunds.filter(f => mfAssetClass(f) === 'equity')
-  const mfNavInfo = await getMFNavs(equityFunds.map(f => f.scheme_code))
+
+  // Stocks are priced the way Portfolio prices them (resolveCmp: saved stock_prices
+  // row, else the band snapshot) — only symbols with an open position, since those
+  // are the only ones Harvesting computes unrealised gains for.
+  const openSymbols = [...groupBy(stockTxns, t => t.symbol)]
+    .filter(([, txns]) => netStockQty(txns) > 0)
+    .map(([symbol]) => symbol)
+
+  const [mfNavInfo, stockPrices] = await Promise.all([
+    getMFNavs(equityFunds.map(f => f.scheme_code)),
+    getStockPrices(openSymbols),
+  ])
   const mfNavs: Record<string, number> = {}
   for (const [code, info] of Object.entries(mfNavInfo)) mfNavs[code] = info.nav
+
+  const bandCmp = new Map(bands.map(b => [b.symbol, b.cmp]))
+  const cmps: Record<string, number> = {}
+  for (const symbol of openSymbols) {
+    const cmp = resolveCmp(symbol, stockPrices, bandCmp.get(symbol))
+    if (cmp !== null) cmps[symbol] = cmp
+  }
 
   return (
     <>
@@ -49,6 +70,7 @@ export default async function TaxPage() {
         mfFunds={mfFunds}
         mfTxns={mfTxns}
         mfNavs={mfNavs}
+        cmps={cmps}
         sgbTxns={sgbTxns}
         dividends={dividends}
         advanceTaxPaid={(advanceTaxPaid ?? []) as AdvanceTaxPaidRow[]}

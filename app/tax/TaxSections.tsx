@@ -260,11 +260,10 @@ export function TaxBody({
 // ── Harvesting ───────────────────────────────────────────────────────────────
 
 export function HarvestingBody({
-  exemptionUsed, unrealisedLoss, pricesLoading,
+  exemptionUsed, unrealisedLoss,
 }: {
   exemptionUsed:  number
   unrealisedLoss: number | null
-  pricesLoading:  boolean
 }) {
   const remaining = LTCG_EXEMPTION - exemptionUsed
   const barPct    = Math.min(100, Math.max(0, (exemptionUsed / LTCG_EXEMPTION) * 100))
@@ -281,11 +280,9 @@ export function HarvestingBody({
 
       <SectionLabel label="Unrealised Losses" className="px-4" />
       <DetailRow label="Harvestable now" bold noRupee>
-        {pricesLoading
-          ? <span style={{ color: 'var(--text-faint)' }}>—</span>
-          : unrealisedLoss !== null && unrealisedLoss < 0
-            ? <Num amount={unrealisedLoss} signed align />
-            : <span style={{ color: 'var(--text-faint)' }}>None</span>
+        {unrealisedLoss !== null && unrealisedLoss < 0
+          ? <Num amount={unrealisedLoss} signed align />
+          : <span style={{ color: 'var(--text-faint)' }}>None</span>
         }
       </DetailRow>
     </div>
