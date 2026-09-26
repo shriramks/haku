@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { xirr, computePPFBalance, stockXirr, portfolioXirr, epfXirr, oneDayXirr } from '../xirr'
+import { xirr, computePPFBalance, stockXirr, portfolioXirr, epfXirr } from '../xirr'
 
 function d(s: string): Date { return new Date(s) }
 
@@ -212,39 +212,5 @@ describe('epfXirr', () => {
 
   it('returns null with no deposits', () => {
     expect(epfXirr([interest('2025-03-31', 5_000)], 5_000, d('2026-01-01'))).toBeNull()
-  })
-})
-
-// ── oneDayXirr ────────────────────────────────────────────────────────────────
-// Two cashflows exactly 1 day apart, fed through the same xirr() solver as
-// everything else — reduces to (today/yesterday)^365.25 − 1 (MS_PER_YEAR uses
-// 365.25 days, so the exponent isn't a round 365).
-
-describe('oneDayXirr', () => {
-  it('annualises a positive 1D gain', () => {
-    const r = oneDayXirr(100_300, 300, d('2026-01-02'))
-    expect(r).not.toBeNull()
-    expect(r!).toBeCloseTo(Math.pow(100_300 / 100_000, 365.25) - 1, 6)
-  })
-
-  it('annualises a negative 1D gain (loss)', () => {
-    const r = oneDayXirr(99_700, -300, d('2026-01-02'))
-    expect(r).not.toBeNull()
-    expect(r!).toBeCloseTo(Math.pow(99_700 / 100_000, 365.25) - 1, 6)
-    expect(r!).toBeLessThan(0)
-  })
-
-  it('returns ~0 for a flat day (no gain)', () => {
-    const r = oneDayXirr(100_000, 0, d('2026-01-02'))
-    expect(r!).toBeCloseTo(0, 6)
-  })
-
-  it('returns null when currentValue is 0 or negative', () => {
-    expect(oneDayXirr(0, 0, d('2026-01-02'))).toBeNull()
-    expect(oneDayXirr(-100, -50, d('2026-01-02'))).toBeNull()
-  })
-
-  it('returns null when the implied 1D loss exceeds the whole portfolio', () => {
-    expect(oneDayXirr(100, -500, d('2026-01-02'))).toBeNull()
   })
 })

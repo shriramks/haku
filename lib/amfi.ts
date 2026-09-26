@@ -54,8 +54,8 @@ export async function fetchAmfiNavHistory(fromDate: Date, toDate: Date): Promise
  * guards the 1D-gain calc, which assumes the latest NAV is from a genuine
  * single trading day back. 4 days covers an ordinary weekend/holiday gap
  * without flagging it; a wider gap means the feed itself is stuck, and
- * blending that move into "1D" would inflate oneDayXirr's annualization —
- * the failure mode behind #112's 202% figure.
+ * blending that move into "1D" would overstate the day's gain — the failure
+ * mode behind #112's 202% figure (then an annualised 1D XIRR, since retired).
  */
 export function isNavStale(navDate: string, today: Date = new Date(), maxDays = 4): boolean {
   const nav = new Date(navDate + 'T00:00:00')

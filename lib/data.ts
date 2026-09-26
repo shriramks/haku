@@ -216,7 +216,7 @@ export async function getMFNavHistory(schemeCodes: string[]): Promise<Record<str
     } else if (!seenSecond.has(code)) {
       seenSecond.add(code)
       // Gap >4 calendar days between the two rows means it isn't a genuine
-      // 1-day move — same rule oneDayXirr's callers already rely on.
+      // 1-day move — keeps stale-feed gaps out of the 1D gain / 1D %.
       if (!isNavStale(row.nav_date, new Date(entry.navDate + 'T00:00:00'), 4)) {
         entry.prevNav = row.nav
       }

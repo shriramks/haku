@@ -10,7 +10,7 @@ import { Num, NumUnit } from '@/components/Num'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
-import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr, oneDayXirr } from '@/lib/xirr'
+import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
 import { computeMFHolding } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
@@ -239,11 +239,12 @@ export default function PortfolioClient({
   // Portfolio-level only — no per-batch line item (gold rows don't get a 1D figure, unlike Stock/MF).
   const goldGain1d = goldPrice !== null && prevGoldPrice !== null ? totalGoldGrams * (goldPrice - prevGoldPrice) : null
 
-  // 1D Gain rolls in Stocks + MF + Gold — PPF/EPF excluded (no daily price). 1D XIRR
-  // treats totalCurrent as "today" and totalCurrent − totalGain1d as "yesterday",
-  // so static PPF/EPF dilute the annualised figure exactly like they should.
+  // 1D Gain rolls in Stocks + MF + Gold — PPF/EPF excluded (no daily price). 1D % is
+  // the plain (non-annualised) move: totalCurrent − totalGain1d is "yesterday", so
+  // static PPF/EPF sit in the denominator with zero movement and dilute it, as they should.
   const totalGain1d = (equity.gain1d ?? 0) + mfGain1d + (goldGain1d ?? 0)
-  const dayXirr      = oneDayXirr(totalCurrent, totalGain1d)
+  const prevTotal    = totalCurrent - totalGain1d
+  const dayPct       = prevTotal > 0 ? totalGain1d / prevTotal * 100 : null
 
   function handleRefresh() {
     setRefreshing(true)
@@ -298,7 +299,7 @@ export default function PortfolioClient({
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
           <SCell label="Invested" amount={totalInvested} />
           <SCell label="XIRR p.a." pct={overallXirr !== null ? overallXirr * 100 : null} signed />
-          <SCell label="1D XIRR" pct={dayXirr !== null ? dayXirr * 100 : null} signed />
+          <SCell label="1D %" pct={dayPct} signed />
         </div>
         <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
       </div>
