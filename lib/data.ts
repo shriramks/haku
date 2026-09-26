@@ -4,6 +4,7 @@ import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import { isNavStale } from './amfi'
+import type { StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 
@@ -22,6 +23,7 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 //   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
 //     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
 //     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
+//   getMFNavHistory / getStockPrices : no cache on purpose — a Prices-button refresh must show on the next render
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
@@ -220,6 +222,32 @@ export async function getMFNavHistory(schemeCodes: string[]): Promise<Record<str
       if (!isNavStale(row.nav_date, new Date(entry.navDate + 'T00:00:00'), 4)) {
         entry.prevNav = row.nav
       }
+    }
+  }
+  return result
+}
+
+/**
+ * Last-saved price per symbol, from `stock_prices` (written only by
+ * POST /api/portfolio/prices/refresh — progress log #120.a). Public market data, not
+ * user-scoped, so no user_id filter. Deliberately uncached, same reasoning as
+ * getMFNavHistory: a refresh must show on the very next render. Symbols with no
+ * saved row are simply absent from the result — callers fall back via resolveCmp.
+ */
+export async function getStockPrices(symbols: string[]): Promise<Record<string, StockPriceInfo>> {
+  if (symbols.length === 0) return {}
+
+  const { data } = await createSupabaseServiceClient()
+    .from('stock_prices')
+    .select('symbol, cmp, prev_close, fetched_at')
+    .in('symbol', symbols)
+
+  const result: Record<string, StockPriceInfo> = {}
+  for (const row of (data ?? []) as { symbol: string; cmp: number; prev_close: number | null; fetched_at: string }[]) {
+    result[row.symbol] = {
+      cmp: Number(row.cmp),
+      prevClose: row.prev_close === null ? null : Number(row.prev_close),
+      fetchedAt: row.fetched_at,
     }
   }
   return result

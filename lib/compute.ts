@@ -9,7 +9,7 @@ import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from
  *
  * Returns the current qty held, total cost of those shares, and avg cost per share.
  */
-export function seqCost(txns: Transaction[]): {
+export function seqCost(txns: Pick<Transaction, 'trade_date' | 'trade_type' | 'quantity' | 'amount'>[]): {
   qty: number; cost: number; avgCost: number
   /** Weighted average of BUY transactions only — unaffected by sells.
    *  Use this for display ("Avg Cost") so a past sell doesn't distort

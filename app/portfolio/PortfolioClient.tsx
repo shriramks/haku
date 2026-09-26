@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { trimZero, fyLabel, monthYear, formatDate, getGainColor } from '@/lib/formatter'
@@ -12,6 +12,7 @@ import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
 import { seqCost } from '@/lib/compute'
+import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from '@/lib/stock-prices'
 import { computeMFHolding } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
@@ -21,6 +22,7 @@ interface Props {
   allTransactions: Transaction[]
   bands: BuyBand[]
   latestYearSymbols: string[]
+  stockPrices: Record<string, StockPriceInfo>
   mfFunds: MFund[]
   mfTransactions: MFTransaction[]
   mfNavs: Record<string, number>
@@ -37,8 +39,7 @@ function computeStockHoldings(
   transactions: Transaction[],
   bands: BuyBand[],
   allowedSymbols: string[],
-  liveCmp: Record<string, number>,
-  prevClose: Record<string, number | null>,
+  stockPrices: Record<string, StockPriceInfo>,
 ): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null; gain1d: number | null; gain1dPct: number | null }[] {
   const allowed = new Set(allowedSymbols)
   const bySymbol: Record<string, Transaction[]> = {}
@@ -50,14 +51,15 @@ function computeStockHoldings(
   return Object.entries(bySymbol)
     .flatMap(([symbol, txns]) => {
       const { qty, cost } = seqCost(txns)
-      if (qty <= 0.001) return []
-      // Prefer a live-fetched CMP over the stored band snapshot, which only
-      // updates when bands are (re)generated and can be stale for days.
-      const cmp = liveCmp[symbol] ?? cmpBySymbol.get(symbol) ?? null
+      if (qty <= HELD_QTY_EPSILON) return []
+      // Saved price (stock_prices, written by the Prices button) beats the stored
+      // band snapshot, which only updates when bands are regenerated and can be
+      // stale for days — see resolveCmp.
+      const cmp = resolveCmp(symbol, stockPrices, cmpBySymbol.get(symbol))
       const currentValue = cmp ? qty * cmp : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
-      const prev = prevClose[symbol] ?? null
+      const prev = stockPrices[symbol]?.prevClose ?? null
       const gain1d = cmp && prev ? qty * (cmp - prev) : null
       const gain1dPct = cmp && prev ? (cmp / prev - 1) * 100 : null
       return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal, gain1d, gain1dPct }]
@@ -114,7 +116,7 @@ const assetClass = mfAssetClass
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  allTransactions, bands, latestYearSymbols, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
+  allTransactions, bands, latestYearSymbols, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
   sgbTransactions, ppfTransactions: initialPpfTransactions, ppfOverride,
   epfTransactions: initialEpfTransactions,
 }: Props) {
@@ -122,8 +124,6 @@ export default function PortfolioClient({
   const [openSections, setOpenSections] = useState(new Set<string>())
   const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
-  const [liveCmp, setLiveCmp] = useState<Record<string, number>>({})
-  const [prevClose, setPrevClose] = useState<Record<string, number | null>>({})
   const [goldPrice, setGoldPrice] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null
     const v = localStorage.getItem('goldPricePerGram')
@@ -131,11 +131,13 @@ export default function PortfolioClient({
   })
   const [prevGoldPrice, setPrevGoldPrice] = useState<number | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
+  const [posting, setPosting] = useState(false)
+  const [refreshPending, startRefresh] = useTransition()
+  const refreshing = posting || refreshPending
 
   // Live gold price via Yahoo Finance proxy; persists last known price in localStorage.
-  // prevPricePerGram (yesterday's close) feeds 1D gain only — not persisted, same as
-  // prevClose above.
+  // prevPricePerGram (yesterday's close) feeds 1D gain only — not persisted. Moves into
+  // stock_prices in #120.b, like stock prices already have.
   useEffect(() => {
     fetch('/api/gold-price')
       .then(r => r.json())
@@ -163,25 +165,9 @@ export default function PortfolioClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, liveCmp, prevClose), [allTransactions, bands, latestYearSymbols, liveCmp, prevClose])
-
-  // Live CMP fetch for held stocks — bands.cmp above is a stored snapshot that only
-  // refreshes when bands are (re)generated on the Bands screen, so it can be stale
-  // for days. Mirrors the NAV/gold-price live-fetch pattern; the symbol set is
-  // derived from holdings but doesn't depend on cmp, so this can't loop with the
-  // state update below. No DB write-back — unlike BandsClient's refresh, this is
-  // local display state only, so it can't race with band generation elsewhere.
-  const heldSymbolsKey = stockHoldings.map(h => h.symbol).join(',')
-  useEffect(() => {
-    if (!heldSymbolsKey) return
-    fetch(`/api/cmp/batch?symbols=${encodeURIComponent(heldSymbolsKey)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.prices) setLiveCmp(prev => ({ ...prev, ...d.prices }))
-        if (d.prevClose) setPrevClose(prev => ({ ...prev, ...d.prevClose }))
-      })
-      .catch(() => {})
-  }, [heldSymbolsKey, refreshKey])
+  // Stock prices arrive as props (page.tsx reads stock_prices) and only change when the
+  // Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
+  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, stockPrices), [allTransactions, bands, latestYearSymbols, stockPrices])
 
   // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
   const equity: EquitySummary = useMemo(() => ({
@@ -246,11 +232,18 @@ export default function PortfolioClient({
   const prevTotal    = totalCurrent - totalGain1d
   const dayPct       = prevTotal > 0 ? totalGain1d / prevTotal * 100 : null
 
-  function handleRefresh() {
-    setRefreshing(true)
+  // Fetch + save the latest prices server-side, then re-render so the page reads them back.
+  // A failed POST still re-renders (harmlessly, with whatever is saved) — the transition
+  // keeps the button busy until the new server render has actually landed. refreshKey
+  // still drives the gold effect until #120.b removes it.
+  async function handleRefresh() {
+    setPosting(true)
     setRefreshKey(k => k + 1)
-    router.refresh()
-    setTimeout(() => setRefreshing(false), 1500)
+    try {
+      await fetch('/api/portfolio/prices/refresh', { method: 'POST' })
+    } catch { /* fall through to the re-render below */ }
+    startRefresh(() => router.refresh())
+    setPosting(false)
   }
 
   function toggleSection(id: string) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatINRFull, formatPriceNum, formatPnLFull, trimPct, getGainColor } from '@/lib/formatter'
 import UserMenu from '@/components/UserMenu'
@@ -13,6 +13,7 @@ import type { Transaction } from '@/lib/types'
 interface Props {
   symbol: string
   transactions: Transaction[]
+  cmp: number | null   // resolved server-side (saved price, else band snapshot) — see resolveCmp
 }
 
 function groupByMonth(txns: Transaction[]) {
@@ -24,25 +25,15 @@ function groupByMonth(txns: Transaction[]) {
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export default function StockDetailClient({ symbol, transactions: initialTransactions }: Props) {
+export default function StockDetailClient({ symbol, transactions: initialTransactions, cmp }: Props) {
   const router = useRouter()
   const [transactions, setTransactions] = useState(initialTransactions)
-  const [cmp, setCmp]           = useState<number | null>(null)
-  const [cmpLoading, setCmpLoading] = useState(true)
 
   function updateTxn(u: Transaction) { setTransactions(prev => prev.map(t => t.id === u.id ? u : t)) }
   function deleteTxn(id: string)     { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
-  useEffect(() => {
-    fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setCmp(d?.price ?? null))
-      .catch(() => setCmp(null))
-      .finally(() => setCmpLoading(false))
-  }, [symbol])
-
   const { qty, cost } = useMemo(() => seqCost(transactions), [transactions])
-  const currentValue = !cmpLoading && cmp !== null ? qty * cmp : null
+  const currentValue = cmp !== null ? qty * cmp : null
   const gain = currentValue !== null ? currentValue - cost : null
   const xirr = useMemo(
     () => currentValue !== null ? stockXirr(transactions, currentValue) : null,

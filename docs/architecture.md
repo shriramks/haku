@@ -25,6 +25,7 @@
 | `user_settings` | Gemini API key plus `risk_free` |
 | `investability` | 10-gate qualitative scorecard |
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
+| `stock_prices` | Last-fetched CMP + previous close per NSE symbol (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
@@ -49,7 +50,7 @@ Server pages fetch through `lib/data.ts`. Fetchers wrapped in `unstable_cache` p
 | `getPPFOverride` | `ppf_balance_override` | 1 h | balance override save |
 | `getEPFTransactions` | `epf_transactions` | 1 h | txn add, or client edit/delete + `revalidateEPFTransactions()` |
 
-Among the portfolio/allocation tables, `getAllocations` (`stock_allocations`) and `getMFNavHistory` (`mf_nav_history`) are the two left on genuinely per-request `cache()` — see "MF NAV Fetch Flow" above for why `mf_nav_history` deliberately skips `unstable_cache`. (`user_settings` and `investability` fetchers are also per-request-only, but aren't part of this write-revalidation concern — no browser writes to those tables.)
+Among the portfolio/allocation tables, `getAllocations` (`stock_allocations`), `getMFNavHistory` (`mf_nav_history`) and `getStockPrices` (`stock_prices`) are left on genuinely per-request reads — see "MF NAV Fetch Flow" and "Price Fetch Flow" for why the two market-data tables deliberately skip `unstable_cache` (a refresh must show on the very next render). (`user_settings` and `investability` fetchers are also per-request-only, but aren't part of this write-revalidation concern — no browser writes to those tables.)
 
 **Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions that write and revalidate together — `app/actions.ts` for stock/dividend/snapshot tables (or API routes for bands/tranches), `app/portfolio/actions.ts` for MF/gold/PPF/EPF tables. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. `stock_allocations` is the one table genuinely uncached and written from the browser under RLS with nothing to revalidate.
 
@@ -184,6 +185,18 @@ One source end to end: our own `mf_nav_history` table (`scheme_code, nav_date, n
 **Call sites**, all server-side props, no client fetch: `app/portfolio/page.tsx` (current + previous NAV, for 1D gain), `app/portfolio/mf/[fundId]/page.tsx` (current + previous NAV, for the fund detail's 1D gain and "as of" date), `app/tax/page.tsx` (current NAV only, for Harvesting's unrealised-loss figure — no 1D gain shown there).
 
 ---
+## Price Fetch Flow
+
+Stock prices on the Portfolio screen change **only when the Prices button is tapped** (progress log #120). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. Gold and MF NAV still use their own paths until #120.b / #120.c fold them in.
+
+- **Refresh** (`POST /api/portfolio/prices/refresh`): auth-checked, takes no body. Derives the symbols to fetch server-side from the caller's own transactions (`heldSymbols` — net qty > 0), fetches them with `fetchCmpBatch`, diffs against the saved rows and upserts. Only symbols that returned a price are written — a Yahoo failure never overwrites a good saved price. Returns `{ fetchedAt, stocks: { requested, updated, moved, failed[] } }`. Prices are written server-side only: nothing client-supplied reaches a table every user reads.
+- **Read** (`getStockPrices(symbols)` in `lib/data.ts`): uncached, filtered by symbol. Symbols with no saved row are absent — callers go through `resolveCmp` (`lib/stock-prices.ts`), which falls back to `buy_bands.cmp` (a stored snapshot that only updates on Bands regen). The Portfolio list and the stock detail page both use it, so they can't show different prices.
+- **Why not `buy_bands.cmp`:** it is user-scoped, only covers stocks that have bands, and the Bands screen's own CMP upsert could race a portfolio write.
+- **Untouched:** `GET /api/cmp/batch` and `/api/cmp/[symbol]` — still used live by the Bands and Tax screens.
+
+**Call sites:** `app/portfolio/page.tsx` (list), `app/portfolio/stock/[symbol]/page.tsx` (detail).
+
+---
 
 ## Route → Screen Map
 
@@ -214,6 +227,7 @@ app/
     tranches/generate/[symbol]/route.ts tranche regeneration from stored bands
     settings/gemini-key/route.ts        AI key + risk_free settings
     mf-nav/sync/route.ts                AMFI daily NAV sync job — see "MF NAV Fetch Flow" above
+    portfolio/prices/refresh/route.ts   Prices button: fetch + save stock prices — see "Price Fetch Flow"
   bands/
     BandsClient.tsx                     bands list
     [symbol]/BandDetailClient.tsx       stock detail orchestrator — computes snowball, wires all sheets
@@ -235,6 +249,7 @@ lib/
   amfi.ts                                AMFI NAV history parsing + staleness guard — see "MF NAV Fetch Flow" above
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
+  stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"
   compute.ts                            dashboard row computation + band signals
   data.ts                               cached Supabase fetchers
   fetchStockDetailProps.ts              server-side stock detail loader

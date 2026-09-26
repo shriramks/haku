@@ -37,7 +37,7 @@ vi.mock('../supabase-service', () => ({
 import { createSupabaseServiceClient } from '../supabase-service'
 import {
   getAllocations, getTransactions, getTransactionsBySymbol,
-  getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavHistory,
+  getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavHistory, getStockPrices,
 } from '../data'
 
 // Builds a chainable Supabase query mock that records eq() calls
@@ -224,4 +224,56 @@ describe('getMFNavHistory', () => {
     } as never)
     return run()
   }
+})
+
+// --- getStockPrices ---
+
+type PriceRow = { symbol: string; cmp: number | string; prev_close: number | string | null; fetched_at: string }
+
+// stock_prices query only chains .select()/.in() — public table, no user_id filter.
+function makeStockPricesMock(rows: PriceRow[]) {
+  const mock: Record<string, unknown> = {}
+  const chain = () => mock
+  mock.select = chain
+  mock.in = chain
+  mock.then = (resolve: (v: { data: PriceRow[] }) => void) => Promise.resolve({ data: rows }).then(resolve)
+  return mock
+}
+
+describe('getStockPrices', () => {
+  it('returns {} without querying when no symbols given', async () => {
+    const fromSpy = vi.fn()
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({ from: fromSpy } as never)
+    expect(await getStockPrices([])).toEqual({})
+    expect(fromSpy).not.toHaveBeenCalled()
+  })
+
+  it('keys rows by symbol and maps column names', async () => {
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => makeStockPricesMock([
+        { symbol: 'TCS', cmp: 4000, prev_close: 3950, fetched_at: '2026-09-26T10:00:00+00:00' },
+      ]),
+    } as never)
+    expect(await getStockPrices(['TCS'])).toEqual({
+      TCS: { cmp: 4000, prevClose: 3950, fetchedAt: '2026-09-26T10:00:00+00:00' },
+    })
+  })
+
+  it('keeps a null prev_close null and coerces numeric strings to numbers', async () => {
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => makeStockPricesMock([
+        { symbol: 'CAMS', cmp: '812.5000', prev_close: null, fetched_at: '2026-09-26T10:00:00+00:00' },
+      ]),
+    } as never)
+    const result = await getStockPrices(['CAMS'])
+    expect(result.CAMS.cmp).toBe(812.5)
+    expect(result.CAMS.prevClose).toBeNull()
+  })
+
+  it('omits symbols with no saved row', async () => {
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => makeStockPricesMock([]),
+    } as never)
+    expect(await getStockPrices(['NEWCO'])).toEqual({})
+  })
 })
