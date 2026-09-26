@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { parseAmfiNavHistory, fetchAmfiNavHistory, isNavStale } from '../amfi'
+import { parseAmfiNavHistory, fetchAmfiNavHistory, fetchAmfiLatestNavs, isNavStale } from '../amfi'
 
 // Trimmed real sample from AMFI's dated history report (DownloadNAVHistoryReport_Po.aspx)
 // — same 8 fields as NAVAll.txt, but each scheme repeats once per date in range.
@@ -55,6 +55,37 @@ describe('fetchAmfiNavHistory', () => {
   it('throws on a non-ok response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
     await expect(fetchAmfiNavHistory(new Date(2026, 8, 18), new Date(2026, 8, 19))).rejects.toThrow('503')
+  })
+
+  it('throws on an HTTP 200 that parses to no rows (AMFI\'s HTML form page)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => '<html><form>...</form></html>' }))
+    await expect(fetchAmfiNavHistory(new Date(2026, 8, 18), new Date(2026, 8, 19))).rejects.toThrow('no NAV rows')
+  })
+})
+
+describe('fetchAmfiLatestNavs', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('requests NAVAll.txt and parses the response', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, text: async () => NAV_HISTORY_SAMPLE })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const rows = await fetchAmfiLatestNavs()
+
+    expect(mockFetch).toHaveBeenCalledWith('https://portal.amfiindia.com/spages/NAVAll.txt')
+    expect(rows).toHaveLength(4)
+  })
+
+  it('throws on a non-ok response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
+    await expect(fetchAmfiLatestNavs()).rejects.toThrow('503')
+  })
+
+  it('throws on an HTTP 200 that parses to no rows', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => '' }))
+    await expect(fetchAmfiLatestNavs()).rejects.toThrow('no NAV rows')
   })
 })
 

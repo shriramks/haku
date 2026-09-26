@@ -1,6 +1,7 @@
 import { parseDDMonYYYY, MONTH_ABBR } from '@/lib/formatter'
 
 const AMFI_NAV_HISTORY_URL = 'https://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx'
+const AMFI_NAV_ALL_URL = 'https://portal.amfiindia.com/spages/NAVAll.txt'
 
 export interface AmfiNavHistoryRow {
   schemeCode: string
@@ -37,16 +38,36 @@ function formatDDMonYYYY(date: Date): string {
 }
 
 /**
+ * Fetches `url` and parses it as AMFI NAV rows. AMFI sometimes answers HTTP 200 with
+ * an HTML form page instead of a report, which parses to zero rows — that throws
+ * rather than passing for "nothing new". No `next: revalidate`: syncMfNav is only ever
+ * run by the Portfolio Prices button, which must get a fresh feed, not a cached one.
+ */
+async function fetchAmfiRows(url: string, label: string): Promise<AmfiNavHistoryRow[]> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`AMFI ${label} fetch failed: ${res.status}`)
+  const rows = parseAmfiNavHistory(await res.text())
+  if (rows.length === 0) throw new Error(`AMFI ${label} had no NAV rows`)
+  return rows
+}
+
+/**
  * Fetches AMFI's dated NAV history report for [fromDate, toDate] (inclusive,
  * calendar days) — every scheme repeated once per trading date in range, not
- * just the latest. No `next: revalidate` here: syncMfNav is only ever run by the
- * Portfolio Prices button, which must get a fresh report, not a cached one.
+ * just the latest.
  */
-export async function fetchAmfiNavHistory(fromDate: Date, toDate: Date): Promise<AmfiNavHistoryRow[]> {
+export function fetchAmfiNavHistory(fromDate: Date, toDate: Date): Promise<AmfiNavHistoryRow[]> {
   const url = `${AMFI_NAV_HISTORY_URL}?frmdt=${formatDDMonYYYY(fromDate)}&todt=${formatDDMonYYYY(toDate)}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`AMFI NAV history fetch failed: ${res.status}`)
-  return parseAmfiNavHistory(await res.text())
+  return fetchAmfiRows(url, 'NAV history')
+}
+
+/**
+ * Fetches AMFI's latest-only feed (NAVAll.txt) — one row per scheme at its most
+ * recent NAV date. ~1.5 MB / ~0.3 s against ~9 MB / 2–5 s for the 10-day history
+ * report, so it is the syncMfNav fast path.
+ */
+export function fetchAmfiLatestNavs(): Promise<AmfiNavHistoryRow[]> {
+  return fetchAmfiRows(AMFI_NAV_ALL_URL, 'latest NAV')
 }
 
 /**
