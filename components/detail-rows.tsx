@@ -1,11 +1,9 @@
-export function DetailRow({ label, value, children, bold, muted, color, noRupee }: {
-  label: string; value?: string; children?: React.ReactNode; bold?: boolean; muted?: boolean; color?: string; noRupee?: boolean
+export function DetailRow({ label, value, children, bold, muted, color }: {
+  label: string; value?: string; children?: React.ReactNode; bold?: boolean; muted?: boolean; color?: string
 }) {
   return (
     <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
-      <span className="text-body" style={{ color: 'var(--text-2)' }}>
-        {label} {!noRupee && <span style={{ color: 'var(--text-faint)' }}>₹</span>}
-      </span>
+      <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
       <span className="tabnum" style={{
         fontSize: bold ? 17 : 15,
         fontWeight: bold ? 600 : 400,
@@ -28,7 +26,7 @@ export function CompRow({ k, v, faint, first: _first, valueColor }: { k: string;
 
 export function SectionLabel({ label, className }: { label: string; className?: string }) {
   return (
-    <p className={`text-footnote${className ? ' ' + className : ''}`} style={{ color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, paddingTop: 16, paddingBottom: 2 }}>
+    <p className={`label-section${className ? ' ' + className : ''}`} style={{ paddingTop: 16, paddingBottom: 2 }}>
       {label}
     </p>
   )

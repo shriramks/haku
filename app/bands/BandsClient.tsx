@@ -352,7 +352,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
             }
           />
           <div className="px-5 pt-4">
-            <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+            <p className="label-field mb-2">
               India 10Y yield
             </p>
             <input

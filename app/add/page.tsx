@@ -78,7 +78,7 @@ export default function AddPage() {
           {/* Stock chips */}
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <p className="text-footnote uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Stock</p>
+              <p className="label-field">Stock</p>
               {symbol && (
                 <button type="button" onClick={() => setSymbol('')}
                   className="text-subheadline" style={{ color: 'var(--text-faint)' }}>clear</button>
@@ -114,7 +114,7 @@ export default function AddPage() {
 
           {/* Buy / Sell */}
           <div>
-            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</p>
+            <p className="label-field mb-1.5">Type</p>
             <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               {(['buy', 'sell'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
@@ -130,7 +130,7 @@ export default function AddPage() {
 
           {/* Date */}
           <div className="overflow-hidden">
-            <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Date</p>
+            <p className="label-field mb-1.5">Date</p>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} required
               className="w-full px-3 py-2.5 rounded-2xl text-body outline-none max-w-full"
               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
@@ -140,10 +140,10 @@ export default function AddPage() {
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: 'Quantity', val: qty, set: setQty, ph: '100', decimal: false },
-              { label: 'Price (₹)', val: price, set: setPrice, ph: '1250.50', decimal: true },
+              { label: 'Price', val: price, set: setPrice, ph: '1250.50', decimal: true },
             ].map(({ label, val, set, ph, decimal }) => (
               <div key={label}>
-                <p className="text-footnote mb-1.5 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                <p className="label-field mb-1.5">{label}</p>
                 <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
                   onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
                   className="w-full px-3 py-3.5 rounded-2xl text-headline tabnum outline-none"

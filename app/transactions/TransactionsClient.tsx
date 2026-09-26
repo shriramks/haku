@@ -255,7 +255,7 @@ export default function TransactionsClient({
 
       {/* Type */}
       <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Type</p>
+        <p className="label-field mb-2">Type</p>
         <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
           {(['all', 'buy', 'sell'] as const).map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
@@ -697,7 +697,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
       />
 
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Recent</p>
+        <p className="label-field mb-1">Recent</p>
         {ROLLING_OPTIONS.map(opt => {
           const range = getRollingRange(opt.key)
           const sel = isSelected(range.from, range.to)
@@ -716,7 +716,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
       </div>
 
       <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
-        <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Fiscal year</p>
+        <p className="label-field mb-1">Fiscal year</p>
         {[...fiscalYears].reverse().map(fy => {
           const sel = isSelected(fy.start_date, fy.end_date)
           return (
@@ -734,7 +734,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
       </div>
 
       <div className="px-5 pt-4 pb-2">
-        <p className="text-footnote uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Custom range</p>
+        <p className="label-field mb-2">Custom range</p>
         <div className="flex items-center gap-2">
           <input
             type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}

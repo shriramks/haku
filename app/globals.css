@@ -137,7 +137,17 @@ body {
 
 .tap-row:active { background: var(--tap-active); }
 
-.num-u   { font-size: 0.72em; margin-left: 0.18em; }
+/* Label roles (docs/design.md §1) — the only place these recipes live. Both sit at the
+   readable-text floor: 13px at --text-2. Spacing is set per site, not here. */
+.label-section {
+  font-size: 13px; line-height: 1.4; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2);
+}
+.label-field {
+  font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-2);
+}
+
+.num-u  { font-size: 0.72em; margin-left: 0.18em; }
 .num-sgn { font-size: 0.80em; vertical-align: 0.06em; margin-right: 0.18em; }
 
 /* Columnar figure: digits right-aligned, unit in a fixed left-aligned slot so

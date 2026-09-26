@@ -104,8 +104,8 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
 
       {/* Transactions */}
       <div className="flex items-baseline justify-between px-4" style={{ paddingTop: 24, paddingBottom: 6 }}>
-        <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.08em' }}>Transactions</span>
-        <span className="text-footnote tabnum" style={{ color: 'var(--text-faint)' }}>{sortedTxns.length}</span>
+        <span className="label-section">Transactions</span>
+        <span className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>{sortedTxns.length}</span>
       </div>
 
       {sortedTxns.length === 0 ? (
@@ -114,7 +114,7 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
         grouped.map(({ month, items }) => (
           <div key={month}>
             <div className="px-4 py-1.5" style={{ background: 'rgba(255,255,255,0.02)' }}>
-              <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{month}</span>
+              <span className="label-section">{month}</span>
             </div>
             {items.map(t => (
               <TxnRow key={t.id}

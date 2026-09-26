@@ -50,8 +50,8 @@ export default function PortfolioClient({
   // A filter left over from before a class was sold out is ignored rather than showing an empty list.
   const mfHasBothClasses = mf.rows.some(r => r.assetClass === 'equity') && mf.rows.some(r => r.assetClass === 'debt')
   const mfPills: ToolbarPill[] = [
-    { key: 'equity', label: 'Equity', color: 'var(--c-equity)', pct: mf.eqPct },
-    { key: 'debt',   label: 'Debt',   color: 'var(--c-debt)',   pct: 100 - mf.eqPct },
+    { key: 'equity', label: 'Equity', pct: mf.eqPct },
+    { key: 'debt',   label: 'Debt',   pct: 100 - mf.eqPct },
   ]
   const activeMfFilter = mfHasBothClasses ? mfFilter : null
   const visibleStockRows = useMemo(() => sortHoldings(stocks.rows, stockSort), [stocks.rows, stockSort])
@@ -264,7 +264,7 @@ export default function PortfolioClient({
 
         {/* Reports */}
         <div className="px-4" style={{ paddingTop: 24, paddingBottom: 6 }}>
-          <span className="text-subheadline font-bold uppercase" style={{ color: 'var(--text-2)', letterSpacing: '0.08em' }}>Reports</span>
+          <span className="label-section">Reports</span>
         </div>
         <button
           onClick={() => router.push('/tax')}
@@ -410,14 +410,14 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
     <button onClick={onToggle}
             className="grid w-full items-baseline gap-x-2 px-4"
             style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, paddingTop: 14, paddingBottom: 14, gridTemplateColumns: SECTION_HEADER_COLS }}>
-      <span className="text-headline font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
-      <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{invested}</span>
-      <span className="text-headline font-semibold tabnum"
+      <span className="text-title-2 font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <span className="text-headline tabnum" style={{ color: 'var(--text-2)' }}>{invested}</span>
+      <span className="text-title-2 font-semibold tabnum"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
         <Num amount={currentValue} align />
       </span>
       {gainPct !== null ? (
-        <span className={`text-body font-bold tabnum ${positive ? 'text-positive' : 'text-negative'}`}>
+        <span className={`text-headline font-bold tabnum ${positive ? 'text-positive' : 'text-negative'}`}>
           <Num pct={gainPct} signed align />
         </span>
       ) : (
@@ -430,7 +430,8 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
   )
 }
 
-const SECTION_HEADER_COLS = 'minmax(0,1fr) 58px 78px 62px 1rem'
+// The % column is 78px: at 17px bold it overflows 62px even at +48.2%; 78 also holds an XIRR above 100% (#130).
+const SECTION_HEADER_COLS = 'minmax(0,1fr) 58px 78px 78px 1rem'
 function PPFRow({ transactions, onSaved, onDeleted }: {
   transactions: PPFTransaction[]
   onSaved: (u: PPFTransaction) => void

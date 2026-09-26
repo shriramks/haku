@@ -20,8 +20,8 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 |------|------|--------|----------------|-----|
 | `display` | 32px | 700 | text-primary | Page header titles ("Allocation", "Buy Bands") |
 | `title-1` | 22px | 700 | text-primary | Important secondary numbers: CMP, stat amounts, section titles |
-| `title-2` | 20px | 600 | text-primary | Card / section titles |
-| `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount |
+| `title-2` | 20px | 600 | text-primary | Card / section titles; Portfolio section-header label and value (bold / semibold) |
+| `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount; Portfolio section-header invested and % |
 | `body` | 15px | 400 | text-primary | Standard readable content, band prices |
 | `subheadline` | 13px | 400 | text-2 | Supporting context: signal label, date, lot size |
 | `footnote` | 11px | 400 | text-faint | Dense metadata in lists: category, anchor type |
@@ -38,7 +38,19 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
   stronger; numbers stay at `body` (15px) or above. `--text-faint` (25% opacity, ~2:1 contrast) and
   `--text-muted` (40%, ~3:1) fall below Apple's 4.5:1 for text, so faint is for decoration only —
   chevrons, placeholder dashes, disabled states — never a label or a figure. Applied to the
-  Portfolio screen in #121.
+  Portfolio screen in #121 and to every label in the app in #130.
+- **Two label roles, defined once in `app/globals.css`** (#130) — never write the recipe inline:
+  - `.label-section` — heads a group of rows: Tax / Snowball / Band Computation group labels
+    (`SectionLabel`), "Transactions" and the month bands on Stock / MF / Gold detail, Band Detail
+    "Buy Band" / "Allocation" / "Investment", Reports, menu group titles, the Add-transaction "Asset
+    type". 13px, 600, uppercase, 0.06em, `--text-2`. Spacing is set at the site (`SectionLabel`:
+    `paddingTop: 16, paddingBottom: 2`).
+  - `.label-field` — names a value, an input, a column or a filter group: form labels (Add, Add
+    transaction, edit row, Plan), the Allocation strip and column heads, Band Detail's 52W strip,
+    filter-sheet groups (Transactions, Dividends), Investability "Total score" / "Verdict", "Account" /
+    "Appearance" in the user menu. 13px, 500, **sentence case**, `--text-2`.
+  - Row metadata sitting beside a headline (dates, categories, lot sizes) stays `footnote` — that is
+    not a label. A label never carries a currency glyph: say "Price", not "Price ₹".
 - **The scale runs one step below iOS.** App `subheadline` (13px) is iOS's Footnote size and app
   `footnote` (11px) is iOS's Caption 2 — the smallest size Apple allows by default. Portfolio
   therefore uses `body` (15px, iOS Subheadline) for the figures in a row. Changing the global
@@ -52,7 +64,7 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 ### What this looks like in a Plans list row
 ```
 NIFTYBEES                    ←  headline (17px, semibold, text-primary)
-Large Cap · ₹2.4L budget     ←  footnote (11px, text-faint)
+Large Cap · 2.4 L budget     ←  footnote (11px, text-faint)
 ```
 The contrast between these two is the hierarchy. The category does not need to be 13px — it needs
 to be visually subordinate to the symbol, which it is at 11px given the 17px primary.
@@ -218,6 +230,14 @@ Padding: px-4
 Divider: border-b using --divider
 ```
 
+### Portfolio section header (`SectionHeader` in `app/portfolio/PortfolioClient.tsx`)
+```
+label (title-2, bold)   invested (headline)   value (title-2, semibold, text-2)   gain % (headline, bold, by sign)   chevron
+Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. The whole header taps.
+```
+- Sits one tier above the HoldingRows it heads (rows: headline name and value, body figures) — #130.
+- The % column is 78px: 17px bold overflows 62px even at +48.2 %; 78px also holds an XIRR above 100 %.
+
 ### HoldingRow (Portfolio: Stocks, MF, Gold — `components/HoldingRow.tsx`)
 ```
 name (headline, semibold, max 2 lines)        value (headline, semibold)
@@ -228,12 +248,12 @@ Padding: px-4 py-3, min height 64. Divider: border-b --divider. No card, no chev
 - Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (13px) at `--text-2`; the figures beside them are `body` (15px), coloured by sign, and always carry +/− (`Num signed`).
 - The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.
 - The XIRR line reads **Return** when XIRR is unavailable, so the two never look alike.
-- MF rows carry a 7px class dot (`--c-equity` / `--c-debt`) — the legend for the Equity/Debt pills.
+- MF rows carry no class marker: the Equity/Debt pills filter on `assetClass`, and the donut (not the rows) carries `--c-equity` / `--c-debt`.
 - PPF and EPF are transaction lists, not holdings; they do not use HoldingRow.
 
 ### HoldingsToolbar (`components/HoldingsToolbar.tsx`)
 - Sits under a Portfolio section header (Stocks, MF): filter pills on the left, sort control on the right.
-- Pills: 36px, full-round, accent tint when active, `bg-tertiary` when not — the same chips as the Transactions filter. Shown only when the filter has something to filter (MF with both Equity and Debt).
+- Pills: 36px, full-round, label and share only (no colour dot), accent tint when active, `bg-tertiary` when not — the same chips as the Transactions filter. Shown only when the filter has something to filter (MF with both Equity and Debt).
 - Sort: `body` accent text + direction arrow, 44px tap target, opens an anchored menu (Value · P&L · XIRR · 1D % · Name). Picking the selected option flips direction. State is per section and not persisted; rows with no value for the chosen key sink to the bottom.
 
 ### MetricCard (a number with a label)
@@ -248,7 +268,7 @@ MetricCard is a **layout pattern for a number + label pair** — not a visual co
 
 ### SectionDivider
 ```
-[subheadline text, text-faint]
+[.label-section text]
 Padding: px-4 py-2
 Background: none (sits on page bg)
 ```
@@ -259,7 +279,7 @@ Background: none (sits on page bg)
 Height: min 44px (py-2.5)
 Padding: px-4
 Divider: border-b --divider between rows within a group
-Group header: footnote uppercase, text-faint, px-4 py-2 (SectionDivider)
+Group header: `.label-section`, px-4 (SectionDivider / `SectionLabel`)
 Background: none (rows sit on page bg; groups separated by a sep line)
 ```
 
@@ -357,7 +377,8 @@ should never be more important than a headline-sized one on the same screen.
 | Label for a primary field | `body` | text-2 |
 | Supporting context | `subheadline` | text-2 or text-muted |
 | Metadata (category, date, anchor) | `footnote` | text-faint |
-| Group header | `footnote` uppercase | text-faint |
+| Group header | `.label-section` (13px uppercase) | text-2 |
+| Field / column label | `.label-field` (13px, sentence case) | text-2 |
 
 ### The two layout patterns and when to use them
 

@@ -289,7 +289,7 @@ export default function BandDetailClient({
 
       {/* ── Band bar ── */}
       <div style={{ background: 'var(--bg-primary)', padding: '14px 16px 0' }}>
-        <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', marginBottom: 10 }}>
+        <p className="label-section" style={{ marginBottom: 10 }}>
           Buy Band{hasOverlay && <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: 6 }}>×{riskMultiplier}</span>}
         </p>
         {hasBands ? (
@@ -302,17 +302,17 @@ export default function BandDetailClient({
             {/* ── 52W Low | CMP | 52W High ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', marginTop: 8, gap: 8 }}>
               <div>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W Low <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
+                <p className="label-field" style={{ marginBottom: 4 }}>52W low</p>
                 <p className="text-title-2 font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>Current Price <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
+                <p className="label-field" style={{ marginBottom: 4 }}>Current price</p>
                 <p style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
                   {cmp != null ? String(parseFloat(cmp.toFixed(2))) : '—'}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-faint)', marginBottom: 4 }}>52W High <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--text-faint)' }}>₹</span></p>
+                <p className="label-field" style={{ marginBottom: 4 }}>52W high</p>
                 <p className="text-title-2 font-semibold tabnum">{week52.high != null ? formatPriceNum(week52.high) : '—'}</p>
               </div>
             </div>
@@ -424,7 +424,7 @@ export default function BandDetailClient({
 
       {/* ── Allocation ── */}
       <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
-        <p className="text-footnote font-semibold uppercase px-4" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14, paddingBottom: 10 }}>Allocation</p>
+        <p className="label-section px-4" style={{ paddingTop: 14, paddingBottom: 10 }}>Allocation</p>
         <DetailRow label="Remaining Allocation" value={formatINRFullNum(fyRemaining)} bold />
         <DetailRow label={`Invested ${fyLabel}`} value={formatINRFullNum(fyRow?.spent ?? 0)} />
         <DetailRow label="Invested Total" value={formatINRFullNum(allTimeCost)} />
@@ -433,12 +433,12 @@ export default function BandDetailClient({
       {/* ── Investment ── */}
       {(allTimeQty > 0 || allTimeCurrentValue != null) && (
         <div style={{ marginTop: 10, background: 'var(--bg-primary)' }}>
-          <p className="text-footnote font-semibold uppercase px-4" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14, paddingBottom: 10 }}>Investment</p>
+          <p className="label-section px-4" style={{ paddingTop: 14, paddingBottom: 10 }}>Investment</p>
           {allTimeCurrentValue != null && (
             <DetailRow label="Current Value" value={formatINRFullNum(Math.round(allTimeCurrentValue))} />
           )}
           {allTimeQty > 0 && (
-            <DetailRow label="Shares Held" value={String(allTimeQty)} noRupee />
+            <DetailRow label="Shares Held" value={String(allTimeQty)} />
           )}
           {allTimeQty > 0 && allTimeCost > 0 && (
             <DetailRow label="Avg Price" value={formatPriceNum(allTimeCost / allTimeQty)} />

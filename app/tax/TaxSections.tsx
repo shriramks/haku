@@ -197,36 +197,36 @@ export function TaxBody({
         <SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />
       </div>
 
-      <DetailRow label="Tax" noRupee><Num amount={tax} align /></DetailRow>
-      <DetailRow label="Cess @ 4%" noRupee><Num amount={cess} align /></DetailRow>
-      <DetailRow label="Dividend TDS credit" muted noRupee><Num amount={-tdsCredit} align /></DetailRow>
-      <DetailRow label="Advance tax paid" muted noRupee><Num amount={-advancePaid} align /></DetailRow>
-      <DetailRow label="Net Payable" bold noRupee><Num amount={payable} signed align /></DetailRow>
+      <DetailRow label="Tax"><Num amount={tax} align /></DetailRow>
+      <DetailRow label="Cess @ 4%"><Num amount={cess} align /></DetailRow>
+      <DetailRow label="Dividend TDS credit" muted><Num amount={-tdsCredit} align /></DetailRow>
+      <DetailRow label="Advance tax paid" muted><Num amount={-advancePaid} align /></DetailRow>
+      <DetailRow label="Net Payable" bold><Num amount={payable} signed align /></DetailRow>
 
       <SectionLabel label="Breakdown" className="px-4" />
 
       {rows.map(r => (
         <div key={r.bucket}>
           <SectionLabel label={`${r.label} · ${r.rateLabel}`} className="px-4" />
-          <DetailRow label="Raw gain" noRupee><Num amount={r.rawGain} signed align /></DetailRow>
-          {r.exemption > 0 && <DetailRow label="Exemption" muted noRupee><Num amount={-r.exemption} align /></DetailRow>}
-          {r.setOff > 0 && <DetailRow label="Loss set off" muted noRupee><Num amount={-r.setOff} align /></DetailRow>}
-          <DetailRow label="Taxable" bold noRupee><Num amount={r.taxable} signed align /></DetailRow>
-          {r.tax !== null && <DetailRow label="Tax" noRupee><Num amount={r.tax} align /></DetailRow>}
+          <DetailRow label="Raw gain"><Num amount={r.rawGain} signed align /></DetailRow>
+          {r.exemption > 0 && <DetailRow label="Exemption" muted><Num amount={-r.exemption} align /></DetailRow>}
+          {r.setOff > 0 && <DetailRow label="Loss set off" muted><Num amount={-r.setOff} align /></DetailRow>}
+          <DetailRow label="Taxable" bold><Num amount={r.taxable} signed align /></DetailRow>
+          {r.tax !== null && <DetailRow label="Tax"><Num amount={r.tax} align /></DetailRow>}
         </div>
       ))}
 
       {goldEtf.hasActivity && (
         <>
           <SectionLabel label="Gold ETF" className="px-4" />
-          <DetailRow label="LTCG" bold noRupee><Num amount={goldEtf.ltcg} signed align /></DetailRow>
-          <DetailRow label="STCG" bold noRupee><Num amount={goldEtf.stcg} signed align /></DetailRow>
+          <DetailRow label="LTCG" bold><Num amount={goldEtf.ltcg} signed align /></DetailRow>
+          <DetailRow label="STCG" bold><Num amount={goldEtf.stcg} signed align /></DetailRow>
         </>
       )}
 
       <SectionLabel label={`Dividends · ${dividendRateLabel}`} className="px-4" />
-      <DetailRow label="Taxable" bold noRupee><Num amount={dividendIncome} signed align /></DetailRow>
-      <DetailRow label="Tax" noRupee><Num amount={dividendTax} align /></DetailRow>
+      <DetailRow label="Taxable" bold><Num amount={dividendIncome} signed align /></DetailRow>
+      <DetailRow label="Tax"><Num amount={dividendTax} align /></DetailRow>
 
       {setOffLines.length > 0 && (
         <>
@@ -271,15 +271,15 @@ export function HarvestingBody({
   return (
     <div>
       <SectionLabel label="Equity LTCG Exemption" className="px-4" />
-      <DetailRow label="Annual limit" muted noRupee><span>1.25<span className="num-u"> L</span></span></DetailRow>
-      <DetailRow label="Used" noRupee><Num amount={exemptionUsed} align /></DetailRow>
-      <DetailRow label="Remaining" bold noRupee><Num amount={remaining} align /></DetailRow>
+      <DetailRow label="Annual limit" muted><span>1.25<span className="num-u"> L</span></span></DetailRow>
+      <DetailRow label="Used"><Num amount={exemptionUsed} align /></DetailRow>
+      <DetailRow label="Remaining" bold><Num amount={remaining} align /></DetailRow>
       <div className="px-4 pb-3 pt-1">
         <ProgressBar percent={barPct} />
       </div>
 
       <SectionLabel label="Unrealised Losses" className="px-4" />
-      <DetailRow label="Harvestable now" bold noRupee>
+      <DetailRow label="Harvestable now" bold>
         {unrealisedLoss !== null && unrealisedLoss < 0
           ? <Num amount={unrealisedLoss} signed align />
           : <span style={{ color: 'var(--text-faint)' }}>None</span>

@@ -122,7 +122,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
 
     return (
       <div className="space-y-1">
-        <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+        <p className="label-section">
           {title}
         </p>
         <div>
@@ -171,7 +171,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
         <div
           className="absolute right-0 top-10 w-72 rounded-2xl p-4 z-50 shadow-xl"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <p className="text-footnote uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="label-field mb-1">
             Account
           </p>
           <p className="text-body font-medium truncate mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -182,7 +182,7 @@ export default function UserMenu({ extraSections = [] }: Props) {
 
             {/* Appearance */}
             <div className="space-y-1">
-              <p className="text-footnote uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              <p className="label-field">
                 Appearance
               </p>
               <div className="flex rounded-xl p-0.5 gap-0.5" style={{ background: 'var(--bg-tertiary)' }}>

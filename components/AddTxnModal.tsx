@@ -269,7 +269,7 @@ export default function AddTxnModal({
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
               </div>
-              <p className="px-5 pt-1 pb-3 text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Asset type</p>
+              <p className="label-section px-5 pt-1 pb-3">Asset type</p>
               {ASSET_TYPES.map(({ id, label, Icon }) => (
                 <button key={id} type="button"
                   onClick={() => { if (isInterestMode) setDate(todayISO()); setAssetType(id); setAssetPickerOpen(false); setError(null); setDone(false) }}
@@ -361,7 +361,7 @@ export default function AddTxnModal({
               <>
                 <div>
                   <div className="flex items-baseline justify-between mb-2">
-                    <p className="text-footnote uppercase" style={{ color: 'var(--text-faint)', fontWeight: 700, letterSpacing: '0.07em' }}>Stock</p>
+                    <p className="label-field">Stock</p>
                     {symbol && (
                       <button type="button" onClick={() => setSymbol('')}
                         className="text-subheadline" style={{ color: 'var(--text-faint)' }}>clear</button>
@@ -386,7 +386,7 @@ export default function AddTxnModal({
 
                 <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
                   <TwoColCell label="Quantity" value={qty} onChange={setQty} placeholder="100" decimal={false} />
-                  <TwoColCell label="Price ₹" value={price} onChange={setPrice} placeholder="1250.50" decimal right />
+                  <TwoColCell label="Price" value={price} onChange={setPrice} placeholder="1250.50" decimal right />
                 </div>
 
                 {txnType === 'sell' && stockAmount > 0 && (
@@ -468,7 +468,7 @@ export default function AddTxnModal({
                   <FieldLabel>Details</FieldLabel>
                   <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
                     <TwoColCell label="Units" value={mfUnits} onChange={setMFUnits} placeholder="124.589" decimal />
-                    <TwoColCell label="NAV ₹" value={mfNav} onChange={setMFNav} placeholder="472.35" decimal right />
+                    <TwoColCell label="NAV" value={mfNav} onChange={setMFNav} placeholder="472.35" decimal right />
                   </div>
                 </div>
 
@@ -522,7 +522,7 @@ export default function AddTxnModal({
                       value={goldQty} onChange={setGoldQty}
                       placeholder={goldType === 'etf' ? '50' : '20'} decimal />
                     <TwoColCell
-                      label={goldType === 'etf' ? 'NAV ₹/unit' : (txnType === 'buy' ? 'Issue price ₹/g' : 'Sale price ₹/g')}
+                      label={goldType === 'etf' ? 'NAV per unit' : (txnType === 'buy' ? 'Issue price per g' : 'Sale price per g')}
                       value={goldPrice} onChange={setGoldPrice} placeholder="9241" decimal right />
                   </div>
                 </div>
@@ -557,7 +557,7 @@ export default function AddTxnModal({
                   {ppfType === 'interest' && <InterestDateHint />}
                 </div>
                 <div>
-                  <FieldLabel>Amount ₹</FieldLabel>
+                  <FieldLabel>Amount</FieldLabel>
                   <input type="number" inputMode="numeric" placeholder="150000" value={ppfAmount}
                     onChange={e => setPPFAmount(e.target.value)} required min="1"
                     onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
@@ -594,7 +594,7 @@ export default function AddTxnModal({
                   </div>
                 )}
                 <div>
-                  <FieldLabel>Amount ₹</FieldLabel>
+                  <FieldLabel>Amount</FieldLabel>
                   <input type="number" inputMode="numeric" placeholder="51550" value={epfAmount}
                     onChange={e => setEPFAmount(e.target.value)} required min="1"
                     onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
@@ -620,8 +620,7 @@ export default function AddTxnModal({
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-footnote mb-1.5 uppercase"
-       style={{ color: 'var(--text-faint)', fontWeight: 700, letterSpacing: '0.07em' }}>
+    <p className="label-field mb-1.5">
       {children}
     </p>
   )
@@ -682,8 +681,7 @@ function TwoColCell({ label, value, onChange, placeholder, decimal, right }: {
 }) {
   return (
     <div className="p-3" style={right ? { borderLeft: '1px solid var(--border)' } : {}}>
-      <p className="text-footnote uppercase mb-1"
-         style={{ fontWeight: 700, letterSpacing: '0.07em', color: 'var(--text-faint)' }}>{label}</p>
+      <p className="label-field mb-1">{label}</p>
       <input
         type="number" inputMode={decimal ? 'decimal' : 'numeric'}
         placeholder={placeholder} value={value}

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ArrowDownIcon } from '@/components/icons'
 import { SORT_OPTIONS, type SortKey, type SortState } from '@/lib/holdings-sort'
 
-export interface ToolbarPill { key: string; label: string; color: string; pct: number }
+export interface ToolbarPill { key: string; label: string; pct: number }
 
 /**
  * The strip under a Portfolio section header: optional filter pills on the left, the sort control
@@ -30,11 +30,10 @@ export default function HoldingsToolbar({ sort, onSort, pills, activePill, onPil
             <button key={p.key}
                     onClick={() => onPill?.(p.key)}
                     aria-pressed={active}
-                    className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-body font-medium whitespace-nowrap"
+                    className="flex items-center px-3 h-9 rounded-full flex-shrink-0 text-body font-medium whitespace-nowrap"
                     style={active
                       ? { background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)' }
                       : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-              <span className="inline-block rounded-full" style={{ width: 7, height: 7, background: p.color }} />
               {p.label} {p.pct}%
             </button>
           )

@@ -283,7 +283,7 @@ export default function DividendsClient({
         style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
         <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr', alignItems: 'start' }}>
           <div className="flex flex-col gap-0.5">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+            <p className="label-field">
               Total received
             </p>
             <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
@@ -292,7 +292,7 @@ export default function DividendsClient({
           </div>
           <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-end">
-            <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+            <p className="label-field">
               Dividends
             </p>
             <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
@@ -417,7 +417,7 @@ export default function DividendsClient({
           />
 
           {/* Stock section */}
-          <p className="text-footnote font-bold uppercase px-5 pt-4 pb-1.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+          <p className="label-field px-5 pt-4 pb-1.5">
             Stock
           </p>
           <button
@@ -445,7 +445,7 @@ export default function DividendsClient({
           {/* Year section */}
           {allYears.length > 0 && (
             <>
-              <p className="text-footnote font-bold uppercase px-5 pt-4 pb-1.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+              <p className="label-field px-5 pt-4 pb-1.5">
                 Year
               </p>
               <button

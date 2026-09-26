@@ -212,7 +212,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
             <div className="flex flex-col gap-3 mb-4">
               {!isIndex ? (
                 <>
-                  <LabeledInput label="EPS (₹)" value={eps} onChange={setEps} placeholder="e.g. 18" />
+                  <LabeledInput label="EPS" value={eps} onChange={setEps} placeholder="e.g. 18" />
                   <LabeledInput label="PAT Now (Cr)" value={patNow} onChange={setPatNow} placeholder="e.g. 5200" />
                   <LabeledInput label="PAT 3yr Ago (Cr)" value={pat3yrAgo} onChange={setPat3yrAgo} placeholder="e.g. 3800" />
                   <LabeledInput label="Op Profit (Cr)" value={opProfitCr} onChange={setOpProfitCr} placeholder="e.g. 1200" />

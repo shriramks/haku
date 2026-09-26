@@ -157,7 +157,7 @@ type ActiveEdit = StockEditState | MFEditState | SGBEditState | PPFEditState | E
 function EditField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-footnote uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      <p className="label-field mb-1">{label}</p>
       {children}
     </div>
   )

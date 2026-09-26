@@ -99,7 +99,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
               {/* Plan — tappable, navigates to /plan */}
               <Link href="/plan" className="flex flex-col gap-0.5" style={{ minHeight: 44, justifyContent: 'center' }}>
-                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
+                <p className="label-field">Plan</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={totalBudget} />
                 </p>
@@ -113,7 +113,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
               {/* Left */}
               <div className="flex flex-col gap-0.5 items-center">
-                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</p>
+                <p className="label-field">Left</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={Math.max(0, totalRemaining)} />
                 </p>
@@ -126,7 +126,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
               {/* Invested */}
               <div className="flex flex-col gap-0.5 items-end">
-                <p className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</p>
+                <p className="label-field">Invested</p>
                 <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={totalDeployed} />
                 </p>
@@ -157,9 +157,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           {/* Column headers */}
           <div className="grid px-4 pt-4 pb-1"
                style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
-            <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Stock</span>
-            <span className="text-footnote font-bold uppercase text-center" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Left</span>
-            <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Invested</span>
+            <span className="label-field">Stock</span>
+            <span className="label-field text-center">Left</span>
+            <span className="label-field text-right">Invested</span>
           </div>
           {/* Flat allocation rows */}
           <div>

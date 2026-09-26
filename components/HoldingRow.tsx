@@ -14,13 +14,11 @@ export interface HoldingRowData extends SortableHolding {
   day?: { amount: number | null; pct: number | null }
   /** Replaces the 1D line, e.g. Gold's "20g · Mar 2028". */
   meta?: string
-  /** MF only — draws the small class dot before the name. */
+  /** MF only — what the Equity / Debt filter pills match on. Not drawn on the row. */
   assetClass?: 'equity' | 'debt'
   /** Shown in place of the "1D" label when this holding's price is older than the rest's (#121.b). */
   staleDate?: string
 }
-
-const CLASS_COLOR = { equity: 'var(--c-equity)', debt: 'var(--c-debt)' } as const
 
 /** Small muted tag ("P&L", "1D") in front of a figure — 13px at text-2, never fainter. */
 function Tag({ children }: { children: React.ReactNode }) {
@@ -41,10 +39,6 @@ export function HoldingRow({ row, onClick }: { row: HoldingRowData; onClick: () 
       }}>
       <div className="min-w-0">
         <p className="text-headline font-semibold line-clamp-2" style={{ color: 'var(--text-primary)' }}>
-          {row.assetClass && (
-            <span className="inline-block rounded-full"
-                  style={{ width: 7, height: 7, marginRight: 7, verticalAlign: 2, background: CLASS_COLOR[row.assetClass] }} />
-          )}
           {row.name}
         </p>
         <p className="text-body tabnum mt-0.5 whitespace-nowrap">

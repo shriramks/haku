@@ -297,8 +297,7 @@ function PlanTab({
             <div>
               {/* Section header */}
               <div className="flex items-center justify-between px-4 pt-5 pb-2">
-                <p className="text-footnote font-bold uppercase"
-                   style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>
+                <p className="label-section">
                   Target Allocations
                 </p>
                 {allocations.length > 0 && (() => {
@@ -673,7 +672,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
           </div>
           {/* Plan context */}
           <div className="mt-3 flex flex-col gap-1">
-            <p className="text-footnote font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
+            <p className="label-field mb-0.5">Plan</p>
             <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
               {Math.round(planAllocatedPct)}% allocated
             </p>
@@ -839,7 +838,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             </div>
           </div>
           <div className="mt-3 flex flex-col gap-1">
-            <p className="text-footnote font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Plan</p>
+            <p className="label-field mb-0.5">Plan</p>
             <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
               {Math.round(planAllocatedPct)}% allocated
             </p>
@@ -998,7 +997,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
           </div>
 
           <LabeledInput
-            label="Total Budget (₹)"
+            label="Total budget"
             value={budget}
             onChange={setBudget}
             placeholder="2400000"

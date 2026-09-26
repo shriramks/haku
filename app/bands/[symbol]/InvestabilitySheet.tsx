@@ -140,13 +140,13 @@ export default function InvestabilitySheet({ symbol, userId, initialInvestabilit
       />
         <div className="flex items-center justify-between px-5 py-4">
           <div>
-            <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Total Score</p>
+            <p className="label-field">Total score</p>
             <p className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
               {totalScore}<span className="text-body font-normal" style={{ color: 'var(--text-muted)' }}>/50</span>
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <p className="text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>Verdict</p>
+            <p className="label-field">Verdict</p>
             <p className={`text-title-2 font-bold ${isInvestable ? 'text-positive' : 'text-negative'}`}>
               {isInvestable ? 'Investable' : 'Not Investable'}
             </p>
@@ -190,7 +190,7 @@ export default function InvestabilitySheet({ symbol, userId, initialInvestabilit
           <p className="px-5 pt-3 text-subheadline text-negative">{genError}</p>
         )}
 
-        <p className="px-5 pb-2 text-footnote font-semibold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em', paddingTop: 14 }}>
+        <p className="label-section px-5 pb-2" style={{ paddingTop: 14 }}>
           Gates
         </p>
 
