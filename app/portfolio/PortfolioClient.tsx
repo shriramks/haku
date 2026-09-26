@@ -16,12 +16,14 @@ import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from '@/lib/stock-p
 import { computeMFHolding } from '@/lib/mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
-import type { Transaction, BuyBand } from '@/lib/types'
+import type { Transaction } from '@/lib/types'
+
+/** The only stock-transaction fields the maths reads — page.tsx sends just these. */
+export type StockTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
 
 interface Props {
-  allTransactions: Transaction[]
-  bands: BuyBand[]
-  latestYearSymbols: string[]
+  stockTxns: StockTxn[]                  // open positions only, already scoped by page.tsx
+  bandCmps: Record<string, number>       // symbol → buy_bands.cmp snapshot, the resolveCmp fallback
   stockPrices: Record<string, StockPriceInfo>
   mfFunds: MFund[]
   mfTransactions: MFTransaction[]
@@ -38,18 +40,14 @@ interface Props {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function computeStockHoldings(
-  transactions: Transaction[],
-  bands: BuyBand[],
-  allowedSymbols: string[],
+  transactions: StockTxn[],
+  bandCmps: Record<string, number>,
   stockPrices: Record<string, StockPriceInfo>,
 ): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null; gain1d: number | null; gain1dPct: number | null }[] {
-  const allowed = new Set(allowedSymbols)
-  const bySymbol: Record<string, Transaction[]> = {}
+  const bySymbol: Record<string, StockTxn[]> = {}
   for (const t of transactions) {
-    if (allowed.size > 0 && !allowed.has(t.symbol)) continue
     ;(bySymbol[t.symbol] ??= []).push(t)
   }
-  const cmpBySymbol = new Map(bands.map(b => [b.symbol, b.cmp]))
   return Object.entries(bySymbol)
     .flatMap(([symbol, txns]) => {
       const { qty, cost } = seqCost(txns)
@@ -57,7 +55,7 @@ function computeStockHoldings(
       // Saved price (stock_prices, written by the Prices button) beats the stored
       // band snapshot, which only updates when bands are regenerated and can be
       // stale for days — see resolveCmp.
-      const cmp = resolveCmp(symbol, stockPrices, cmpBySymbol.get(symbol))
+      const cmp = resolveCmp(symbol, stockPrices, bandCmps[symbol])
       const currentValue = cmp ? qty * cmp : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
@@ -118,7 +116,7 @@ const assetClass = mfAssetClass
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  allTransactions, bands, latestYearSymbols, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
+  stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
   sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions: initialPpfTransactions, ppfOverride,
   epfTransactions: initialEpfTransactions,
 }: Props) {
@@ -133,7 +131,7 @@ export default function PortfolioClient({
   // Stock, gold and MF NAV all arrive as props (page.tsx reads stock_prices / mf_navs) and only
   // change when the Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
   // Nothing fetches on mount.
-  const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, stockPrices), [allTransactions, bands, latestYearSymbols, stockPrices])
+  const stockHoldings = useMemo(() => computeStockHoldings(stockTxns, bandCmps, stockPrices), [stockTxns, bandCmps, stockPrices])
 
   // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
   const equity: EquitySummary = useMemo(() => ({
@@ -158,15 +156,13 @@ export default function PortfolioClient({
   const totalGain       = totalCurrent - totalInvested
 
   // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
-  // Use the same symbol filter as computeStockHoldings for consistency with totalCurrent.
+  // stockTxns is the same open-position list computeStockHoldings uses, so the stock cashflows
+  // and totalCurrent cover the same stocks (exited positions are in neither).
   // MF NAV is server-rendered (no client fetch to wait on) — only gold still gates this.
   const overallXirr = useMemo(() => {
     if (sgbTransactions.length > 0 && goldPrice === null) return null
-    const equityTxns = latestYearSymbols.length > 0
-      ? allTransactions.filter(t => latestYearSymbols.includes(t.symbol))
-      : allTransactions
-    return portfolioXirr(equityTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent)
-  }, [allTransactions, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, goldPrice, latestYearSymbols])
+    return portfolioXirr(stockTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent)
+  }, [stockTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, goldPrice])
 
   // Section-level XIRR for MF and Gold headers
   const mfSectionXirr = useMemo(() => {

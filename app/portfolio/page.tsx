@@ -1,17 +1,16 @@
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
+import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
 import { heldSymbols } from '@/lib/stock-prices'
 import type { StockAllocation } from '@/lib/types'
-import PortfolioClient from './PortfolioClient'
+import PortfolioClient, { type StockTxn } from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
 
 export default async function PortfolioPage() {
-  const sb = await createSupabaseServerClient()
-  const { data: { session } } = await sb.auth.getSession()
-  if (!session) redirect('/login')
+  // getUserId is request-cached, so the getters below reuse this one auth read.
+  const userId = await getUserId()
+  if (!userId) redirect('/login')
 
   // Two fetch stages, not a chain. Stage 1: the cached getters (unstable_cache-wrapped in
   // lib/data.ts; see app/portfolio/actions.ts and TransactionsClient.tsx for the matching
@@ -44,13 +43,26 @@ export default async function PortfolioPage() {
   // Only funds with a live unit balance need a NAV lookup — see filterActiveMfFunds.
   const activeMfFunds = filterActiveMfFunds(mfFunds, mfTransactions)
 
+  const held = heldSymbols(allTransactions)
+
   const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice] = await Promise.all([
     currentFY ? getAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
     getMFNavs(activeMfFunds.map(f => f.scheme_code)),
-    getStockPrices(heldSymbols(allTransactions)),
+    getStockPrices(held),
     getGoldPrice(),
   ])
-  const latestYearSymbols = currentFYAllocations.map(a => a.symbol)
+
+  // The client only computes open positions, and reads five transaction fields (StockTxn) —
+  // so ship just those, for held symbols within the current FY's allocation list (every held
+  // symbol when the FY has none). bandCmps is the band-snapshot fallback for resolveCmp.
+  const heldSet = new Set(held)
+  const inFY = new Set(currentFYAllocations.map(a => a.symbol))
+  const inScope = (symbol: string) => heldSet.has(symbol) && (inFY.size === 0 || inFY.has(symbol))
+  const stockTxns: StockTxn[] = allTransactions
+    .filter(t => inScope(t.symbol))
+    .map(({ symbol, trade_date, trade_type, quantity, amount }) => ({ symbol, trade_date, trade_type, quantity, amount }))
+  const bandCmps: Record<string, number> = {}
+  for (const b of bands) if (b.cmp !== null && inScope(b.symbol)) bandCmps[b.symbol] = b.cmp
 
   const mfNavs: Record<string, number> = {}
   const mfPrevNavs: Record<string, number | null> = {}
@@ -62,9 +74,8 @@ export default async function PortfolioPage() {
   return (
     <>
       <PortfolioClient
-        allTransactions={allTransactions}
-        bands={bands}
-        latestYearSymbols={latestYearSymbols}
+        stockTxns={stockTxns}
+        bandCmps={bandCmps}
         stockPrices={stockPrices}
         mfFunds={mfFunds}
         mfTransactions={mfTransactions}
