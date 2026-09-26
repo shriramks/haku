@@ -37,7 +37,7 @@ vi.mock('../supabase-service', () => ({
 import { createSupabaseServiceClient } from '../supabase-service'
 import {
   getAllocations, getTransactions, getTransactionsBySymbol,
-  getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavHistory, getStockPrices,
+  getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavs, getStockPrices,
 } from '../data'
 
 // Builds a chainable Supabase query mock that records eq() calls
@@ -148,82 +148,51 @@ describe('getCurrentFY', () => {
   })
 })
 
-// --- getMFNavHistory ---
+// --- getMFNavs ---
 
-type NavRow = { scheme_code: string; nav_date: string; nav: number }
+type NavRow = { scheme_code: string; nav: number | string; prev_nav: number | string | null; nav_date: string }
 
-// mf_nav_history query only chains .in()/.gte()/.order() before resolving —
-// no .eq(), unlike makeQueryMock above (this table isn't user-scoped).
-function makeNavHistoryMock(rows: NavRow[]) {
+// mf_navs query only chains .select()/.in() — public table, no user_id filter.
+function makeMfNavsMock(rows: NavRow[]) {
   const mock: Record<string, unknown> = {}
   const chain = () => mock
   mock.select = chain
   mock.in = chain
-  mock.gte = chain
-  mock.order = chain
   mock.then = (resolve: (v: { data: NavRow[] }) => void) => Promise.resolve({ data: rows }).then(resolve)
   return mock
 }
 
-describe('getMFNavHistory', () => {
+describe('getMFNavs', () => {
   it('returns {} without querying when no scheme codes given', async () => {
     const fromSpy = vi.fn()
     vi.mocked(createSupabaseServiceClient).mockReturnValue({ from: fromSpy } as never)
-    const result = await getMFNavHistory([])
+    const result = await getMFNavs([])
     expect(result).toEqual({})
     expect(fromSpy).not.toHaveBeenCalled()
   })
 
-  it('sets nav + prevNav when the two most recent rows are within 4 days', () => {
-    return withRows(
-      [{ scheme_code: '100001', nav_date: '2026-09-22', nav: 50 },
-       { scheme_code: '100001', nav_date: '2026-09-19', nav: 49 }],  // Sat/Sun gap, 3 days
-      async () => {
-        const result = await getMFNavHistory(['100001'])
-        expect(result['100001']).toEqual({ nav: 50, prevNav: 49, navDate: '2026-09-22' })
-      }
-    )
-  })
-
-  it('nulls prevNav when the gap between the two rows exceeds 4 days', () => {
-    return withRows(
-      [{ scheme_code: '100001', nav_date: '2026-09-22', nav: 50 },
-       { scheme_code: '100001', nav_date: '2026-09-10', nav: 45 }],  // 12-day gap — feed was stuck
-      async () => {
-        const result = await getMFNavHistory(['100001'])
-        expect(result['100001']).toEqual({ nav: 50, prevNav: null, navDate: '2026-09-22' })
-      }
-    )
-  })
-
-  it('leaves prevNav null when only one row exists for a scheme', () => {
-    return withRows(
-      [{ scheme_code: '100001', nav_date: '2026-09-22', nav: 50 }],
-      async () => {
-        const result = await getMFNavHistory(['100001'])
-        expect(result['100001']).toEqual({ nav: 50, prevNav: null, navDate: '2026-09-22' })
-      }
-    )
-  })
-
-  it('ignores rows beyond the two most recent per scheme', () => {
-    return withRows(
-      [{ scheme_code: '100001', nav_date: '2026-09-22', nav: 50 },
-       { scheme_code: '100001', nav_date: '2026-09-19', nav: 49 },
-       { scheme_code: '100001', nav_date: '2026-09-18', nav: 999 }],  // would corrupt prevNav if not skipped
-      async () => {
-        const result = await getMFNavHistory(['100001'])
-        expect(result['100001'].prevNav).toBe(49)
-      }
-    )
-  })
-
-  function withRows(rows: NavRow[], run: () => Promise<void>) {
+  it('keys rows by scheme code and maps column names', async () => {
     vi.mocked(createSupabaseServiceClient).mockReturnValue({
-      from: () => makeNavHistoryMock(rows),
+      from: () => makeMfNavsMock([{ scheme_code: '100001', nav: 50, prev_nav: 49, nav_date: '2026-09-22' }]),
     } as never)
-    return run()
-  }
+    expect(await getMFNavs(['100001'])).toEqual({ '100001': { nav: 50, prevNav: 49, navDate: '2026-09-22' } })
+  })
+
+  it('keeps a null prev_nav null and coerces numeric strings to numbers', async () => {
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => makeMfNavsMock([{ scheme_code: '100001', nav: '50.1234', prev_nav: null, nav_date: '2026-09-22' }]),
+    } as never)
+    const result = await getMFNavs(['100001'])
+    expect(result['100001'].nav).toBe(50.1234)
+    expect(result['100001'].prevNav).toBeNull()
+  })
+
+  it('omits schemes with no saved row', async () => {
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+      from: () => makeMfNavsMock([]),
+    } as never)
+    expect(await getMFNavs(['100001'])).toEqual({})
+  })
 })
 
 // --- getStockPrices ---

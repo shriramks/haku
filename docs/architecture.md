@@ -26,6 +26,7 @@
 | `investability` | 10-gate qualitative scorecard |
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 | `stock_prices` | Last-fetched CMP + previous close per NSE symbol, plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
+| `mf_navs` | Latest + previous AMFI NAV per scheme code (`nav`, `prev_nav`, `nav_date`; public market data, not user-scoped; written only by `syncMfNav` from the Portfolio Prices button's refresh route) — see "MF NAV Fetch Flow" |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
@@ -50,7 +51,7 @@ Server pages fetch through `lib/data.ts`. Fetchers wrapped in `unstable_cache` p
 | `getPPFOverride` | `ppf_balance_override` | 1 h | balance override save |
 | `getEPFTransactions` | `epf_transactions` | 1 h | txn add, or client edit/delete + `revalidateEPFTransactions()` |
 
-Among the portfolio/allocation tables, `getAllocations` (`stock_allocations`), `getMFNavHistory` (`mf_nav_history`) and `getStockPrices` (`stock_prices`) are left on genuinely per-request reads — see "MF NAV Fetch Flow" and "Price Fetch Flow" for why the two market-data tables deliberately skip `unstable_cache` (a refresh must show on the very next render). (`user_settings` and `investability` fetchers are also per-request-only, but aren't part of this write-revalidation concern — no browser writes to those tables.)
+Among the portfolio/allocation tables, `getAllocations` (`stock_allocations`), `getMFNavs` (`mf_navs`) and `getStockPrices` (`stock_prices`) are left on genuinely per-request reads — see "MF NAV Fetch Flow" and "Price Fetch Flow" for why the two market-data tables deliberately skip `unstable_cache` (a refresh must show on the very next render). (`user_settings` and `investability` fetchers are also per-request-only, but aren't part of this write-revalidation concern — no browser writes to those tables.)
 
 **Write paths:** every write to a cached table must revalidate the matching tag — an unrevalidated browser write serves stale data for up to the TTL. Preferred: server actions that write and revalidate together — `app/actions.ts` for stock/dividend/snapshot tables (or API routes for bands/tranches), `app/portfolio/actions.ts` for MF/gold/PPF/EPF tables. Stock transaction writes (`addStockTransaction`, `updateStockTransaction`, `deleteStockTransaction`, `importStockTransactions`, `redeployToFY`) follow this; `fy_id` is always derived server-side from `trade_date`. PlanClient still writes `fiscal_years` from the browser but pairs each write with `revalidateFiscalYears()`. `stock_allocations` is the one table genuinely uncached and written from the browser under RLS with nothing to revalidate.
 
@@ -177,17 +178,17 @@ Changing `risk_free` marks non-index `buy_bands.last_updated_at` forward so the 
 
 ## MF NAV Fetch Flow
 
-One source end to end: our own `mf_nav_history` table (`scheme_code, nav_date, nav`), kept in sync with AMFI's official feed. No per-scheme third-party API, no cross-source reconciliation (progress log #116, #117, #118, #119 — a two-source design with `mfapi.in` was tried and retired; see git history on this section if you need the old rationale).
+One source end to end: our own `mf_navs` table (`scheme_code` pk, `nav`, `prev_nav`, `nav_date`), one row per scheme, kept in sync with AMFI's official feed — the same model as `stock_prices`. No per-scheme third-party API, no cross-source reconciliation (progress log #116, #117, #118, #119, #120.c — a two-source design with `mfapi.in` was tried and retired, and #117–#119's dated `mf_nav_history` table was replaced by this one; see git history on this section if you need the old rationale).
 
-- **Sync** (`POST /api/mf-nav/sync`, `lib/amfi.ts` `fetchAmfiNavHistory()`): fetches AMFI's dated NAV history report (`DownloadNAVHistoryReport_Po.aspx`) for a fixed 10-day window and upserts every row into `mf_nav_history`, filtered to scheme codes in `mf_funds` (all users, not just currently-held funds — a re-bought fund needs continuous history, and the Tax screen needs sold funds' history too). Watermarked on `mf_nav_sync_state.last_attempt_at` — re-syncs at most once per 12h, written on success *and* failure so a down AMFI endpoint isn't retried every load. `PortfolioClient.tsx` fires this on mount (fire-and-forget, then `router.refresh()`); nothing else needs to.
-- **Read** (`getMFNavHistory(schemeCodes)` in `lib/data.ts`): queries `mf_nav_history` for the given codes, bounded to the last 15 days, and reduces to the two most recent rows per scheme in JS. Deliberately uncached (no `unstable_cache`) so a fresh sync is visible on the very next render. Returns `{ nav, prevNav, navDate }` per scheme — `prevNav` is `null` if the gap between the two stored rows exceeds `isNavStale`'s 4-day threshold (a genuine 1-day move, not a stuck feed — keeps stale-feed gaps out of the portfolio 1D gain / 1D %; this guard is what stopped #112's 202% XIRR bug from recurring).
+- **Sync** (`syncMfNav(service)` in `lib/mf-nav-sync.ts`, `lib/amfi.ts` `fetchAmfiNavHistory()`): fetches AMFI's dated NAV history report (`DownloadNAVHistoryReport_Po.aspx`) for a fixed 10-day window, reduces it with `latestNavRows` to each scheme's newest NAV plus the one before it, and upserts one `mf_navs` row per scheme, filtered to scheme codes in `mf_funds` (all users, not just currently-held funds — the Tax screen needs sold funds' NAVs too). A scheme with no row in the window keeps its saved row. **Only the Portfolio Prices button triggers it**: `POST /api/portfolio/prices/refresh` calls it in-process, in parallel with the Yahoo fetches, and only when the caller has any `mf_funds` rows. There is no watermark, no mount-time sync and no separate route — the button is the manual "fetch latest, upsert into DB" trigger. A failed sync is logged and never fails the stock/gold save; the refresh response carries no NAV figures. Tapping before AMFI publishes (~9–11 pm IST) legitimately brings no new NAV.
+- **Read** (`getMFNavs(schemeCodes)` in `lib/data.ts`): filters `mf_navs` by scheme code and maps the columns. Deliberately uncached (no `unstable_cache`) so a refresh is visible on the very next render. Returns `{ nav, prevNav, navDate }` per scheme; schemes with no saved row are absent. `prev_nav` is already null-guarded at write time: `latestNavRows` nulls it when the two newest rows are more than `isNavStale`'s 4-day threshold apart (a genuine 1-day move, not a stuck feed — keeps stale-feed gaps out of the portfolio 1D gain / 1D %; this guard is what stopped #112's 202% XIRR bug from recurring), or when only one row exists.
 
 **Call sites**, all server-side props, no client fetch: `app/portfolio/page.tsx` (current + previous NAV, for 1D gain), `app/portfolio/mf/[fundId]/page.tsx` (current + previous NAV, for the fund detail's 1D gain and "as of" date), `app/tax/page.tsx` (current NAV only, for Harvesting's unrealised-loss figure — no 1D gain shown there).
 
 ---
 ## Price Fetch Flow
 
-Stock and gold prices on the Portfolio screen change **only when the Prices button is tapped** (progress log #120). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. MF NAV still uses its own path until #120.c folds it in.
+Stock and gold prices on the Portfolio screen change **only when the Prices button is tapped** (progress log #120). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. MF NAVs ride the same tap into their own table, `mf_navs` — see "MF NAV Fetch Flow".
 
 - **Refresh** (`POST /api/portfolio/prices/refresh`): auth-checked, takes no body. Derives the symbols to fetch server-side from the caller's own transactions (`heldSymbols` — net qty > 0), fetches them with `fetchCmpBatch`, diffs against the saved rows and upserts. Only symbols that returned a price are written — a Yahoo failure never overwrites a good saved price. Returns `{ fetchedAt, stocks: { requested, updated, moved, failed[] }, gold: 'skipped' | 'updated' | 'failed' }`. Prices are written server-side only: nothing client-supplied reaches a table every user reads.
 - **Gold**: one more row in `stock_prices` under `GOLD_PRICE_KEY` (`_GOLD_INR_PER_GRAM`, `lib/stock-prices.ts`) — `cmp` is INR per gram, `prev_close` the prior per-gram price; the leading underscore can't collide with an NSE ticker. The refresh route fetches it (`fetchGoldPrice` in `lib/market-data.ts`: Yahoo `GC=F` × `USDINR=X`, uncached so a tap gets the live price) only when the caller has any `sgb_transactions`, in the same upsert as the stock rows. Same failure rule as stocks: a failed fetch writes no row, so the last saved gold price (and its returns) stays. Reads: `getGoldPrice()` in `lib/data.ts`, uncached. Until the first successful tap there is no row → gold values at cost and overall XIRR is unavailable.
@@ -227,8 +228,7 @@ app/
     bands/generate/[symbol]/route.ts    valuation + financial refresh
     tranches/generate/[symbol]/route.ts tranche regeneration from stored bands
     settings/gemini-key/route.ts        AI key + risk_free settings
-    mf-nav/sync/route.ts                AMFI daily NAV sync job — see "MF NAV Fetch Flow" above
-    portfolio/prices/refresh/route.ts   Prices button: fetch + save stock prices — see "Price Fetch Flow"
+    portfolio/prices/refresh/route.ts   Prices button: fetch + save stock/gold prices and sync MF NAVs — see "Price Fetch Flow"
   bands/
     BandsClient.tsx                     bands list
     [symbol]/BandDetailClient.tsx       stock detail orchestrator — computes snowball, wires all sheets
@@ -248,6 +248,7 @@ app/
 
 lib/
   amfi.ts                                AMFI NAV history parsing + staleness guard — see "MF NAV Fetch Flow" above
+  mf-nav-sync.ts                        syncMfNav + latestNavRows: AMFI window → mf_navs — see "MF NAV Fetch Flow"
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"

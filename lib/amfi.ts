@@ -39,8 +39,8 @@ function formatDDMonYYYY(date: Date): string {
 /**
  * Fetches AMFI's dated NAV history report for [fromDate, toDate] (inclusive,
  * calendar days) — every scheme repeated once per trading date in range, not
- * just the latest. No `next: revalidate` here: the sync route's own
- * mf_nav_sync_state watermark is what rate-limits this, not the fetch cache.
+ * just the latest. No `next: revalidate` here: syncMfNav is only ever run by the
+ * Portfolio Prices button, which must get a fresh report, not a cached one.
  */
 export async function fetchAmfiNavHistory(fromDate: Date, toDate: Date): Promise<AmfiNavHistoryRow[]> {
   const url = `${AMFI_NAV_HISTORY_URL}?frmdt=${formatDDMonYYYY(fromDate)}&todt=${formatDDMonYYYY(toDate)}`

@@ -72,9 +72,9 @@ describe('isNavStale', () => {
     expect(isNavStale('2026-09-18', new Date('2026-09-23T12:00:00'))).toBe(true)
   })
 
-  // getMFNavHistory (lib/data.ts) reuses isNavStale a second time, anchored on
-  // the fund's own latest nav_date instead of "today" — to check the stored
-  // previous-NAV row is genuinely ~1 trading day back, not a stale gap. See #118.
+  // latestNavRows (lib/mf-nav-sync.ts) reuses isNavStale a second time, anchored on
+  // the fund's own latest nav_date instead of "today" — to check the previous-NAV
+  // row is genuinely ~1 trading day back, not a stale gap. See #118, #120.c.
   it('anchored on another NAV date (not today), catches a lagging previous-NAV', () => {
     expect(isNavStale('2026-09-17', new Date('2026-09-21T00:00:00'), 3)).toBe(true)
   })

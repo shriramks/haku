@@ -3,7 +3,6 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
-import { isNavStale } from './amfi'
 import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
@@ -23,7 +22,7 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 //   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
 //     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
 //     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
-//   getMFNavHistory / getStockPrices / getGoldPrice : no cache on purpose — a Prices-button refresh must show on the next render
+//   getMFNavs / getStockPrices / getGoldPrice : no cache on purpose — a Prices-button refresh must show on the next render
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
 export { getCurrentFY } from './fy-utils'
@@ -185,43 +184,27 @@ export interface MFNavInfo {
 }
 
 /**
- * Latest + previous NAV per scheme, from our own `mf_nav_history` table
- * (populated by /api/mf-nav/sync — see progress log #117/#118). Public market
- * data, not user-scoped, so no user_id filter — matches the table's RLS.
- * Deliberately uncached (no unstable_cache): a fresh sync must be visible on
- * the very next render, not hidden behind an hour-long Data Cache entry.
+ * Latest + previous NAV per scheme, from `mf_navs` (written only by syncMfNav, which the
+ * Prices button's refresh route calls — progress log #120.c). Public market data, not
+ * user-scoped, so no user_id filter. Deliberately uncached, same reasoning as
+ * getStockPrices: a refresh must show on the very next render. `prevNav` is already
+ * null-guarded at write time (stuck-feed gaps never reach it), so this only maps columns.
+ * Schemes with no saved row are simply absent from the result.
  */
-export async function getMFNavHistory(schemeCodes: string[]): Promise<Record<string, MFNavInfo>> {
+export async function getMFNavs(schemeCodes: string[]): Promise<Record<string, MFNavInfo>> {
   if (schemeCodes.length === 0) return {}
 
-  // Bounds the read as mf_nav_history grows — the sync job only ever writes a
-  // rolling 10-day window per run and never deletes old rows, so an unbounded
-  // query would keep growing for as long as the app runs. 15 days clears that
-  // window with room to spare, well past the 4-day staleness cutoff below.
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - 15)
-
   const { data } = await createSupabaseServiceClient()
-    .from('mf_nav_history')
-    .select('scheme_code, nav_date, nav')
+    .from('mf_navs')
+    .select('scheme_code, nav, prev_nav, nav_date')
     .in('scheme_code', schemeCodes)
-    .gte('nav_date', cutoff.toISOString().slice(0, 10))
-    .order('nav_date', { ascending: false })
 
   const result: Record<string, MFNavInfo> = {}
-  const seenSecond = new Set<string>()
-  for (const row of (data ?? []) as { scheme_code: string; nav_date: string; nav: number }[]) {
-    const code = row.scheme_code
-    const entry = result[code]
-    if (!entry) {
-      result[code] = { nav: row.nav, prevNav: null, navDate: row.nav_date }
-    } else if (!seenSecond.has(code)) {
-      seenSecond.add(code)
-      // Gap >4 calendar days between the two rows means it isn't a genuine
-      // 1-day move — keeps stale-feed gaps out of the 1D gain / 1D %.
-      if (!isNavStale(row.nav_date, new Date(entry.navDate + 'T00:00:00'), 4)) {
-        entry.prevNav = row.nav
-      }
+  for (const row of (data ?? []) as { scheme_code: string; nav: number | string; prev_nav: number | string | null; nav_date: string }[]) {
+    result[row.scheme_code] = {
+      nav: Number(row.nav),
+      prevNav: row.prev_nav === null ? null : Number(row.prev_nav),
+      navDate: row.nav_date,
     }
   }
   return result
@@ -231,7 +214,7 @@ export async function getMFNavHistory(schemeCodes: string[]): Promise<Record<str
  * Last-saved price per symbol, from `stock_prices` (written only by
  * POST /api/portfolio/prices/refresh — progress log #120.a). Public market data, not
  * user-scoped, so no user_id filter. Deliberately uncached, same reasoning as
- * getMFNavHistory: a refresh must show on the very next render. Symbols with no
+ * getMFNavs: a refresh must show on the very next render. Symbols with no
  * saved row are simply absent from the result — callers fall back via resolveCmp.
  */
 export async function getStockPrices(symbols: string[]): Promise<Record<string, StockPriceInfo>> {

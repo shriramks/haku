@@ -1,4 +1,4 @@
-import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId, getMFFunds, getMFTransactions, getMFNavHistory, getSGBTransactions } from '@/lib/data'
+import { getFiscalYears, getCurrentFY, getTransactions, getAllDividends, getUserId, getMFFunds, getMFTransactions, getMFNavs, getSGBTransactions } from '@/lib/data'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { mfAssetClass } from '@/lib/tax-compute'
 import type { AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
@@ -36,9 +36,9 @@ export default async function TaxPage() {
   // Harvesting's unrealised-loss figure needs the current NAV for equity funds
   // only (no 1D gain shown on this screen, so no prevNav).
   const equityFunds = mfFunds.filter(f => mfAssetClass(f) === 'equity')
-  const mfNavHistory = await getMFNavHistory(equityFunds.map(f => f.scheme_code))
+  const mfNavInfo = await getMFNavs(equityFunds.map(f => f.scheme_code))
   const mfNavs: Record<string, number> = {}
-  for (const [code, info] of Object.entries(mfNavHistory)) mfNavs[code] = info.nav
+  for (const [code, info] of Object.entries(mfNavInfo)) mfNavs[code] = info.nav
 
   return (
     <>

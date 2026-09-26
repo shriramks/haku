@@ -5,11 +5,13 @@ const createSupabaseServiceClient = vi.fn()
 const getStockPrices = vi.fn()
 const fetchCmpBatch = vi.fn()
 const fetchGoldPrice = vi.fn()
+const syncMfNav = vi.fn()
 
 vi.mock('@/lib/supabase-server', () => ({ createSupabaseServerClient }))
 vi.mock('@/lib/supabase-service', () => ({ createSupabaseServiceClient }))
 vi.mock('@/lib/data', () => ({ getStockPrices }))
 vi.mock('@/lib/market-data', () => ({ fetchCmpBatch, fetchGoldPrice }))
+vi.mock('@/lib/mf-nav-sync', () => ({ syncMfNav }))
 
 import { GOLD_PRICE_KEY } from '@/lib/stock-prices'
 
@@ -22,6 +24,8 @@ function setup({
   upsertError = null as { message: string } | null,
   goldRows = [] as { id: string }[],
   goldError = null as { message: string } | null,
+  mfFundRows = [] as { id: string }[],
+  mfFundError = null as { message: string } | null,
 } = {}) {
   createSupabaseServerClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
@@ -32,14 +36,19 @@ function setup({
   const goldLimit = vi.fn().mockResolvedValue({ data: goldError ? null : goldRows, error: goldError })
   const goldEq = vi.fn(() => ({ limit: goldLimit }))
   const goldSelect = vi.fn(() => ({ eq: goldEq }))
-  createSupabaseServiceClient.mockReturnValue({
+  const mfLimit = vi.fn().mockResolvedValue({ data: mfFundError ? null : mfFundRows, error: mfFundError })
+  const mfEq = vi.fn(() => ({ limit: mfLimit }))
+  const mfSelect = vi.fn(() => ({ eq: mfEq }))
+  const service = {
     from: vi.fn((table: string) => {
       if (table === 'transactions') return { select }
       if (table === 'sgb_transactions') return { select: goldSelect }
+      if (table === 'mf_funds') return { select: mfSelect }
       return { upsert }
     }),
-  })
-  return { upsert, select, eq, goldSelect, goldEq }
+  }
+  createSupabaseServiceClient.mockReturnValue(service)
+  return { upsert, select, eq, goldSelect, goldEq, mfSelect, mfEq, service }
 }
 
 async function post() {
@@ -54,6 +63,7 @@ describe('POST /api/portfolio/prices/refresh', () => {
     vi.clearAllMocks()
     getStockPrices.mockResolvedValue({})
     fetchGoldPrice.mockResolvedValue(null)
+    syncMfNav.mockResolvedValue(undefined)
   })
 
   it('returns 401 and touches nothing when signed out', async () => {
@@ -222,6 +232,65 @@ describe('POST /api/portfolio/prices/refresh', () => {
       const res = await post()
       expect(res.status).toBe(500)
       expect(fetchGoldPrice).not.toHaveBeenCalled()
+    })
+  })
+  describe('MF NAV sync', () => {
+    const mfHolder = { mfFundRows: [{ id: 'f1' }] }
+
+    it("checks only the caller's own funds, one row is enough", async () => {
+      const { mfSelect, mfEq } = setup(mfHolder)
+      await post()
+      expect(mfSelect).toHaveBeenCalledWith('id')
+      expect(mfEq).toHaveBeenCalledWith('user_id', 'user-1')
+    })
+
+    it('syncs NAVs with the service client when the caller has funds', async () => {
+      const { service } = setup(mfHolder)
+      await post()
+      expect(syncMfNav).toHaveBeenCalledTimes(1)
+      expect(syncMfNav).toHaveBeenCalledWith(service)
+    })
+
+    it('syncs even when the caller holds no stocks or gold', async () => {
+      const { upsert } = setup({ ...mfHolder, txns: [] })
+      const res = await post()
+      expect(res.status).toBe(200)
+      expect(syncMfNav).toHaveBeenCalledTimes(1)
+      expect(upsert).not.toHaveBeenCalled()
+    })
+
+    it('makes no AMFI call when the caller has no funds', async () => {
+      setup({ mfFundRows: [] })
+      await post()
+      expect(syncMfNav).not.toHaveBeenCalled()
+    })
+
+    it('still saves stock prices and answers 200 when the sync fails', async () => {
+      const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { upsert } = setup({ ...mfHolder, txns: [buy('TCS')] })
+      fetchCmpBatch.mockResolvedValue({ prices: { TCS: 4000 }, prevClose: { TCS: 3950 } })
+      syncMfNav.mockRejectedValue(new Error('AMFI down'))
+
+      const res = await post()
+
+      expect(res.status).toBe(200)
+      expect(upsert.mock.calls[0][0].map((r: { symbol: string }) => r.symbol)).toEqual(['TCS'])
+      expect(errorLog).toHaveBeenCalled()
+      errorLog.mockRestore()
+    })
+
+    it('adds no NAV figures to the response', async () => {
+      setup({ ...mfHolder, txns: [buy('TCS')] })
+      fetchCmpBatch.mockResolvedValue({ prices: { TCS: 4000 }, prevClose: {} })
+      expect(Object.keys(await (await post()).json()).sort()).toEqual(['fetchedAt', 'gold', 'stocks'])
+    })
+
+    it('returns 500 when the funds read fails, before fetching anything', async () => {
+      setup({ mfFundError: { message: 'db down' } })
+      const res = await post()
+      expect(res.status).toBe(500)
+      expect(syncMfNav).not.toHaveBeenCalled()
+      expect(fetchCmpBatch).not.toHaveBeenCalled()
     })
   })
 })

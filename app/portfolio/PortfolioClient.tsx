@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useTransition } from 'react'
+import React, { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { trimZero, fyLabel, monthYear, formatDate, getGainColor } from '@/lib/formatter'
@@ -130,22 +130,9 @@ export default function PortfolioClient({
   const [refreshPending, startRefresh] = useTransition()
   const refreshing = posting || refreshPending
 
-  // MF NAV now comes from page.tsx's server-side read of our own mf_nav_history
-  // table (lib/data.ts's getMFNavHistory) — see progress log #117/#118. This
-  // effect just keeps that table fresh: fire the daily AMFI sync once after
-  // first paint, then re-render the page so a newly-synced NAV shows up
-  // (stale-while-refresh — the sync itself is rate-limited to once per 12h
-  // server-side, so repeat mounts are cheap no-ops).
-  useEffect(() => {
-    if (mfFunds.length === 0) return
-    fetch('/api/mf-nav/sync', { method: 'POST' })
-      .catch(() => {})
-      .finally(() => router.refresh())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Stock and gold prices arrive as props (page.tsx reads stock_prices) and only change when the
-  // Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
+  // Stock, gold and MF NAV all arrive as props (page.tsx reads stock_prices / mf_navs) and only
+  // change when the Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
+  // Nothing fetches on mount.
   const stockHoldings = useMemo(() => computeStockHoldings(allTransactions, bands, latestYearSymbols, stockPrices), [allTransactions, bands, latestYearSymbols, stockPrices])
 
   // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
