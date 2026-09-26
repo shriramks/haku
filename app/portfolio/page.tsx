@@ -4,8 +4,9 @@ import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
 import { heldSymbols } from '@/lib/stock-prices'
 import { newestTimestamp, pricesAreStale } from '@/lib/price-freshness'
+import { buildPortfolio, type StockTxn } from '@/lib/portfolio-compute'
 import type { StockAllocation } from '@/lib/types'
-import PortfolioClient, { type StockTxn } from './PortfolioClient'
+import PortfolioClient from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
 
 export default async function PortfolioPage() {
@@ -53,8 +54,8 @@ export default async function PortfolioPage() {
     getGoldPrice(),
   ])
 
-  // The client only computes open positions, and reads five transaction fields (StockTxn) —
-  // so ship just those, for held symbols within the current FY's allocation list (every held
+  // Only open positions are computed, and only five transaction fields are read (StockTxn) —
+  // so pass just those, for held symbols within the current FY's allocation list (every held
   // symbol when the FY has none). bandCmps is the band-snapshot fallback for resolveCmp.
   const heldSet = new Set(held)
   const inFY = new Set(currentFYAllocations.map(a => a.symbol))
@@ -65,14 +66,12 @@ export default async function PortfolioPage() {
   const bandCmps: Record<string, number> = {}
   for (const b of bands) if (b.cmp !== null && inScope(b.symbol)) bandCmps[b.symbol] = b.cmp
 
-  const mfNavs: Record<string, number> = {}
-  const mfPrevNavs: Record<string, number | null> = {}
-  const mfNavDates: Record<string, string> = {}
-  for (const [code, info] of Object.entries(mfNavInfo)) {
-    mfNavs[code] = info.nav
-    mfPrevNavs[code] = info.prevNav
-    mfNavDates[code] = info.navDate
-  }
+  // Holdings, totals and XIRR are computed here, not on the phone — the client gets finished rows.
+  const data = buildPortfolio({
+    stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs: mfNavInfo,
+    sgbTransactions, goldPrice: goldPrice?.cmp ?? null, prevGoldPrice: goldPrice?.prevClose ?? null,
+    ppfTransactions, ppfOverride, epfTransactions,
+  })
 
   // Drives the amber dot on the Prices button: the newest saved stock/gold price predates the last
   // market close. Only meaningful with something to price — an MF-only user has no stock/gold price
@@ -87,20 +86,9 @@ export default async function PortfolioPage() {
   return (
     <>
       <PortfolioClient
-        stockTxns={stockTxns}
-        bandCmps={bandCmps}
-        stockPrices={stockPrices}
-        mfFunds={mfFunds}
-        mfTransactions={mfTransactions}
-        mfNavs={mfNavs}
-        mfPrevNavs={mfPrevNavs}
-        mfNavDates={mfNavDates}
+        data={data}
         pricesStale={pricesStale}
-        sgbTransactions={sgbTransactions}
-        goldPrice={goldPrice?.cmp ?? null}
-        prevGoldPrice={goldPrice?.prevClose ?? null}
         ppfTransactions={ppfTransactions}
-        ppfOverride={ppfOverride}
         epfTransactions={epfTransactions}
       />
       <BottomNav />

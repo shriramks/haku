@@ -5,128 +5,33 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { trimZero, fyLabel, monthYear, formatDate } from '@/lib/formatter'
 import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
-import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
-import { HoldingRow, type HoldingRowData } from '@/components/HoldingRow'
+import { HoldingRow } from '@/components/HoldingRow'
 import HoldingsToolbar, { type ToolbarPill } from '@/components/HoldingsToolbar'
-import { DEFAULT_SORT, nextSort, returnMetric, sortHoldings, type SortState } from '@/lib/holdings-sort'
-import { istDay, laggingDates, shortDate } from '@/lib/price-freshness'
+import { DEFAULT_SORT, nextSort, sortHoldings, type SortState } from '@/lib/holdings-sort'
 import { CheckIcon, ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
-import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
-import { seqCost } from '@/lib/compute'
-import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from '@/lib/stock-prices'
-import { computeMFHolding } from '@/lib/mf-compute'
-import { computeSGBBatches, goldDisplayName, goldMeta } from '@/lib/sgb-compute'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, MFHolding, EquitySummary, PPFSummary, EPFSummary } from '@/lib/portfolio-types'
-import type { Transaction } from '@/lib/types'
+import type { PortfolioData } from '@/lib/portfolio-compute'
+import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 
-/** The only stock-transaction fields the maths reads — page.tsx sends just these. */
-export type StockTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
-
+// Holdings, totals and XIRR arrive finished in `data` (lib/portfolio-compute.ts, built in page.tsx —
+// progress log #125). The client keeps only what is interactive: sort, filter, open sections, the
+// Prices button, and the PPF/EPF lists, which it edits in place.
 interface Props {
-  stockTxns: StockTxn[]                  // open positions only, already scoped by page.tsx
-  bandCmps: Record<string, number>       // symbol → buy_bands.cmp snapshot, the resolveCmp fallback
-  stockPrices: Record<string, StockPriceInfo>
-  mfFunds: MFund[]
-  mfTransactions: MFTransaction[]
-  mfNavs: Record<string, number>
-  mfPrevNavs: Record<string, number | null>
-  mfNavDates: Record<string, string>     // scheme_code → nav_date (YYYY-MM-DD), for the per-row lagging date
+  data: PortfolioData
   pricesStale: boolean                   // server-computed: newest saved stock/gold price predates the last market close
-  sgbTransactions: SGBTransaction[]
-  goldPrice: number | null       // INR per gram, from stock_prices (null until the first Prices tap)
-  prevGoldPrice: number | null
   ppfTransactions: PPFTransaction[]
-  ppfOverride: PPFBalanceOverride | null
   epfTransactions: EPFTransaction[]
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function computeStockHoldings(
-  transactions: StockTxn[],
-  bandCmps: Record<string, number>,
-  stockPrices: Record<string, StockPriceInfo>,
-): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null; gain1d: number | null; gain1dPct: number | null }[] {
-  const bySymbol: Record<string, StockTxn[]> = {}
-  for (const t of transactions) {
-    ;(bySymbol[t.symbol] ??= []).push(t)
-  }
-  return Object.entries(bySymbol)
-    .flatMap(([symbol, txns]) => {
-      const { qty, cost } = seqCost(txns)
-      if (qty <= HELD_QTY_EPSILON) return []
-      // Saved price (stock_prices, written by the Prices button) beats the stored
-      // band snapshot, which only updates when bands are regenerated and can be
-      // stale for days — see resolveCmp.
-      const cmp = resolveCmp(symbol, stockPrices, bandCmps[symbol])
-      const currentValue = cmp ? qty * cmp : null
-      const gain = currentValue !== null ? currentValue - cost : null
-      const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
-      const prev = stockPrices[symbol]?.prevClose ?? null
-      const gain1d = cmp && prev ? qty * (cmp - prev) : null
-      const gain1dPct = cmp && prev ? (cmp / prev - 1) * 100 : null
-      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal, gain1d, gain1dPct }]
-    })
-    .sort((a, b) => a.symbol.localeCompare(b.symbol))
-}
-
-function computeMFHoldings(
-  funds: MFund[],
-  transactions: MFTransaction[],
-  navs: Record<string, number>,
-  prevNavs: Record<string, number | null>,
-): MFHolding[] {
-  const byFund: Record<string, MFTransaction[]> = {}
-  for (const t of transactions) {
-    ;(byFund[t.fund_id] ??= []).push(t)
-  }
-  return funds
-    .flatMap(fund => {
-      const txns = byFund[fund.id] ?? []
-      if (txns.length === 0) return []
-      const holding = computeMFHolding(fund, txns, navs[fund.scheme_code] ?? null, prevNavs[fund.scheme_code] ?? null)
-      return holding ? [holding] : []
-    })
-    .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
-}
-
-function computePPF(transactions: PPFTransaction[], override: PPFBalanceOverride | null): PPFSummary {
-  const totalDeposited = transactions
-    .filter(t => t.trade_type === 'deposit')
-    .reduce((s, t) => s + t.amount, 0)
-  const computedBalance = computePPFBalance(transactions)
-  const currentBalance  = override?.balance ?? computedBalance
-  return {
-    transactions,
-    totalDeposited,
-    computedBalance,
-    currentBalance,
-    override,
-    xirr: ppfXirr(transactions, currentBalance),
-  }
-}
-
-function computeEPF(transactions: EPFTransaction[]): EPFSummary {
-  const totalDeposited  = transactions
-    .filter(t => t.trade_type === 'deposit')
-    .reduce((s, t) => s + t.amount, 0)
-  const computedBalance = computeEPFBalance(transactions)
-  return { transactions, totalDeposited, computedBalance, xirr: epfXirr(transactions, computedBalance) }
-}
-
-const assetClass = mfAssetClass
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs, mfNavDates, pricesStale,
-  sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions: initialPpfTransactions, ppfOverride,
-  epfTransactions: initialEpfTransactions,
+  data, pricesStale, ppfTransactions: initialPpfTransactions, epfTransactions: initialEpfTransactions,
 }: Props) {
   const router = useRouter()
+  const { summary, stocks, mf, gold, ppf, epf } = data
   const [openSections, setOpenSections] = useState(new Set<string>())
   // Sort is per section and not persisted; the MF filter is one class or none.
   const [stockSort, setStockSort] = useState<SortState>(DEFAULT_SORT)
@@ -141,136 +46,19 @@ export default function PortfolioClient({
   // failed, or the request did) sticks as "Retry" until the next tap.
   const [refreshResult, setRefreshResult] = useState<'idle' | 'updated' | 'partial'>('idle')
 
-  // Stock, gold and MF NAV all arrive as props (page.tsx reads stock_prices / mf_navs) and only
-  // change when the Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
-  // Nothing fetches on mount.
-  const stockHoldings = useMemo(() => computeStockHoldings(stockTxns, bandCmps, stockPrices), [stockTxns, bandCmps, stockPrices])
-
-  // Summary derived from holdings; no-CMP positions fall back to cost (gain 0)
-  const equity: EquitySummary = useMemo(() => ({
-    holdingsCount: stockHoldings.length,
-    invested:      stockHoldings.reduce((s, h) => s + h.invested, 0),
-    currentValue:  stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0),
-    gain1d:        stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0),
-  }), [stockHoldings])
-  const mfHoldings    = useMemo(() => computeMFHoldings(mfFunds, mfTransactions, mfNavs, mfPrevNavs), [mfFunds, mfTransactions, mfNavs, mfPrevNavs])
-  const sgbBatches    = useMemo(() => computeSGBBatches(sgbTransactions, goldPrice), [sgbTransactions, goldPrice])
-  const ppf           = useMemo(() => computePPF(ppfTxns, ppfOverride), [ppfTxns, ppfOverride])
-  const epf           = useMemo(() => computeEPF(epfTxns), [epfTxns])
-
-  // Summary numbers
-  const mfInvested      = mfHoldings.reduce((s, h) => s + h.invested, 0)
-  const mfCurrentValue  = mfHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const mfGain1d        = mfHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0)
-  const sgbInvested     = sgbBatches.reduce((s, b) => s + b.invested, 0)
-  const sgbCurrentValue = sgbBatches.reduce((s, b) => s + (b.currentValue ?? b.invested), 0)
-  const totalInvested   = equity.invested + mfInvested + sgbInvested + ppf.totalDeposited + epf.totalDeposited
-  const totalCurrent    = equity.currentValue + mfCurrentValue + sgbCurrentValue + ppf.currentBalance + epf.computedBalance
-  const totalGain       = totalCurrent - totalInvested
-
-  // Overall XIRR: wait for live prices before computing so the terminal value is accurate.
-  // stockTxns is the same open-position list computeStockHoldings uses, so the stock cashflows
-  // and totalCurrent cover the same stocks (exited positions are in neither).
-  // MF NAV is server-rendered (no client fetch to wait on) — only gold still gates this.
-  const overallXirr = useMemo(() => {
-    if (sgbTransactions.length > 0 && goldPrice === null) return null
-    return portfolioXirr(stockTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent)
-  }, [stockTxns, mfTransactions, sgbTransactions, ppfTxns, epfTxns, totalCurrent, goldPrice])
-
-  // Section-level XIRR for MF and Gold headers
-  const mfSectionXirr = useMemo(() => {
-    if (mfCurrentValue === 0 || mfTransactions.length === 0) return null
-    return mfXirr(mfTransactions, mfCurrentValue)
-  }, [mfTransactions, mfCurrentValue])
-
-  const goldSectionXirr = useMemo(() => {
-    if (goldPrice === null || sgbCurrentValue === 0 || sgbTransactions.length === 0) return null
-    return sgbXirr(sgbTransactions, sgbCurrentValue)
-  }, [sgbTransactions, sgbCurrentValue, goldPrice])
-
-  // Asset allocation for donut + section bars
-  const mfEquity      = mfHoldings.filter(h => assetClass(h.fund) === 'equity').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const mfDebt        = mfHoldings.filter(h => assetClass(h.fund) === 'debt').reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const totalForAlloc = equity.currentValue + mfEquity + mfDebt + sgbCurrentValue + ppf.currentBalance + epf.computedBalance
-  const eqPct   = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
-  const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance + epf.computedBalance) / totalForAlloc * 100) : 0
-  const goldPct = 100 - eqPct - debtPct
-
-  // Holdings lists — one HoldingRowData per row (Stocks, MF, Gold), sorted/filtered for display.
-  // A holding whose saved price is older than the rest's shows its own date in place of "1D"
-  // (a fund whose NAV publishes a day late; a stock whose price failed on the last tap).
-  const stockLag = useMemo(() => {
-    const days: Record<string, string> = {}
-    for (const h of stockHoldings) {
-      const info = stockPrices[h.symbol]
-      const day = info ? istDay(info.fetchedAt) : null
-      if (day) days[h.symbol] = day
-    }
-    return laggingDates(days)
-  }, [stockHoldings, stockPrices])
-  const mfLag = useMemo(() => {
-    const days: Record<string, string> = {}
-    for (const h of mfHoldings) {
-      const day = mfNavDates[h.fund.scheme_code]
-      if (day) days[h.fund.scheme_code] = day
-    }
-    return laggingDates(days)
-  }, [mfHoldings, mfNavDates])
-
-  const stockRows = useMemo<HoldingRowData[]>(() => stockHoldings.map(h => {
-    const r = returnMetric(h.xirr, h.gain, h.invested)
-    return {
-      key: h.symbol, name: h.symbol, href: `/portfolio/stock/${encodeURIComponent(h.symbol)}`,
-      value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
-      dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
-      staleDate: stockLag[h.symbol] ? shortDate(stockLag[h.symbol]) : undefined,
-    }
-  }), [stockHoldings, stockLag])
-  const mfRows = useMemo<HoldingRowData[]>(() => mfHoldings.map(h => {
-    const r = returnMetric(h.xirr, h.gain, h.invested)
-    return {
-      key: h.fund.id, name: h.fund.scheme_name, href: `/portfolio/mf/${h.fund.id}`,
-      value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
-      dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
-      assetClass: assetClass(h.fund),
-      staleDate: mfLag[h.fund.scheme_code] ? shortDate(mfLag[h.fund.scheme_code]) : undefined,
-    }
-  }), [mfHoldings, mfLag])
-  // Gold rows have no 1D figure (`meta` fills that slot) and keep their batch order — no sort control.
-  const goldRows = useMemo<HoldingRowData[]>(() => sgbBatches.map(b => {
-    const r = returnMetric(b.xirr, b.gain, b.invested)
-    return {
-      key: b.key, name: goldDisplayName(b), href: `/portfolio/gold/${encodeURIComponent(b.key)}`,
-      value: b.currentValue, pnl: b.gain, retPct: r.pct, retLabel: r.label,
-      dayPct: null, meta: goldMeta(b),
-    }
-  }), [sgbBatches])
-
   // Equity/Debt pills only when both classes are held (one class has nothing to filter against).
   // A filter left over from before a class was sold out is ignored rather than showing an empty list.
-  const mfHasBothClasses = mfRows.some(r => r.assetClass === 'equity') && mfRows.some(r => r.assetClass === 'debt')
-  const mfEqPct = mfCurrentValue > 0 ? Math.round(mfEquity / mfCurrentValue * 100) : 0
+  const mfHasBothClasses = mf.rows.some(r => r.assetClass === 'equity') && mf.rows.some(r => r.assetClass === 'debt')
   const mfPills: ToolbarPill[] = [
-    { key: 'equity', label: 'Equity', color: 'var(--c-equity)', pct: mfEqPct },
-    { key: 'debt',   label: 'Debt',   color: 'var(--c-debt)',   pct: 100 - mfEqPct },
+    { key: 'equity', label: 'Equity', color: 'var(--c-equity)', pct: mf.eqPct },
+    { key: 'debt',   label: 'Debt',   color: 'var(--c-debt)',   pct: 100 - mf.eqPct },
   ]
   const activeMfFilter = mfHasBothClasses ? mfFilter : null
-  const visibleStockRows = useMemo(() => sortHoldings(stockRows, stockSort), [stockRows, stockSort])
+  const visibleStockRows = useMemo(() => sortHoldings(stocks.rows, stockSort), [stocks.rows, stockSort])
   const visibleMfRows = useMemo(
-    () => sortHoldings(activeMfFilter ? mfRows.filter(r => r.assetClass === activeMfFilter) : mfRows, mfSort),
-    [mfRows, activeMfFilter, mfSort],
+    () => sortHoldings(activeMfFilter ? mf.rows.filter(r => r.assetClass === activeMfFilter) : mf.rows, mfSort),
+    [mf.rows, activeMfFilter, mfSort],
   )
-
-  const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
-  // Portfolio-level only — no per-batch line item (gold rows don't get a 1D figure, unlike Stock/MF).
-  const goldGain1d = goldPrice !== null && prevGoldPrice !== null ? totalGoldGrams * (goldPrice - prevGoldPrice) : null
-
-  // 1D Gain rolls in Stocks + MF + Gold — PPF/EPF excluded (no daily price). 1D % is
-  // the plain (non-annualised) move: totalCurrent − totalGain1d is "yesterday", so
-  // static PPF/EPF sit in the denominator with zero movement and dilute it, as they should.
-  const totalGain1d = (equity.gain1d ?? 0) + mfGain1d + (goldGain1d ?? 0)
-  const prevTotal    = totalCurrent - totalGain1d
-  const dayPct       = prevTotal > 0 ? totalGain1d / prevTotal * 100 : null
 
   // Fetch + save the latest prices server-side, then re-render so the page reads them back.
   // A failed POST still re-renders (harmlessly, with whatever is saved) — the transition
@@ -355,16 +143,16 @@ export default function PortfolioClient({
       <div className="grid px-4 py-2 border-b"
            style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
         <div className="flex flex-col gap-2">
-          <SCell label="Current Value" amount={totalCurrent} />
-          <SCell label="Gain" amount={totalGain} signed />
-          <SCell label="1D Gain" amount={totalGain1d} signed />
+          <SCell label="Current Value" amount={summary.totalCurrent} />
+          <SCell label="Gain" amount={summary.totalGain} signed />
+          <SCell label="1D Gain" amount={summary.totalGain1d} signed />
         </div>
         <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
-          <SCell label="Invested" amount={totalInvested} />
-          <SCell label="XIRR p.a." pct={overallXirr !== null ? overallXirr * 100 : null} signed />
-          <SCell label="1D %" pct={dayPct} signed />
+          <SCell label="Invested" amount={summary.totalInvested} />
+          <SCell label="XIRR p.a." pct={summary.xirr !== null ? summary.xirr * 100 : null} signed />
+          <SCell label="1D %" pct={summary.dayPct} signed />
         </div>
-        <FilledPieChart equity={eqPct} debt={debtPct} gold={goldPct} />
+        <FilledPieChart equity={summary.eqPct} debt={summary.debtPct} gold={summary.goldPct} />
       </div>
 
       {/* Scrollable sections */}
@@ -373,9 +161,9 @@ export default function PortfolioClient({
         {/* EQUITY */}
         <SectionHeader
           id="equity" label="Stocks"
-          invested={equity.invested > 0 ? <Num amount={equity.invested} align /> : null}
-          gainPct={equity.invested > 0 ? ((equity.currentValue - equity.invested) / equity.invested * 100) : null}
-          currentValue={equity.currentValue > 0 ? equity.currentValue : null}
+          invested={stocks.invested !== null ? <Num amount={stocks.invested} align /> : null}
+          gainPct={stocks.gainPct}
+          currentValue={stocks.currentValue}
           open={openSections.has('equity')}
           onToggle={() => toggleSection('equity')}
         />
@@ -383,7 +171,7 @@ export default function PortfolioClient({
           <>
             {visibleStockRows.length > 0 && (
               <>
-                {stockRows.length >= 2 && (
+                {stocks.rows.length >= 2 && (
                   <HoldingsToolbar sort={stockSort} onSort={k => setStockSort(cur => nextSort(cur, k))} />
                 )}
                 {visibleStockRows.map(r => (
@@ -391,7 +179,7 @@ export default function PortfolioClient({
                 ))}
               </>
             )}
-            {stockHoldings.length === 0 && (
+            {stocks.rows.length === 0 && (
               <EmptyState>No stock holdings yet.</EmptyState>
             )}
           </>
@@ -400,17 +188,17 @@ export default function PortfolioClient({
         {/* MUTUAL FUNDS */}
         <SectionHeader
           id="mf" label="MF"
-          invested={mfInvested > 0 ? <Num amount={mfInvested} align /> : null}
-          gainPct={mfSectionXirr !== null ? mfSectionXirr * 100 : null}
-          currentValue={mfCurrentValue > 0 ? mfCurrentValue : null}
+          invested={mf.invested !== null ? <Num amount={mf.invested} align /> : null}
+          gainPct={mf.gainPct}
+          currentValue={mf.currentValue}
           open={openSections.has('mf')}
           onToggle={() => toggleSection('mf')}
         />
         {openSections.has('mf') && (
           <>
-            {mfRows.length > 0 && (
+            {mf.rows.length > 0 && (
               <>
-                {(mfHasBothClasses || mfRows.length >= 2) && (
+                {(mfHasBothClasses || mf.rows.length >= 2) && (
                   <HoldingsToolbar
                     sort={mfSort} onSort={k => setMfSort(cur => nextSort(cur, k))}
                     pills={mfHasBothClasses ? mfPills : undefined}
@@ -422,7 +210,7 @@ export default function PortfolioClient({
                 ))}
               </>
             )}
-            {mfHoldings.length === 0 && (
+            {mf.rows.length === 0 && (
               <EmptyState>No mutual fund holdings yet.</EmptyState>
             )}
           </>
@@ -431,18 +219,18 @@ export default function PortfolioClient({
         {/* Gold */}
         <SectionHeader
           id="sgb" label="Gold"
-          invested={totalGoldGrams > 0 ? <NumUnit digits={trimZero(totalGoldGrams)} unit="g" /> : null}
-          gainPct={goldSectionXirr !== null ? goldSectionXirr * 100 : null}
-          currentValue={sgbCurrentValue > 0 ? sgbCurrentValue : null}
+          invested={gold.grams !== null ? <NumUnit digits={trimZero(gold.grams)} unit="g" /> : null}
+          gainPct={gold.gainPct}
+          currentValue={gold.currentValue}
           open={openSections.has('sgb')}
           onToggle={() => toggleSection('sgb')}
         />
         {openSections.has('sgb') && (
           <>
-            {goldRows.length > 0 && goldRows.map(r => (
+            {gold.rows.map(r => (
               <HoldingRow key={r.key} row={r} onClick={() => router.push(r.href)} />
             ))}
-            {sgbBatches.length === 0 && (
+            {gold.rows.length === 0 && (
               <EmptyState>No gold holdings yet.</EmptyState>
             )}
           </>
@@ -451,27 +239,27 @@ export default function PortfolioClient({
         {/* PPF */}
         <SectionHeader
           id="ppf" label="PPF"
-          invested={ppf.totalDeposited > 0 ? <Num amount={ppf.totalDeposited} align /> : null}
-          gainPct={ppf.totalDeposited > 0 ? ((ppf.currentBalance - ppf.totalDeposited) / ppf.totalDeposited * 100) : null}
-          currentValue={ppf.currentBalance > 0 ? ppf.currentBalance : null}
+          invested={ppf.invested !== null ? <Num amount={ppf.invested} align /> : null}
+          gainPct={ppf.gainPct}
+          currentValue={ppf.currentValue}
           open={openSections.has('ppf')}
           onToggle={() => toggleSection('ppf')}
         />
         {openSections.has('ppf') && (
-          <PPFRow ppf={ppf} onSaved={updatePPFTxn} onDeleted={deletePPFTxn} />
+          <PPFRow transactions={ppfTxns} onSaved={updatePPFTxn} onDeleted={deletePPFTxn} />
         )}
 
         {/* EPF */}
         <SectionHeader
           id="epf" label="EPF"
-          invested={epf.totalDeposited > 0 ? <Num amount={epf.totalDeposited} align /> : null}
-          gainPct={epf.xirr !== null ? epf.xirr * 100 : null}
-          currentValue={epf.computedBalance > 0 ? epf.computedBalance : null}
+          invested={epf.invested !== null ? <Num amount={epf.invested} align /> : null}
+          gainPct={epf.gainPct}
+          currentValue={epf.currentValue}
           open={openSections.has('epf')}
           onToggle={() => toggleSection('epf')}
         />
         {openSections.has('epf') && (
-          <EPFRow epf={epf} onSaved={updateEPFTxn} onDeleted={deleteEPFTxn} />
+          <EPFRow transactions={epfTxns} onSaved={updateEPFTxn} onDeleted={deleteEPFTxn} />
         )}
 
         {/* Reports */}
@@ -643,12 +431,12 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
 }
 
 const SECTION_HEADER_COLS = 'minmax(0,1fr) 58px 78px 62px 1rem'
-function PPFRow({ ppf, onSaved, onDeleted }: {
-  ppf: PPFSummary
+function PPFRow({ transactions, onSaved, onDeleted }: {
+  transactions: PPFTransaction[]
   onSaved: (u: PPFTransaction) => void
   onDeleted: (id: string) => void
 }) {
-  const rows = [...ppf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+  const rows = [...transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
     return <EmptyState>No deposits yet.</EmptyState>
@@ -672,12 +460,12 @@ function PPFRow({ ppf, onSaved, onDeleted }: {
   )
 }
 
-function EPFRow({ epf, onSaved, onDeleted }: {
-  epf: EPFSummary
+function EPFRow({ transactions, onSaved, onDeleted }: {
+  transactions: EPFTransaction[]
   onSaved: (u: EPFTransaction) => void
   onDeleted: (id: string) => void
 }) {
-  const rows = [...epf.transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
+  const rows = [...transactions].sort((a, b) => b.trade_date.localeCompare(a.trade_date))
 
   if (rows.length === 0) {
     return <EmptyState>No transactions yet. Import from passbook.</EmptyState>

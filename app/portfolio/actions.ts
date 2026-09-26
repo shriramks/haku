@@ -132,9 +132,14 @@ export async function addPPFTransaction(
   return { ok: true }
 }
 
-/** Called right after a client-side edit/delete of a ppf_transactions row (TransactionsClient.tsx). */
+/**
+ * Called right after a client-side edit/delete of a ppf_transactions row (TransactionsClient.tsx and
+ * the Portfolio PPF list). The path revalidation re-renders /portfolio, whose header numbers, totals
+ * and XIRR are computed server-side (#125) — the client only patches the list rows itself.
+ */
 export async function revalidatePPFTransactions() {
   revalidateTag('ppf_transactions', {})
+  revalidatePath('/portfolio')
 }
 
 // ── EPF ───────────────────────────────────────────────────────────────────────
@@ -160,9 +165,10 @@ export async function addEPFTransaction(
   return { ok: true }
 }
 
-/** Called right after a client-side edit/delete of an epf_transactions row (TransactionsClient.tsx). */
+/** Same as revalidatePPFTransactions, for epf_transactions. */
 export async function revalidateEPFTransactions() {
   revalidateTag('epf_transactions', {})
+  revalidatePath('/portfolio')
 }
 
 export async function setPPFBalanceOverride(balance: number, asOfDate: string) {
