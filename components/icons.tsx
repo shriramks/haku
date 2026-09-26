@@ -84,6 +84,15 @@ export function CheckIcon({ className, ...props }: React.SVGProps<SVGSVGElement>
   )
 }
 
+/** Points down; rotate 180° (`rotate-180`) for up. Used for sort direction. */
+export function ArrowDownIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4} {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M6 13l6 6 6-6" />
+    </svg>
+  )
+}
+
 export function CheckCircleIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg className={className} viewBox="0 0 22 22" fill="none" {...props}>

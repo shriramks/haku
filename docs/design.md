@@ -34,6 +34,15 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
   sufficient for hierarchy.
 - **Numbers that users act on** (CMP, P&L, tranche amount) are never below `body` (15px).
   Prices are at minimum `body`, ideally `headline`.
+- **Readable text.** Anything the user reads is at least `subheadline` (13px) at `--text-2` or
+  stronger; numbers stay at `body` (15px) or above. `--text-faint` (25% opacity, ~2:1 contrast) and
+  `--text-muted` (40%, ~3:1) fall below Apple's 4.5:1 for text, so faint is for decoration only —
+  chevrons, placeholder dashes, disabled states — never a label or a figure. Applied to the
+  Portfolio screen in #121.
+- **The scale runs one step below iOS.** App `subheadline` (13px) is iOS's Footnote size and app
+  `footnote` (11px) is iOS's Caption 2 — the smallest size Apple allows by default. Portfolio
+  therefore uses `body` (15px, iOS Subheadline) for the figures in a row. Changing the global
+  tokens (~245 usages) is deliberately deferred; new screens should follow the readable-text rule.
 - **tabnum** class on all financial numbers — prevents layout shift as digits change.
 - Line heights: display/title 1.1–1.2, everything else 1.4.
 - **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the
@@ -208,6 +217,24 @@ Height: min 48px (py-3)
 Padding: px-4
 Divider: border-b using --divider
 ```
+
+### HoldingRow (Portfolio: Stocks, MF, Gold — `components/HoldingRow.tsx`)
+```
+name (headline, semibold, max 2 lines)        value (headline, semibold)
+1D  +18.3 K  +0.3%                            P&L   +23.41 L
+                                              XIRR  +10.9%
+Padding: px-4 py-3, min height 64. Divider: border-b --divider. No card, no chevron — the whole row taps.
+```
+- Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (13px) at `--text-2`; the figures beside them are `body` (15px), coloured by sign, and always carry +/− (`Num signed`).
+- The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.
+- The XIRR line reads **Return** when XIRR is unavailable, so the two never look alike.
+- MF rows carry a 7px class dot (`--c-equity` / `--c-debt`) — the legend for the Equity/Debt pills.
+- PPF and EPF are transaction lists, not holdings; they do not use HoldingRow.
+
+### HoldingsToolbar (`components/HoldingsToolbar.tsx`)
+- Sits under a Portfolio section header (Stocks, MF): filter pills on the left, sort control on the right.
+- Pills: 36px, full-round, accent tint when active, `bg-tertiary` when not — the same chips as the Transactions filter. Shown only when the filter has something to filter (MF with both Equity and Debt).
+- Sort: `body` accent text + direction arrow, 44px tap target, opens an anchored menu (Value · P&L · XIRR · 1D % · Name). Picking the selected option flips direction. State is per section and not persisted; rows with no value for the chosen key sink to the bottom.
 
 ### MetricCard (a number with a label)
 ```

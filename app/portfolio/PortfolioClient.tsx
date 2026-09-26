@@ -3,10 +3,13 @@
 import React, { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { trimZero, fyLabel, monthYear, formatDate, getGainColor } from '@/lib/formatter'
+import { trimZero, fyLabel, monthYear, formatDate } from '@/lib/formatter'
 import { TxnRow, ppfToDisplayTxn, epfToDisplayTxn } from '@/components/EditableTxnRow'
 import { mfAssetClass } from '@/lib/tax-compute'
 import { Num, NumUnit } from '@/components/Num'
+import { HoldingRow, type HoldingRowData } from '@/components/HoldingRow'
+import HoldingsToolbar, { type ToolbarPill } from '@/components/HoldingsToolbar'
+import { DEFAULT_SORT, nextSort, returnMetric, sortHoldings, type SortState } from '@/lib/holdings-sort'
 import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
@@ -122,6 +125,10 @@ export default function PortfolioClient({
 }: Props) {
   const router = useRouter()
   const [openSections, setOpenSections] = useState(new Set<string>())
+  // Sort is per section and not persisted; the MF filter is one class or none.
+  const [stockSort, setStockSort] = useState<SortState>(DEFAULT_SORT)
+  const [mfSort, setMfSort] = useState<SortState>(DEFAULT_SORT)
+  const [mfFilter, setMfFilter] = useState<'equity' | 'debt' | null>(null)
   const [ppfTxns, setPpfTxns] = useState(initialPpfTransactions)
   const [epfTxns, setEpfTxns] = useState(initialEpfTransactions)
   const [posting, setPosting] = useState(false)
@@ -182,6 +189,49 @@ export default function PortfolioClient({
   const eqPct   = totalForAlloc > 0 ? Math.round((equity.currentValue + mfEquity) / totalForAlloc * 100) : 0
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppf.currentBalance + epf.computedBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
+
+  // Holdings lists — one HoldingRowData per row (Stocks, MF, Gold), sorted/filtered for display.
+  const stockRows = useMemo<HoldingRowData[]>(() => stockHoldings.map(h => {
+    const r = returnMetric(h.xirr, h.gain, h.invested)
+    return {
+      key: h.symbol, name: h.symbol, href: `/portfolio/stock/${encodeURIComponent(h.symbol)}`,
+      value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
+      dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
+    }
+  }), [stockHoldings])
+  const mfRows = useMemo<HoldingRowData[]>(() => mfHoldings.map(h => {
+    const r = returnMetric(h.xirr, h.gain, h.invested)
+    return {
+      key: h.fund.id, name: h.fund.scheme_name, href: `/portfolio/mf/${h.fund.id}`,
+      value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
+      dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
+      assetClass: assetClass(h.fund),
+    }
+  }), [mfHoldings])
+  // Gold rows have no 1D figure (`meta` fills that slot) and keep their batch order — no sort control.
+  const goldRows = useMemo<HoldingRowData[]>(() => sgbBatches.map(b => {
+    const r = returnMetric(b.xirr, b.gain, b.invested)
+    return {
+      key: b.key, name: goldDisplayName(b), href: `/portfolio/gold/${encodeURIComponent(b.key)}`,
+      value: b.currentValue, pnl: b.gain, retPct: r.pct, retLabel: r.label,
+      dayPct: null, meta: goldMeta(b),
+    }
+  }), [sgbBatches])
+
+  // Equity/Debt pills only when both classes are held (one class has nothing to filter against).
+  // A filter left over from before a class was sold out is ignored rather than showing an empty list.
+  const mfHasBothClasses = mfRows.some(r => r.assetClass === 'equity') && mfRows.some(r => r.assetClass === 'debt')
+  const mfEqPct = mfCurrentValue > 0 ? Math.round(mfEquity / mfCurrentValue * 100) : 0
+  const mfPills: ToolbarPill[] = [
+    { key: 'equity', label: 'Equity', color: 'var(--c-equity)', pct: mfEqPct },
+    { key: 'debt',   label: 'Debt',   color: 'var(--c-debt)',   pct: 100 - mfEqPct },
+  ]
+  const activeMfFilter = mfHasBothClasses ? mfFilter : null
+  const visibleStockRows = useMemo(() => sortHoldings(stockRows, stockSort), [stockRows, stockSort])
+  const visibleMfRows = useMemo(
+    () => sortHoldings(activeMfFilter ? mfRows.filter(r => r.assetClass === activeMfFilter) : mfRows, mfSort),
+    [mfRows, activeMfFilter, mfSort],
+  )
 
   const totalGoldGrams = sgbBatches.reduce((s, b) => s + b.grams, 0)
   // Portfolio-level only — no per-batch line item (gold rows don't get a 1D figure, unlike Stock/MF).
@@ -271,19 +321,13 @@ export default function PortfolioClient({
         />
         {openSections.has('equity') && (
           <>
-            {stockHoldings.length > 0 && (
+            {visibleStockRows.length > 0 && (
               <>
-                <ColHeaders c1="Stock" c2="Inv" c3="Curr" c4="Return" />
-                {stockHoldings.map(h => (
-                  <FundRow key={h.symbol}
-                    name={h.symbol}
-                    dayGain={{ amount: h.gain1d, pct: h.gain1dPct }}
-                    invested={h.invested}
-                    current={h.currentValue}
-                    gain={h.gain}
-                    xirr={h.xirr}
-                    onClick={() => router.push(`/portfolio/stock/${encodeURIComponent(h.symbol)}`)}
-                  />
+                {stockRows.length >= 2 && (
+                  <HoldingsToolbar sort={stockSort} onSort={k => setStockSort(cur => nextSort(cur, k))} />
+                )}
+                {visibleStockRows.map(r => (
+                  <HoldingRow key={r.key} row={r} onClick={() => router.push(r.href)} />
                 ))}
               </>
             )}
@@ -304,27 +348,17 @@ export default function PortfolioClient({
         />
         {openSections.has('mf') && (
           <>
-            {mfHoldings.length > 0 && (
+            {mfRows.length > 0 && (
               <>
-                <ColHeaders c1="Fund" c2="Inv" c3="Curr" c4="Return" />
-                {[
-                  { label: 'Equity', color: 'var(--c-equity)', amount: mfEquity, holdings: mfHoldings.filter(h => assetClass(h.fund) === 'equity') },
-                  { label: 'Debt',   color: 'var(--c-debt)',   amount: mfDebt,   holdings: mfHoldings.filter(h => assetClass(h.fund) === 'debt') },
-                ].map(group => group.holdings.length > 0 && (
-                  <React.Fragment key={group.label}>
-                    <MFGroupDivider label={group.label} color={group.color} amount={group.amount} />
-                    {group.holdings.map(h => (
-                      <FundRow key={h.fund.id}
-                        name={h.fund.scheme_name}
-                        dayGain={{ amount: h.gain1d, pct: h.gain1dPct }}
-                        invested={h.invested}
-                        current={h.currentValue}
-                        gain={h.gain}
-                        xirr={h.xirr}
-                        onClick={() => router.push(`/portfolio/mf/${h.fund.id}`)}
-                      />
-                    ))}
-                  </React.Fragment>
+                {(mfHasBothClasses || mfRows.length >= 2) && (
+                  <HoldingsToolbar
+                    sort={mfSort} onSort={k => setMfSort(cur => nextSort(cur, k))}
+                    pills={mfHasBothClasses ? mfPills : undefined}
+                    activePill={activeMfFilter}
+                    onPill={k => setMfFilter(cur => (cur === k ? null : k as 'equity' | 'debt'))} />
+                )}
+                {visibleMfRows.map(r => (
+                  <HoldingRow key={r.key} row={r} onClick={() => router.push(r.href)} />
                 ))}
               </>
             )}
@@ -345,22 +379,9 @@ export default function PortfolioClient({
         />
         {openSections.has('sgb') && (
           <>
-            {sgbBatches.length > 0 && (
-              <>
-                <ColHeaders c1="Gold" c2="Inv" c3="Curr" c4="Return" />
-                {sgbBatches.map(b => (
-                  <FundRow key={b.key}
-                    name={goldDisplayName(b)}
-                    meta={goldMeta(b)}
-                    invested={b.invested}
-                    current={b.currentValue}
-                    gain={b.gain}
-                    xirr={b.xirr}
-                    onClick={() => router.push(`/portfolio/gold/${encodeURIComponent(b.key)}`)}
-                  />
-                ))}
-              </>
-            )}
+            {goldRows.length > 0 && goldRows.map(r => (
+              <HoldingRow key={r.key} row={r} onClick={() => router.push(r.href)} />
+            ))}
             {sgbBatches.length === 0 && (
               <EmptyState>No gold holdings yet.</EmptyState>
             )}
@@ -395,7 +416,7 @@ export default function PortfolioClient({
 
         {/* Reports */}
         <div className="px-4" style={{ paddingTop: 24, paddingBottom: 6 }}>
-          <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.08em' }}>Reports</span>
+          <span className="text-subheadline font-bold uppercase" style={{ color: 'var(--text-2)', letterSpacing: '0.08em' }}>Reports</span>
         </div>
         <button
           onClick={() => router.push('/tax')}
@@ -409,7 +430,7 @@ export default function PortfolioClient({
           </span>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Tax Report</p>
-            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Capital gains</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Capital gains</p>
           </div>
           <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
         </button>
@@ -425,7 +446,7 @@ export default function PortfolioClient({
           </span>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>Dividends</p>
-            <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Income received</p>
+            <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>Income received</p>
           </div>
           <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
         </button>
@@ -448,7 +469,7 @@ function SCell({ label, amount, pct, signed }: {
   const negative = signed && val !== null && val !== undefined && val < 0
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-subheadline" style={{ color: 'var(--text-faint)', letterSpacing: '0.02em' }}>{label}</p>
+      <p className="text-subheadline" style={{ color: 'var(--text-2)', letterSpacing: '0.02em' }}>{label}</p>
       <p className="text-title-1 font-bold tabnum"
          style={{ color: positive ? 'var(--c-positive)' : negative ? 'var(--c-negative)' : 'var(--text-primary)' }}>
         {amount !== undefined
@@ -542,13 +563,13 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
             className="grid w-full items-baseline gap-x-2 px-4"
             style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, paddingTop: 14, paddingBottom: 14, gridTemplateColumns: SECTION_HEADER_COLS }}>
       <span className="text-headline font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
-      <span className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>{invested}</span>
+      <span className="text-body tabnum" style={{ color: 'var(--text-2)' }}>{invested}</span>
       <span className="text-headline font-semibold tabnum"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
         <Num amount={currentValue} align />
       </span>
       {gainPct !== null ? (
-        <span className={`text-subheadline font-bold tabnum ${positive ? 'text-positive' : 'text-negative'}`}>
+        <span className={`text-body font-bold tabnum ${positive ? 'text-positive' : 'text-negative'}`}>
           <Num pct={gainPct} signed align />
         </span>
       ) : (
@@ -561,91 +582,7 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
   )
 }
 
-const SECTION_HEADER_COLS = 'minmax(0,1fr) 5.5ch 8ch 6ch 1rem'
-const FUND_ROW_COLS = '1.4fr 0.9fr 0.9fr 1fr'
-
-function ColHeaders({ c1, c2, c3, c4 }: { c1: string; c2: string; c3: string; c4: string }) {
-  return (
-    <div className="grid items-center px-4 py-1"
-         style={{ background: 'rgba(255,255,255,0.02)', gridTemplateColumns: FUND_ROW_COLS }}>
-      <span className="text-footnote font-bold uppercase" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c1}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c2}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c3}</span>
-      <span className="text-footnote font-bold uppercase text-right" style={{ color: 'var(--text-faint)', letterSpacing: '0.07em' }}>{c4}</span>
-    </div>
-  )
-}
-
-function MFGroupDivider({ label, color, amount }: { label: string; color: string; amount: number }) {
-  return (
-    <div className="px-4 py-1" style={{ background: 'rgba(255,255,255,0.02)' }}>
-      <span className="text-footnote font-bold uppercase tabnum" style={{ color, letterSpacing: '0.07em' }}>
-        {label} · <Num amount={amount} />
-      </span>
-    </div>
-  )
-}
-
-function FundRow({ name, meta, dayGain, invested, current, gain, xirr, onClick }: {
-  name: string; meta?: string; invested: number; current: number | null
-  gain: number | null; xirr: number | null
-  dayGain?: { amount: number | null; pct: number | null }
-  onClick?: () => void
-}) {
-  const positive = (gain ?? 0) > 0
-  const xirrPct = xirr !== null ? xirr * 100
-    : (gain !== null && invested > 0 ? (gain / invested) * 100 : null)
-  const content = (
-    <div className="grid px-4 py-3"
-         style={{ minHeight: 52, gridTemplateColumns: FUND_ROW_COLS, alignItems: 'start' }}>
-      <div className="min-w-0 pr-2">
-        <div className="flex items-start gap-1">
-          <p className="min-w-0 flex-1 text-headline font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
-          {onClick && (
-            <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
-          )}
-        </div>
-        <p className="text-footnote mt-0.5 tabnum" style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-          {dayGain ? (
-            <>
-              <span style={{ color: 'var(--text-faint)' }}>1D</span>{' '}
-              <span style={{ color: dayGain.amount !== null ? getGainColor(dayGain.amount) : 'var(--text-2)' }}>
-                <Num amount={dayGain.amount} signed />{'  '}<Num pct={dayGain.pct} signed />
-              </span>
-            </>
-          ) : meta}
-        </p>
-      </div>
-      <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={invested} align />
-      </p>
-      <p className="text-body font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-        <Num amount={current} align />
-      </p>
-      <div>
-        <p className="text-body font-semibold tabnum"
-           style={{ color: positive ? 'var(--c-positive)' : 'var(--text-primary)' }}>
-          <Num amount={gain} signed align />
-        </p>
-        {xirrPct !== null && (
-          <p className="text-footnote tabnum mt-0.5"
-             style={{ color: positive ? 'var(--c-positive)' : 'var(--text-faint)' }}>
-            <Num pct={xirrPct} signed align />
-          </p>
-        )}
-      </div>
-    </div>
-  )
-
-  if (!onClick) return content
-
-  return (
-    <button onClick={onClick} className="block w-full text-left tap-row">
-      {content}
-    </button>
-  )
-}
-
+const SECTION_HEADER_COLS = 'minmax(0,1fr) 58px 78px 62px 1rem'
 function PPFRow({ ppf, onSaved, onDeleted }: {
   ppf: PPFSummary
   onSaved: (u: PPFTransaction) => void
