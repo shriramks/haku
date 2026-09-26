@@ -198,6 +198,7 @@ Stock and gold prices on the Portfolio screen change **only when the Prices butt
 - **Read** (`getStockPrices(symbols)` in `lib/data.ts`): uncached, filtered by symbol. Symbols with no saved row are absent — callers go through `resolveCmp` (`lib/stock-prices.ts`), which falls back to `buy_bands.cmp` (a stored snapshot that only updates on Bands regen). The Portfolio list and the stock detail page both use it, so they can't show different prices.
 - **Why not `buy_bands.cmp`:** it is user-scoped, only covers stocks that have bands, and the Bands screen's own CMP upsert could race a portfolio write.
 - **Untouched:** `GET /api/cmp/batch` and `/api/cmp/[symbol]` — still used live by the Bands screen (Tax moved to saved prices in #124).
+- **Freshness on the Portfolio screen** (progress log #121.b; pure helpers in `lib/price-freshness.ts`). No caption line — the **Prices button is the status**. `page.tsx` computes `pricesStale` on the server (so the clock read can't differ between render and hydration): the newest saved stock/gold `fetched_at` predates the last Mon–Fri 3:30 pm IST close (`lastMarketClose`; exchange holidays ignored), or there is none — and only when the user holds stocks or gold, since an MF-only user has nothing to go stale. The client turns that into an amber dot on the button; the refresh response drives the rest (`Updating…`, a ~2 s `Updated` check, and `Retry` + dot when `stocks.failed` is non-empty, `gold` is `'failed'` or the request itself failed). Separately, any holding whose price is **older than the rest's** shows its own date in place of "1D" on its row: a fund's `nav_date` (`mfNavDates`, from `getMFNavs`) against the newest among held funds, a stock's `fetched_at` IST day (`istDay`) against the newest among held stocks (`laggingDates`). The summary 1D Gain is unaffected — each holding still contributes its own latest one-day move.
 
 **Call sites:** `app/portfolio/page.tsx` (list — stocks + gold), `app/portfolio/stock/[symbol]/page.tsx` (stock detail), `app/portfolio/gold/[key]/page.tsx` (gold detail), `app/tax/page.tsx` (Harvesting's unrealised-loss figure — open-position symbols only, via `resolveCmp` with the band snapshot as fallback; Tax has no Prices button, so its prices move only when Portfolio's is tapped).
 
@@ -242,7 +243,7 @@ app/
     [symbol]/SnowballSheet.tsx          Snowball conditions + signal detail sheet
     [symbol]/TranchesSheet.tsx          Buy Levels sheet (signal pill + descriptor + TrancheSection)
   portfolio/
-    PortfolioClient.tsx                 portfolio summary and non-stock assets
+    PortfolioClient.tsx                 portfolio summary, holdings lists (HoldingRow + HoldingsToolbar) and PPF/EPF
   transactions/
     TransactionsClient.tsx              transaction list, filters, import entry point
   dividends/
@@ -255,6 +256,8 @@ lib/
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"
+  price-freshness.ts                    lastMarketClose, pricesAreStale, laggingDates, istDay — Prices-button status + per-row dates ("Price Fetch Flow")
+  holdings-sort.ts                      Portfolio list sort (sortHoldings, nextSort) + returnMetric
   compute.ts                            dashboard row computation + band signals
   data.ts                               cached Supabase fetchers
   fetchStockDetailProps.ts              server-side stock detail loader

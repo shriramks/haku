@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useTransition } from 'react'
+import React, { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { trimZero, fyLabel, monthYear, formatDate } from '@/lib/formatter'
@@ -10,7 +10,8 @@ import { Num, NumUnit } from '@/components/Num'
 import { HoldingRow, type HoldingRowData } from '@/components/HoldingRow'
 import HoldingsToolbar, { type ToolbarPill } from '@/components/HoldingsToolbar'
 import { DEFAULT_SORT, nextSort, returnMetric, sortHoldings, type SortState } from '@/lib/holdings-sort'
-import { ChevronRightIcon, RefreshIcon } from '@/components/icons'
+import { istDay, laggingDates, shortDate } from '@/lib/price-freshness'
+import { CheckIcon, ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import { sgbXirr, ppfXirr, epfXirr, computePPFBalance, computeEPFBalance, stockXirr, mfXirr, portfolioXirr } from '@/lib/xirr'
@@ -32,6 +33,8 @@ interface Props {
   mfTransactions: MFTransaction[]
   mfNavs: Record<string, number>
   mfPrevNavs: Record<string, number | null>
+  mfNavDates: Record<string, string>     // scheme_code → nav_date (YYYY-MM-DD), for the per-row lagging date
+  pricesStale: boolean                   // server-computed: newest saved stock/gold price predates the last market close
   sgbTransactions: SGBTransaction[]
   goldPrice: number | null       // INR per gram, from stock_prices (null until the first Prices tap)
   prevGoldPrice: number | null
@@ -119,7 +122,7 @@ const assetClass = mfAssetClass
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PortfolioClient({
-  stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs,
+  stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs, mfPrevNavs, mfNavDates, pricesStale,
   sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions: initialPpfTransactions, ppfOverride,
   epfTransactions: initialEpfTransactions,
 }: Props) {
@@ -134,6 +137,9 @@ export default function PortfolioClient({
   const [posting, setPosting] = useState(false)
   const [refreshPending, startRefresh] = useTransition()
   const refreshing = posting || refreshPending
+  // Outcome of the last tap, for the button: 'updated' shows a check for ~2 s; 'partial' (some prices
+  // failed, or the request did) sticks as "Retry" until the next tap.
+  const [refreshResult, setRefreshResult] = useState<'idle' | 'updated' | 'partial'>('idle')
 
   // Stock, gold and MF NAV all arrive as props (page.tsx reads stock_prices / mf_navs) and only
   // change when the Prices button posts to /api/portfolio/prices/refresh and re-renders the page.
@@ -191,14 +197,35 @@ export default function PortfolioClient({
   const goldPct = 100 - eqPct - debtPct
 
   // Holdings lists — one HoldingRowData per row (Stocks, MF, Gold), sorted/filtered for display.
+  // A holding whose saved price is older than the rest's shows its own date in place of "1D"
+  // (a fund whose NAV publishes a day late; a stock whose price failed on the last tap).
+  const stockLag = useMemo(() => {
+    const days: Record<string, string> = {}
+    for (const h of stockHoldings) {
+      const info = stockPrices[h.symbol]
+      const day = info ? istDay(info.fetchedAt) : null
+      if (day) days[h.symbol] = day
+    }
+    return laggingDates(days)
+  }, [stockHoldings, stockPrices])
+  const mfLag = useMemo(() => {
+    const days: Record<string, string> = {}
+    for (const h of mfHoldings) {
+      const day = mfNavDates[h.fund.scheme_code]
+      if (day) days[h.fund.scheme_code] = day
+    }
+    return laggingDates(days)
+  }, [mfHoldings, mfNavDates])
+
   const stockRows = useMemo<HoldingRowData[]>(() => stockHoldings.map(h => {
     const r = returnMetric(h.xirr, h.gain, h.invested)
     return {
       key: h.symbol, name: h.symbol, href: `/portfolio/stock/${encodeURIComponent(h.symbol)}`,
       value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
       dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
+      staleDate: stockLag[h.symbol] ? shortDate(stockLag[h.symbol]) : undefined,
     }
-  }), [stockHoldings])
+  }), [stockHoldings, stockLag])
   const mfRows = useMemo<HoldingRowData[]>(() => mfHoldings.map(h => {
     const r = returnMetric(h.xirr, h.gain, h.invested)
     return {
@@ -206,8 +233,9 @@ export default function PortfolioClient({
       value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
       dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
       assetClass: assetClass(h.fund),
+      staleDate: mfLag[h.fund.scheme_code] ? shortDate(mfLag[h.fund.scheme_code]) : undefined,
     }
-  }), [mfHoldings])
+  }), [mfHoldings, mfLag])
   // Gold rows have no 1D figure (`meta` fills that slot) and keep their batch order — no sort control.
   const goldRows = useMemo<HoldingRowData[]>(() => sgbBatches.map(b => {
     const r = returnMetric(b.xirr, b.gain, b.invested)
@@ -246,15 +274,37 @@ export default function PortfolioClient({
 
   // Fetch + save the latest prices server-side, then re-render so the page reads them back.
   // A failed POST still re-renders (harmlessly, with whatever is saved) — the transition
-  // keeps the button busy until the new server render has actually landed.
+  // keeps the button busy until the new server render has actually landed. The button reports
+  // the outcome: some prices failing (or the request failing) leaves it on "Retry".
   async function handleRefresh() {
     setPosting(true)
+    let outcome: 'updated' | 'partial' = 'partial'
     try {
-      await fetch('/api/portfolio/prices/refresh', { method: 'POST' })
-    } catch { /* fall through to the re-render below */ }
+      const res = await fetch('/api/portfolio/prices/refresh', { method: 'POST' })
+      if (res.ok) {
+        const body = await res.json() as { stocks?: { failed?: unknown[] }; gold?: string }
+        outcome = (body.stocks?.failed?.length ?? 0) > 0 || body.gold === 'failed' ? 'partial' : 'updated'
+      }
+    } catch { /* outcome stays 'partial'; fall through to the re-render below */ }
+    setRefreshResult(outcome)
     startRefresh(() => router.refresh())
     setPosting(false)
   }
+
+  // The "Updated" flash lasts ~2 s counted from when the new render has landed, not from the tap.
+  useEffect(() => {
+    if (refreshResult !== 'updated' || refreshing) return
+    const t = setTimeout(() => setRefreshResult('idle'), 2000)
+    return () => clearTimeout(t)
+  }, [refreshResult, refreshing])
+
+  // The Prices button doubles as the status — no caption line. Fresh is silent; an amber dot means
+  // the saved prices are due (or some failed); see docs/design.md and progress log #121.b.
+  const pricesButton = refreshing ? 'updating'
+    : refreshResult === 'updated' ? 'updated'
+    : refreshResult === 'partial' ? 'retry'
+    : pricesStale ? 'stale' : 'fresh'
+  const pricesLabel = { updating: 'Updating…', updated: 'Updated', retry: 'Retry', stale: 'Prices', fresh: 'Prices' }[pricesButton]
 
   function toggleSection(id: string) {
     setOpenSections(prev => {
@@ -283,10 +333,20 @@ export default function PortfolioClient({
         </Link>
         <h1 className="text-display font-bold flex-1 pl-1">Portfolio</h1>
         <button onClick={handleRefresh} disabled={refreshing}
-                className="flex items-center gap-1.5 text-accent text-subheadline rounded-lg px-2.5 min-h-[44px] disabled:opacity-40 mr-1.5"
+                aria-label={pricesButton === 'stale' ? 'Refresh prices — saved prices are out of date'
+                  : pricesButton === 'retry' ? 'Retry — some prices did not update' : undefined}
+                className="flex items-center gap-1.5 text-accent text-body rounded-lg px-2.5 min-h-[44px] disabled:opacity-40 mr-1.5"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <RefreshIcon className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Updating…' : 'Prices'}
+          <span className="relative inline-flex">
+            {pricesButton === 'updated'
+              ? <CheckIcon className="w-4 h-4" />
+              : <RefreshIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />}
+            {(pricesButton === 'stale' || pricesButton === 'retry') && (
+              <span className="absolute rounded-full"
+                    style={{ top: -3, right: -4, width: 8, height: 8, background: 'var(--c-warning)', border: '1.5px solid var(--bg-secondary)' }} />
+            )}
+          </span>
+          {pricesLabel}
         </button>
         <UserMenu />
       </div>

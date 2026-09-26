@@ -3,6 +3,7 @@ import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
 import { heldSymbols } from '@/lib/stock-prices'
+import { newestTimestamp, pricesAreStale } from '@/lib/price-freshness'
 import type { StockAllocation } from '@/lib/types'
 import PortfolioClient, { type StockTxn } from './PortfolioClient'
 import BottomNav from '@/components/BottomNav'
@@ -66,10 +67,22 @@ export default async function PortfolioPage() {
 
   const mfNavs: Record<string, number> = {}
   const mfPrevNavs: Record<string, number | null> = {}
+  const mfNavDates: Record<string, string> = {}
   for (const [code, info] of Object.entries(mfNavInfo)) {
     mfNavs[code] = info.nav
     mfPrevNavs[code] = info.prevNav
+    mfNavDates[code] = info.navDate
   }
+
+  // Drives the amber dot on the Prices button: the newest saved stock/gold price predates the last
+  // market close. Only meaningful with something to price — an MF-only user has no stock/gold price
+  // to go stale (their NAVs show per-row dates instead). Computed here, not in the client, so the
+  // clock read never differs between server render and hydration.
+  const hasPricedHoldings = held.length > 0 || sgbTransactions.length > 0
+  const pricesStale = hasPricedHoldings && pricesAreStale(
+    newestTimestamp([...Object.values(stockPrices).map(p => p.fetchedAt), goldPrice?.fetchedAt]),
+    new Date(),
+  )
 
   return (
     <>
@@ -81,6 +94,8 @@ export default async function PortfolioPage() {
         mfTransactions={mfTransactions}
         mfNavs={mfNavs}
         mfPrevNavs={mfPrevNavs}
+        mfNavDates={mfNavDates}
+        pricesStale={pricesStale}
         sgbTransactions={sgbTransactions}
         goldPrice={goldPrice?.cmp ?? null}
         prevGoldPrice={goldPrice?.prevClose ?? null}
