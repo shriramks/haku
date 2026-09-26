@@ -8,7 +8,7 @@ interface Cashflow {
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000
 
-export function xirr(cashflows: Cashflow[], guess = 0.1): number | null {
+export function xirr(cashflows: Cashflow[]): number | null {
   if (cashflows.length < 2) return null
 
   const sorted = [...cashflows].sort((a, b) => a.date.getTime() - b.date.getTime())
@@ -16,7 +16,7 @@ export function xirr(cashflows: Cashflow[], guess = 0.1): number | null {
   const times   = sorted.map(cf => (cf.date.getTime() - t0) / MS_PER_YEAR)
   const amounts = sorted.map(cf => cf.amount)
 
-  let r = guess
+  let r = 0.1
   for (let iter = 0; iter < 200; iter++) {
     let f = 0, df = 0
     for (let i = 0; i < amounts.length; i++) {
