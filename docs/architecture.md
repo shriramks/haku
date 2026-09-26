@@ -224,7 +224,7 @@ Stock and gold prices on the Portfolio screen change **only when the Prices butt
 ## Key File Map
 
 ```text
-middleware.ts                           auth guard — add new routes here if they need protection
+proxy.ts                                auth guard — add new routes here if they need protection
 
 app/
   actions.ts                            all server actions (DB writes + revalidateTag calls)
