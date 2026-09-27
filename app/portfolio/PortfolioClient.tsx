@@ -410,9 +410,9 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
     <button onClick={onToggle}
             className="grid w-full items-baseline gap-x-2 px-4"
             style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, paddingTop: 14, paddingBottom: 14, gridTemplateColumns: SECTION_HEADER_COLS }}>
-      <span className="text-title-2 font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
+      <span className="text-headline font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <span className="text-headline tabnum" style={{ color: 'var(--text-2)' }}>{invested}</span>
-      <span className="text-title-2 font-semibold tabnum"
+      <span className="text-headline font-semibold tabnum"
             style={{ color: currentValue !== null ? 'var(--text-2)' : 'var(--text-faint)' }}>
         <Num amount={currentValue} align />
       </span>

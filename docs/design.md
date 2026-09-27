@@ -20,8 +20,8 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 |------|------|--------|----------------|-----|
 | `display` | 32px | 700 | text-primary | Page header titles ("Allocation", "Buy Bands") |
 | `title-1` | 22px | 700 | text-primary | Important secondary numbers: CMP, stat amounts, section titles |
-| `title-2` | 20px | 600 | text-primary | Card / section titles; Portfolio section-header label and value (bold / semibold) |
-| `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount; Portfolio section-header invested and % |
+| `title-2` | 20px | 600 | text-primary | Card / section titles |
+| `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount; Portfolio section-header label, invested, value, and % |
 | `body` | 15px | 400 | text-primary | Standard readable content, band prices |
 | `subheadline` | 13px | 400 | text-2 | Supporting context: signal label, date, lot size |
 | `footnote` | 11px | 400 | text-faint | Dense metadata in lists: category, anchor type |
@@ -232,10 +232,10 @@ Divider: border-b using --divider
 
 ### Portfolio section header (`SectionHeader` in `app/portfolio/PortfolioClient.tsx`)
 ```
-label (title-2, bold)   invested (headline)   value (title-2, semibold, text-2)   gain % (headline, bold, by sign)   chevron
+label (headline, bold)   invested (headline)   value (headline, semibold, text-2)   gain % (headline, bold, by sign)   chevron
 Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. The whole header taps.
 ```
-- Sits one tier above the HoldingRows it heads (rows: headline name and value, body figures) — #130.
+- All four columns are `headline` (17px) — matches the primary-row size used everywhere else (Allocation, Bands). Bold/semibold weight and colour (not size) distinguish it from the HoldingRows it heads.
 - The % column is 78px: 17px bold overflows 62px even at +48.2 %; 78px also holds an XIRR above 100 %.
 
 ### HoldingRow (Portfolio: Stocks, MF, Gold — `components/HoldingRow.tsx`)
