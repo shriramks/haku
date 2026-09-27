@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import BottomNav from '@/components/BottomNav'
+import { getAllStockSymbols } from '@/lib/data'
 
 export const metadata: Metadata = {
   title: 'Haku',
@@ -35,7 +36,12 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Fetched once here rather than in BottomNav itself — the root layout doesn't re-run on
+  // client-side navigation, so this is one server-side read per full page load instead of
+  // a client-side Supabase round trip on every mount (see progress_haku.md #134/#135).
+  const planSymbols = await getAllStockSymbols()
+
   return (
     <html lang="en">
       <head>
@@ -48,7 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistrar />
         {children}
-        <BottomNav />
+        <BottomNav planSymbols={planSymbols} />
       </body>
     </html>
   )

@@ -119,6 +119,22 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
   return data ?? []
 })
 
+/** Every symbol ever given an allocation, across all fiscal years — the Add-transaction
+ * picker's stock chips (root layout → BottomNav → AddTxnModal, and the /add shortcut page).
+ * Not scoped to current holdings: a symbol stays listed until removed from whichever FY plan
+ * it was added to, even if fully sold. */
+export const getAllStockSymbols = cache(async (): Promise<string[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const { data } = await createSupabaseServiceClient()
+    .from('stock_allocations')
+    .select('symbol')
+    .eq('user_id', userId)
+    .order('symbol')
+  if (!data) return []
+  return [...new Set(data.map(a => a.symbol))].sort()
+})
+
 const _fetchBuyBands = unstable_cache(
   async (userId: string): Promise<BuyBand[]> => {
     const { data } = await createSupabaseServiceClient()

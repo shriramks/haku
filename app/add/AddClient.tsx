@@ -1,0 +1,152 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { addStockTransaction } from '@/app/actions'
+import { todayISO } from '@/lib/formatter'
+import { Num } from '@/components/Num'
+
+export default function AddClient({ planSymbols }: { planSymbols: string[] }) {
+  const router = useRouter()
+  const [symbol, setSymbol]           = useState('')
+  const [type, setType]               = useState<'buy' | 'sell'>('buy')
+  const [date, setDate]               = useState(todayISO())
+  const [qty, setQty]                 = useState('')
+  const [price, setPrice]             = useState('')
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [done, setDone]                 = useState(false)
+
+  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!symbol || !qty || !price) return
+    setLoading(true); setError(null)
+
+    const { error } = await addStockTransaction({
+      symbol, exchange: 'NSE',
+      trade_date: date, trade_type: type,
+      quantity: parseFloat(qty), price: parseFloat(price),
+    })
+
+    setLoading(false)
+    if (error) {
+      if (error === 'Not signed in') { router.push('/login'); return }
+      setError(error); return
+    }
+
+    // Bust Next.js router cache so allocation page reflects new transaction
+    router.refresh()
+    // Flash success then reset — keep symbol for quick back-to-back adds
+    setDone(true)
+    setTimeout(() => { setDone(false); setQty(''); setPrice('') }, 1200)
+  }
+
+  return (
+    <div className="min-h-screen pt-[env(safe-area-inset-top,0px)]"
+         style={{ background: 'var(--bg-primary)' }}>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <h1 className="text-title-2 font-bold">New Transaction</h1>
+      </div>
+
+      <form onSubmit={submit} className="px-4 pt-4 space-y-4 pb-28">
+
+        {/* Stock chips */}
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="label-field">Stock</p>
+            {symbol && (
+              <button type="button" onClick={() => setSymbol('')}
+                className="text-subheadline" style={{ color: 'var(--text-faint)' }}>clear</button>
+            )}
+          </div>
+          {planSymbols.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {planSymbols.map(s => (
+                <button key={s} type="button" onClick={() => setSymbol(s)}
+                  className="px-3 py-2 rounded-2xl text-body font-semibold transition-colors"
+                  style={symbol === s
+                    ? { background: type === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                    : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl p-4"
+                 style={{ background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.2)' }}>
+              <p className="text-body font-semibold mb-1 text-accent">No stocks in current plan</p>
+              <p className="text-subheadline mb-2" style={{ color: 'var(--text-2)' }}>
+                Add stocks to your plan before logging transactions.
+              </p>
+              <a href="/plan" className="text-body font-semibold text-accent">
+                Go to Plan →
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Buy / Sell */}
+        <div>
+          <p className="label-field mb-1.5">Type</p>
+          <div className="flex rounded-2xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+            {(['buy', 'sell'] as const).map(t => (
+              <button key={t} type="button" onClick={() => setType(t)}
+                className="flex-1 py-3.5 text-body font-bold transition-colors"
+                style={type === t
+                  ? { background: t === 'buy' ? '#34C759' : '#FF3B30', color: '#fff' }
+                  : { background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                {t === 'buy' ? 'Buy' : 'Sell'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Date */}
+        <div className="overflow-hidden">
+          <p className="label-field mb-1.5">Date</p>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} required
+            className="w-full px-3 py-2.5 rounded-2xl text-body outline-none max-w-full"
+            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark', boxSizing: 'border-box' }} />
+        </div>
+
+        {/* Qty × Price */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: 'Quantity', val: qty, set: setQty, ph: '100', decimal: false },
+            { label: 'Price', val: price, set: setPrice, ph: '1250.50', decimal: true },
+          ].map(({ label, val, set, ph, decimal }) => (
+            <div key={label}>
+              <p className="label-field mb-1.5">{label}</p>
+              <input type="number" inputMode={decimal ? 'decimal' : 'numeric'} placeholder={ph} value={val}
+                onChange={e => set(e.target.value)} required min={decimal ? '0.001' : '1'} step={decimal ? 'any' : '1'}
+                className="w-full px-3 py-3.5 rounded-2xl text-headline tabnum outline-none"
+                style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+            </div>
+          ))}
+        </div>
+
+        {/* Live total */}
+        {amount > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+               style={{ background: 'var(--bg-tertiary)' }}>
+            <span className="text-body" style={{ color: 'var(--text-muted)' }}>Total</span>
+            <span className={`font-bold tabnum text-title-2 ${type === 'buy' ? 'text-positive' : 'text-negative'}`}>
+              <Num amount={amount} />
+            </span>
+          </div>
+        )}
+
+        {error && <p className="text-negative text-subheadline text-center">{error}</p>}
+
+        <button type="submit" disabled={loading || !symbol || !qty || !price}
+          className="w-full py-4 rounded-2xl font-bold text-headline transition-all active:scale-[0.98] disabled:opacity-40 text-white"
+          style={{ background: done ? '#30D158' : type === 'buy' ? '#34C759' : '#FF3B30' }}>
+          {done ? '✓ Added' : loading ? '…' : `${type === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
+        </button>
+      </form>
+    </div>
+  )
+}

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
-import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { PortfolioIcon } from './icons'
 
 const TABS = [
@@ -24,12 +23,11 @@ const pillStyle: React.CSSProperties = {
 // These two routes have no tab bar; everywhere else renders it.
 const HIDDEN_PATHS = ['/login', '/offline']
 
-export default function BottomNav() {
+export default function BottomNav({ planSymbols }: { planSymbols: string[] }) {
   const path = usePathname()
   const hidden = HIDDEN_PATHS.includes(path)
   const [addOpen, setAddOpen] = useState(false)
   const [addSymbol, setAddSymbol] = useState<string | undefined>(undefined)
-  const [planSymbols, setPlanSymbols] = useState<string[]>([])
   const [onboarding, setOnboarding] = useState<string | null>(null)
   const [storedFY, setStoredFY] = useState<string | null>(null)
 
@@ -42,25 +40,6 @@ export default function BottomNav() {
     }
     document.addEventListener('open-add-txn', handleOpenAddTxn)
     return () => document.removeEventListener('open-add-txn', handleOpenAddTxn)
-  }, [hidden])
-
-  useEffect(() => {
-    if (hidden) return
-    const cached = localStorage.getItem('haku_plan_symbols')
-    if (cached) setPlanSymbols(JSON.parse(cached))
-    async function prefetchSymbols() {
-      const sb = getSupabaseBrowser()
-      const { data: allocs } = await sb
-        .from('stock_allocations')
-        .select('symbol')
-        .order('symbol')
-      if (allocs) {
-        const unique = [...new Set(allocs.map((a: { symbol: string }) => a.symbol))].sort() as string[]
-        setPlanSymbols(unique)
-        localStorage.setItem('haku_plan_symbols', JSON.stringify(unique))
-      }
-    }
-    prefetchSymbols()
   }, [hidden])
 
   useEffect(() => {

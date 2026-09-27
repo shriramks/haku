@@ -40,11 +40,11 @@ const ASSET_TYPES = [
 export default function AddTxnModal({
   onClose,
   initialSymbol,
-  planSymbols: planSymbolsProp,
+  planSymbols,
 }: {
   onClose: () => void
   initialSymbol?: string
-  planSymbols?: string[]
+  planSymbols: string[]
 }) {
   const router = useRouter()
 
@@ -59,10 +59,6 @@ export default function AddTxnModal({
 
   // ── Stocks ─────────────────────────────────────────────────────────────────
   const [symbol, setSymbol]       = useState(initialSymbol ?? '')
-  const [planSymbols, setPlanSymbols] = useState<string[]>(() => {
-    if (planSymbolsProp && planSymbolsProp.length > 0) return planSymbolsProp
-    try { const c = localStorage.getItem('haku_plan_symbols'); return c ? JSON.parse(c) : [] } catch { return [] }
-  })
   const [txnType, setTxnType]     = useState<'buy' | 'sell'>('buy')
   const [qty, setQty]             = useState('')
   const [price, setPrice]         = useState('')
@@ -103,17 +99,6 @@ export default function AddTxnModal({
       window.scrollTo(0, scrollY)
     }
   }, [])
-
-  // ── Plan symbols ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (planSymbolsProp && planSymbolsProp.length > 0) return
-    async function loadSymbols() {
-      const sb = getSupabaseBrowser()
-      const { data } = await sb.from('stock_allocations').select('symbol').order('symbol')
-      if (data) setPlanSymbols([...new Set(data.map(a => a.symbol))].sort())
-    }
-    loadSymbols()
-  }, [planSymbolsProp])
 
   // ── Existing MF holdings (non-zero only) ───────────────────────────────────
   useEffect(() => {
@@ -375,7 +360,7 @@ export default function AddTxnModal({
                       variant={txnType === 'buy' ? 'positive' : 'negative'}
                     />
                   ) : (
-                    <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>Loading plan…</p>
+                    <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No stocks in your plan yet</p>
                   )}
                 </div>
 
