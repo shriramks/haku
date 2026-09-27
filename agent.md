@@ -127,6 +127,7 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
 ## Working approach
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
+- **Always do the correct architectural fix — never a stopgap.** When a bug or slow path has both a quick patch and a proper structural fix, implement the proper fix, even if it touches more files or takes longer. If a stopgap genuinely has to ship first (e.g. time pressure), say so explicitly and get sign-off before taking it — never default to the smaller diff just because it's smaller.
 - **After completing any unit of work**, append an entry to `progress_haku.md`. This file is gitignored — never stage or commit it. Format rules:
   - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused. This is so a session can always be referred to by its number.
   - Splitting a Todo entry into multiple sessions: sub-parts take a letter suffix on the original number (`79.a`, `79.b`, ...), not new top-level numbers — keeps them grouped under the parent while each sub-part still has its own stable, permanent identifier.
