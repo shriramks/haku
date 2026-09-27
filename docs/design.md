@@ -12,30 +12,30 @@ Apple Wallet (colour discipline).
 Type communicates hierarchy before the user reads a word. A financial screen carries 3–4 tiers of
 information in every row. The eye should land on the primary, scan to the secondary, and ignore
 the rest unless it wants it. Size alone does not create hierarchy — size + weight + colour together
-do. A 13px muted label reads as clearly tertiary as an 11px one, with better legibility.
+do. A 12px muted label reads as clearly tertiary as an 11px one, with better legibility.
 
 ### Scale
 
 | Role | Size | Weight | Colour default | Use |
 |------|------|--------|----------------|-----|
-| `display` | 32px | 700 | text-primary | Page header titles ("Allocation", "Buy Bands") |
-| `title-1` | 22px | 700 | text-primary | Important secondary numbers: CMP, stat amounts, section titles |
-| `title-2` | 20px | 600 | text-primary | Card / section titles |
-| `headline` | 17px | 600 | text-primary | Primary list item: stock symbol, tranche amount; Portfolio section-header label, invested, value, and % |
-| `body` | 15px | 400 | text-primary | Standard readable content, band prices |
-| `subheadline` | 13px | 400 | text-2 | Supporting context: signal label, date, lot size |
-| `footnote` | 11px | 400 | text-faint | Dense metadata in lists: category, anchor type |
+| `display` | 28px | 700 | text-primary | Page header titles ("Allocation", "Buy Bands") |
+| `title-1` | 19px | 700 | text-primary | Important secondary numbers: CMP, stat amounts, section titles |
+| `title-2` | 17px | 600 | text-primary | Card / section titles |
+| `headline` | 15px | 600 | text-primary | Primary list item: stock symbol, tranche amount; Portfolio section-header label, invested, value, and % |
+| `body` | 13px | 400 | text-primary | Standard readable content, band prices |
+| `subheadline` | 12px | 400 | text-2 | Supporting context: signal label, date, lot size |
+| `footnote` | 11px | 400 | text-faint | Dense metadata in lists: category, anchor type — deliberately unchanged, already iOS's smallest default caption size |
 
 ### Rules
 - **Never use footnote for standalone text.** It only works when anchored next to headline or
   body text that provides contrast. A screen of footnote-sized text is unreadable.
 - **Footnote is acceptable in dense list rows** (Plans, Transactions) where the primary text is
-  headline size and the metadata is genuinely tertiary. The contrast between 17px and 11px is
+  headline size and the metadata is genuinely tertiary. The contrast between 15px and 11px is
   sufficient for hierarchy.
-- **Numbers that users act on** (CMP, P&L, tranche amount) are never below `body` (15px).
+- **Numbers that users act on** (CMP, P&L, tranche amount) are never below `body` (13px).
   Prices are at minimum `body`, ideally `headline`.
-- **Readable text.** Anything the user reads is at least `subheadline` (13px) at `--text-2` or
-  stronger; numbers stay at `body` (15px) or above. `--text-faint` (25% opacity, ~2:1 contrast) and
+- **Readable text.** Anything the user reads is at least `subheadline` (12px) at `--text-2` or
+  stronger; numbers stay at `body` (13px) or above. `--text-faint` (25% opacity, ~2:1 contrast) and
   `--text-muted` (40%, ~3:1) fall below Apple's 4.5:1 for text, so faint is for decoration only —
   chevrons, placeholder dashes, disabled states — never a label or a figure. Applied to the
   Portfolio screen in #121 and to every label in the app in #130.
@@ -43,18 +43,18 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
   - `.label-section` — heads a group of rows: Tax / Snowball / Band Computation group labels
     (`SectionLabel`), "Transactions" and the month bands on Stock / MF / Gold detail, Band Detail
     "Buy Band" / "Allocation" / "Investment", Reports, menu group titles, the Add-transaction "Asset
-    type". 13px, 600, uppercase, 0.06em, `--text-2`. Spacing is set at the site (`SectionLabel`:
+    type". 12px, 600, uppercase, 0.06em, `--text-2`. Spacing is set at the site (`SectionLabel`:
     `paddingTop: 16, paddingBottom: 2`).
   - `.label-field` — names a value, an input, a column or a filter group: form labels (Add, Add
     transaction, edit row, Plan), the Allocation strip and column heads, Band Detail's 52W strip,
     filter-sheet groups (Transactions, Dividends), Investability "Total score" / "Verdict", "Account" /
-    "Appearance" in the user menu. 13px, 500, **sentence case**, `--text-2`.
+    "Appearance" in the user menu. 12px, 500, **sentence case**, `--text-2`.
   - Row metadata sitting beside a headline (dates, categories, lot sizes) stays `footnote` — that is
     not a label. A label never carries a currency glyph: say "Price", not "Price ₹".
-- **The scale runs one step below iOS.** App `subheadline` (13px) is iOS's Footnote size and app
-  `footnote` (11px) is iOS's Caption 2 — the smallest size Apple allows by default. Portfolio
-  therefore uses `body` (15px, iOS Subheadline) for the figures in a row. Changing the global
-  tokens (~245 usages) is deliberately deferred; new screens should follow the readable-text rule.
+- **The whole scale runs below iOS defaults, deliberately.** `footnote` (11px) sits at iOS's
+  Caption 2 — the smallest size Apple allows by default — and is the one tier left untouched as a
+  legibility floor. Every tier above it (`subheadline` through `display`) was shrunk ~10–13%
+  app-wide (#137) after the shipped sizes read oversized in practice.
 - **tabnum** class on all financial numbers — prevents layout shift as digits change.
 - Line heights: display/title 1.1–1.2, everything else 1.4.
 - **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the
@@ -63,11 +63,11 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 
 ### What this looks like in a Plans list row
 ```
-NIFTYBEES                    ←  headline (17px, semibold, text-primary)
+NIFTYBEES                    ←  headline (15px, semibold, text-primary)
 Large Cap · 2.4 L budget     ←  footnote (11px, text-faint)
 ```
-The contrast between these two is the hierarchy. The category does not need to be 13px — it needs
-to be visually subordinate to the symbol, which it is at 11px given the 17px primary.
+The contrast between these two is the hierarchy. The category does not need to be 12px — it needs
+to be visually subordinate to the symbol, which it is at 11px given the 15px primary.
 
 ---
 
@@ -235,8 +235,8 @@ Divider: border-b using --divider
 label (headline, bold)   invested (headline)   value (headline, semibold, text-2)   gain % (headline, bold, by sign)   chevron
 Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. The whole header taps.
 ```
-- All four columns are `headline` (17px) — matches the primary-row size used everywhere else (Allocation, Bands). Bold/semibold weight and colour (not size) distinguish it from the HoldingRows it heads.
-- The % column is 78px: 17px bold overflows 62px even at +48.2 %; 78px also holds an XIRR above 100 %.
+- All four columns are `headline` (15px) — matches the primary-row size used everywhere else (Allocation, Bands). Bold/semibold weight and colour (not size) distinguish it from the HoldingRows it heads.
+- The % column is 78px: sized for the old 17px headline overflowing at +48.2 % (now 15px, so this has more headroom than strictly needed, but still holds an XIRR above 100 %).
 
 ### HoldingRow (Portfolio: Stocks, MF, Gold — `components/HoldingRow.tsx`)
 ```
@@ -245,7 +245,7 @@ name (headline, semibold, max 2 lines)        value (headline, semibold)
                                               XIRR  +10.9%
 Padding: px-4 py-3, min height 64. Divider: border-b --divider. No card, no chevron — the whole row taps.
 ```
-- Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (13px) at `--text-2`; the figures beside them are `body` (15px), coloured by sign, and always carry +/− (`Num signed`).
+- Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (12px) at `--text-2`; the figures beside them are `body` (13px), coloured by sign, and always carry +/− (`Num signed`).
 - The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.
 - The XIRR line reads **Return** when XIRR is unavailable, so the two never look alike.
 - MF rows carry no class marker: the Equity/Debt pills filter on `assetClass`, and the donut (not the rows) carries `--c-equity` / `--c-debt`.
@@ -284,8 +284,8 @@ Background: none (rows sit on page bg; groups separated by a sep line)
 ```
 
 Rules for DetailRow:
-- Label is always body (15px), colour text-2. Never bold.
-- Value is always headline (17px), colour text-primary, tabnum. Semibold.
+- Label is always body (13px), colour text-2. Never bold.
+- Value is always headline (15px), colour text-primary, tabnum. Semibold.
 - Colour exceptions: positive values → text-positive, negative → text-negative,
   warning → text-warning. The label colour never changes.
 - Stack variant (two values right-aligned): primary value headline, secondary value
@@ -377,8 +377,8 @@ should never be more important than a headline-sized one on the same screen.
 | Label for a primary field | `body` | text-2 |
 | Supporting context | `subheadline` | text-2 or text-muted |
 | Metadata (category, date, anchor) | `footnote` | text-faint |
-| Group header | `.label-section` (13px uppercase) | text-2 |
-| Field / column label | `.label-field` (13px, sentence case) | text-2 |
+| Group header | `.label-section` (12px uppercase) | text-2 |
+| Field / column label | `.label-field` (12px, sentence case) | text-2 |
 
 ### The two layout patterns and when to use them
 

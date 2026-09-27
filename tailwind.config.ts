@@ -47,12 +47,12 @@ const config: Config = {
       // ── Typography ─────────────────────────────────────────────────────────
       // Use these role names, never raw px values in components. See docs/design.md §1.
       fontSize: {
-        'display':     ['32px', { lineHeight: '1.1',  letterSpacing: '-0.02em' }],
-        'title-1':     ['22px', { lineHeight: '1.2',  letterSpacing: '-0.01em' }],
-        'title-2':     ['20px', { lineHeight: '1.25', letterSpacing: '-0.01em' }],
-        'headline':    ['17px', { lineHeight: '1.35' }],
-        'body':        ['15px', { lineHeight: '1.45' }],
-        'subheadline': ['13px', { lineHeight: '1.4'  }],
+        'display':     ['28px', { lineHeight: '1.1',  letterSpacing: '-0.02em' }],
+        'title-1':     ['19px', { lineHeight: '1.2',  letterSpacing: '-0.01em' }],
+        'title-2':     ['17px', { lineHeight: '1.25', letterSpacing: '-0.01em' }],
+        'headline':    ['15px', { lineHeight: '1.35' }],
+        'body':        ['13px', { lineHeight: '1.45' }],
+        'subheadline': ['12px', { lineHeight: '1.4'  }],
         'footnote':    ['11px', { lineHeight: '1.4'  }],
       },
 
