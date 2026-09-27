@@ -1,6 +1,5 @@
 import { getFiscalYears, getAllocations, getCurrentFY } from '@/lib/data'
 import PlanClient from './PlanClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function PlanPage({
   searchParams,
@@ -21,7 +20,6 @@ export default async function PlanPage({
         initialFY={currentFY}
         initialAllocations={allocations}
       />
-      <BottomNav />
     </>
   )
 }

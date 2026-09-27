@@ -3,7 +3,6 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getTransactionsBySymbol, getStockPrices, getBuyBands } from '@/lib/data'
 import { resolveCmp } from '@/lib/stock-prices'
 import StockDetailClient from './StockDetailClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function StockDetailPage({
   params,
@@ -33,7 +32,6 @@ export default async function StockDetailPage({
         transactions={transactions}
         cmp={cmp}
       />
-      <BottomNav />
     </>
   )
 }

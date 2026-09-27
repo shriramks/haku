@@ -4,7 +4,6 @@ import { mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
 import { resolveCmp } from '@/lib/stock-prices'
 import type { AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import TaxClient from './TaxClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function TaxPage() {
   const userId = await getUserId()
@@ -76,7 +75,6 @@ export default async function TaxPage() {
         advanceTaxPaid={(advanceTaxPaid ?? []) as AdvanceTaxPaidRow[]}
         carryForward={(carryForward ?? []) as CarryForwardDbRow[]}
       />
-      <BottomNav />
     </>
   )
 }

@@ -1,5 +1,3 @@
-import BottomNav from '@/components/BottomNav'
-
 export default function Loading() {
   return (
     <div className="pb-4">
@@ -48,8 +46,6 @@ export default function Loading() {
           </div>
         ))}
       </div>
-
-      <BottomNav />
     </div>
   )
 }

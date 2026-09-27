@@ -1,6 +1,5 @@
 import { fetchStockDetailProps } from '@/lib/fetchStockDetailProps'
 import BandDetailClient from './BandDetailClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function BandDetailPage({
   params,
@@ -38,7 +37,6 @@ export default async function BandDetailPage({
         initialSnapshot={initialSnapshot}
         initialPriorSnapshot={initialPriorSnapshot}
       />
-      <BottomNav />
     </>
   )
 }

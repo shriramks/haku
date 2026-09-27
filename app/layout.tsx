@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
+import BottomNav from '@/components/BottomNav'
 
 export const metadata: Metadata = {
   title: 'Haku',
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistrar />
         {children}
+        <BottomNav />
       </body>
     </html>
   )

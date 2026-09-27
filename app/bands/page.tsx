@@ -1,7 +1,6 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY, getInvestability } from '@/lib/data'
 import { computeStockRows } from '@/lib/compute'
 import BandsClient from './BandsClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function BandsPage({
   searchParams,
@@ -40,7 +39,6 @@ export default async function BandsPage({
         selectedFY={fy ?? null}
         investabilities={investabilities}
       />
-      <BottomNav />
     </>
   )
 }

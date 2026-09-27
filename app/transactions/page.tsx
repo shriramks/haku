@@ -1,6 +1,5 @@
 import { getTransactions, getFiscalYears, getCurrentFY } from '@/lib/data'
 import TransactionsClient from './TransactionsClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function TransactionsPage({
   searchParams,
@@ -27,7 +26,6 @@ export default async function TransactionsPage({
         initialAssetFilter={asset === 'ppf' || asset === 'epf' ? asset : undefined}
         initialFyId={(symbol || fund) ? undefined : currentFY?.id}
       />
-      <BottomNav />
     </>
   )
 }

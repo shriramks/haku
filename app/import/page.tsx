@@ -6,7 +6,6 @@ import { importStockTransactions } from '@/app/actions'
 import { formatINRFine } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { parseCsv, type ParsedRow } from '@/lib/csv-parser'
-import BottomNav from '@/components/BottomNav'
 
 export default function ImportPage() {
   const router = useRouter()
@@ -254,7 +253,6 @@ export default function ImportPage() {
 
         </div>
       </div>
-      <BottomNav />
     </>
   )
 }

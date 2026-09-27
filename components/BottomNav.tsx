@@ -19,8 +19,14 @@ const pillStyle: React.CSSProperties = {
   boxShadow: '0 8px 28px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
 }
 
+// Rendered once from app/layout.tsx so it persists across every client-side navigation —
+// mounting it per-page (the old pattern) remounted it, and its effects, on every tab switch.
+// These two routes have no tab bar; everywhere else renders it.
+const HIDDEN_PATHS = ['/login', '/offline']
+
 export default function BottomNav() {
   const path = usePathname()
+  const hidden = HIDDEN_PATHS.includes(path)
   const [addOpen, setAddOpen] = useState(false)
   const [addSymbol, setAddSymbol] = useState<string | undefined>(undefined)
   const [planSymbols, setPlanSymbols] = useState<string[]>([])
@@ -28,6 +34,7 @@ export default function BottomNav() {
   const [storedFY, setStoredFY] = useState<string | null>(null)
 
   useEffect(() => {
+    if (hidden) return
     function handleOpenAddTxn(e: Event) {
       const symbol = (e as CustomEvent).detail?.symbol as string | undefined
       setAddSymbol(symbol || undefined)
@@ -35,9 +42,10 @@ export default function BottomNav() {
     }
     document.addEventListener('open-add-txn', handleOpenAddTxn)
     return () => document.removeEventListener('open-add-txn', handleOpenAddTxn)
-  }, [])
+  }, [hidden])
 
   useEffect(() => {
+    if (hidden) return
     const cached = localStorage.getItem('haku_plan_symbols')
     if (cached) setPlanSymbols(JSON.parse(cached))
     async function prefetchSymbols() {
@@ -53,27 +61,31 @@ export default function BottomNav() {
       }
     }
     prefetchSymbols()
-  }, [])
+  }, [hidden])
 
   useEffect(() => {
+    if (hidden) return
     setOnboarding(localStorage.getItem('haku_onboarding'))
     function syncOnboarding() { setOnboarding(localStorage.getItem('haku_onboarding')) }
     window.addEventListener('haku_onboarding', syncOnboarding)
     return () => window.removeEventListener('haku_onboarding', syncOnboarding)
-  }, [])
+  }, [hidden])
 
   useEffect(() => {
+    if (hidden) return
     setStoredFY(localStorage.getItem('haku_fy'))
     function syncFY() { setStoredFY(localStorage.getItem('haku_fy')) }
     window.addEventListener('haku_fy_change', syncFY)
     return () => window.removeEventListener('haku_fy_change', syncFY)
-  }, [])
+  }, [hidden])
 
   function tabHref(base: string) {
     return storedFY ? `${base}?fy=${encodeURIComponent(storedFY)}` : base
   }
 
   const pulseBands = onboarding === 'bands'
+
+  if (hidden) return null
 
   return (
     <>

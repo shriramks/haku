@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getMFFunds, getMFTransactions, getMFNavs } from '@/lib/data'
 import MFFundDetailClient from './MFFundDetailClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function MFFundDetailPage({
   params,
@@ -37,7 +36,6 @@ export default async function MFFundDetailPage({
         prevNav={navInfo?.prevNav ?? null}
         navDate={navInfo?.navDate ?? null}
       />
-      <BottomNav />
     </>
   )
 }

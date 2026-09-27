@@ -3,7 +3,6 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getSGBTransactions, getGoldPrice } from '@/lib/data'
 import { keyForSGBTransaction } from '@/lib/sgb-compute'
 import GoldDetailClient from './GoldDetailClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function GoldDetailPage({
   params,
@@ -27,7 +26,6 @@ export default async function GoldDetailPage({
         transactions={transactions}
         goldPrice={goldPrice?.cmp ?? null}
       />
-      <BottomNav />
     </>
   )
 }

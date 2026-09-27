@@ -1,7 +1,6 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY } from '@/lib/data'
 import { computeAllTimeHoldings } from '@/lib/compute'
 import DashboardClient from './DashboardClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function DashboardPage({
   searchParams,
@@ -40,7 +39,6 @@ export default async function DashboardPage({
         allTimeHoldings={allTimeHoldings}
         bands={bands}
       />
-      <BottomNav />
     </>
   )
 }

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { addStockTransaction } from '@/app/actions'
-import BottomNav from '@/components/BottomNav'
 import { todayISO } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 
@@ -172,7 +171,6 @@ export default function AddPage() {
           </button>
         </form>
       </div>
-      <BottomNav />
     </>
   )
 }

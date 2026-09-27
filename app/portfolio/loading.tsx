@@ -1,5 +1,3 @@
-import BottomNav from '@/components/BottomNav'
-
 export default function Loading() {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
@@ -69,8 +67,6 @@ export default function Loading() {
           <div className="w-full rounded-xl animate-pulse" style={{ minHeight: 48, background: 'var(--bg-tertiary)' }} />
         </div>
       </div>
-
-      <BottomNav />
     </div>
   )
 }

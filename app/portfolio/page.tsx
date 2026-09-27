@@ -7,7 +7,6 @@ import { newestTimestamp, pricesAreStale } from '@/lib/price-freshness'
 import { buildPortfolio, type StockTxn } from '@/lib/portfolio-compute'
 import type { StockAllocation } from '@/lib/types'
 import PortfolioClient from './PortfolioClient'
-import BottomNav from '@/components/BottomNav'
 
 export default async function PortfolioPage() {
   // getUserId is request-cached, so the getters below reuse this one auth read.
@@ -91,7 +90,6 @@ export default async function PortfolioPage() {
         ppfTransactions={ppfTransactions}
         epfTransactions={epfTransactions}
       />
-      <BottomNav />
     </>
   )
 }
