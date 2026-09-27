@@ -362,7 +362,8 @@ should never be more important than a headline-sized one on the same screen.
 
 | Screen type | Primary info pattern | Secondary info pattern | Layout component |
 |-------------|---------------------|----------------------|-----------------|
-| Overview list (Allocation, Buy Bands) | headline symbol + signal | body/subheadline allocation | ListRow |
+| Overview list (Buy Bands) | headline symbol + signal | body/subheadline allocation | ListRow |
+| Overview list (Allocation) | title-2 symbol; Left + Invested both headline, weight (not size) tells them apart | footnote %; label-field column heads | ListRow |
 | Detail drill-down (Stock Detail) | Band bar + signal badge | Label:value groups | DetailRow |
 | Summary strip (FY totals) | display/title-1 number | subheadline label below | MetricCard |
 | Edit/input (Financials sheet) | body labels + headline inputs | footnote hints | BottomSheet |

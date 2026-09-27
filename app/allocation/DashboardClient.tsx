@@ -100,7 +100,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {/* Plan — tappable, navigates to /plan */}
               <Link href="/plan" className="flex flex-col gap-0.5" style={{ minHeight: 44, justifyContent: 'center' }}>
                 <p className="label-field">Plan</p>
-                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+                <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={totalBudget} />
                 </p>
                 <span className="flex items-center gap-0.5" style={{ marginTop: 3 }}>
@@ -114,7 +114,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {/* Left */}
               <div className="flex flex-col gap-0.5 items-center">
                 <p className="label-field">Left</p>
-                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+                <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={Math.max(0, totalRemaining)} />
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
@@ -127,7 +127,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
               {/* Invested */}
               <div className="flex flex-col gap-0.5 items-end">
                 <p className="label-field">Invested</p>
-                <p className="text-title-2 font-bold tabnum" style={{ marginTop: 2 }}>
+                <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}>
                   <Num amount={totalDeployed} />
                 </p>
                 <p className="text-footnote tabnum" style={{ color: 'var(--text-muted)', marginTop: 1 }}>
@@ -190,7 +190,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
       <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
-          <p className="text-headline font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
+          <p className="text-title-2 font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
         </div>
 
         {/* Col 2 — Left (secondary) */}
@@ -199,7 +199,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>Complete</p>
           ) : (
             <>
-              <p className="text-body tabnum font-medium" style={{ color: 'var(--text-2)' }}>
+              <p className="text-headline tabnum font-medium" style={{ color: 'var(--text-2)' }}>
                 <Num amount={row.remaining} />
               </p>
               <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><Num pct={leftPct} /></p>
