@@ -269,7 +269,7 @@ export default function PortfolioClient({
         <button
           onClick={() => router.push('/tax')}
           className="flex items-center gap-3 w-full px-4 tap-row"
-          style={{ minHeight: 52 }}>
+          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid var(--divider)' }}>
           <span className="flex items-center justify-center flex-shrink-0"
                 style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -285,7 +285,7 @@ export default function PortfolioClient({
         <button
           onClick={() => router.push('/dividends')}
           className="flex items-center gap-3 w-full px-4 tap-row"
-          style={{ minHeight: 52 }}>
+          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12 }}>
           <span className="flex items-center justify-center flex-shrink-0"
                 style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
