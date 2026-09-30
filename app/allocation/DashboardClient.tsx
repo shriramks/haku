@@ -186,7 +186,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   return (
     <RowShell
       href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-      padding="roomy"
+      padding="compact"
       dim={dim}
       accessory={
         <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
@@ -203,23 +203,19 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           {isDone ? (
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>Complete</p>
           ) : (
-            <>
-              <p className="text-headline tabnum font-medium" style={{ color: 'var(--text-2)' }}>
-                <Num amount={row.remaining} />
-              </p>
-              <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><Num pct={leftPct} /></p>
-            </>
+            <p className="tabnum" style={{ color: 'var(--text-2)' }}>
+              <span className="text-headline font-medium"><Num amount={row.remaining} /></span>
+              <span className="text-footnote ml-2" style={{ color: 'var(--text-muted)' }}><Num pct={leftPct} /></span>
+            </p>
           )}
         </div>
 
         {/* Col 3 — Invested (primary, matches bar) + chevron */}
         <div className="flex items-start justify-end gap-1">
-          <div className="text-right">
-            <p className="text-headline font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
-              <Num amount={row.currentCost} />
-            </p>
-            {!isDone && <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}><Num pct={investedPct} /></p>}
-          </div>
+          <p className="text-right tabnum" style={{ color: 'var(--text-primary)' }}>
+            <span className="text-headline font-bold"><Num amount={row.currentCost} /></span>
+            {!isDone && <span className="text-footnote ml-2" style={{ color: 'var(--text-muted)' }}><Num pct={investedPct} /></span>}
+          </p>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
       </div>
