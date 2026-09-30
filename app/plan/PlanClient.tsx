@@ -19,6 +19,7 @@ import { Button } from '@/components/Button'
 import { Stepper } from '@/components/Stepper'
 import { ConfirmButtons } from '@/components/ConfirmButtons'
 import { LabeledInput } from '@/components/LabeledInput'
+import { RowShell, RowSymbol } from '@/components/StockListRow'
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -472,24 +473,26 @@ function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit
   const baseBudget = carryoverShare != null ? budget - carryoverShare : budget
   const name = getStockName(alloc.symbol)
   return (
-    <button onClick={onEdit} className="w-full flex items-center gap-3 px-4 py-4 text-left tap-row">
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-headline">{alloc.symbol}</p>
-        {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
-      </div>
-      <div className="text-right">
-        <p className="text-headline font-semibold tabnum text-accent">{alloc.allocation_pct}%</p>
-        <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {carryoverShare != null ? `${formatINRFull(baseBudget)} base` : formatINRFull(budget)}
-        </p>
-        {carryoverShare != null && prevFYLabel && (
-          <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
-            <Num amount={carryoverShare} signed /> from {prevFYLabel}
+    <RowShell onClick={onEdit} padding="roomy">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <RowSymbol symbol={alloc.symbol} />
+          {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
+        </div>
+        <div className="text-right">
+          <p className="text-headline font-semibold tabnum text-accent">{alloc.allocation_pct}%</p>
+          <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            {carryoverShare != null ? `${formatINRFull(baseBudget)} base` : formatINRFull(budget)}
           </p>
-        )}
+          {carryoverShare != null && prevFYLabel && (
+            <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
+              <Num amount={carryoverShare} signed /> from {prevFYLabel}
+            </p>
+          )}
+        </div>
+        <ChevronIcon className="w-4 h-4 flex-shrink-0 ml-1" style={{ color: 'var(--text-faint)' }} />
       </div>
-      <ChevronIcon className="w-4 h-4 flex-shrink-0 ml-1" style={{ color: 'var(--text-faint)' }} />
-    </button>
+    </RowShell>
   )
 }
 

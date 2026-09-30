@@ -9,6 +9,7 @@ import UserMenu from '@/components/UserMenu'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon, YieldIcon } from '@/components/icons'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
+import { RowShell, RowSymbol } from '@/components/StockListRow'
 import { formatPriceNum } from '@/lib/formatter'
 import { revalidateBuyBands } from '@/app/actions'
 
@@ -299,15 +300,16 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
           const hasBands  = buyLow != null && trimPrice != null
 
           return (
-            <div key={row.symbol}>
-              <button
-                onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
-                className="w-full flex items-center gap-3 px-4 text-left"
-                style={{ minHeight: 66, opacity: isDone ? 0.35 : 1 }}>
-
+            <RowShell
+              key={row.symbol}
+              onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
+              padding="compact"
+              dim={isDone}
+            >
+              <div className="flex items-center gap-3">
                 {/* Ticker */}
                 <div className="flex-shrink-0 overflow-hidden" style={{ width: 112 }}>
-                  <p className="font-bold text-headline truncate">{row.symbol}</p>
+                  <RowSymbol symbol={row.symbol} />
                 </div>
 
                 {/* Mini bar */}
@@ -333,8 +335,8 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
                 )}
 
                 <ChevronRightIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-faint)' }} />
-              </button>
-            </div>
+              </div>
+            </RowShell>
           )
         })}
       </div>

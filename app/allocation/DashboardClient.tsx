@@ -5,6 +5,7 @@ import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
+import { RowShell, RowSymbol } from '@/components/StockListRow'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -183,14 +184,18 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
   return (
-    <Link href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-          className="block px-4 tap-row"
-          style={{ opacity: dim ? 0.35 : 1 }}>
-
-      <div className="grid pt-5 pb-3" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
+    <RowShell
+      href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
+      padding="roomy"
+      dim={dim}
+      accessory={
+        <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
+      }
+    >
+      <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
-          <p className="text-title-2 font-medium truncate" style={{ color: 'var(--text-primary)' }}>{row.symbol}</p>
+          <RowSymbol symbol={row.symbol} />
         </div>
 
         {/* Col 2 — Left (secondary) */}
@@ -218,10 +223,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
       </div>
-
-      {/* Bar — rounded, full-width, serves as row divider */}
-      <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
-    </Link>
+    </RowShell>
   )
 }
 
