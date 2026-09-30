@@ -192,7 +192,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
         <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
       }
     >
-      <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr' }}>
+      <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', alignItems: 'baseline' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">
           <RowSymbol symbol={row.symbol} />
