@@ -203,8 +203,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           {isDone ? (
             <p className="text-subheadline tabnum" style={{ color: 'var(--text-faint)' }}>Complete</p>
           ) : (
-            <p className="tabnum" style={{ color: 'var(--text-2)' }}>
-              <span className="text-headline font-medium"><Num amount={row.remaining} /></span>
+            <p className="text-title-2 tabnum" style={{ color: 'var(--text-2)' }}>
+              <span className="font-medium"><Num amount={row.remaining} /></span>
               <span className="text-footnote ml-2" style={{ color: 'var(--text-muted)' }}><Num pct={leftPct} /></span>
             </p>
           )}
@@ -212,8 +212,8 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
 
         {/* Col 3 — Invested (primary, matches bar) + chevron */}
         <div className="flex items-start justify-end gap-1">
-          <p className="text-right tabnum" style={{ color: 'var(--text-primary)' }}>
-            <span className="text-headline font-bold"><Num amount={row.currentCost} /></span>
+          <p className="text-right text-title-2 tabnum" style={{ color: 'var(--text-primary)' }}>
+            <span className="font-bold"><Num amount={row.currentCost} /></span>
             {!isDone && <span className="text-footnote ml-2" style={{ color: 'var(--text-muted)' }}><Num pct={investedPct} /></span>}
           </p>
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
