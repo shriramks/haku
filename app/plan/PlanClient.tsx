@@ -10,7 +10,7 @@ import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
-import { revalidateFiscalYears, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
+import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -213,16 +213,19 @@ function PlanTab({
 
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
     await getSupabaseBrowser().from('stock_allocations').update({ allocation_pct: pct }).eq('id', alloc.id)
+    await revalidateAllocations()
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, allocation_pct: pct } : a))
   }
 
   async function updateAllocCategory(alloc: StockAllocation, category: StockCategory) {
     await getSupabaseBrowser().from('stock_allocations').update({ category }).eq('id', alloc.id)
+    await revalidateAllocations()
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, category } : a))
   }
 
   async function removeAlloc(id: string) {
     await getSupabaseBrowser().from('stock_allocations').delete().eq('id', id)
+    await revalidateAllocations()
     onAllocationsChange(allocations.filter(a => a.id !== id))
   }
 
@@ -236,6 +239,7 @@ function PlanTab({
       symbol: symbol.toUpperCase(), exchange: 'NSE',
       allocation_pct: pct, category,
     }).select().single()
+    await revalidateAllocations()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
   }
@@ -247,6 +251,7 @@ function PlanTab({
       sb.from('buy_bands').update({ symbol: newSymbol }).eq('symbol', alloc.symbol),
       sb.from('buy_tranches').update({ symbol: newSymbol }).eq('symbol', alloc.symbol),
     ])
+    await revalidateAllocations()
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, symbol: newSymbol } : a))
     setEditingAlloc(prev => prev?.id === alloc.id ? { ...prev, symbol: newSymbol } : prev)
   }
@@ -254,6 +259,7 @@ function PlanTab({
   async function clearAllStocks() {
     if (!selectedFY) return
     await getSupabaseBrowser().from('stock_allocations').delete().eq('fy_id', selectedFY.id)
+    await revalidateAllocations()
     onAllocationsChange([])
     setConfirmClear(false)
   }

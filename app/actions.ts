@@ -1,5 +1,5 @@
 'use server'
-import { revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getUserId, getAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
 import { fyIdForDate } from '@/lib/fy-utils'
@@ -7,6 +7,13 @@ import type { StockAllocation, Transaction, DividendTransaction, BuyBandSnapshot
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
+}
+
+/** stock_allocations is uncached server-side and written from the browser (PlanClient),
+ * so there's no tag to bust — but the client router cache (staleTimes) would otherwise
+ * serve the old Allocation/Bands pages for up to 30s. revalidatePath purges it. */
+export async function revalidateAllocations() {
+  revalidatePath('/', 'layout')
 }
 
 export async function revalidateBuyBands() {
@@ -271,5 +278,6 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
       allocation_pct: a.allocation_pct, category: a.category,
     })))
     .select()
+  revalidatePath('/', 'layout')
   return inserted ?? []
 }

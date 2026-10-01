@@ -10,6 +10,13 @@ const config: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Reuse a fetched page for 30s on client-side nav so hopping between
+  // Allocation / Bands / a stock isn't a full server round trip every click.
+  // Every write path invalidates it (revalidateTag/revalidatePath in a server
+  // action, or router.refresh) — see revalidateAllocations() in app/actions.ts.
+  experimental: {
+    staleTimes: { dynamic: 30 },
+  },
   // Headers for PWA and security
   async headers() {
     return [
