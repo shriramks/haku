@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl border-b flex items-center px-2"
+      <div className="sticky top-0 z-10 backdrop-blur-xl flex items-center px-2"
            style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
         <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
           <svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

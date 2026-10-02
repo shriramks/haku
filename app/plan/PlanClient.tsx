@@ -98,10 +98,9 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
-        className="sticky top-0 z-10 backdrop-blur-xl border-b"
+        className="sticky top-0 z-10 backdrop-blur-xl"
         style={{
           background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between px-4 pb-3">
@@ -477,7 +476,7 @@ function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit
   const baseBudget = carryoverShare != null ? budget - carryoverShare : budget
   const name = getStockName(alloc.symbol)
   return (
-    <RowShell onClick={onEdit} padding="roomy">
+    <RowShell onClick={onEdit}>
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <RowSymbol symbol={alloc.symbol} />
@@ -532,7 +531,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">{selectedFY.label} Budget</p>
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>
@@ -795,7 +794,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <div>
             {symbol

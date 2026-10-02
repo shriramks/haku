@@ -29,7 +29,7 @@ export function HoldingRow({ row, onClick }: { row: HoldingRowData; onClick: () 
   return (
     <button
       onClick={onClick}
-      className="grid w-full text-left tap-row px-4 py-3"
+      className="grid w-full text-left tap-row px-4 list-row"
       style={{
         gridTemplateColumns: 'minmax(0,1fr) auto',
         columnGap: 12,

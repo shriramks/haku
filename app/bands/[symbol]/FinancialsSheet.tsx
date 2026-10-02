@@ -175,7 +175,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
-        <div className="flex items-center justify-between px-5 pt-1 pb-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between px-5 pt-1 pb-3 flex-shrink-0">
           <div className="w-14" />
           <p className="font-semibold text-headline">Financials</p>
           <button onClick={onClose} className="text-accent text-headline w-14 text-right" style={{ minHeight: 44 }}>Done</button>

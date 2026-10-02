@@ -3,10 +3,9 @@ export default function Loading() {
     <div>
       {/* Nav */}
       <div
-        className="sticky top-0 z-10 border-b px-5 pb-3"
+        className="sticky top-0 z-10 px-5 pb-3"
         style={{
           background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">

@@ -17,22 +17,20 @@ export function RowSymbol({ symbol, className }: { symbol: string; className?: s
 
 type RowShellBase = {
   dim?: boolean
-  padding: 'compact' | 'roomy'
   accessory?: ReactNode
   children: ReactNode
 }
 type RowShellProps = RowShellBase & ({ href: string; onClick?: never } | { href?: never; onClick: () => void })
 
 // Shared interactive shell for stock-overview list rows. Owns exactly the
-// three things that drift when the type scale changes — the tap wrapper,
-// the vertical padding preset, and dim/accessory handling — and nothing
+// things that drift when the type scale changes — the tap wrapper,
+// the shared .list-row padding, and dim/accessory handling — and nothing
 // about each screen's internal column layout, which stays legitimately
 // different (Plan: flex stack; Allocation: 3-col grid; Bands: flex + bar).
-export function RowShell({ href, onClick, dim, padding, accessory, children }: RowShellProps) {
-  const paddingClass = padding === 'roomy' ? 'pt-4 pb-3' : 'py-3.5'
+export function RowShell({ href, onClick, dim, accessory, children }: RowShellProps) {
   const inner = (
     <>
-      <div className={`px-4 ${paddingClass}`}>{children}</div>
+      <div className="px-4 list-row">{children}</div>
       {accessory}
     </>
   )

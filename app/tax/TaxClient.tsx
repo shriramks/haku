@@ -308,7 +308,7 @@ export default function TaxClient({
     <div style={{ background: 'var(--bg-primary)', minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+      <div className="sticky top-0 z-10 backdrop-blur-xl px-4 pb-3"
            style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-1">
@@ -415,7 +415,7 @@ function PaidAmountSheet({ result, onClose, onSave }: {
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
         </div>
-        <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <p className="font-semibold text-headline">{result.milestone.label}</p>
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>

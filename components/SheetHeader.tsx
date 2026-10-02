@@ -13,8 +13,8 @@ export default function SheetHeader({
 
   return (
     <div
-      className="relative flex items-center px-5 pt-1 pb-3 border-b"
-      style={{ borderColor: 'var(--border)', minHeight: 44 }}
+      className="relative flex items-center px-5 pt-1 pb-3"
+      style={{ minHeight: 44 }}
     >
       {has3Col && <div style={{ width: 60 }}>{left}</div>}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

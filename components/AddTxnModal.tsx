@@ -8,7 +8,6 @@ import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
-import { Divider } from '@/components/Divider'
 import { Button } from '@/components/Button'
 import { ChipGroup } from '@/components/ChipGroup'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction } from '@/app/portfolio/actions'
@@ -335,7 +334,7 @@ export default function AddTxnModal({
           )}
         </div>
 
-        <Divider className="flex-shrink-0" style={{ margin: '0 16px 14px' }} />
+        <div className="flex-shrink-0" style={{ height: 14 }} />
 
         {/* Scrollable form */}
         <div className="overflow-y-auto overflow-x-hidden" style={{ paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 24px)' }}>

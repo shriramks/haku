@@ -110,7 +110,7 @@ export default function PortfolioClient({
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl border-b flex items-center px-2"
+      <div className="sticky top-0 z-10 backdrop-blur-xl flex items-center px-2"
            style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
         <Link href="/allocation"
               className="flex items-center justify-center min-w-[44px] min-h-[44px]"
@@ -140,8 +140,8 @@ export default function PortfolioClient({
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
-      <div className="grid px-4 py-2"
-           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0' }}>
+      <div className="grid px-4"
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', paddingTop: 8, paddingBottom: 16 }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value" amount={summary.totalCurrent} />
           <SCell label="Gain" amount={summary.totalGain} signed />
@@ -263,13 +263,12 @@ export default function PortfolioClient({
         )}
 
         {/* Reports */}
-        <div className="px-4" style={{ paddingTop: 24, paddingBottom: 6 }}>
+        <div className="px-4" style={{ paddingTop: 16, paddingBottom: 8 }}>
           <span className="label-section">Reports</span>
         </div>
         <button
           onClick={() => router.push('/tax')}
-          className="flex items-center gap-3 w-full px-4 tap-row"
-          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12 }}>
+          className="flex items-center gap-3 w-full px-4 tap-row list-row">
           <span className="flex items-center justify-center flex-shrink-0"
                 style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -284,8 +283,7 @@ export default function PortfolioClient({
         </button>
         <button
           onClick={() => router.push('/dividends')}
-          className="flex items-center gap-3 w-full px-4 tap-row"
-          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12 }}>
+          className="flex items-center gap-3 w-full px-4 tap-row list-row">
           <span className="flex items-center justify-center flex-shrink-0"
                 style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -408,8 +406,8 @@ function SectionHeader({ id, label, invested, gainPct, currentValue, open, onTog
 
   return (
     <button onClick={onToggle}
-            className="grid w-full items-baseline gap-x-2 px-4"
-            style={{ background: 'rgba(255,255,255,0.025)', minHeight: 52, paddingTop: 14, paddingBottom: 14, gridTemplateColumns: SECTION_HEADER_COLS }}>
+            className="grid w-full items-baseline gap-x-2 px-4 list-row"
+            style={{ background: 'rgba(255,255,255,0.025)', gridTemplateColumns: SECTION_HEADER_COLS }}>
       <span className="text-headline font-bold truncate text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <span className="text-headline tabnum" style={{ color: 'var(--text-2)' }}>{invested}</span>
       <span className="text-headline font-semibold tabnum"

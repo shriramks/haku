@@ -72,10 +72,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     <div style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div
-        className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+        className="sticky top-0 z-10 backdrop-blur-xl px-4 pb-3"
         style={{
           background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">
@@ -180,13 +179,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
   return (
     <RowShell
       href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-      padding="compact"
       dim={dim}
-      accessory={
-        <div className="px-4" style={{ marginTop: -2 }}>
-          <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
-        </div>
-      }
     >
       <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', alignItems: 'baseline' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
@@ -215,6 +208,7 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
           <ChevronRightIcon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-faint)' }} />
         </div>
       </div>
+      <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mt-3" />
     </RowShell>
   )
 }

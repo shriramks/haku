@@ -153,8 +153,14 @@ signal.deep  → color.deep
 - **Horizontal page padding is always 16px (px-4).** No px-3 or px-5 in main content.
   Exception: modals/sheets use px-5 (20px) for the slightly more focused feel.
 - **Card internal padding is always 16px (p-4).**
-- **List rows use py-3 (12px) vertical padding** — gives 44px minimum tap target when combined
-  with headline text.
+- **Every tappable list row uses the `.list-row` class (`globals.css`): 16px top/bottom padding, 56px minimum height.**
+  Stock rows (Plan/Allocation/Bands via `RowShell`), `HoldingRow`, Portfolio section headers and Report links all
+  use it — never hand-code row padding. 44px (Apple HIG) is the hard floor for any tap target; 56px is our row choice.
+- **Gap between two blocks = bottom padding of the first + top padding of the next.** Never add a one-off margin on top.
+  Example (Portfolio): summary has `pb-16`, first section row has 16 top → 32px text-to-text; EPF row 16 bottom +
+  Reports label 16 top → the same 32px.
+- Rows with a progress bar (Allocation) keep the bar inside the row, 12px under the numbers.
+- Section labels (e.g. "Reports"): 16px above, 8px below.
 - Section divider labels (e.g. "Completed", "Bear") get `px-4 py-2` — they are structural,
   not content.
 
@@ -196,7 +202,7 @@ A button that looks small can still have a 44px tap target:
 ### Minimum sizes by element type
 - Button (primary): 50px height, full-width or min 120px wide
 - Button (secondary/ghost): 44px height
-- List row: 48px height minimum (py-3 + headline text = ~44px, py-3.5 = safe)
+- List row: 56px height minimum (`.list-row`, 16px vertical padding)
 - Toggle switch: 51×31px visual, but always wrapped in 44px touch target
 - Icon button: 44×44px touch area (icon itself can be 24px)
 - Filter chip: 36px height acceptable (small, but chips are supplementary UI)
@@ -215,7 +221,7 @@ Every screen uses one of two patterns:
 - **Summary strips** — MetricCard numbers floating directly on `--bg-primary`
 - **Detail content** — DetailRows sitting directly on `--bg-primary`, grouped by SectionDividers
 
-Content is never "boxed in". Rows breathe on the page background. Groups are separated by SectionDividers (text labels) and spacing — never by horizontal lines, background colour changes or rounded containers. The only horizontal lines in the app are the sticky top header's bottom edge and the title edge of modal/bottom-sheet headers.
+Content is never "boxed in". Rows breathe on the page background. Groups are separated by SectionDividers (text labels) and spacing — never by horizontal lines, background colour changes or rounded containers. There are no horizontal lines in screen content or the sticky top header; only modal/bottom-sheet title edges keep one.
 
 If you find yourself reaching for `bg-secondary`, `rounded-2xl`, or `p-4` on a container, stop. You are building a card. Do not do this.
 
@@ -225,7 +231,7 @@ If you find yourself reaching for `bg-secondary`, `rounded-2xl`, or `p-4` on a c
                   headline (symbol)        body/headline (value)
                   footnote (metadata)      subheadline (secondary value)
 
-Height: min 48px (py-3)
+Height: `.list-row` (min 56px, py-4)
 Padding: px-4
 ```
 
@@ -242,7 +248,7 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 name (headline, semibold, max 2 lines)        value (headline, semibold)
 1D  +18.3 K  +0.3%                            P&L   +23.41 L
                                               XIRR  +10.9%
-Padding: px-4 py-3, min height 64. No divider, no card, no chevron — the whole row taps.
+Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divider, no card, no chevron — the whole row taps.
 ```
 - Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (12px) at `--text-2`; the figures beside them are `body` (13px), coloured by sign, and always carry +/− (`Num signed`).
 - The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.

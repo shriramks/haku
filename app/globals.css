@@ -137,6 +137,15 @@ body {
 
 .tap-row:active { background: var(--tap-active); }
 
+/* Shared list-row rhythm (docs/design.md §3): every tappable list row — stock rows,
+   holding rows, section headers, report links — uses this, so row spacing is defined once.
+   Gap between two blocks = bottom padding of the first + top padding of the next. */
+.list-row {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  min-height: 56px;
+}
+
 /* Label roles (docs/design.md §1) — the only place these recipes live. Both sit at the
    readable-text floor: 13px at --text-2. Spacing is set per site, not here. */
 .label-section {

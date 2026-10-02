@@ -235,10 +235,9 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
     <div style={{ minHeight: '100dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
       {/* Header */}
       <div
-        className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
+        className="sticky top-0 z-10 backdrop-blur-xl px-4 pb-3"
         style={{
           background: 'var(--bg-nav)',
-          borderColor: 'var(--border)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between pt-1">
@@ -303,7 +302,6 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
             <RowShell
               key={row.symbol}
               onClick={() => router.push(`/bands/${encodeURIComponent(row.symbol)}${fyParam}`)}
-              padding="compact"
               dim={isDone}
             >
               <div className="flex items-center gap-3">
