@@ -56,7 +56,7 @@ export default function FYPicker({ fiscalYears, selectedFY, onSelect, onNew }: P
         {onNew && (
           <button
             onClick={() => { onNew(); setOpen(false) }}
-            className="w-full flex items-center justify-between px-5 py-3.5 tap-row border-t"
+            className="w-full flex items-center justify-between px-5 py-3.5 tap-row"
             style={{ borderColor: 'var(--border)' }}>
             <p className="text-headline font-medium text-accent">New fiscal year</p>
             <svg className="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="#0A84FF" strokeWidth={2}>

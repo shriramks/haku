@@ -309,7 +309,7 @@ export default function TaxClient({
 
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl border-b px-4 pb-3"
-           style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
+           style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-1">
             <button
@@ -421,7 +421,7 @@ function PaidAmountSheet({ result, onClose, onSave }: {
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Paid so far</p>
           <input
             type="number" inputMode="decimal"

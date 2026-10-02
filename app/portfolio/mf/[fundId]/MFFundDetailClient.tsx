@@ -139,7 +139,7 @@ function DetailRow({ label, value, valueColor, caption, last: _last }: {
   label: string; value: ReactNode; valueColor?: string; caption?: string; last?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between py-3" style={{ minHeight: 52, borderBottom: _last ? 'none' : '1px solid var(--divider)' }}>
+    <div className="flex items-center justify-between py-3" style={{ minHeight: 52 }}>
       <p className="text-body" style={{ color: 'var(--text-2)' }}>{label}</p>
       <div className="text-right">
         <p className="text-headline font-semibold tabnum" style={{ color: valueColor ?? 'var(--text-primary)' }}>

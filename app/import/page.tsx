@@ -73,7 +73,7 @@ export default function ImportPage() {
            style={{ background: 'var(--bg-primary)' }}>
 
         {/* Header */}
-        <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="px-4 pt-4 pb-3">
           <h1 className="text-title-2 font-bold">Import from Zerodha</h1>
           <p className="text-subheadline mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Upload your Zerodha trade book CSV
@@ -154,7 +154,7 @@ export default function ImportPage() {
                   {invalidRows.length} row{invalidRows.length > 1 ? 's' : ''} skipped (will not be imported)
                 </p>
               </div>
-              <div className="divide-y divide-[color:var(--divider)]">
+              <div>
                 {invalidRows.slice(0, 10).map((r, i) => (
                   <div key={i} className="px-4 py-2" style={{ background: 'var(--bg-secondary)' }}>
                     <p className="text-subheadline font-medium">{r.symbol || '(empty)'}</p>
@@ -192,7 +192,7 @@ export default function ImportPage() {
                   </thead>
                   <tbody>
                     {validRows.slice(0, 20).map((r, i) => (
-                      <tr key={i} style={{ borderTop: '1px solid var(--border-faint)', background: 'var(--bg-secondary)' }}>
+                      <tr key={i} style={{ background: 'var(--bg-secondary)' }}>
                         <td className="px-3 py-2 font-semibold">{r.symbol}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--text-2)' }}>{r.trade_date}</td>
                         <td className={`px-3 py-2 font-medium ${r.trade_type === 'buy' ? 'text-positive' : 'text-negative'}`}>
@@ -204,7 +204,7 @@ export default function ImportPage() {
                       </tr>
                     ))}
                     {validRows.length > 20 && (
-                      <tr style={{ borderTop: '1px solid var(--border-faint)', background: 'var(--bg-secondary)' }}>
+                      <tr style={{ background: 'var(--bg-secondary)' }}>
                         <td colSpan={6} className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>
                           …and {validRows.length - 20} more rows
                         </td>

@@ -23,13 +23,13 @@ export default function Loading() {
       </div>
 
       {/* Symbol + name */}
-      <div className="px-4 pt-5 pb-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4 pt-5 pb-4">
         <div className="h-7 w-32 rounded-lg animate-pulse mb-2" style={{ background: 'var(--bg-tertiary)' }} />
         <div className="h-4 w-24 rounded animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
       </div>
 
       {/* Metrics row */}
-      <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4 py-4">
         <div className="grid grid-cols-3 gap-3">
           {[...Array(3)].map((_, i) => (
             <div key={i}>
@@ -41,7 +41,7 @@ export default function Loading() {
       </div>
 
       {/* Buy zone bar */}
-      <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4 py-4">
         <div className="h-3 w-20 rounded animate-pulse mb-3" style={{ background: 'var(--bg-tertiary)' }} />
         <div className="h-4 w-full rounded animate-pulse mb-2" style={{ background: 'var(--bg-tertiary)' }} />
         <div className="flex justify-between">
@@ -52,7 +52,7 @@ export default function Loading() {
       </div>
 
       {/* Tranches */}
-      <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4 py-4">
         <div className="h-3 w-16 rounded animate-pulse mb-3" style={{ background: 'var(--bg-tertiary)' }} />
         {[...Array(3)].map((_, i) => (
           <div key={i} className="flex justify-between mb-3">

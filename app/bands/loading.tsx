@@ -21,7 +21,7 @@ export default function Loading() {
       {/* Band rows */}
       <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="px-4 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <div key={i} className="px-4 py-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="h-5 w-24 rounded animate-pulse mb-1.5" style={{ background: 'var(--bg-tertiary)' }} />

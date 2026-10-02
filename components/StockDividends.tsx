@@ -148,7 +148,7 @@ export default function StockDividends({
         {dividends.length === 0 ? (
           <p
             className="px-4 py-3 text-subheadline"
-            style={{ borderTop: '1px solid var(--border-faint)', color: 'var(--text-faint)' }}
+            style={{ color: 'var(--text-faint)' }}
           >
             No dividends recorded — tap refresh to fetch
           </p>
@@ -157,7 +157,7 @@ export default function StockDividends({
             <div
               key={d.id}
               className="flex items-center px-4 py-3"
-              style={{ borderTop: '1px solid var(--border-faint)' }}
+             
             >
               <div className="flex-1">
                 <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
@@ -212,7 +212,6 @@ export default function StockDividends({
                   key={item.ex_date}
                   className="flex items-center gap-3 px-5 py-3"
                   style={{
-                    borderTop: '1px solid var(--border-faint)',
                     opacity: item.skip ? 0.4 : 1,
                     transition: 'opacity 150ms',
                   }}

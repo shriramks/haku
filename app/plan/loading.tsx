@@ -19,19 +19,19 @@ export default function Loading() {
       </div>
 
       {/* Budget strip */}
-      <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-4 pt-4 pb-3">
         <div className="h-3 w-20 rounded animate-pulse mb-2" style={{ background: 'var(--bg-tertiary)' }} />
         <div className="h-8 w-32 rounded-lg animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
       </div>
 
       {/* Sector filter strip */}
-      <div className="w-full px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="w-full px-4 py-3 flex items-center justify-between">
         <div className="h-4 w-28 rounded animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
         <div className="h-4 w-16 rounded animate-pulse" style={{ background: 'var(--bg-tertiary)' }} />
       </div>
 
       {/* Stock rows */}
-      <div className="divide-y divide-[color:var(--divider)]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
         {[...Array(5)].map((_, i) => (
           <div key={i} className="px-4 py-4">
             <div className="flex items-center justify-between mb-2">

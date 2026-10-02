@@ -243,8 +243,8 @@ export default function TransactionsClient({
       {/* Asset */}
       <button
         onClick={() => setAssetSheetOpen(true)}
-        className="w-full flex items-center justify-between px-5 border-b"
-        style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+        className="w-full flex items-center justify-between px-5"
+        style={{ minHeight: 52 }}>
         <span className="text-body">Asset</span>
         <span className="flex items-center gap-1.5 text-body"
               style={{ color: assetFilter.size === 0 ? 'var(--text-muted)' : 'var(--accent)' }}>
@@ -254,7 +254,7 @@ export default function TransactionsClient({
       </button>
 
       {/* Type */}
-      <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-5 py-4">
         <p className="label-field mb-2">Type</p>
         <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
           {(['all', 'buy', 'sell'] as const).map(t => (
@@ -273,8 +273,8 @@ export default function TransactionsClient({
       {!filterSymbol && !filterFundId && (assetFilter.size === 0 || assetFilter.has('stock')) && (
         <button
           onClick={() => setStockSheetOpen(true)}
-          className="w-full flex items-center justify-between px-5 border-b"
-          style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+          className="w-full flex items-center justify-between px-5"
+          style={{ minHeight: 52 }}>
           <span className="text-body">Stock</span>
           <span className="flex items-center gap-1.5 text-body"
                 style={{ color: symbolFilter === 'all' ? 'var(--text-muted)' : 'var(--accent)' }}>
@@ -287,8 +287,8 @@ export default function TransactionsClient({
       {/* Date */}
       <button
         onClick={() => setDateSheetOpen(true)}
-        className="w-full flex items-center justify-between px-5 border-b"
-        style={{ minHeight: 52, borderColor: 'var(--border-faint)' }}>
+        className="w-full flex items-center justify-between px-5"
+        style={{ minHeight: 52 }}>
         <span className="text-body">Date</span>
         <span className="flex items-center gap-1.5 text-body"
               style={{ color: dateFilter ? 'var(--accent)' : 'var(--text-muted)' }}>
@@ -539,9 +539,9 @@ function AssetSubSheet({ value, onApply, onClose }: {
       <div style={{ overflowY: 'auto', maxHeight: '50vh' }}>
         <button
           onClick={() => setLocal(new Set())}
-          className="w-full flex items-center justify-between px-5 border-b"
+          className="w-full flex items-center justify-between px-5"
           style={{
-            minHeight: 52, borderColor: 'var(--border-faint)',
+            minHeight: 52,
             background: allSelected ? 'rgba(10,132,255,0.04)' : undefined,
           }}>
           <span className="text-body"
@@ -555,9 +555,9 @@ function AssetSubSheet({ value, onApply, onClose }: {
           return (
             <button key={key}
               onClick={() => toggle(key)}
-              className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+              className="w-full flex items-center justify-between px-5"
               style={{
-                minHeight: 52, borderColor: 'var(--border-faint)',
+                minHeight: 52,
                 background: sel ? 'rgba(10,132,255,0.04)' : undefined,
               }}>
               <span className="text-body"
@@ -594,7 +594,7 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
         left={null}
         right={<button onClick={onClose} className="font-semibold text-headline text-accent">Done</button>}
       />
-      <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-5 py-3">
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
           <SearchIcon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' } as React.CSSProperties} />
@@ -612,9 +612,9 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
       <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
         <button
           onClick={() => onSelect('all')}
-          className="w-full flex items-center justify-between px-5 border-b"
+          className="w-full flex items-center justify-between px-5"
           style={{
-            minHeight: 52, borderColor: 'var(--border-faint)',
+            minHeight: 52,
             background: value === 'all' ? 'rgba(10,132,255,0.04)' : undefined,
           }}>
           <span className="text-body"
@@ -626,9 +626,9 @@ function StockSubSheet({ symbols, value, onSelect, onClose }: {
         {filtered.map(s => (
           <button key={s}
             onClick={() => onSelect(s)}
-            className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
+            className="w-full flex items-center justify-between px-5"
             style={{
-              minHeight: 52, borderColor: 'var(--border-faint)',
+              minHeight: 52,
               background: value === s ? 'rgba(10,132,255,0.04)' : undefined,
             }}>
             <span className="text-body"
@@ -696,7 +696,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
         right={<button onClick={apply} className="font-semibold text-headline text-accent">Done</button>}
       />
 
-      <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-5 pt-3">
         <p className="label-field mb-1">Recent</p>
         {ROLLING_OPTIONS.map(opt => {
           const range = getRollingRange(opt.key)
@@ -704,8 +704,7 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
           return (
             <button key={opt.key}
               onClick={() => selectPreset(range.from, range.to)}
-              className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
-              style={{ borderColor: 'var(--border-faint)' }}>
+              className="w-full flex items-center justify-between py-3.5">
               <span className="text-body" style={{ color: sel ? 'var(--accent)' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
                 {opt.label}
               </span>
@@ -715,15 +714,14 @@ function DateSubSheet({ value, fiscalYears, onApply, onClose }: {
         })}
       </div>
 
-      <div className="px-5 pt-3 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+      <div className="px-5 pt-3">
         <p className="label-field mb-1">Fiscal year</p>
         {[...fiscalYears].reverse().map(fy => {
           const sel = isSelected(fy.start_date, fy.end_date)
           return (
             <button key={fy.id}
               onClick={() => selectPreset(fy.start_date, fy.end_date)}
-              className="w-full flex items-center justify-between py-3.5 border-b last:border-b-0"
-              style={{ borderColor: 'var(--border-faint)' }}>
+              className="w-full flex items-center justify-between py-3.5">
               <span className="text-body" style={{ color: sel ? 'var(--accent)' : 'var(--text-primary)', fontWeight: sel ? 500 : 400 }}>
                 {fy.label}
               </span>

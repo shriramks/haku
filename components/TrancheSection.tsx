@@ -76,7 +76,7 @@ export default function TrancheSection({
       {/* Tranche list */}
       <div>
         {editingId === 'new' && (
-          <div style={{ borderTop: '1px solid var(--border-faint)' }}>
+          <div>
             <TrancheInputRow
               maxAmount={remaining - plannedTotal}
               onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
@@ -85,7 +85,7 @@ export default function TrancheSection({
           </div>
         )}
         {tranches.map(t => (
-          <div key={t.id} style={{ borderTop: '1px solid var(--border-faint)' }}>
+          <div key={t.id}>
             {editingId === t.id
               ? <TrancheInputRow
                   initialQty={String(Math.round(t.qty))}
@@ -100,7 +100,7 @@ export default function TrancheSection({
           </div>
         ))}
         {tranches.length === 0 && editingId !== 'new' && (
-          <p className="px-4 py-3 text-subheadline" style={{ borderTop: '1px solid var(--border-faint)', color: 'var(--text-faint)' }}>
+          <p className="px-4 py-3 text-subheadline" style={{ color: 'var(--text-faint)' }}>
             No levels yet — tap Generate
           </p>
         )}

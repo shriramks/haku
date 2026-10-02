@@ -35,7 +35,6 @@ export function HoldingRow({ row, onClick }: { row: HoldingRowData; onClick: () 
         columnGap: 12,
         alignItems: 'start',
         minHeight: 64,
-        borderBottom: '1px solid var(--divider)',
       }}>
       <div className="min-w-0">
         <p className="text-headline font-semibold line-clamp-2" style={{ color: 'var(--text-primary)' }}>

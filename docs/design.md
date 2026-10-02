@@ -215,7 +215,7 @@ Every screen uses one of two patterns:
 - **Summary strips** — MetricCard numbers floating directly on `--bg-primary`
 - **Detail content** — DetailRows sitting directly on `--bg-primary`, grouped by SectionDividers
 
-Content is never "boxed in". Rows breathe on the page background. Groups are separated by SectionDividers (text labels) and full-width `--divider` lines between rows — not by background colour changes or rounded containers.
+Content is never "boxed in". Rows breathe on the page background. Groups are separated by SectionDividers (text labels) and spacing — never by horizontal lines, background colour changes or rounded containers. The only horizontal lines in the app are the sticky top header's bottom edge and the title edge of modal/bottom-sheet headers.
 
 If you find yourself reaching for `bg-secondary`, `rounded-2xl`, or `p-4` on a container, stop. You are building a card. Do not do this.
 
@@ -227,7 +227,6 @@ If you find yourself reaching for `bg-secondary`, `rounded-2xl`, or `p-4` on a c
 
 Height: min 48px (py-3)
 Padding: px-4
-Divider: border-b using --divider
 ```
 
 ### Portfolio section header (`SectionHeader` in `app/portfolio/PortfolioClient.tsx`)
@@ -243,7 +242,7 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 name (headline, semibold, max 2 lines)        value (headline, semibold)
 1D  +18.3 K  +0.3%                            P&L   +23.41 L
                                               XIRR  +10.9%
-Padding: px-4 py-3, min height 64. Divider: border-b --divider. No card, no chevron — the whole row taps.
+Padding: px-4 py-3, min height 64. No divider, no card, no chevron — the whole row taps.
 ```
 - Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (12px) at `--text-2`; the figures beside them are `body` (13px), coloured by sign, and always carry +/− (`Num signed`).
 - The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.
@@ -278,9 +277,9 @@ Background: none (sits on page bg)
 [body label, text-2]          [headline value, text-primary, tabnum]
 Height: min 44px (py-2.5)
 Padding: px-4
-Divider: border-b --divider between rows within a group
+Divider: none — rows are separated by spacing only
 Group header: `.label-section`, px-4 (SectionDivider / `SectionLabel`)
-Background: none (rows sit on page bg; groups separated by a sep line)
+Background: none (rows sit on page bg)
 ```
 
 Rules for DetailRow:
@@ -290,7 +289,7 @@ Rules for DetailRow:
   warning → text-warning. The label colour never changes.
 - Stack variant (two values right-aligned): primary value headline, secondary value
   footnote text-muted below it.
-- Groups are separated by a full-width sep line (--divider), not by background colour.
+- Groups are separated by the group header label and spacing — no sep lines, no background colour.
 - Group header (SectionDivider) labels the group above its first row.
 
 ### SettingsMenu
@@ -299,17 +298,14 @@ Rules for DetailRow:
 [One or more menu items]
 
 Menu item: min 44px height, rounded-xl if standalone
-Grouped items: single bordered group with internal dividers only between items
+Grouped items: one group, no internal dividers (rows separated by spacing)
 Section spacing: vertical gap only; no horizontal rule after every section
 ```
 
 Rules for SettingsMenu:
 - Global but non-primary actions may live here when they should not compete with a screen's main CTA row.
 - **Screen-specific actions** may be included, but must be demoted under the settings icon — never promoted into the primary action row when space is tight.
-- **Dividers**: only within sections that contain multiple items. Do not add a horizontal divider after every section.
-- If a section has one item, render it as a standalone button/row without an extra divider.
-- If a section has multiple items, use one shared group container with internal dividers.
-
+- **Dividers**: none — not between items, not between sections.
 ### ValueLabel (inline pair — e.g. band range labels below the bar)
 ```
 [subheadline value, colour-coded]

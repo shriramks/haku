@@ -267,21 +267,21 @@ export default function DividendsClient({
 
       {/* Bulk status messages */}
       {bulkUpToDate && (
-        <p className="px-4 py-2 text-subheadline" style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-faint)' }}>
+        <p className="px-4 py-2 text-subheadline" style={{ color: 'var(--text-muted)' }}>
           Already up to date
         </p>
       )}
       {bulkFetchError && !bulkConfirmItems && (
-        <p className="px-4 py-2 text-subheadline text-negative" style={{ borderBottom: '1px solid var(--border-faint)' }}>
+        <p className="px-4 py-2 text-subheadline text-negative">
           Some stocks failed to fetch — try again
         </p>
       )}
 
       {/* Summary strip */}
       <div
-        className="px-4 pt-4 pb-3 border-b"
-        style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1px 1fr', alignItems: 'start' }}>
+        className="px-4 pt-4 pb-3"
+        style={{ background: 'var(--bg-primary)' }}>
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', alignItems: 'start' }}>
           <div className="flex flex-col gap-0.5">
             <p className="label-field">
               Total received
@@ -290,7 +290,6 @@ export default function DividendsClient({
               <Num amount={totalAmount} />
             </p>
           </div>
-          <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
           <div className="flex flex-col gap-0.5 items-end">
             <p className="label-field">
               Dividends
@@ -305,7 +304,7 @@ export default function DividendsClient({
       {/* Segment control */}
       <div
         className="px-4 pt-3"
-        style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-faint)' }}>
+        style={{ background: 'var(--bg-primary)' }}>
         <div
           className="flex rounded-xl p-0.5 mb-3 gap-0.5"
           style={{ background: 'var(--bg-tertiary)' }}>
@@ -352,7 +351,7 @@ export default function DividendsClient({
                 key={sym}
                 onClick={() => setSheetSymbol(sym)}
                 className="flex items-center w-full px-4 py-3 tap-row"
-                style={{ borderBottom: '1px solid var(--border-faint)' }}>
+               >
                 <div className="flex-1 text-left">
                   <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {sym}
@@ -376,7 +375,7 @@ export default function DividendsClient({
             <div
               key={d.id}
               className="flex items-center px-4 py-3"
-              style={{ borderBottom: '1px solid var(--border-faint)' }}>
+             >
               <div className="flex-1">
                 <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {d.symbol}
@@ -422,8 +421,8 @@ export default function DividendsClient({
           </p>
           <button
             onClick={() => setFilterSymbol(null)}
-            className="w-full flex items-center justify-between px-5 border-b"
-            style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: !filterSymbol ? 'rgba(10,132,255,0.04)' : undefined }}>
+            className="w-full flex items-center justify-between px-5"
+            style={{ minHeight: 52, background: !filterSymbol ? 'rgba(10,132,255,0.04)' : undefined }}>
             <span className="text-body" style={{ color: !filterSymbol ? 'var(--accent)' : 'var(--text-primary)', fontWeight: !filterSymbol ? 500 : 400 }}>
               All stocks
             </span>
@@ -433,8 +432,8 @@ export default function DividendsClient({
             <button
               key={sym}
               onClick={() => setFilterSymbol(sym)}
-              className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
-              style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: filterSymbol === sym ? 'rgba(10,132,255,0.04)' : undefined }}>
+              className="w-full flex items-center justify-between px-5"
+              style={{ minHeight: 52, background: filterSymbol === sym ? 'rgba(10,132,255,0.04)' : undefined }}>
               <span className="text-body" style={{ color: filterSymbol === sym ? 'var(--accent)' : 'var(--text-primary)', fontWeight: filterSymbol === sym ? 500 : 400 }}>
                 {sym}
               </span>
@@ -450,8 +449,8 @@ export default function DividendsClient({
               </p>
               <button
                 onClick={() => setFilterYear(null)}
-                className="w-full flex items-center justify-between px-5 border-b"
-                style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: !filterYear ? 'rgba(10,132,255,0.04)' : undefined }}>
+                className="w-full flex items-center justify-between px-5"
+                style={{ minHeight: 52, background: !filterYear ? 'rgba(10,132,255,0.04)' : undefined }}>
                 <span className="text-body" style={{ color: !filterYear ? 'var(--accent)' : 'var(--text-primary)', fontWeight: !filterYear ? 500 : 400 }}>
                   All years
                 </span>
@@ -461,8 +460,8 @@ export default function DividendsClient({
                 <button
                   key={year}
                   onClick={() => setFilterYear(year)}
-                  className="w-full flex items-center justify-between px-5 border-b last:border-b-0"
-                  style={{ minHeight: 52, borderColor: 'var(--border-faint)', background: filterYear === year ? 'rgba(10,132,255,0.04)' : undefined }}>
+                  className="w-full flex items-center justify-between px-5"
+                  style={{ minHeight: 52, background: filterYear === year ? 'rgba(10,132,255,0.04)' : undefined }}>
                   <span className="text-body" style={{ color: filterYear === year ? 'var(--accent)' : 'var(--text-primary)', fontWeight: filterYear === year ? 500 : 400 }}>
                     {year}
                   </span>
@@ -531,7 +530,6 @@ export default function DividendsClient({
                   key={`${item.symbol}_${item.ex_date}`}
                   className="flex items-center gap-3 px-5 py-3"
                   style={{
-                    borderTop: '1px solid var(--border-faint)',
                     opacity: item.skip ? 0.4 : 1,
                     transition: 'opacity 150ms',
                   }}>

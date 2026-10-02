@@ -258,8 +258,8 @@ export default function AddTxnModal({
               {ASSET_TYPES.map(({ id, label, Icon }) => (
                 <button key={id} type="button"
                   onClick={() => { if (isInterestMode) setDate(todayISO()); setAssetType(id); setAssetPickerOpen(false); setError(null); setDone(false) }}
-                  className="flex items-center w-full px-5 border-t"
-                  style={{ minHeight: 56, borderColor: 'var(--divider)' }}>
+                  className="flex items-center w-full px-5"
+                  style={{ minHeight: 56 }}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mr-4 flex-shrink-0"
                        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-2)' }}>
                     <Icon width="18" height="18" />
@@ -433,8 +433,8 @@ export default function AddTxnModal({
                           {mfResults.map(f => (
                             <button key={f.id} type="button"
                               onClick={() => { setMFFund({ code: f.scheme_code, name: f.scheme_name, schemeType: f.scheme_type }); setMFQuery('') }}
-                              className="flex items-center w-full px-3 py-3 text-left border-t first:border-t-0 text-subheadline"
-                              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', borderColor: 'var(--divider)' }}>
+                              className="flex items-center w-full px-3 py-3 text-left text-subheadline"
+                              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
                               {f.scheme_name}
                             </button>
                           ))}

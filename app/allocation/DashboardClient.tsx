@@ -94,9 +94,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       {/* Summary strip — Plan | Left | Invested + bar */}
       {selectedFY && (() => {
         return (
-          <div className="px-4 pt-4 pb-3 border-b" style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-faint)' }}>
+          <div className="px-4 pt-4 pb-3" style={{ background: 'var(--bg-primary)' }}>
             {/* Three stat columns, top-aligned */}
-            <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'start' }}>
+            <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr', alignItems: 'start' }}>
 
               {/* Plan — tappable, navigates to /plan */}
               <Link href="/plan" className="flex flex-col gap-0.5" style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -109,9 +109,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <ChevronRightIcon className="w-2.5 h-2.5" style={{ color: 'var(--accent)' }} />
                 </span>
               </Link>
-
-              <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-
               {/* Left */}
               <div className="flex flex-col gap-0.5 items-center">
                 <p className="label-field">Left</p>
@@ -122,9 +119,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
                   <Num pct={pctLeft} />
                 </p>
               </div>
-
-              <div style={{ width: 1, height: 44, background: 'var(--border-faint)' }} />
-
               {/* Invested */}
               <div className="flex flex-col gap-0.5 items-end">
                 <p className="label-field">Invested</p>
@@ -189,7 +183,9 @@ function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; 
       padding="compact"
       dim={dim}
       accessory={
-        <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
+        <div className="px-4" style={{ marginTop: -2 }}>
+          <ProgressBar percent={investedPct} color={isDone ? 'var(--border-faint)' : 'var(--c-positive)'} height={6} className="mb-0" />
+        </div>
       }
     >
       <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', alignItems: 'baseline' }}>

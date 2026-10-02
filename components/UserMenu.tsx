@@ -136,7 +136,6 @@ export default function UserMenu({ extraSections = [] }: Props) {
                 padding: '12px 16px',
                 background: 'transparent',
                 color: 'var(--text-primary)',
-                borderBottom: i < items.length - 1 ? '1px solid var(--divider)' : undefined,
               }}>
               <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-accent">
                 {item.icon}

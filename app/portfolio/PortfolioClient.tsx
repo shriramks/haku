@@ -111,7 +111,7 @@ export default function PortfolioClient({
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-xl border-b flex items-center px-2"
-           style={{ background: 'var(--bg-nav)', borderColor: 'var(--border-faint)', paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
+           style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
         <Link href="/allocation"
               className="flex items-center justify-center min-w-[44px] min-h-[44px]"
               style={{ color: 'var(--accent)' }}>
@@ -140,8 +140,8 @@ export default function PortfolioClient({
       </div>
 
       {/* Summary: 3-col grid — no justify-between stretch */}
-      <div className="grid px-4 py-2 border-b"
-           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', borderColor: 'var(--border-faint)' }}>
+      <div className="grid px-4 py-2"
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0' }}>
         <div className="flex flex-col gap-2">
           <SCell label="Current Value" amount={summary.totalCurrent} />
           <SCell label="Gain" amount={summary.totalGain} signed />
@@ -269,7 +269,7 @@ export default function PortfolioClient({
         <button
           onClick={() => router.push('/tax')}
           className="flex items-center gap-3 w-full px-4 tap-row"
-          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid var(--divider)' }}>
+          style={{ minHeight: 52, paddingTop: 12, paddingBottom: 12 }}>
           <span className="flex items-center justify-center flex-shrink-0"
                 style={{ width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

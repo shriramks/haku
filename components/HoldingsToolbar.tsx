@@ -68,7 +68,6 @@ export default function HoldingsToolbar({ sort, onSort, pills, activePill, onPil
                           minHeight: 44,
                           color: selected ? 'var(--accent)' : 'var(--text-primary)',
                           fontWeight: selected ? 600 : 400,
-                          borderTop: i === 0 ? 'none' : '1px solid var(--divider)',
                         }}>
                   {o.label}
                   {selected && <ArrowDownIcon className={`w-[15px] h-[15px] ${sort.dir === 'asc' ? 'rotate-180' : ''}`} />}

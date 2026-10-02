@@ -114,7 +114,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
       </div>
 
       {fiscalYears.length === 0 && (
-        <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="px-4 py-4" style={{ borderColor: 'var(--border)' }}>
           <p className="text-body font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
             Welcome to Haku
           </p>
@@ -278,7 +278,7 @@ function PlanTab({
       {selectedFY ? (
         <>
           {/* Budget strip */}
-          <div className="border-b" style={{ borderColor: 'var(--border)' }}>
+          <div>
             <button onClick={() => setShowBudgetSheet(true)}
               className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
               <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
@@ -331,7 +331,7 @@ function PlanTab({
                 })()}
               </div>
 
-              <div className="divide-y divide-[color:var(--divider)]">
+              <div>
                 {[...allocations]
                   .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
                   .map(alloc => (
@@ -349,8 +349,7 @@ function PlanTab({
               {/* Add Stock row */}
               {!confirmClear && (
                 <button onClick={() => setShowAddStock(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 border-t tap-row"
-                  style={{ borderColor: 'var(--border-faint)' }}>
+                  className="w-full flex items-center gap-3 px-4 py-3.5 tap-row">
                   <div className="w-6 h-6 rounded-full bg-positive flex items-center justify-center flex-shrink-0">
                     <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                       <path d="M12 4v16m8-8H4"/>
@@ -362,7 +361,7 @@ function PlanTab({
 
               {/* Footer rows — Export + Clear All */}
               {allocations.length > 0 && (
-                <div className="mt-8 border-t" style={{ borderColor: 'var(--border-faint)' }}>
+                <div className="mt-8">
                   <button
                     onClick={async () => {
                       const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
@@ -384,8 +383,7 @@ function PlanTab({
                         await navigator.clipboard.writeText(text)
                       }
                     }}
-                    className="w-full text-left px-4 py-4 border-b text-body text-accent tap-row"
-                    style={{ borderColor: 'var(--border-faint)' }}>
+                    className="w-full text-left px-4 py-4 text-body text-accent tap-row">
                     Export Plan
                   </button>
                   {!confirmClear ? (
@@ -543,7 +541,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
         </div>
 
         {/* FY Budget field */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">FY Budget</p>
           <input
             type="number" inputMode="decimal"
@@ -560,7 +558,7 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
           const fyBudget = parseFloat(budgetInput) || selectedFY.total_budget_inr
           if (carryover <= 0 || !prevFYLabel) return null
           return (
-            <div className="flex items-center justify-between px-5 border-b" style={{ minHeight: 36, borderColor: 'var(--border-faint)' }}>
+            <div className="flex items-center justify-between px-5" style={{ minHeight: 36 }}>
               <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
                 + <Num amount={carryover} /> carryover from {prevFYLabel}
               </p>
@@ -658,7 +656,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
       />
 
         {/* % stepper → slider → plan context */}
-        <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="px-5 pt-5 pb-4 text-center">
           {/* Hero % */}
           <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
           {/* Stock INR amount */}
@@ -692,7 +690,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         </div>
 
         {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Category</p>
           <select
             value={alloc.category}
@@ -705,7 +703,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
 
         {/* Rename Ticker */}
         {renaming ? (
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+          <div className="flex items-center justify-between px-5 py-4">
             <p className="text-body" style={{ color: 'var(--text-2)' }}>New Ticker</p>
             <div className="flex items-center gap-2">
               <input
@@ -732,8 +730,8 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         ) : (
           <button
             onClick={() => { setNewSymbol(alloc.symbol); setRenaming(true) }}
-            className="flex items-center justify-between w-full px-5 py-4 border-b"
-            style={{ borderColor: 'var(--border-faint)', minHeight: 44 }}>
+            className="flex items-center justify-between w-full px-5 py-4"
+            style={{ minHeight: 44 }}>
             <p className="text-body" style={{ color: 'var(--text-2)' }}>Rename Ticker</p>
             <span className="text-body text-accent">›</span>
           </button>
@@ -811,7 +809,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* Symbol input */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Symbol</p>
           <input
             placeholder="INFY"
@@ -828,7 +826,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* % stepper + slider + plan context */}
-        <div className="px-5 pt-5 pb-4 border-b text-center" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="px-5 pt-5 pb-4 text-center">
           <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
           <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
             {formatINRFine((pct / 100) * totalBudget)} allocated
@@ -858,7 +856,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderColor: 'var(--border-faint)' }}>
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
           <select
             value={category}
