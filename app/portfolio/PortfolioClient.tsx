@@ -14,6 +14,7 @@ import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
 import RegionSheet from '@/components/RegionSheet'
 import type { PortfolioData } from '@/lib/portfolio-compute'
+import type { RegionExposure } from '@/lib/exposure'
 import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 
 // Holdings, totals and XIRR arrive finished in `data` (lib/portfolio-compute.ts, built in page.tsx —
@@ -155,8 +156,9 @@ export default function PortfolioClient({
           <SCell label="1D %" pct={summary.dayPct} signed />
         </div>
         <button onClick={() => setRegionOpen(true)} aria-label="Exposure by region"
-                className="flex items-center justify-center min-w-[44px] min-h-[44px]">
+                className="flex flex-col items-stretch justify-center min-w-[44px] min-h-[44px]" style={{ width: 128 }}>
           <FilledPieChart equity={summary.eqPct} debt={summary.debtPct} gold={summary.goldPct} />
+          <RegionMiniBar region={region} />
         </button>
       </div>
 
@@ -329,6 +331,25 @@ function SCell({ label, amount, pct, signed }: {
           ? <Num amount={amount} signed={signed} />
           : <Num pct={pct ?? null} signed={signed} />}
       </p>
+    </div>
+  )
+}
+
+// Region split under the pie: India / US bar + two whole percents that always add to 100 (US rounded, India the rest).
+function RegionMiniBar({ region }: { region: RegionExposure }) {
+  if (region.indiaPct + region.usPct === 0) return null
+  const us = Math.round(region.usPct)
+  const india = 100 - us
+  return (
+    <div style={{ paddingTop: 8 }}>
+      <div className="flex overflow-hidden rounded-full" style={{ height: 6, gap: 2, background: 'var(--bg-tertiary)' }}>
+        {region.indiaPct > 0 && <div style={{ width: `${region.indiaPct}%`, background: 'var(--c-region-in)' }} />}
+        {region.usPct > 0 && <div style={{ width: `${region.usPct}%`, background: 'var(--c-region-us)' }} />}
+      </div>
+      <div className="flex justify-between text-subheadline tabnum" style={{ color: 'var(--text-2)', paddingTop: 4 }}>
+        <span>India {india}%</span>
+        <span>US {us}%</span>
+      </div>
     </div>
   )
 }

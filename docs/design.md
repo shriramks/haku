@@ -262,7 +262,7 @@ Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divide
 - Sort: `body` accent text + direction arrow, 44px tap target, opens an anchored menu (Value · P&L · XIRR · 1D % · Name). Picking the selected option flips direction. State is per section and not persisted; rows with no value for the chosen key sink to the bottom.
 
 ### RegionSheet (`components/RegionSheet.tsx`)
-- Opened by tapping the Portfolio allocation pie (a 44px+ button; no visible hint text). A `BottomSheet` with `SheetHeader` ("Exposure by region", Done on the right).
+- Opened by tapping the Portfolio allocation pie. The pie, a 6px India / US mini bar under it (same width, region tokens) and one line "India 91%  US 9%" (subheadline, `--text-2`, normal weight, whole percents that add to 100 — US rounded, India the rest) are one 44px+ button; the bar + line are the tap affordance, with no separate hint text. A `BottomSheet` with `SheetHeader` ("Exposure by region", Done on the right).
 - Body: a 12px full-round stacked bar (India `--c-region-in`, US `--c-region-us`, 2px gap, `--bg-tertiary` track), then a two-item legend — dot, share (headline, semibold, tabnum) + label (body), amount (subheadline, `--text-2`) under it; India left, US right. Amounts via `Num`, no ₹.
 - Region colours are their own tokens because the pie already uses `--c-equity` / `--c-debt` / `--c-gold`. `--c-region-in` is the same blue as `--bar-fill`.
 
