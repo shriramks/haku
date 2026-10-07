@@ -8,7 +8,6 @@ import type { RegionExposure } from '@/lib/exposure'
 // Opened by tapping the allocation pie on Portfolio: the same money as the pie, cut by region.
 export default function RegionSheet({ region, onClose }: { region: RegionExposure; onClose: () => void }) {
   const { indiaValue, usValue, indiaPct, usPct } = region
-  const hasUs = usValue > 0
 
   return (
     <BottomSheet onClose={onClose}>
@@ -28,11 +27,6 @@ export default function RegionSheet({ region, onClose }: { region: RegionExposur
           <LegendItem color="var(--c-region-in)" label="India" pct={indiaPct} amount={indiaValue} />
           <LegendItem color="var(--c-region-us)" label="US" pct={usPct} amount={usValue} right />
         </div>
-
-        <p className="text-subheadline" style={{ color: 'var(--text-muted)', lineHeight: 1.5, paddingTop: 24 }}>
-          {hasUs ? '' : 'No US funds found. '}
-          A mutual fund counts as US when its name has US, S&amp;P or Nasdaq. Stocks, gold, PPF and EPF count as India.
-        </p>
       </div>
     </BottomSheet>
   )
