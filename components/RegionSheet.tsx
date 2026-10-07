@@ -7,7 +7,7 @@ import type { RegionExposure } from '@/lib/exposure'
 
 // Opened by tapping the allocation pie on Portfolio: the same money as the pie, cut by region.
 export default function RegionSheet({ region, onClose }: { region: RegionExposure; onClose: () => void }) {
-  const { indiaValue, usValue, indiaPct, usPct } = region
+  const { indiaValue, usValue, indiaPct, usPct, equity } = region
 
   return (
     <BottomSheet onClose={onClose}>
@@ -27,6 +27,26 @@ export default function RegionSheet({ region, onClose }: { region: RegionExposur
           <LegendItem color="var(--c-region-in)" label="India" pct={indiaPct} amount={indiaValue} />
           <LegendItem color="var(--c-region-us)" label="US" pct={usPct} amount={usValue} right />
         </div>
+
+        {equity.some(g => g.value > 0) && (
+          <div style={{ paddingTop: 32 }}>
+            <p className="label-section">Equity by region</p>
+            {equity.filter(g => g.value > 0).map(g => (
+              <div key={g.key} className="flex items-baseline justify-between" style={{ paddingTop: 16 }}>
+                <div>
+                  <p className="text-headline">{g.label}</p>
+                  <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}><Num pct={g.pctOfEquity} /> of equity</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-headline tabnum"><Num amount={g.value} /></p>
+                  <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+                    XIRR {g.xirr === null ? '—' : <Num pct={g.xirr * 100} signed />}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </BottomSheet>
   )

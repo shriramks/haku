@@ -244,7 +244,7 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
 
   return {
     summary: { totalCurrent, totalInvested, totalGain, totalGain1d, dayPct, xirr, eqPct, debtPct, goldPct },
-    region: computeRegionExposure(mfHoldings, totalCurrent),
+    region: computeRegionExposure(mfHoldings, totalCurrent, { value: equityCurrent, txns: stockTxns }),
     stocks: {
       invested: equityInvested > 0 ? equityInvested : null,
       gainPct: gainOverInvested(equityCurrent, equityInvested),

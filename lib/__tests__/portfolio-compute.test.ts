@@ -274,6 +274,9 @@ describe('buildPortfolio — summary', () => {
     expect(usFund.region.usValue).toBeCloseTo(6000)
     expect(usFund.region.indiaValue + usFund.region.usValue).toBeCloseTo(usFund.summary.totalCurrent)
     expect(usFund.region.indiaPct + usFund.region.usPct).toBeCloseTo(100)
+    const eq = usFund.region.equity.reduce((s, g) => s + g.value, 0)
+    expect(eq).toBeCloseTo(usFund.region.equity[0].value + usFund.region.equity[1].value + 6000)
+    expect(usFund.region.equity[2].value).toBeCloseTo(6000)         // the US fund; stocks + MFs = pie equity
     expect(d.region.usValue).toBe(0)                               // no US-named fund in the default mix
     expect(d.region.indiaValue).toBeCloseTo(d.summary.totalCurrent)
   })

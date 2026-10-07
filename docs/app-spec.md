@@ -257,6 +257,11 @@ same money cut by region: India vs US, as a stacked bar with share of total and 
   of those words (global, China, emerging) count as India until a keyword is added.
 - **Invariant:** India + US = total current value = the pie's total. A US fund with no NAV counts at cost,
   exactly as in the pie.
+- **Equity by region** (below the bar): India stocks / India MFs / US MFs, each with value, share of
+  equity and XIRR. Equity = stocks + equity-class MFs (`mfAssetClass`), so the three sum to the pie's
+  equity value. XIRR is `stockXirr` / `mfXirr` over the group's transactions; "—" when the group has no
+  value or no transactions. Empty groups are hidden. A debt-class fund inferred US counts in the
+  India / US bar but not here.
 - Direct foreign holdings (#131) will join the US group; they carry an explicit region, not name inference.
 
 ---
