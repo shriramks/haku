@@ -137,6 +137,15 @@ body {
 
 .tap-row:active { background: var(--tap-active); }
 
+/* Sticky page header. Deliberately opaque, no backdrop-filter: iOS 27 WebKit blurs the
+   header's own children when backdrop-filter sits on a position:sticky element. */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+}
+
 /* Shared list-row rhythm (docs/design.md §3): every tappable list row — stock rows,
    holding rows, section headers, report links — uses this, so row spacing is defined once.
    Gap between two blocks = bottom padding of the first + top padding of the next. */

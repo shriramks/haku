@@ -110,8 +110,8 @@ export default function PortfolioClient({
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-primary)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 backdrop-blur-xl flex items-center px-2"
-           style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
+      <div className="sticky-header flex items-center px-2"
+           style={{ paddingTop: 'max(env(safe-area-inset-top,0px), 14px)', paddingBottom: 12 }}>
         <Link href="/allocation"
               className="flex items-center justify-center min-w-[44px] min-h-[44px]"
               style={{ color: 'var(--accent)' }}>
