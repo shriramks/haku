@@ -8,6 +8,7 @@ import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from './stock-price
 import { istDay, laggingDates, shortDate } from './price-freshness'
 import { returnMetric } from './holdings-sort'
 import { mfAssetClass } from './tax-compute'
+import { computeRegionExposure, type RegionExposure } from './exposure'
 import {
   computeEPFBalance, computePPFBalance, epfXirr, mfXirr, portfolioXirr, sgbXirr, stockXirr,
 } from './xirr'
@@ -64,6 +65,8 @@ export interface PortfolioSummary {
 
 export interface PortfolioData {
   summary: PortfolioSummary
+  /** India vs US split of `summary.totalCurrent` (the region sheet behind the pie). */
+  region: RegionExposure
   stocks: SectionHeaderData & { rows: HoldingRowData[] }
   /** `eqPct` = equity's share of MF value, for the Equity / Debt pills. */
   mf: SectionHeaderData & { rows: HoldingRowData[]; eqPct: number }
@@ -241,6 +244,7 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
 
   return {
     summary: { totalCurrent, totalInvested, totalGain, totalGain1d, dayPct, xirr, eqPct, debtPct, goldPct },
+    region: computeRegionExposure(mfHoldings, totalCurrent),
     stocks: {
       invested: equityInvested > 0 ? equityInvested : null,
       gainPct: gainOverInvested(equityCurrent, equityInvested),

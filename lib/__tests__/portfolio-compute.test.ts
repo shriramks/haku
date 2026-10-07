@@ -265,6 +265,19 @@ describe('buildPortfolio — summary', () => {
     expect(e.gold.rows).toEqual([])
   })
 
+  it('region split: India + US equals the pie total; a US-named fund moves its value to US', () => {
+    const usFund = build(stockInput, {
+      mfFunds: [fund('f9', '900', 'Edelweiss US Technology Equity FoF', 'Equity Scheme - Other')],
+      mfTransactions: [mfBuy('f9', '2025-01-05', 100, 50)],
+      mfNavs: { '900': { nav: 60, prevNav: 59, navDate: '2026-09-25' } },
+    })
+    expect(usFund.region.usValue).toBeCloseTo(6000)
+    expect(usFund.region.indiaValue + usFund.region.usValue).toBeCloseTo(usFund.summary.totalCurrent)
+    expect(usFund.region.indiaPct + usFund.region.usPct).toBeCloseTo(100)
+    expect(d.region.usValue).toBe(0)                               // no US-named fund in the default mix
+    expect(d.region.indiaValue).toBeCloseTo(d.summary.totalCurrent)
+  })
+
   it('output is plain data — it survives a JSON round-trip unchanged (it crosses the RSC boundary)', () => {
     expect(JSON.parse(JSON.stringify(d))).toEqual(d)
   })

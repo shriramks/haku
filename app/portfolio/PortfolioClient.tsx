@@ -12,6 +12,7 @@ import { DEFAULT_SORT, nextSort, sortHoldings, type SortState } from '@/lib/hold
 import { CheckIcon, ChevronRightIcon, RefreshIcon } from '@/components/icons'
 import EmptyState from '@/components/EmptyState'
 import UserMenu from '@/components/UserMenu'
+import RegionSheet from '@/components/RegionSheet'
 import type { PortfolioData } from '@/lib/portfolio-compute'
 import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 
@@ -31,8 +32,9 @@ export default function PortfolioClient({
   data, pricesStale, ppfTransactions: initialPpfTransactions, epfTransactions: initialEpfTransactions,
 }: Props) {
   const router = useRouter()
-  const { summary, stocks, mf, gold, ppf, epf } = data
+  const { summary, region, stocks, mf, gold, ppf, epf } = data
   const [openSections, setOpenSections] = useState(new Set<string>())
+  const [regionOpen, setRegionOpen] = useState(false)
   // Sort is per section and not persisted; the MF filter is one class or none.
   const [stockSort, setStockSort] = useState<SortState>(DEFAULT_SORT)
   const [mfSort, setMfSort] = useState<SortState>(DEFAULT_SORT)
@@ -152,7 +154,10 @@ export default function PortfolioClient({
           <SCell label="XIRR p.a." pct={summary.xirr !== null ? summary.xirr * 100 : null} signed />
           <SCell label="1D %" pct={summary.dayPct} signed />
         </div>
-        <FilledPieChart equity={summary.eqPct} debt={summary.debtPct} gold={summary.goldPct} />
+        <button onClick={() => setRegionOpen(true)} aria-label="Exposure by region"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px]">
+          <FilledPieChart equity={summary.eqPct} debt={summary.debtPct} gold={summary.goldPct} />
+        </button>
       </div>
 
       {/* Scrollable sections */}
@@ -298,6 +303,8 @@ export default function PortfolioClient({
         </button>
 
       </div>
+
+      {regionOpen && <RegionSheet region={region} onClose={() => setRegionOpen(false)} />}
     </div>
   )
 }

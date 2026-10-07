@@ -25,6 +25,8 @@
   --c-equity:     #7C5CBF;
   --c-debt:       #30B0C7;
   --c-gold:       #FFD60A;
+  --c-region-in:  var(--bar-fill);
+  --c-region-us:  #E8743B;
   --signal-buy:   #34C759;
   --signal-hold:  #FF9500;
   --signal-trim:  #FF3B30;
@@ -51,6 +53,7 @@
     --divider:      rgba(255,255,255,0.08);
     --bar-fill:     #4A7FD4;
     --accent:       #0A84FF;
+    --c-region-us:  #F08A57;
   }
 }
 
@@ -71,6 +74,7 @@ html[data-theme="dark"] {
   --divider:      rgba(255,255,255,0.08);
   --bar-fill:     #4A7FD4;
   --accent:       #0A84FF;
+  --c-region-us:  #F08A57;
 }
 html[data-theme="light"] {
   --bg-primary:   #FFFFFF;
@@ -88,6 +92,7 @@ html[data-theme="light"] {
   --divider:      rgba(0,0,0,0.08);
   --bar-fill:     #2150A8;
   --accent:       #007AFF;
+  --c-region-us:  #E8743B;
 }
 
 /* ── Nav safe-area: small in browser, proper inset in PWA standalone ──────── */

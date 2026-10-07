@@ -261,6 +261,11 @@ Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divide
 - Pills: 36px, full-round, label and share only (no colour dot), accent tint when active, `bg-tertiary` when not — the same chips as the Transactions filter. Shown only when the filter has something to filter (MF with both Equity and Debt).
 - Sort: `body` accent text + direction arrow, 44px tap target, opens an anchored menu (Value · P&L · XIRR · 1D % · Name). Picking the selected option flips direction. State is per section and not persisted; rows with no value for the chosen key sink to the bottom.
 
+### RegionSheet (`components/RegionSheet.tsx`)
+- Opened by tapping the Portfolio allocation pie (a 44px+ button; no visible hint text). A `BottomSheet` with `SheetHeader` ("Exposure by region", Done on the right).
+- Body: a 12px full-round stacked bar (India `--c-region-in`, US `--c-region-us`, 2px gap, `--bg-tertiary` track), then a two-item legend — dot, share (headline, semibold, tabnum) + label (body), amount (subheadline, `--text-2`) under it; India left, US right. Amounts via `Num`, no ₹.
+- Region colours are their own tokens because the pie already uses `--c-equity` / `--c-debt` / `--c-gold`. `--c-region-in` is the same blue as `--bar-fill`.
+
 ### MetricCard (a number with a label)
 ```
 [display or title-1 number, tabnum]
