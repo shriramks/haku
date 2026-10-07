@@ -53,7 +53,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <ServiceWorkerRegistrar />
-        <div aria-hidden className="ios-status-strip" />
         {children}
         <BottomNav planSymbols={planSymbols} />
       </body>

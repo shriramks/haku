@@ -124,25 +124,6 @@ body {
   min-height: calc(100dvh + 1px);
 }
 
-/* iOS 26+/27 draws a Liquid Glass blur over the status bar and ~40pt below it in installed
-   (standalone) web apps whenever page pixels render under it (black-translucent + viewport-fit=cover).
-   No CSS/meta turns it off; WebKit skips it when a solid fixed box sits at the top edge
-   (>=6px tall, >=80% wide, within 4px of the top). Standalone only: the browser is untouched. */
-.ios-status-strip { display: none; }
-@media (display-mode: standalone) {
-  .ios-status-strip {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: max(env(safe-area-inset-top, 0px), 12px);
-    background: var(--bg-primary);
-    z-index: 60;
-    pointer-events: none;
-  }
-}
-
 /* ── Utility classes ─────────────────────────────────────────────────────── */
 .tabnum {
   font-variant-numeric: tabular-nums;
