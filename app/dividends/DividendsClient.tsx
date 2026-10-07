@@ -194,8 +194,8 @@ export default function DividendsClient({
 
       {/* Nav */}
       <div
-        className="sticky-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
+        className="sticky top-0 z-10 backdrop-blur-xl"
+        style={{ background: 'var(--bg-nav)', paddingTop: 'max(env(safe-area-inset-top,0px), 16px)' }}>
         <div className="flex items-center justify-between px-4 pb-3">
           <button
             onClick={() => router.back()}

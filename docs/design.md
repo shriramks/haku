@@ -84,7 +84,7 @@ Raw hex values and rgba() never appear in component code — only tokens.
 --bg-primary    Page background
 --bg-secondary  Card / sheet surface
 --bg-tertiary   Input background, inactive toggles
---bg-nav        Nav bar (bottom nav only, with blur; page headers use .sticky-header, opaque bg-primary)
+--bg-nav        Nav bar (with blur)
 ```
 
 **Text**

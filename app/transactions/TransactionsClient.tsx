@@ -354,8 +354,9 @@ export default function TransactionsClient({
     <div style={{ minHeight: '100dvh' }}>
       {/* ── Sticky header ── */}
       <div
-        className="sticky-header"
+        className="sticky top-0 z-10 backdrop-blur-xl"
         style={{
+          background: 'var(--bg-nav)',
           paddingTop: 'max(env(safe-area-inset-top,0px), 16px)',
         }}>
         <div className="flex items-center justify-between px-4 pt-1">
