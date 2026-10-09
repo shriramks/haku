@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { Num } from '@/components/Num'
@@ -7,7 +8,7 @@ import type { RegionExposure } from '@/lib/exposure'
 
 // Opened by tapping the allocation pie on Portfolio: the same money as the pie, cut by region.
 export default function RegionSheet({ region, onClose }: { region: RegionExposure; onClose: () => void }) {
-  const { indiaValue, usValue, indiaPct, usPct, equity } = region
+  const { indiaValue, usValue, indiaPct, usPct, equity, usFunds } = region
 
   return (
     <BottomSheet onClose={onClose}>
@@ -44,6 +45,27 @@ export default function RegionSheet({ region, onClose }: { region: RegionExposur
                   </p>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+
+        {usFunds.length > 0 && (
+          <div style={{ paddingTop: 32 }}>
+            <p className="label-section">US funds</p>
+            {usFunds.map(f => (
+              <Link key={f.fundId} href={`/portfolio/mf/${f.fundId}`}
+                className="flex items-baseline justify-between gap-4" style={{ paddingTop: 16, minHeight: 44 }}>
+                <div className="min-w-0">
+                  <p className="text-headline">{f.name}</p>
+                  <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}><Num pct={f.pctOfTotal} /> of portfolio</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-headline tabnum"><Num amount={f.value} /></p>
+                  <p className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}>
+                    XIRR {f.xirr === null ? '—' : <Num pct={f.xirr * 100} signed />}
+                  </p>
+                </div>
+              </Link>
             ))}
           </div>
         )}

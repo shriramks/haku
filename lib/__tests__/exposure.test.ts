@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { computeRegionExposure, mfRegion } from '../exposure'
 
-const named = (scheme_name: string, scheme_type = 'Equity Scheme') => ({ scheme_name, scheme_type })
+const named = (scheme_name: string, scheme_type = 'Equity Scheme') => ({ id: scheme_name, scheme_name, scheme_type })
 const tx = (trade_date: string, trade_type: 'buy' | 'sell', amount: number) => ({ trade_date, trade_type, amount })
 
 describe('mfRegion', () => {
@@ -67,6 +67,30 @@ describe('computeRegionExposure', () => {
     const r = computeRegionExposure([], 0)
     expect(r).toMatchObject({ indiaValue: 0, usValue: 0, indiaPct: 0, usPct: 0 })
     expect(r.equity.map(g => [g.value, g.pctOfEquity, g.xirr])).toEqual([[0, 0, null], [0, 0, null], [0, 0, null]])
+  })
+
+  describe('US funds', () => {
+    const big = { ...us, fund: named('Mirae Asset S&P 500 Top 50 FoF'), currentValue: 900, invested: 800 }
+    const debtUs = { fund: named('Some US Treasury Fund', 'Debt Scheme'), currentValue: null, invested: 100, transactions: [] }
+
+    it('lists every US fund (any class), largest first, summing to usValue', () => {
+      const r = computeRegionExposure([us, india, debtUs, big], 3000)
+      expect(r.usFunds.map(f => f.fundId)).toEqual([big.fund.id, us.fund.id, debtUs.fund.id])
+      expect(r.usFunds.reduce((s, f) => s + f.value, 0)).toBe(r.usValue)
+      expect(r.usFunds[0]).toMatchObject({ name: big.fund.scheme_name, value: 900 })
+      expect(r.usFunds[0].pctOfTotal).toBeCloseTo(30)
+      expect(r.usFunds[0].xirr).not.toBeNull()
+    })
+
+    it('no NAV counts at cost; no transactions → xirr null', () => {
+      expect(computeRegionExposure([debtUs], 100).usFunds[0]).toMatchObject({ value: 100, xirr: null })
+    })
+
+    it('empty without US funds, and survives a JSON round-trip', () => {
+      expect(computeRegionExposure([india], 700).usFunds).toEqual([])
+      const r = computeRegionExposure([us], 300)
+      expect(JSON.parse(JSON.stringify(r))).toEqual(r)
+    })
   })
 
   describe('equity by region', () => {

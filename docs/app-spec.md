@@ -262,6 +262,9 @@ same money cut by region: India vs US, as a stacked bar with share of total and 
   equity value. XIRR is `stockXirr` / `mfXirr` over the group's transactions; "—" when the group has no
   value or no transactions. Empty groups are hidden. A debt-class fund inferred US counts in the
   India / US bar but not here.
+- **US funds** (below Equity by region): one row per US-region MF of any class — name, value, share of
+  total portfolio, XIRR — largest first; row links to the fund detail page. Values sum to the bar's US
+  amount. Hidden when there are none.
 - Direct foreign holdings (#131) will join the US group; they carry an explicit region, not name inference.
 
 ---

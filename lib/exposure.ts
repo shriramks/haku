@@ -24,6 +24,18 @@ export interface RegionExposure {
   usPct: number
   /** Equity only (stocks + equity-class MFs), cut into India stocks / India MFs / US MFs. */
   equity: EquityRegionGroup[]
+  /** Every US-region MF (any asset class), largest first. Values sum to `usValue`. */
+  usFunds: UsFundRow[]
+}
+
+export interface UsFundRow {
+  fundId: string
+  name: string
+  value: number
+  /** Share of total current value, 0–100. */
+  pctOfTotal: number
+  /** Fraction (0.12 = 12 %); null when the fund has no value or no transactions. */
+  xirr: number | null
 }
 
 export interface EquityRegionGroup {
@@ -44,7 +56,7 @@ type TxnFlow = Pick<Transaction, 'trade_date' | 'trade_type' | 'amount'>
  */
 export function computeRegionExposure(
   mfHoldings: {
-    fund: Pick<MFund, 'scheme_name' | 'scheme_type'>
+    fund: Pick<MFund, 'id' | 'scheme_name' | 'scheme_type'>
     transactions: Pick<MFTransaction, 'trade_date' | 'trade_type' | 'amount'>[]
     currentValue: number | null
     invested: number
@@ -76,11 +88,24 @@ export function computeRegionExposure(
     { key: 'us-mfs', label: 'US MFs', value: usMfValue, pctOfEquity: pctOfEquity(usMfValue), xirr: groupXirr(usMfValue, usMfs) },
   ]
 
+  const usFunds: UsFundRow[] = mfHoldings
+    .filter(h => mfRegion(h.fund) === 'us')
+    .map(h => {
+      const value = h.currentValue ?? h.invested
+      return {
+        fundId: h.fund.id, name: h.fund.scheme_name, value,
+        pctOfTotal: totalCurrent > 0 ? value / totalCurrent * 100 : 0,
+        xirr: groupXirr(value, [h]),
+      }
+    })
+    .sort((a, b) => b.value - a.value)
+
   return {
     indiaValue,
     usValue,
     indiaPct: totalCurrent > 0 ? indiaValue / totalCurrent * 100 : 0,
     usPct: totalCurrent > 0 ? usValue / totalCurrent * 100 : 0,
     equity,
+    usFunds,
   }
 }
