@@ -209,6 +209,8 @@ export async function getUsdInrOnDate(date: string): Promise<number | null> {
   return rateOnOrBefore(await getFxRates(), date)
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 export interface UsTradeInput {
   /** Existing holding, or omitted when `newHolding` creates it. */
   holdingId?: string
@@ -224,6 +226,7 @@ export async function addUsTransaction(input: UsTradeInput): Promise<{ error?: s
   const userId = await getUserId()
   if (!userId) return { error: 'Not signed in' }
   if (!(input.quantity > 0) || !(input.price > 0) || !(input.fxRate > 0)) return { error: 'Enter quantity, price and rate' }
+  if (!ISO_DATE.test(input.tradeDate)) return { error: 'Invalid date' }
 
   const sb = await createSupabaseServerClient()
   let holdingId = input.holdingId
@@ -259,9 +262,11 @@ export async function updateUsTransaction(
 ): Promise<{ error?: string }> {
   const userId = await getUserId()
   if (!userId) return { error: 'Not signed in' }
-  if (!(patch.quantity > 0) || !(patch.price > 0) || !(patch.fx_rate > 0)) return { error: 'Enter quantity, price and rate' }
+  const { quantity, price, fx_rate, trade_date } = patch
+  if (!(quantity > 0) || !(price > 0) || !(fx_rate > 0)) return { error: 'Enter quantity, price and rate' }
+  if (!ISO_DATE.test(trade_date)) return { error: 'Invalid date' }
   const sb = await createSupabaseServerClient()
-  const { error } = await sb.from('us_transactions').update(patch).eq('id', id).eq('user_id', userId)
+  const { error } = await sb.from('us_transactions').update({ quantity, price, fx_rate, trade_date }).eq('id', id).eq('user_id', userId)
   if (error) return { error: error.message }
   revalidateTag('us_transactions', {})
   revalidatePath('/portfolio')

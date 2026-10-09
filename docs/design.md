@@ -55,6 +55,7 @@ do. A 12px muted label reads as clearly tertiary as an 11px one, with better leg
   Caption 2 — the smallest size Apple allows by default — and is the one tier left untouched as a
   legibility floor. Every tier above it (`subheadline` through `display`) was shrunk ~10–13%
   app-wide (#137) after the shipped sizes read oversized in practice.
+- **No helper text, anywhere in the app.** No hints, explanations, notes, disclaimers or "how this works" lines under fields, rows, sections or buttons. Screens carry labels, values and actions only. The one user is the builder and knows what each thing does; if something needs explaining, the design is wrong, not the copy.
 - **tabnum** class on all financial numbers — prevents layout shift as digits change.
 - Line heights: display/title 1.1–1.2, everything else 1.4.
 - **Never use the ₹ symbol in UI or mockups.** Amounts use compact Indian notation via the

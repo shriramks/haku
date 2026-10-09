@@ -463,9 +463,6 @@ export default function AddTxnModal({
                       onChange={e => { setFxRate(e.target.value); setFxEdited(true) }}
                       className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
                       style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
-                    <p className="text-subheadline mt-1.5" style={{ color: 'var(--text-2)' }}>
-                      Close on the trade date; a weekend or holiday uses the previous trading day. Overwrite it with your broker's rate if it differs.
-                    </p>
                   </div>
                 )}
 
