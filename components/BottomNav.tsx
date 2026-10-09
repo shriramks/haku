@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import AddTxnModal from './AddTxnModal'
 import { PortfolioIcon } from './icons'
+import type { UsHolding } from '@/lib/portfolio-types'
 
 const TABS = [
   { href: '/allocation',   label: 'Allocation',   Icon: AllocationIcon },
@@ -23,7 +24,7 @@ const pillStyle: React.CSSProperties = {
 // These two routes have no tab bar; everywhere else renders it.
 const HIDDEN_PATHS = ['/login', '/offline']
 
-export default function BottomNav({ planSymbols }: { planSymbols: string[] }) {
+export default function BottomNav({ planSymbols, usHoldings }: { planSymbols: string[]; usHoldings: UsHolding[] }) {
   const path = usePathname()
   const hidden = HIDDEN_PATHS.includes(path)
   const [addOpen, setAddOpen] = useState(false)
@@ -117,7 +118,7 @@ export default function BottomNav({ planSymbols }: { planSymbols: string[] }) {
 
       </nav>
 
-      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} />}
+      {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} usHoldings={usHoldings} />}
     </>
   )
 }

@@ -1,12 +1,12 @@
 'use client'
 import { useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatDate, formatPriceNum, formatPriceFineNum } from '@/lib/formatter'
+import { formatDate, formatPriceNum, formatPriceFineNum, formatUsd } from '@/lib/formatter'
 import { updateStockTransaction, deleteStockTransaction } from '@/app/actions'
-import { revalidateMFTransactions, revalidateSGBTransactions, revalidatePPFTransactions, revalidateEPFTransactions } from '@/app/portfolio/actions'
+import { revalidateMFTransactions, revalidateSGBTransactions, revalidatePPFTransactions, revalidateEPFTransactions, updateUsTransaction, deleteUsTransaction } from '@/app/portfolio/actions'
 import { Num } from '@/components/Num'
 import type { Transaction } from '@/lib/types'
-import type { MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
+import type { MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction, UsTransaction } from '@/lib/portfolio-types'
 import { PencilIcon } from '@/components/icons'
 
 // ── Asset types ───────────────────────────────────────────────────────────────
@@ -34,6 +34,7 @@ export interface DisplayTxn {
   rawSGB?: SGBTransaction
   rawPPF?: PPFTransaction
   rawEPF?: EPFTransaction
+  rawUs?: UsTransaction
 }
 
 function fmtQty(n: number, dec: number): string {
@@ -60,6 +61,22 @@ export function stockToDisplayTxn(t: Transaction): DisplayTxn {
     signedAmount: t.trade_type === 'buy' ? t.amount : -t.amount,
     detail:       `${fmtQty(t.quantity, 1)} sh · ${formatPriceFineNum(t.price)}`,
     rawStock:     t,
+  }
+}
+
+/** A direct USD holding trade is a Stocks row (`asset: 'stock'`); the amount is the INR cost at the trade-date rate. */
+export function usToDisplayTxn(t: UsTransaction, symbol: string): DisplayTxn {
+  return {
+    id:           t.id,
+    asset:        'stock',
+    name:         symbol,
+    trade_date:   t.trade_date,
+    direction:    t.trade_type === 'buy' ? 'in' : 'out',
+    trade_type:   t.trade_type,
+    amount:       t.amount_inr,
+    signedAmount: t.trade_type === 'buy' ? t.amount_inr : -t.amount_inr,
+    detail:       `${fmtQty(t.quantity, 3)} sh · ${formatUsd(t.price)} · rate ${t.fx_rate.toFixed(2)}`,
+    rawUs:        t,
   }
 }
 
@@ -132,6 +149,11 @@ interface StockEditState {
   qty: string; price: string; date: string
   saving: boolean; confirming: boolean
 }
+interface UsEditState {
+  kind: 'us'
+  qty: string; price: string; rate: string; date: string
+  saving: boolean; confirming: boolean
+}
 interface MFEditState {
   kind: 'mf'
   units: string; nav: string; date: string
@@ -152,7 +174,7 @@ interface EPFEditState {
   amount: string; date: string; wage_month: string; trade_type: 'deposit' | 'interest'; notes: string  // wage_month is "YYYY-MM", '' when none
   saving: boolean; confirming: boolean
 }
-type ActiveEdit = StockEditState | MFEditState | SGBEditState | PPFEditState | EPFEditState
+type ActiveEdit = StockEditState | UsEditState | MFEditState | SGBEditState | PPFEditState | EPFEditState
 
 function EditField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -213,7 +235,7 @@ function EditActions({ confirming, saveDisabled, saving, onStartDelete, onKeep, 
 
 // ── TxnRow ────────────────────────────────────────────────────────────────────
 
-export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock, onSavedMF, onSavedSGB, onSavedPPF, onSavedEPF }: {
+export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock, onSavedUs, onSavedMF, onSavedSGB, onSavedPPF, onSavedEPF }: {
   txn: DisplayTxn
   showAssetTag: boolean
   // Overrides the resting-state name/date/detail block with a single plain line —
@@ -224,6 +246,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
   compactLabel?: { text: string; faint?: string; italic?: boolean }
   onDelete: (id: string, asset: AssetType) => void
   onSavedStock: (updated: Transaction) => void
+  onSavedUs?: (updated: UsTransaction) => void
   onSavedMF: (updated: MFTransaction) => void
   onSavedSGB: (updated: SGBTransaction) => void
   onSavedPPF: (updated: PPFTransaction) => void
@@ -232,13 +255,16 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
   const [activeEdit, setActiveEdit] = useState<ActiveEdit | null>(null)
 
   const stock = txn.rawStock
+  const us    = txn.rawUs
   const mf    = txn.rawMF
   const sgb   = txn.rawSGB
   const ppf   = txn.rawPPF
   const epf   = txn.rawEPF
 
   function openEdit() {
-    if (stock) {
+    if (us) {
+      setActiveEdit({ kind: 'us', qty: String(us.quantity), price: String(us.price), rate: String(us.fx_rate), date: us.trade_date, saving: false, confirming: false })
+    } else if (stock) {
       setActiveEdit({ kind: 'stock', qty: String(stock.quantity), price: String(stock.price), date: stock.trade_date, saving: false, confirming: false })
     } else if (mf) {
       setActiveEdit({ kind: 'mf', units: String(mf.units), nav: String(mf.nav), date: mf.trade_date, saving: false, confirming: false })
@@ -254,7 +280,9 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
   function cancelEdit() { setActiveEdit(null) }
 
   async function doDelete() {
-    if (txn.asset === 'stock') {
+    if (us) {
+      await deleteUsTransaction(txn.id)
+    } else if (txn.asset === 'stock') {
       // Server action — invalidates the 'transactions' cache tag
       await deleteStockTransaction(txn.id)
     } else {
@@ -277,7 +305,16 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
     if (!activeEdit) return
     setActiveEdit(prev => prev ? { ...prev, saving: true } : null)
 
-    if (activeEdit.kind === 'stock' && stock) {
+    if (activeEdit.kind === 'us' && us) {
+      const qty   = parseFloat(activeEdit.qty)
+      const price = parseFloat(activeEdit.price)
+      const rate  = parseFloat(activeEdit.rate)
+      if (!qty || !price || !rate || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
+      const { error } = await updateUsTransaction(txn.id, { quantity: qty, price, fx_rate: rate, trade_date: activeEdit.date })
+      if (error) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
+      onSavedUs?.({ ...us, quantity: qty, price, fx_rate: rate, trade_date: activeEdit.date, amount: qty * price, amount_inr: qty * price * rate })
+
+    } else if (activeEdit.kind === 'stock' && stock) {
       const qty   = parseFloat(activeEdit.qty)
       const price = parseFloat(activeEdit.price)
       if (!qty || !price || !activeEdit.date) { setActiveEdit(prev => prev ? { ...prev, saving: false } : null); return }
@@ -329,6 +366,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
   const editAmount = (() => {
     if (!activeEdit) return 0
     if (activeEdit.kind === 'stock') return (parseFloat(activeEdit.qty) || 0) * (parseFloat(activeEdit.price) || 0)
+    if (activeEdit.kind === 'us')    return (parseFloat(activeEdit.qty) || 0) * (parseFloat(activeEdit.price) || 0) * (parseFloat(activeEdit.rate) || 0)
     if (activeEdit.kind === 'mf')    return (parseFloat(activeEdit.units) || 0) * (parseFloat(activeEdit.nav) || 0)
     if (activeEdit.kind === 'sgb')   return (parseFloat(activeEdit.grams) || 0) * (parseFloat(activeEdit.price_per_gram) || 0)
     if (activeEdit.kind === 'ppf')   return parseFloat(activeEdit.amount) || 0
@@ -345,6 +383,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
 
   const saveDisabled = !activeEdit || activeEdit.saving || (() => {
     if (activeEdit.kind === 'stock') return !activeEdit.qty || !activeEdit.price || !activeEdit.date
+    if (activeEdit.kind === 'us')    return !activeEdit.qty || !activeEdit.price || !activeEdit.rate || !activeEdit.date
     if (activeEdit.kind === 'mf')    return !activeEdit.units || !activeEdit.nav || !activeEdit.date
     if (activeEdit.kind === 'sgb')   return !activeEdit.grams || !activeEdit.price_per_gram || !activeEdit.date
     if (activeEdit.kind === 'ppf')   return !activeEdit.amount || !activeEdit.date
@@ -352,7 +391,7 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
     return true
   })()
 
-  const canEdit = !!(stock || mf || sgb || ppf || epf)
+  const canEdit = !!(stock || us || mf || sgb || ppf || epf)
 
   // ── Edit mode ──
   if (activeEdit) {
@@ -404,6 +443,39 @@ export function TxnRow({ txn, showAssetTag, compactLabel, onDelete, onSavedStock
                   style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
               </EditField>
               <div />
+            </div>
+          </>
+        )}
+
+        {activeEdit.kind === 'us' && (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <EditField label="Quantity">
+                <input type="number" inputMode="decimal" value={activeEdit.qty}
+                  onChange={e => setActiveEdit(prev => prev?.kind === 'us' ? { ...prev, qty: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </EditField>
+              <EditField label="Price (USD)">
+                <input type="number" inputMode="decimal" value={activeEdit.price}
+                  onChange={e => setActiveEdit(prev => prev?.kind === 'us' ? { ...prev, price: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </EditField>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <EditField label="USD to INR rate">
+                <input type="number" inputMode="decimal" value={activeEdit.rate}
+                  onChange={e => setActiveEdit(prev => prev?.kind === 'us' ? { ...prev, rate: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 rounded-xl text-body tabnum outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
+              </EditField>
+              <EditField label="Date">
+                <input type="date" value={activeEdit.date}
+                  onChange={e => setActiveEdit(prev => prev?.kind === 'us' ? { ...prev, date: e.target.value } : prev)}
+                  className="min-w-0 w-full px-3 py-2.5 rounded-xl text-body outline-none"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', colorScheme: 'light dark' }} />
+              </EditField>
             </div>
           </>
         )}

@@ -2,8 +2,9 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions } from '@/lib/data'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
+import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions, getUsHoldings, getUsTransactions, getFxRates } from '@/lib/data'
+import { rateOnOrBefore } from '@/lib/fx'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction, UsHolding, UsTransaction } from '@/lib/portfolio-types'
 
 /**
  * Fetches all portfolio-table data (MF/Gold/PPF/EPF) via the unstable_cache-wrapped
@@ -16,15 +17,19 @@ export async function loadPortfolioTables(): Promise<{
   sgbTransactions: SGBTransaction[]
   ppfTransactions: PPFTransaction[]
   epfTransactions: EPFTransaction[]
+  usHoldings: UsHolding[]
+  usTransactions: UsTransaction[]
 }> {
-  const [mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions] = await Promise.all([
+  const [mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, usHoldings, usTransactions] = await Promise.all([
     getMFFunds(),
     getMFTransactions(),
     getSGBTransactions(),
     getPPFTransactions(),
     getEPFTransactions(),
+    getUsHoldings(),
+    getUsTransactions(),
   ])
-  return { mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions }
+  return { mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, usHoldings, usTransactions }
 }
 
 // ── MF ────────────────────────────────────────────────────────────────────────
@@ -197,4 +202,79 @@ export async function revalidateUsHoldings() {
 /** Called after any write to us_transactions. */
 export async function revalidateUsTransactions() {
   revalidateTag('us_transactions', {})
+}
+
+/** USD->INR close on `date` (previous trading day's if none) — auto-fill for the Add / edit forms. Null when no history covers it. */
+export async function getUsdInrOnDate(date: string): Promise<number | null> {
+  return rateOnOrBefore(await getFxRates(), date)
+}
+
+export interface UsTradeInput {
+  /** Existing holding, or omitted when `newHolding` creates it. */
+  holdingId?: string
+  newHolding?: { symbol: string; yahooSymbol: string; name: string; region: 'us' | 'india' }
+  tradeDate: string
+  tradeType: 'buy' | 'sell'
+  quantity: number
+  price: number     // USD per unit
+  fxRate: number    // INR per USD on tradeDate
+}
+
+export async function addUsTransaction(input: UsTradeInput): Promise<{ error?: string }> {
+  const userId = await getUserId()
+  if (!userId) return { error: 'Not signed in' }
+  if (!(input.quantity > 0) || !(input.price > 0) || !(input.fxRate > 0)) return { error: 'Enter quantity, price and rate' }
+
+  const sb = await createSupabaseServerClient()
+  let holdingId = input.holdingId
+  if (!holdingId) {
+    const h = input.newHolding
+    const symbol = h?.symbol.trim().toUpperCase()
+    const yahoo = h?.yahooSymbol.trim().toUpperCase()
+    if (!h || !symbol || !yahoo) return { error: 'Enter the symbol and Yahoo symbol' }
+    const { data, error } = await sb
+      .from('us_holdings')
+      .upsert({ user_id: userId, symbol, yahoo_symbol: yahoo, name: h.name.trim(), region: h.region },
+              { onConflict: 'user_id,symbol' })
+      .select('id')
+      .single()
+    if (error) return { error: error.message }
+    holdingId = data.id
+    revalidateTag('us_holdings', {})
+  }
+
+  const { error } = await sb.from('us_transactions').insert({
+    user_id: userId, holding_id: holdingId, trade_date: input.tradeDate, trade_type: input.tradeType,
+    quantity: input.quantity, price: input.price, fx_rate: input.fxRate,
+  })
+  if (error) return { error: error.message }
+  revalidateTag('us_transactions', {})
+  revalidatePath('/portfolio')
+  return {}
+}
+
+export async function updateUsTransaction(
+  id: string,
+  patch: { quantity: number; price: number; fx_rate: number; trade_date: string },
+): Promise<{ error?: string }> {
+  const userId = await getUserId()
+  if (!userId) return { error: 'Not signed in' }
+  if (!(patch.quantity > 0) || !(patch.price > 0) || !(patch.fx_rate > 0)) return { error: 'Enter quantity, price and rate' }
+  const sb = await createSupabaseServerClient()
+  const { error } = await sb.from('us_transactions').update(patch).eq('id', id).eq('user_id', userId)
+  if (error) return { error: error.message }
+  revalidateTag('us_transactions', {})
+  revalidatePath('/portfolio')
+  return {}
+}
+
+export async function deleteUsTransaction(id: string): Promise<{ error?: string }> {
+  const userId = await getUserId()
+  if (!userId) return { error: 'Not signed in' }
+  const sb = await createSupabaseServerClient()
+  const { error } = await sb.from('us_transactions').delete().eq('id', id).eq('user_id', userId)
+  if (error) return { error: error.message }
+  revalidateTag('us_transactions', {})
+  revalidatePath('/portfolio')
+  return {}
 }

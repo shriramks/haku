@@ -7,13 +7,13 @@ import { Num } from '@/components/Num'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction, UsHolding, UsTransaction } from '@/lib/portfolio-types'
 import UserMenu from '@/components/UserMenu'
 import { FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import {
   TxnRow, ASSET_LABELS, type AssetType, type DisplayTxn,
-  stockToDisplayTxn, mfToDisplayTxn, sgbToDisplayTxn, ppfToDisplayTxn, epfToDisplayTxn,
+  stockToDisplayTxn, usToDisplayTxn, mfToDisplayTxn, sgbToDisplayTxn, ppfToDisplayTxn, epfToDisplayTxn,
 } from '@/components/EditableTxnRow'
 
 function assetFilterLabel(f: Set<AssetType>): string {
@@ -82,6 +82,8 @@ export default function TransactionsClient({
   const [sgbTxns, setSgbTxns] = useState<SGBTransaction[]>([])
   const [ppfTxns, setPpfTxns] = useState<PPFTransaction[]>([])
   const [epfTxns, setEpfTxns] = useState<EPFTransaction[]>([])
+  const [usHoldings, setUsHoldings] = useState<UsHolding[]>([])
+  const [usTxns,  setUsTxns]  = useState<UsTransaction[]>([])
   const [mounted, setMounted] = useState(false)
   const [portfolioLoaded,    setPortfolioLoaded]    = useState(false)
   const [allHistoryLoaded,   setAllHistoryLoaded]   = useState(initialAllHistoryLoaded)
@@ -118,12 +120,14 @@ export default function TransactionsClient({
   // Supabase directly, so repeat visits hit the warm Data Cache.
   useEffect(() => {
     if (filterSymbol) return // ?symbol= view shows stocks only — no portfolio needed
-    loadPortfolioTables().then(({ mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions }) => {
+    loadPortfolioTables().then(({ mfFunds, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, usHoldings, usTransactions }) => {
       setMfFunds(mfFunds)
       setMfTxns(mfTransactions)
       setSgbTxns(sgbTransactions)
       setPpfTxns(ppfTransactions)
       setEpfTxns(epfTransactions)
+      setUsHoldings(usHoldings)
+      setUsTxns(usTransactions)
       setPortfolioLoaded(true)
     })
   }, []) // filterSymbol is a stable URL param — intentionally omitted from deps
@@ -149,13 +153,17 @@ export default function TransactionsClient({
   }, [assetFilter])
 
   function handleDelete(id: string, asset: AssetType) {
-    if (asset === 'stock') setTxns(prev => prev.filter(t => t.id !== id))
+    if (asset === 'stock') {
+      setTxns(prev => prev.filter(t => t.id !== id))
+      setUsTxns(prev => prev.filter(t => t.id !== id))
+    }
     else if (asset === 'mf') setMfTxns(prev => prev.filter(t => t.id !== id))
     else if (asset === 'gold') setSgbTxns(prev => prev.filter(t => t.id !== id))
     else if (asset === 'ppf') setPpfTxns(prev => prev.filter(t => t.id !== id))
     else if (asset === 'epf') setEpfTxns(prev => prev.filter(t => t.id !== id))
   }
   function updateTxn(u: Transaction)       { setTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
+  function updateUsTxn(u: UsTransaction)   { setUsTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
   function updateMFTxn(u: MFTransaction)   { setMfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
   function updateSGBTxn(u: SGBTransaction) { setSgbTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
   function updatePPFTxn(u: PPFTransaction) { setPpfTxns(prev => prev.map(t => t.id === u.id ? u : t)) }
@@ -173,18 +181,20 @@ export default function TransactionsClient({
     const fundMap = new Map(mfFunds.map(f => [f.id, f]))
 
     const stocks = txns.map(stockToDisplayTxn)
+    const usMap  = new Map(usHoldings.map(h => [h.id, h.symbol]))
+    const us     = usTxns.map(t => usToDisplayTxn(t, usMap.get(t.holding_id) ?? 'US'))
     const mfs    = mfTxns.map(t => mfToDisplayTxn(t, fundMap.get(t.fund_id)?.scheme_name ?? 'Unknown Fund'))
     const gold   = sgbTxns.map(sgbToDisplayTxn)
     const ppf    = ppfTxns.map(ppfToDisplayTxn)
     const epf    = epfTxns.map(epfToDisplayTxn)
 
-    return [...stocks, ...mfs, ...gold, ...ppf, ...epf]
+    return [...stocks, ...us, ...mfs, ...gold, ...ppf, ...epf]
       .sort((a, b) => b.trade_date.localeCompare(a.trade_date))
-  }, [txns, mfTxns, sgbTxns, ppfTxns, epfTxns, mfFunds])
+  }, [txns, usTxns, usHoldings, mfTxns, sgbTxns, ppfTxns, epfTxns, mfFunds])
 
   // ── Stock symbols for the symbol picker ──
   const symbols = useMemo(() =>
-    Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
+    Array.from(new Set([...txns.map(t => t.symbol), ...usHoldings.map(h => h.symbol)])).sort(), [txns, usHoldings])
 
   // ── Display title for a ?fund= view — resolved once mfFunds loads client-side ──
   const filterFundName = filterFundId ? mfFunds.find(f => f.id === filterFundId)?.scheme_name : undefined
@@ -469,6 +479,7 @@ export default function TransactionsClient({
                     showAssetTag={showAssetTag}
                     onDelete={handleDelete}
                     onSavedStock={updateTxn}
+                    onSavedUs={updateUsTxn}
                     onSavedMF={updateMFTxn}
                     onSavedSGB={updateSGBTxn}
                     onSavedPPF={updatePPFTxn}
