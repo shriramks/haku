@@ -261,6 +261,8 @@ lib/
   mf-nav-sync.ts                        syncMfNav + latestNavRows: AMFI window → mf_navs — see "MF NAV Fetch Flow"
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
+  us-compute.ts                         US holding math in INR: computeUsPosition(s) — avg-cost basis from trade-date `amount_inr`, value at today's price × rate, XIRR on INR flows (#131)
+  fx.ts                                 USD->INR helpers: rateOnOrBefore, parseYahooFxHistory, USDINR_PRICE_KEY
   stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"
   price-freshness.ts                    lastMarketClose, pricesAreStale, laggingDates, istDay — Prices-button status + per-row dates ("Price Fetch Flow")
   holdings-sort.ts                      Portfolio list sort (sortHoldings, nextSort) + returnMetric

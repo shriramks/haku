@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fyLabel, formatINRFine, formatPriceFine, previousMonth } from '../formatter'
+import { fyLabel, formatINRFine, formatPriceFine, previousMonth, formatUsd } from '../formatter'
 
 const THIN = ' '
 
@@ -90,5 +90,16 @@ describe('previousMonth', () => {
   })
   it('January rolls back to December of the previous year', () => {
     expect(previousMonth('2026-01-15')).toBe('2025-12')
+  })
+})
+
+describe('formatUsd', () => {
+  it('always shows 2 decimals with US grouping and a $ prefix', () => {
+    expect(formatUsd(182.4)).toBe('$182.40')
+    expect(formatUsd(1284.5)).toBe('$1,284.50')
+    expect(formatUsd(0)).toBe('$0.00')
+  })
+  it('puts the minus before the $', () => {
+    expect(formatUsd(-12.5)).toBe('-$12.50')
   })
 })

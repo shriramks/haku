@@ -61,6 +61,12 @@ export function formatPriceFineNum(price: number): string {
   return v < 10000 ? `${v}` : v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
+/** USD price for secondary text: $182.40, $1,284.50 — always 2 decimals, US grouping. No ₹ anywhere (progress log #131.b). */
+export function formatUsd(amount: number): string {
+  const sign = amount < 0 ? '-' : ''
+  return `${sign}$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 /** Full Indian-locale number without ₹ — e.g. 33,40,000 */
 export function formatINRFull(amount: number): string {
   const abs  = Math.abs(amount)
