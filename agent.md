@@ -72,8 +72,9 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | PPF | `app/portfolio/` | `ppf_transactions` |
 | EPF | `app/portfolio/` | `epf_transactions` |
 | Dividends | `app/dividends/`, `components/StockDividends.tsx` | `dividend_transactions` |
+| Direct USD stocks / ETFs | `lib/us-compute.ts`, `app/portfolio/us/` | `us_holdings`, `us_transactions` (+ `fx_rates`) |
 
-Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches.
+Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches. Direct USD holdings are portfolio-only too, shown as Stocks rows in INR.
 
 ---
 
@@ -138,6 +139,7 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
   - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
   - A **Done** entry requires its tracked (non-gitignored) files to be committed and pushed to `main`. Work that's implemented and tested but not yet committed stays under `## Todo` — do not mark something Done on the strength of a passing build alone. This never justifies overriding ignore rules to get there: gitignored files (this file itself, `mockups/`, `supabase/migrations/`) are never committed regardless of Done status; for a session that only touches gitignored files, Done means the work is finished, full stop.
 - **Playbook and code stay in sync.** `docs/valuation-playbook.md` is the spec for `lib/band-calculator.ts`. Any playbook change that alters thresholds, ranges, formulas or categories ships in the same session as the matching code and test change, and the progress entry records both. If the code can't be updated in that session, say so explicitly and add a numbered Todo before committing the playbook.
+- **No helper text in the UI.** No hints, notes, explanations or disclaimers — labels, values and actions only (`docs/design.md`).
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
