@@ -76,15 +76,23 @@ describe('calculateBands — index ETF bands (v9 PE thresholds)', () => {
     expect(r.trimPrice).toBeCloseTo(2400)
   })
 
-  it('Nifty Next 50 Index: buy 22–25×, mid 25–28×, trim 32×', () => {
+  it('Nifty Next 50 Index: buy 17–20×, mid 20–23×, trim 26×', () => {
     const r = calculateBands({ category: 'Nifty Next 50 Index', eps: 100 })!
     expect(r.path).toBe('index')
     expect(r.factor).toBe(1)
-    expect(r.buyLow).toBeCloseTo(2200)
-    expect(r.buyHigh).toBeCloseTo(2500)
-    expect(r.midLow).toBeCloseTo(2500)
-    expect(r.midHigh).toBeCloseTo(2800)
-    expect(r.trimPrice).toBeCloseTo(3200)
+    expect(r.buyLow).toBeCloseTo(1700)
+    expect(r.buyHigh).toBeCloseTo(2000)
+    expect(r.midLow).toBeCloseTo(2000)
+    expect(r.midHigh).toBeCloseTo(2300)
+    expect(r.trimPrice).toBeCloseTo(2600)
+  })
+
+  it('Nifty Next 50 Index: playbook v11 JUNIORBEES worked example (CMP 739.9, PE 17.72)', () => {
+    const r = calculateBands({ category: 'Nifty Next 50 Index', eps: 739.9 / 17.72 })!
+    expect(r.buyLow).toBeCloseTo(710, -1)
+    expect(r.buyHigh).toBeCloseTo(835, -1)
+    expect(r.midHigh).toBeCloseTo(960, -1)
+    expect(r.trimPrice).toBeCloseTo(1086, -1)
   })
 
   it('index path ignores g/ke/mcap/roce inputs', () => {

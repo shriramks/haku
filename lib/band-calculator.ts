@@ -1,4 +1,4 @@
-// AI Investment Playbook v9 — band computation.
+// AI Investment Playbook v11 — band computation.
 // Part B: DDM-factor PE bands for individual stocks.
 // Part C: Index ETF PE bands — factor always 1, different PE thresholds.
 
@@ -16,9 +16,9 @@ const PE: Partial<Record<StockCategory, Mult>> = {
   'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
   'Niche Cap Goods': { buyLow: 24, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 },
   'Jewellery':       { buyLow: 24, buyHigh: 32, midLow: 33, midHigh: 42, trim: 43 },
-  // Index ETFs (v10): eps = cmp / indexPE  (rupee value of 1 PE point, live)
+  // Index ETFs (v11; Next 50 recalibrated Oct 2026): eps = cmp / indexPE  (rupee value of 1 PE point, live)
   'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Nifty Next 50 Index': { buyLow: 22, buyHigh: 25, midLow: 25, midHigh: 28, trim: 32 },
+  'Nifty Next 50 Index': { buyLow: 17, buyHigh: 20, midLow: 20, midHigh: 23, trim: 26 },
 }
 
 export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
