@@ -331,7 +331,7 @@ describe('POST /api/portfolio/prices/refresh', () => {
       expect.objectContaining({ symbol: 'US:VUAA.L', cmp: 110, prev_close: 109 }),
       expect.objectContaining({ symbol: USDINR_PRICE_KEY, cmp: 83.5, prev_close: 83.0 }),
     ])
-    expect(body.us).toEqual({ requested: 1, updated: 2 })
+    expect(body.us).toEqual({ requested: 1, updated: 1, fx: 'updated' })
   })
 
   it('US holdings: refreshes only the last month once fx_rates already covers the first trade', async () => {
@@ -347,5 +347,14 @@ describe('POST /api/portfolio/prices/refresh', () => {
     await post()
     expect(fetchYahooQuote).toHaveBeenCalledTimes(1)
     expect(fetchYahooQuote).toHaveBeenCalledWith('VUAA.L')
+  })
+
+  it('US holdings: reports a failed quote and a failed FX fetch so the client can show Retry', async () => {
+    setup({ usHoldings: [{ yahoo_symbol: 'VUAA.L' }] })
+    fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
+    fetchYahooQuote.mockResolvedValue(null)
+    fetchUsdInrHistory.mockResolvedValue([])
+    const body = await (await post()).json()
+    expect(body.us).toEqual({ requested: 1, updated: 0, fx: 'failed' })
   })
 })

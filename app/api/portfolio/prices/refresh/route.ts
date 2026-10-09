@@ -103,8 +103,10 @@ export async function POST() {
   // A failed US quote or FX fetch gets no row, like stocks and gold — the saved value stays.
   const usRows = usQuotes.flatMap(({ sym, q }) =>
     q ? [{ symbol: usPriceKey(sym), cmp: q.price, prev_close: q.previousClose, fetched_at: fetchedAt }] : [])
+  const usQuotesUpdated = usRows.length
   const latestFx = fxHistory[fxHistory.length - 1]
   const prevFx = fxHistory[fxHistory.length - 2]
+  const fx: 'skipped' | 'updated' | 'failed' = !holdsUs ? 'skipped' : latestFx ? 'updated' : 'failed'
   if (latestFx) {
     usRows.push({ symbol: USDINR_PRICE_KEY, cmp: latestFx.rate, prev_close: prevFx?.rate ?? null, fetched_at: fetchedAt })
   }
@@ -125,6 +127,6 @@ export async function POST() {
     fetchedAt,
     stocks: { requested: symbols.length, updated: rows.length, moved: moved.length, failed },
     gold,
-    us: { requested: usSymbols.length, updated: usRows.length },
+    us: { requested: usSymbols.length, updated: usQuotesUpdated, fx },
   })
 }

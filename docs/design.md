@@ -243,7 +243,7 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 - All four columns are `headline` (15px) — matches the primary-row size used everywhere else (Allocation, Bands). Bold/semibold weight and colour (not size) distinguish it from the HoldingRows it heads.
 - The % column is 78px: sized for the old 17px headline overflowing at +48.2 % (now 15px, so this has more headroom than strictly needed, but still holds an XIRR above 100 %).
 
-### HoldingRow (Portfolio: Stocks, MF, Gold — `components/HoldingRow.tsx`)
+### HoldingRow (Portfolio: Stocks incl. USD holdings, MF, Gold — `components/HoldingRow.tsx`)
 ```
 name (headline, semibold, max 2 lines)        value (headline, semibold)
 1D  +18.3 K  +0.3%                            P&L   +23.41 L
@@ -251,6 +251,7 @@ name (headline, semibold, max 2 lines)        value (headline, semibold)
 Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divider, no card, no chevron — the whole row taps.
 ```
 - Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (12px) at `--text-2`; the figures beside them are `body` (13px), coloured by sign, and always carry +/− (`Num signed`).
+- A direct USD holding (#131) adds one more line under the name: `native` — `$110.42 · 62 units` (`subheadline`, `--text-2`, tabnum); all other figures are INR via `Num`. Other rows leave it out.
 - The 1D slot shows the holding's own date instead of "1D" when its price is older than the rest's (same tag style, no colour), or `meta` (Gold: grams · maturity) when the holding has no daily figure.
 - The XIRR line reads **Return** when XIRR is unavailable, so the two never look alike.
 - MF rows carry no class marker: the Equity/Debt pills filter on `assetClass`, and the donut (not the rows) carries `--c-equity` / `--c-debt`.
@@ -264,7 +265,7 @@ Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divide
 ### RegionSheet (`components/RegionSheet.tsx`)
 - Opened by tapping the Portfolio allocation pie. The pie, a 6px India / US mini bar under it (same width, region tokens) and one line "India 91%  US 9%" (subheadline, `--text-2`, normal weight, whole percents that add to 100 — US rounded, India the rest) are one 44px+ button; the bar + line are the tap affordance, with no separate hint text. A `BottomSheet` with `SheetHeader` ("Exposure by region", Done on the right).
 - Body: a 12px full-round stacked bar (India `--c-region-in`, US `--c-region-us`, 2px gap, `--bg-tertiary` track), then a two-item legend — dot, share (headline, semibold, tabnum) + label (body), amount (subheadline, `--text-2`) under it; India left, US right. Amounts via `Num`, no ₹.
-- Below Equity by region, a "US funds" section reuses the same row layout (name + "N% of portfolio" left, amount + XIRR right); each row is a `Link` to the fund page, min 44px tall.
+- Below Equity by region, a "US funds & ETFs" section reuses the same row layout (name + "N% of portfolio" left, amount + XIRR right); each row is a `Link` (`href` from the data: MF page or US holding page), min 44px tall.
 - Region colours are their own tokens because the pie already uses `--c-equity` / `--c-debt` / `--c-gold`. `--c-region-in` is the same blue as `--bar-fill`.
 
 ### MetricCard (a number with a label)

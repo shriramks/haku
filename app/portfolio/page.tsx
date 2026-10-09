@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
-import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions } from '@/lib/data'
+import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions, getUsHoldings, getUsTransactions, getUsdInrRate } from '@/lib/data'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
-import { heldSymbols } from '@/lib/stock-prices'
+import { heldSymbols, usPriceKey } from '@/lib/stock-prices'
 import { newestTimestamp, pricesAreStale } from '@/lib/price-freshness'
 import { buildPortfolio, type StockTxn } from '@/lib/portfolio-compute'
 import type { StockAllocation } from '@/lib/types'
@@ -15,8 +15,8 @@ export default async function PortfolioPage() {
 
   // Two fetch stages, not a chain. Stage 1: the cached getters (unstable_cache-wrapped in
   // lib/data.ts; see app/portfolio/actions.ts and TransactionsClient.tsx for the matching
-  // revalidation on every write). Stage 2: the four uncached reads — none depends on another
-  // (three need something from stage 1, the gold price needs nothing) — so they run in parallel.
+  // revalidation on every write). Stage 2: the five uncached reads — none depends on another
+  // (three need something from stage 1; the gold price and USD->INR rate need nothing) — so they run in parallel.
   const [
     fiscalYears,
     allTransactions,
@@ -27,6 +27,8 @@ export default async function PortfolioPage() {
     ppfTransactions,
     ppfOverride,
     epfTransactions,
+    usHoldings,
+    usTransactions,
   ] = await Promise.all([
     getFiscalYears(),
     getTransactions(),
@@ -37,6 +39,8 @@ export default async function PortfolioPage() {
     getPPFTransactions(),
     getPPFOverride(),
     getEPFTransactions(),
+    getUsHoldings(),
+    getUsTransactions(),
   ])
 
   const currentFY = getCurrentFY(fiscalYears)
@@ -46,11 +50,12 @@ export default async function PortfolioPage() {
 
   const held = heldSymbols(allTransactions)
 
-  const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice] = await Promise.all([
+  const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice, usdInr] = await Promise.all([
     currentFY ? getAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
     getMFNavs(activeMfFunds.map(f => f.scheme_code)),
-    getStockPrices(held),
+    getStockPrices([...held, ...usHoldings.map(h => usPriceKey(h.yahoo_symbol))]),
     getGoldPrice(),
+    getUsdInrRate(),
   ])
 
   // Only open positions are computed, and only five transaction fields are read (StockTxn) —
@@ -70,15 +75,16 @@ export default async function PortfolioPage() {
     stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs: mfNavInfo,
     sgbTransactions, goldPrice: goldPrice?.cmp ?? null, prevGoldPrice: goldPrice?.prevClose ?? null,
     ppfTransactions, ppfOverride, epfTransactions,
+    usHoldings, usTransactions, usdInr: usdInr ? { rate: usdInr.cmp, prevRate: usdInr.prevClose } : null,
   })
 
-  // Drives the amber dot on the Prices button: the newest saved stock/gold price predates the last
+  // Drives the amber dot on the Prices button: the newest saved stock/gold/US price predates the last
   // market close. Only meaningful with something to price — an MF-only user has no stock/gold price
   // to go stale (their NAVs show per-row dates instead). Computed here, not in the client, so the
   // clock read never differs between server render and hydration.
-  const hasPricedHoldings = held.length > 0 || sgbTransactions.length > 0
+  const hasPricedHoldings = held.length > 0 || sgbTransactions.length > 0 || usHoldings.length > 0
   const pricesStale = hasPricedHoldings && pricesAreStale(
-    newestTimestamp([...Object.values(stockPrices).map(p => p.fetchedAt), goldPrice?.fetchedAt]),
+    newestTimestamp([...Object.values(stockPrices).map(p => p.fetchedAt), goldPrice?.fetchedAt, usdInr?.fetchedAt]),
     new Date(),
   )
 

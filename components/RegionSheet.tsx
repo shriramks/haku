@@ -8,7 +8,7 @@ import type { RegionExposure } from '@/lib/exposure'
 
 // Opened by tapping the allocation pie on Portfolio: the same money as the pie, cut by region.
 export default function RegionSheet({ region, onClose }: { region: RegionExposure; onClose: () => void }) {
-  const { indiaValue, usValue, indiaPct, usPct, equity, usFunds } = region
+  const { indiaValue, usValue, indiaPct, usPct, equity, usHoldings } = region
 
   return (
     <BottomSheet onClose={onClose}>
@@ -49,11 +49,11 @@ export default function RegionSheet({ region, onClose }: { region: RegionExposur
           </div>
         )}
 
-        {usFunds.length > 0 && (
+        {usHoldings.length > 0 && (
           <div style={{ paddingTop: 32 }}>
-            <p className="label-section">US funds</p>
-            {usFunds.map(f => (
-              <Link key={f.fundId} href={`/portfolio/mf/${f.fundId}`}
+            <p className="label-section">US funds &amp; ETFs</p>
+            {usHoldings.map(f => (
+              <Link key={f.key} href={f.href}
                 className="flex items-baseline justify-between gap-4" style={{ paddingTop: 16, minHeight: 44 }}>
                 <div className="min-w-0">
                   <p className="text-headline">{f.name}</p>

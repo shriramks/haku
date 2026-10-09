@@ -73,8 +73,12 @@ export default function PortfolioClient({
     try {
       const res = await fetch('/api/portfolio/prices/refresh', { method: 'POST' })
       if (res.ok) {
-        const body = await res.json() as { stocks?: { failed?: unknown[] }; gold?: string }
-        outcome = (body.stocks?.failed?.length ?? 0) > 0 || body.gold === 'failed' ? 'partial' : 'updated'
+        const body = await res.json() as {
+          stocks?: { failed?: unknown[] }; gold?: string
+          us?: { requested: number; updated: number; fx: string }
+        }
+        const usFailed = body.us !== undefined && (body.us.updated < body.us.requested || body.us.fx === 'failed')
+        outcome = (body.stocks?.failed?.length ?? 0) > 0 || body.gold === 'failed' || usFailed ? 'partial' : 'updated'
       }
     } catch { /* outcome stays 'partial'; fall through to the re-render below */ }
     setRefreshResult(outcome)

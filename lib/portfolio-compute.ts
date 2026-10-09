@@ -4,7 +4,9 @@
 import { seqCost } from './compute'
 import { computeMFHolding } from './mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from './sgb-compute'
-import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from './stock-prices'
+import { HELD_QTY_EPSILON, resolveCmp, usPriceKey, type StockPriceInfo } from './stock-prices'
+import { computeUsPositions, type UsPosition, type UsdInrRate } from './us-compute'
+import { formatUsd, trimZero } from './formatter'
 import { istDay, laggingDates, shortDate } from './price-freshness'
 import { returnMetric } from './holdings-sort'
 import { mfAssetClass } from './tax-compute'
@@ -15,6 +17,7 @@ import {
 import type { HoldingRowData } from '@/components/HoldingRow'
 import type {
   EPFTransaction, MFHolding, MFTransaction, MFund, PPFBalanceOverride, PPFTransaction, SGBTransaction,
+  UsHolding, UsTransaction,
 } from './portfolio-types'
 import type { Transaction } from './types'
 
@@ -40,6 +43,11 @@ export interface PortfolioInput {
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
   epfTransactions: EPFTransaction[]
+  /** Direct USD holdings (#131). Positions are priced from `stockPrices` under `usPriceKey(yahoo_symbol)`. */
+  usHoldings: UsHolding[]
+  usTransactions: UsTransaction[]
+  /** Today's USD->INR rate; null until the first Prices tap (US values then fall back to cost). */
+  usdInr: UsdInrRate | null
 }
 
 /** What a section header shows. A figure that is zero comes through as null (the header draws nothing). */
@@ -75,6 +83,9 @@ export interface PortfolioData {
   ppf: SectionHeaderData
   epf: SectionHeaderData
 }
+
+/** HoldingRow key for a USD holding; the prefix keeps it clear of NSE symbols in the shared stale-date map. */
+const usRowKey = (p: UsPosition) => `us:${p.holding.id}`
 
 // ── Per-asset helpers ─────────────────────────────────────────────────────────
 
@@ -137,16 +148,26 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
   const {
     stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs,
     sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions, ppfOverride, epfTransactions,
+    usHoldings, usTransactions, usdInr,
   } = input
 
   const stockHoldings = computeStockHoldings(stockTxns, bandCmps, stockPrices)
   const mfHoldings = computeMFHoldings(mfFunds, mfTransactions, mfNavs)
   const sgbBatches = computeSGBBatches(sgbTransactions, goldPrice)
+  const usPositions = computeUsPositions(usHoldings, usTransactions, stockPrices, usdInr)
 
   // Stocks — no-CMP positions fall back to cost (gain 0) in the totals.
   const equityInvested = stockHoldings.reduce((s, h) => s + h.invested, 0)
   const equityCurrent = stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
   const equityGain1d = stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0)
+
+  // Direct USD holdings (#131) are equity too: they sit in the Stocks section and every total, in INR.
+  // `equity*` above stays NSE-only because the region split needs the two apart.
+  const usInvested = usPositions.reduce((s, p) => s + p.invested, 0)
+  const usCurrent = usPositions.reduce((s, p) => s + (p.currentValue ?? p.invested), 0)
+  const usGain1d = usPositions.reduce((s, p) => s + (p.gain1d ?? 0), 0)
+  const stocksInvested = equityInvested + usInvested
+  const stocksCurrent = equityCurrent + usCurrent
 
   // MF
   const mfInvested = mfHoldings.reduce((s, h) => s + h.invested, 0)
@@ -173,27 +194,28 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
   const epfXirrVal = epfXirr(epfTransactions, epfBalance)
 
   // Totals
-  const totalInvested = equityInvested + mfInvested + sgbInvested + ppfDeposited + epfDeposited
-  const totalCurrent = equityCurrent + mfCurrentValue + sgbCurrentValue + ppfBalance + epfBalance
+  const totalInvested = stocksInvested + mfInvested + sgbInvested + ppfDeposited + epfDeposited
+  const totalCurrent = stocksCurrent + mfCurrentValue + sgbCurrentValue + ppfBalance + epfBalance
   const totalGain = totalCurrent - totalInvested
 
-  // Overall XIRR: wait for the gold price before computing so the terminal value is accurate.
+  // Overall XIRR (INR flows throughout — US positions use their trade-date-rate `amount_inr`): wait for the gold price before computing so the terminal value is accurate.
   // stockTxns is the same open-position list computeStockHoldings uses, so the stock cashflows
   // and totalCurrent cover the same stocks (exited positions are in neither).
+  const usFlows = usPositions.flatMap(p => p.transactions.map(t => ({ trade_date: t.trade_date, trade_type: t.trade_type, amount: t.amount_inr })))
   const xirr = sgbTransactions.length > 0 && goldPrice === null
     ? null
-    : portfolioXirr(stockTxns, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
+    : portfolioXirr([...stockTxns, ...usFlows], mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
 
-  // 1D Gain rolls in Stocks + MF + Gold — PPF/EPF excluded (no daily price). 1D % is
+  // 1D Gain rolls in Stocks (incl. USD holdings) + MF + Gold — PPF/EPF excluded (no daily price). 1D % is
   // the plain (non-annualised) move: totalCurrent − totalGain1d is "yesterday", so
   // static PPF/EPF sit in the denominator with zero movement and dilute it, as they should.
-  const totalGain1d = equityGain1d + mfGain1d + (goldGain1d ?? 0)
+  const totalGain1d = equityGain1d + usGain1d + mfGain1d + (goldGain1d ?? 0)
   const prevTotal = totalCurrent - totalGain1d
   const dayPct = prevTotal > 0 ? totalGain1d / prevTotal * 100 : null
 
   // Asset allocation for the donut
-  const totalForAlloc = equityCurrent + mfEquity + mfDebt + sgbCurrentValue + ppfBalance + epfBalance
-  const eqPct = totalForAlloc > 0 ? Math.round((equityCurrent + mfEquity) / totalForAlloc * 100) : 0
+  const totalForAlloc = stocksCurrent + mfEquity + mfDebt + sgbCurrentValue + ppfBalance + epfBalance
+  const eqPct = totalForAlloc > 0 ? Math.round((stocksCurrent + mfEquity) / totalForAlloc * 100) : 0
   const debtPct = totalForAlloc > 0 ? Math.round((mfDebt + ppfBalance + epfBalance) / totalForAlloc * 100) : 0
   const goldPct = 100 - eqPct - debtPct
 
@@ -204,6 +226,11 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
     const info = stockPrices[h.symbol]
     const day = info ? istDay(info.fetchedAt) : null
     if (day) stockDays[h.symbol] = day
+  }
+  for (const p of usPositions) {
+    const info = stockPrices[usPriceKey(p.holding.yahoo_symbol)]
+    const day = info ? istDay(info.fetchedAt) : null
+    if (day) stockDays[usRowKey(p)] = day
   }
   const stockLag = laggingDates(stockDays)
   const mfDays: Record<string, string> = {}
@@ -220,6 +247,17 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
       value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
       dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
       staleDate: stockLag[h.symbol] ? shortDate(stockLag[h.symbol]) : undefined,
+    }
+  })
+  const usRows: HoldingRowData[] = usPositions.map(p => {
+    const r = returnMetric(p.xirr, p.gain, p.invested)
+    const key = usRowKey(p)
+    return {
+      key, name: p.holding.name || p.holding.symbol, href: `/portfolio/us/${p.holding.id}`,
+      value: p.currentValue, pnl: p.gain, retPct: r.pct, retLabel: r.label,
+      dayPct: p.gain1dPct, day: { amount: p.gain1d, pct: p.gain1dPct },
+      native: `${p.priceUsd !== null ? `${formatUsd(p.priceUsd)} · ` : ''}${trimZero(p.quantity, 3)} units`,
+      staleDate: stockLag[key] ? shortDate(stockLag[key]) : undefined,
     }
   })
   const mfRows: HoldingRowData[] = mfHoldings.map(h => {
@@ -244,12 +282,12 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
 
   return {
     summary: { totalCurrent, totalInvested, totalGain, totalGain1d, dayPct, xirr, eqPct, debtPct, goldPct },
-    region: computeRegionExposure(mfHoldings, totalCurrent, { value: equityCurrent, txns: stockTxns }),
+    region: computeRegionExposure(mfHoldings, totalCurrent, { value: equityCurrent, txns: stockTxns }, usPositions),
     stocks: {
-      invested: equityInvested > 0 ? equityInvested : null,
-      gainPct: gainOverInvested(equityCurrent, equityInvested),
-      currentValue: equityCurrent > 0 ? equityCurrent : null,
-      rows: stockRows,
+      invested: stocksInvested > 0 ? stocksInvested : null,
+      gainPct: gainOverInvested(stocksCurrent, stocksInvested),
+      currentValue: stocksCurrent > 0 ? stocksCurrent : null,
+      rows: [...stockRows, ...usRows],
     },
     mf: {
       invested: mfInvested > 0 ? mfInvested : null,

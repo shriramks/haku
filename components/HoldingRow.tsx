@@ -16,6 +16,8 @@ export interface HoldingRowData extends SortableHolding {
   meta?: string
   /** MF only — what the Equity / Debt filter pills match on. Not drawn on the row. */
   assetClass?: 'equity' | 'debt'
+  /** Native-currency line under the name, e.g. "$110.42 · 62 units" (direct USD holdings only). */
+  native?: string
   /** Shown in place of the "1D" label when this holding's price is older than the rest's (#121.b). */
   staleDate?: string
 }
@@ -57,6 +59,9 @@ export function HoldingRow({ row, onClick }: { row: HoldingRowData; onClick: () 
             </>
           )}
         </p>
+        {row.native && (
+          <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-2)' }}>{row.native}</p>
+        )}
       </div>
       <div className="text-right tabnum">
         <p className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>

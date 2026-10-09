@@ -251,21 +251,33 @@ transaction history for a stock filter the Transactions tab.
 The Portfolio screen's pie is asset class (equity / debt / gold). Tapping it opens a sheet with the
 same money cut by region: India vs US, as a stacked bar with share of total and amount.
 
-- **Region rule:** stocks, gold / SGB, PPF and EPF are India. A mutual fund is US when its scheme name
+- **Region rule:** Indian stocks, gold / SGB, PPF and EPF are India. A direct USD holding (`us_holdings`) uses its explicit `region` (`us` default, or `india`) — never inferred from its name. A mutual fund is US when its scheme name
   contains the whole word "US" (or "U.S."), "S&P" (any spacing / `&amp;` / "S and P" / "SnP"), or
   "Nasdaq" — `mfRegion` in `lib/exposure.ts`. Everything else is India. Overseas funds that carry none
   of those words (global, China, emerging) count as India until a keyword is added.
 - **Invariant:** India + US = total current value = the pie's total. A US fund with no NAV counts at cost,
   exactly as in the pie.
-- **Equity by region** (below the bar): India stocks / India MFs / US MFs, each with value, share of
-  equity and XIRR. Equity = stocks + equity-class MFs (`mfAssetClass`), so the three sum to the pie's
-  equity value. XIRR is `stockXirr` / `mfXirr` over the group's transactions; "—" when the group has no
+- **Equity by region** (below the bar): India stocks / India MFs / US stocks & ETFs / US MFs, each with value, share of
+  equity and XIRR. Equity = stocks + direct holdings + equity-class MFs (`mfAssetClass`), so the groups sum to the pie's
+  equity value. An India-region direct holding counts in India stocks. XIRR is `stockXirr` / `mfXirr` over the group's transactions; "—" when the group has no
   value or no transactions. Empty groups are hidden. A debt-class fund inferred US counts in the
   India / US bar but not here.
-- **US funds** (below Equity by region): one row per US-region MF of any class — name, value, share of
-  total portfolio, XIRR — largest first; row links to the fund detail page. Values sum to the bar's US
+- **US funds & ETFs** (below Equity by region): one row per US-region MF of any class and per US-region direct holding — name, value, share of
+  total portfolio, XIRR — largest first; row links to its detail page (`/portfolio/mf/[id]` or `/portfolio/us/[id]`). Values sum to the bar's US
   amount. Hidden when there are none.
-- Direct foreign holdings (#131) will join the US group; they carry an explicit region, not name inference.
+
+### Portfolio: direct USD holdings (#131)
+
+Direct US stocks / ETFs (e.g. VUAA via IBKR) are **equity**, so they are rows in the **Stocks** section, not a
+section of their own — Portfolio sections are asset classes, region is a separate lens (the region sheet).
+- **Currency:** INR is the base everywhere. Cost is fixed at each trade's USD->INR rate (`amount_inr`); value =
+  qty × latest USD price × today's rate; P&L is one total INR gain (price + currency together); XIRR runs on the INR
+  cash flows. With no price or no rate yet, the row has no value and counts at cost, like an MF without a NAV.
+- **Row:** the standard HoldingRow plus one muted line under the name — `$110.42 · 62 units` (or just `62 units`
+  without a price). No ₹ symbol anywhere.
+- **Totals:** the Stocks header, portfolio totals, 1D change, overall XIRR and the donut (as equity) all include them.
+- **Scope:** portfolio-only — no bands, tranches, investability or FY allocation. Excluded from the Tax report and
+  harvesting for now (shown as "not included" in 131.e).
 
 ---
 

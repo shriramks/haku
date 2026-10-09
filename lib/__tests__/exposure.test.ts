@@ -66,28 +66,28 @@ describe('computeRegionExposure', () => {
   it('an empty portfolio is 0 / 0, not NaN', () => {
     const r = computeRegionExposure([], 0)
     expect(r).toMatchObject({ indiaValue: 0, usValue: 0, indiaPct: 0, usPct: 0 })
-    expect(r.equity.map(g => [g.value, g.pctOfEquity, g.xirr])).toEqual([[0, 0, null], [0, 0, null], [0, 0, null]])
+    expect(r.equity.map(g => [g.value, g.pctOfEquity, g.xirr])).toEqual([[0, 0, null], [0, 0, null], [0, 0, null], [0, 0, null]])
   })
 
-  describe('US funds', () => {
+  describe('US funds and ETFs', () => {
     const big = { ...us, fund: named('Mirae Asset S&P 500 Top 50 FoF'), currentValue: 900, invested: 800 }
     const debtUs = { fund: named('Some US Treasury Fund', 'Debt Scheme'), currentValue: null, invested: 100, transactions: [] }
 
     it('lists every US fund (any class), largest first, summing to usValue', () => {
       const r = computeRegionExposure([us, india, debtUs, big], 3000)
-      expect(r.usFunds.map(f => f.fundId)).toEqual([big.fund.id, us.fund.id, debtUs.fund.id])
-      expect(r.usFunds.reduce((s, f) => s + f.value, 0)).toBe(r.usValue)
-      expect(r.usFunds[0]).toMatchObject({ name: big.fund.scheme_name, value: 900 })
-      expect(r.usFunds[0].pctOfTotal).toBeCloseTo(30)
-      expect(r.usFunds[0].xirr).not.toBeNull()
+      expect(r.usHoldings.map(f => f.key)).toEqual([big.fund.id, us.fund.id, debtUs.fund.id])
+      expect(r.usHoldings.reduce((s, f) => s + f.value, 0)).toBe(r.usValue)
+      expect(r.usHoldings[0]).toMatchObject({ name: big.fund.scheme_name, value: 900 })
+      expect(r.usHoldings[0].pctOfTotal).toBeCloseTo(30)
+      expect(r.usHoldings[0].xirr).not.toBeNull()
     })
 
     it('no NAV counts at cost; no transactions → xirr null', () => {
-      expect(computeRegionExposure([debtUs], 100).usFunds[0]).toMatchObject({ value: 100, xirr: null })
+      expect(computeRegionExposure([debtUs], 100).usHoldings[0]).toMatchObject({ value: 100, xirr: null })
     })
 
     it('empty without US funds, and survives a JSON round-trip', () => {
-      expect(computeRegionExposure([india], 700).usFunds).toEqual([])
+      expect(computeRegionExposure([india], 700).usHoldings).toEqual([])
       const r = computeRegionExposure([us], 300)
       expect(JSON.parse(JSON.stringify(r))).toEqual(r)
     })
@@ -98,36 +98,72 @@ describe('computeRegionExposure', () => {
 
     it('three groups sum to equity value (stocks + equity MFs); shares sum to 100', () => {
       const r = computeRegionExposure([us, india], 5000, stocks)
-      expect(r.equity.map(g => g.key)).toEqual(['india-stocks', 'india-mfs', 'us-mfs'])
-      expect(r.equity.map(g => g.value)).toEqual([1000, 700, 300])
+      expect(r.equity.map(g => g.key)).toEqual(['india-stocks', 'india-mfs', 'us-stocks', 'us-mfs'])
+      expect(r.equity.map(g => g.value)).toEqual([1000, 700, 0, 300])
       expect(r.equity.reduce((s, g) => s + g.value, 0)).toBe(2000)
       expect(r.equity.reduce((s, g) => s + g.pctOfEquity, 0)).toBeCloseTo(100)
-      expect(r.equity[2].pctOfEquity).toBeCloseTo(15)
-      expect(r.equity.every(g => g.xirr !== null)).toBe(true)
+      expect(r.equity[3].pctOfEquity).toBeCloseTo(15)
+      expect(r.equity.filter(g => g.value > 0).every(g => g.xirr !== null)).toBe(true)
     })
 
     it('a debt-class fund inferred US counts in the bar but not in equity by region', () => {
       const debtUs = { fund: named('Some US Treasury Debt Fund', 'Debt Scheme'), currentValue: 400, invested: 400, transactions: [tx('2025-01-01', 'buy', 400)] }
       const r = computeRegionExposure([debtUs, india], 1100, { value: 0, txns: [] })
       expect(r.usValue).toBe(400)
-      expect(r.equity.map(g => g.value)).toEqual([0, 700, 0])
+      expect(r.equity.map(g => g.value)).toEqual([0, 700, 0, 0])
     })
 
     it('xirr is null for a group with no value or no transactions', () => {
       const r = computeRegionExposure([{ ...us, transactions: [] }], 300, { value: 0, txns: [] })
       expect(r.equity[0].xirr).toBeNull()
-      expect(r.equity[2].value).toBe(300)
-      expect(r.equity[2].xirr).toBeNull()
+      expect(r.equity[3].value).toBe(300)
+      expect(r.equity[3].xirr).toBeNull()
     })
 
     it('an MF with no NAV counts at cost', () => {
       const r = computeRegionExposure([{ ...us, currentValue: null }], 250, { value: 0, txns: [] })
-      expect(r.equity[2].value).toBe(250)
+      expect(r.equity[3].value).toBe(250)
     })
 
     it('survives a JSON round-trip', () => {
       const r = computeRegionExposure([us, india], 5000, stocks)
       expect(JSON.parse(JSON.stringify(r))).toEqual(r)
+    })
+  })
+
+  describe('direct USD holdings', () => {
+    const direct = (id: string, region: 'us' | 'india', value: number | null, invested: number) => ({
+      holding: { id, symbol: id.toUpperCase(), name: `${id} ETF`, region },
+      transactions: [{ trade_date: '2025-01-01', trade_type: 'buy' as const, amount_inr: invested }],
+      currentValue: value, invested,
+    })
+    const stocks = { value: 1000, txns: [tx('2025-01-01', 'buy', 800)] }
+
+    it('a US-region holding adds to usValue, so India + US still equals the total', () => {
+      const r = computeRegionExposure([india], 2700, stocks, [direct('vuaa', 'us', 1000, 900)])
+      expect(r.usValue).toBe(1000)
+      expect(r.indiaValue + r.usValue).toBe(2700)
+    })
+
+    it('lands in the US stocks & ETFs group; groups still sum to equity value', () => {
+      const r = computeRegionExposure([us, india], 3000, stocks, [direct('vuaa', 'us', 1000, 900)])
+      expect(r.equity.map(g => g.value)).toEqual([1000, 700, 1000, 300])
+      expect(r.equity.reduce((s, g) => s + g.pctOfEquity, 0)).toBeCloseTo(100)
+      expect(r.equity[2].xirr).not.toBeNull()
+    })
+
+    it('an India-region holding joins India stocks and stays out of usValue', () => {
+      const r = computeRegionExposure([], 1500, stocks, [direct('inda', 'india', 500, 400)])
+      expect(r.usValue).toBe(0)
+      expect(r.equity[0].value).toBe(1500)
+    })
+
+    it('counts at cost without a price, and lists beside US MFs largest first with its own href', () => {
+      const r = computeRegionExposure([us], 1000, undefined, [direct('vuaa', 'us', null, 700)])
+      expect(r.usValue).toBe(1000)
+      expect(r.usHoldings.map(h => h.key)).toEqual(['vuaa', us.fund.id])
+      expect(r.usHoldings[0]).toMatchObject({ href: '/portfolio/us/vuaa', name: 'vuaa ETF', value: 700 })
+      expect(r.usHoldings[1].href).toBe(`/portfolio/mf/${us.fund.id}`)
     })
   })
 })

@@ -3,7 +3,7 @@
 // today's rate, so XIRR and gain are on INR cash flows and currency movement counts.
 import { seqCost } from './compute'
 import { stockXirr } from './xirr'
-import { HELD_QTY_EPSILON } from './stock-prices'
+import { HELD_QTY_EPSILON, usPriceKey, type StockPriceInfo } from './stock-prices'
 import type { UsHolding, UsTransaction } from './portfolio-types'
 
 export interface UsPosition {
@@ -23,12 +23,9 @@ export interface UsPosition {
   gain1dPct: number | null
 }
 
-export interface UsQuote {
-  price: number
-  prevClose: number | null
-}
 
-export interface UsRate {
+/** Today's USD->INR rate and the prior close (`getUsdInrRate` shape, reduced to the numbers). */
+export interface UsdInrRate {
   rate: number
   prevRate: number | null
 }
@@ -40,15 +37,15 @@ export interface UsRate {
 export function computeUsPosition(
   holding: UsHolding,
   transactions: UsTransaction[],
-  quote: UsQuote | null,
-  fx: UsRate | null,
+  quote: StockPriceInfo | null,
+  fx: UsdInrRate | null,
 ): UsPosition | null {
   const { qty, cost } = seqCost(transactions.map(t => ({
     trade_date: t.trade_date, trade_type: t.trade_type, quantity: t.quantity, amount: t.amount_inr,
   })))
   if (qty <= HELD_QTY_EPSILON) return null
 
-  const priceUsd = quote?.price ?? null
+  const priceUsd = quote?.cmp ?? null
   const currentValue = priceUsd !== null && fx ? qty * priceUsd * fx.rate : null
   const gain = currentValue !== null ? currentValue - cost : null
 
@@ -71,8 +68,8 @@ export function computeUsPosition(
 export function computeUsPositions(
   holdings: UsHolding[],
   transactions: UsTransaction[],
-  quotes: Record<string, UsQuote>,   // keyed by yahoo_symbol
-  fx: UsRate | null,
+  prices: Record<string, StockPriceInfo>,   // stock_prices rows, keyed as getStockPrices returns them (`US:<yahoo symbol>`)
+  fx: UsdInrRate | null,
 ): UsPosition[] {
   const byHolding = new Map<string, UsTransaction[]>()
   for (const t of transactions) {
@@ -81,7 +78,7 @@ export function computeUsPositions(
     else byHolding.set(t.holding_id, [t])
   }
   return holdings
-    .map(h => computeUsPosition(h, byHolding.get(h.id) ?? [], quotes[h.yahoo_symbol] ?? null, fx))
+    .map(h => computeUsPosition(h, byHolding.get(h.id) ?? [], prices[usPriceKey(h.yahoo_symbol)] ?? null, fx))
     .filter((p): p is UsPosition => p !== null)
     .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
 }
