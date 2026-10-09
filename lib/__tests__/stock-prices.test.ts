@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { heldSymbols, resolveCmp, buildPriceUpdate, type StockPriceInfo } from '../stock-prices'
+import { usPriceKey, isValidYahooSymbol, heldSymbols, resolveCmp, buildPriceUpdate, type StockPriceInfo } from '../stock-prices'
 
 const buy  = (symbol: string, trade_date: string, quantity: number, amount = quantity * 100) =>
   ({ symbol, trade_date, trade_type: 'buy' as const, quantity, amount })
@@ -113,5 +113,17 @@ describe('buildPriceUpdate', () => {
     expect(moved).toEqual([])
     expect(rows).toHaveLength(1)
     expect(rows[0].fetched_at).toBe(at)
+  })
+})
+
+describe('US price keys', () => {
+  it('namespaces the Yahoo symbol', () => {
+    expect(usPriceKey('VUAA.L')).toBe('US:VUAA.L')
+  })
+  it('accepts normal Yahoo tickers', () => {
+    for (const s of ['VUAA.L', 'AAPL', 'BRK-B', '^GSPC', 'USDINR=X']) expect(isValidYahooSymbol(s)).toBe(s !== '^GSPC')
+  })
+  it('rejects reserved / malformed keys', () => {
+    for (const s of ['_GOLD_INR_PER_GRAM', '_USDINR', '', 'a b', 'US:TCS', 'x'.repeat(21)]) expect(isValidYahooSymbol(s)).toBe(false)
   })
 })

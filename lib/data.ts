@@ -5,7 +5,8 @@ import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, UsHolding, UsTransaction } from './portfolio-types'
+import { USDINR_PRICE_KEY, type FxRate } from './fx'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -22,6 +23,8 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 //   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
 //     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
 //     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
+//   getUsHoldings / getUsTransactions : 1 hour — writes go through app/portfolio/actions.ts (revalidateTag('us_holdings' / 'us_transactions'))
+//   getFxRates / getUsdInrRate : no cache on purpose (fx_rates is written by the Prices refresh route)
 //   getMFNavs / getStockPrices / getGoldPrice : no cache on purpose — a Prices-button refresh must show on the next render
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
 
@@ -473,3 +476,60 @@ export const getLatestSnapshots = cache(async (symbol: string): Promise<BuyBandS
   if (!userId) return []
   return _fetchLatestTwoSnapshots(userId, symbol)
 })
+
+const _fetchUsHoldings = unstable_cache(
+  async (userId: string): Promise<UsHolding[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('us_holdings')
+      .select('id, symbol, yahoo_symbol, name, region')
+      .eq('user_id', userId)
+      .order('symbol', { ascending: true })
+    return (data ?? []) as UsHolding[]
+  },
+  ['us_holdings'],
+  { revalidate: 3600, tags: ['us_holdings'] }
+)
+
+export const getUsHoldings = cache(async (): Promise<UsHolding[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchUsHoldings(userId)
+})
+
+const _fetchUsTransactions = unstable_cache(
+  async (userId: string): Promise<UsTransaction[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('us_transactions')
+      .select('id, holding_id, trade_date, trade_type, quantity, price, fx_rate, amount, amount_inr')
+      .eq('user_id', userId)
+      .order('trade_date', { ascending: true })
+    return ((data ?? []) as Record<string, string | number>[]).map(r => ({
+      ...r,
+      quantity: Number(r.quantity), price: Number(r.price), fx_rate: Number(r.fx_rate),
+      amount: Number(r.amount), amount_inr: Number(r.amount_inr),
+    })) as UsTransaction[]
+  },
+  ['us_transactions'],
+  { revalidate: 3600, tags: ['us_transactions'] }
+)
+
+export const getUsTransactions = cache(async (): Promise<UsTransaction[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  return _fetchUsTransactions(userId)
+})
+
+/** USD->INR daily history from `fx_rates` (public market data, no user filter). Pair with rateOnOrBefore. Uncached. */
+export async function getFxRates(): Promise<FxRate[]> {
+  const { data } = await createSupabaseServiceClient()
+    .from('fx_rates')
+    .select('rate_date, rate')
+    .eq('currency', 'USD')
+    .order('rate_date', { ascending: true })
+  return ((data ?? []) as { rate_date: string; rate: number | string }[]).map(r => ({ rate_date: r.rate_date, rate: Number(r.rate) }))
+}
+
+/** Today's saved USD->INR rate (`prevClose` = prior close) or null if never fetched. Uncached, like getGoldPrice. */
+export async function getUsdInrRate(): Promise<StockPriceInfo | null> {
+  return (await getStockPrices([USDINR_PRICE_KEY]))[USDINR_PRICE_KEY] ?? null
+}

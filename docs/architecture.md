@@ -26,6 +26,9 @@
 | `investability` | 10-gate qualitative scorecard |
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 | `stock_prices` | Last-fetched CMP + previous close per NSE symbol, plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
+| `us_holdings` | Direct USD stocks / ETFs per user (`symbol`, `yahoo_symbol`, explicit `region`: us / india / global) — portfolio-only, no bands or tranches (#131) |
+| `us_transactions` | Buy/sell log for US holdings: `quantity`, USD `price`, trade-date `fx_rate` (INR per USD), generated `amount` (USD) and `amount_inr` (cost fixed at the trade-date rate) |
+| `fx_rates` | Daily USD->INR closes from Yahoo `USDINR=X` (public market data; written only by the Prices refresh route, which backfills on first run). A trade date with no row uses the previous trading day (`rateOnOrBefore` in `lib/fx.ts`). Today's rate sits in `stock_prices` under `_USDINR`; US quotes under `US:<yahoo symbol>` (`usPriceKey`; the prefix keeps user-entered symbols out of the shared NSE / reserved key space — validate with `isValidYahooSymbol` on write) |
 | `mf_navs` | Latest + previous AMFI NAV per scheme code (`nav`, `prev_nav`, `nav_date`; public market data, not user-scoped; written only by `syncMfNav` from the Portfolio Prices button's refresh route) — see "MF NAV Fetch Flow" |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.

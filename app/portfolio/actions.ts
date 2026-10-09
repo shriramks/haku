@@ -186,3 +186,15 @@ export async function setPPFBalanceOverride(balance: number, asOfDate: string) {
   revalidatePath('/portfolio')
   return { ok: true }
 }
+
+// ── US holdings ───────────────────────────────────────────────────────────────
+
+/** Called after any write to us_holdings. */
+export async function revalidateUsHoldings() {
+  revalidateTag('us_holdings', {})
+}
+
+/** Called after any write to us_transactions. */
+export async function revalidateUsTransactions() {
+  revalidateTag('us_transactions', {})
+}

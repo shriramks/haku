@@ -14,6 +14,18 @@ export const HELD_QTY_EPSILON = 0.001
  */
 export const GOLD_PRICE_KEY = '_GOLD_INR_PER_GRAM'
 
+/**
+ * stock_prices key for a US holding's quote. The `US:` prefix keeps user-entered Yahoo symbols
+ * out of the NSE / reserved key space (stock_prices is shared by every user), so a holding named
+ * `TCS` or `_GOLD_INR_PER_GRAM` can never overwrite another price. Validate with isValidYahooSymbol on write.
+ */
+export const usPriceKey = (yahooSymbol: string) => `US:${yahooSymbol}`
+
+/** Yahoo tickers are letters, digits and . - ^ = only; no leading underscore or punctuation, max 20 chars. */
+export function isValidYahooSymbol(symbol: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$/.test(symbol)
+}
+
 export interface StockPriceInfo {
   cmp: number
   prevClose: number | null

@@ -115,3 +115,31 @@ export interface EPFSummary {
   xirr: number | null
 }
 
+
+// ── US holdings (direct USD stocks / ETFs — progress log #131) ───────────────
+
+export type UsRegion = 'us' | 'india' | 'global'
+
+export interface UsHolding {
+  id: string
+  user_id?: string
+  symbol: string          // display ticker, e.g. VUAA
+  yahoo_symbol: string    // price-fetch symbol, e.g. VUAA.L
+  name: string
+  region: UsRegion
+  created_at?: string
+}
+
+export interface UsTransaction {
+  id: string
+  user_id?: string
+  holding_id: string
+  trade_date: string
+  trade_type: 'buy' | 'sell'
+  quantity: number
+  price: number           // USD per unit
+  fx_rate: number         // INR per USD on trade_date
+  amount: number          // USD (quantity × price)
+  amount_inr: number      // INR, fixed at the trade-date rate
+  created_at?: string
+}

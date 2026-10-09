@@ -3,6 +3,8 @@
  * All symbols are expected without the .NS suffix; it is added internally.
  */
 
+import { parseYahooFxHistory, type FxRate } from './fx'
+
 const YAHOO_UA = 'Mozilla/5.0'
 
 export interface CmpQuote {
@@ -13,10 +15,10 @@ export interface CmpQuote {
   week52High: number | null
 }
 
-/** Fetches CMP + prev close + 52W low/high for a single NSE symbol. Returns null on any failure. */
-export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
+/** Fetches CMP + prev close + 52W low/high for a full Yahoo symbol (suffix included). Returns null on any failure. */
+export async function fetchYahooQuote(yahooSymbol: string): Promise<CmpQuote | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.NS`
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`
     const res = await fetch(url, { headers: { 'User-Agent': YAHOO_UA } })
     if (!res.ok) return null
     const json = await res.json()
@@ -32,6 +34,11 @@ export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
   } catch {
     return null
   }
+}
+
+/** Fetches CMP + prev close + 52W low/high for a single NSE symbol. Returns null on any failure. */
+export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
+  return fetchYahooQuote(`${symbol}.NS`)
 }
 
 /** Fetches the current market price for a single NSE symbol. Returns null on any failure. */
@@ -166,5 +173,19 @@ export async function fetchGoldPrice(): Promise<GoldQuote | null> {
     }
   } catch {
     return null
+  }
+}
+
+/** Daily USD->INR closes (Yahoo `USDINR=X`) over `range` (e.g. '1mo', '5y'). [] on any failure. */
+export async function fetchUsdInrHistory(range: string): Promise<FxRate[]> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/USDINR=X?range=${range}&interval=1d`,
+      { headers: { 'User-Agent': YAHOO_UA } },
+    )
+    if (!res.ok) return []
+    return parseYahooFxHistory(await res.json())
+  } catch {
+    return []
   }
 }
