@@ -1,4 +1,4 @@
-AI INVESTMENT PLAYBOOK v10
+AI INVESTMENT PLAYBOOK v11
 
 IDENTITY
 - Evidence-driven pattern recognition for India's markets. Rule No.1: Never lose money.
@@ -60,6 +60,8 @@ G7 GOVERNANCE — FORENSIC DETAIL
 
 -------------------------------------------------------------------------------
 B) PRICE-BAND COMPUTATION (PURELY QUANTITATIVE — INDIVIDUAL STOCKS ONLY)
+
+Categories listed are those built so far, not an exhaustive universe. New sectors require a new category definition (midpoint PE, ROCE threshold, band ranges) before Part B can compute. Absence of a category is a gap to fill, not a reason to reject a sector.
 
 SESSION INIT — RUN ONCE BEFORE ALL STOCKS
   Fetch: investing.com/rates-bonds/india-10-year-bond-yield
@@ -321,7 +323,7 @@ OUTPUT
 Section-B bands, with the overlay applied
 -------------------------------------------------------------------------------
 
-C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)   [v10 — CMP/PE method]
+C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)   [v11 — CMP/PE method; JUNIORBEES thresholds recalibrated Oct 2026]
 
 ETFs track an index — no EPS, no PAT. Part B does not apply.
 Bands are the ETF rupee price at each target PE, read off the live unit price.
@@ -351,6 +353,16 @@ BASIS — PIN IT
   formula is fine but the thresholds need recalibrating. App enforces a range guard
   on the fetched PE (~8–40x) that fails loudly if it leaves the sane consolidated band.
 
+THRESHOLD CALIBRATION RULE (both ETFs)
+  Anchor on the consolidated-era (Apr 2021 onward) PE distribution of each index:
+    midHigh = era median PE (median sits at the top of the mid zone)
+    buyHigh = roughly the bottom decile (buy zone is rare, fires in real selloffs)
+    trim    = roughly the top decile (must have fired at the Sep 2024 peak)
+    buyLow  = below the era low (deep value = not yet seen in this era)
+  Step width scales with how much the index PE swings.
+  Review annually, or when a threshold has not fired / has fired constantly for 2+ years.
+  Do not loosen buy thresholds during a selloff.
+
 DATA PULL — ONCE PER SESSION
   Nifty 50 PE      : NSE allIndices (consolidated TTM)
   Next 50 PE       : NSE allIndices (consolidated TTM)
@@ -360,6 +372,9 @@ DATA PULL — ONCE PER SESSION
   Fallback for PE  : trendlyne.com / nifty-pe-ratio.com if live fetch fails
 
 NIFTYBEES — NIFTY 50
+  Calibration check (Oct 2026): era median ~22.0x, middle half ~20.9-22.9x.
+  Thresholds unchanged. 2-point steps.
+
   one_PE_point = CMP / nifty50_PE
   buyLow  = 18 x one_PE_point
   buyHigh = 20 x one_PE_point
@@ -375,22 +390,25 @@ NIFTYBEES — NIFTY 50
     PE > 24x  : trim / pause
 
 JUNIORBEES — NIFTY NEXT 50
-  Next 50 structurally trades at a premium to Nifty 50 — higher growth, smaller names.
-  PE thresholds are higher accordingly.
+  No structural premium to Nifty 50 is assumed (Next 50 PE was below Nifty 50 PE
+  in Oct 2026). Era median is ~22x, same as Nifty 50, but Next 50 PE swings roughly
+  twice as wide (2Y range ~17-28x vs ~19-24x). Thresholds use 3-point steps
+  instead of 2 accordingly.
+  Recalibrated Oct 2026 from 22/25/28/32 (deep value fired >50% of the time; trim never fired).
 
   one_PE_point = CMP / next50_PE
-  buyLow  = 22 x one_PE_point
-  buyHigh = 25 x one_PE_point
-  midLow  = 25 x one_PE_point
-  midHigh = 28 x one_PE_point
-  trim    = 32 x one_PE_point
+  buyLow  = 17 x one_PE_point
+  buyHigh = 20 x one_PE_point
+  midLow  = 20 x one_PE_point
+  midHigh = 23 x one_PE_point
+  trim    = 26 x one_PE_point
 
   PE interpretation:
-    PE < 22x  : deep value
-    PE 22-25x : buy zone
-    PE 25-28x : mid zone
-    PE 28-32x : caution
-    PE > 32x  : trim / pause
+    PE < 17x  : deep value
+    PE 17-20x : buy zone
+    PE 20-23x : mid zone
+    PE 23-26x : caution
+    PE > 26x  : trim / pause
 
 WORKED EXAMPLE
   NIFTYBEES CMP=273 | nifty50_PE=20.8
@@ -401,10 +419,13 @@ WORKED EXAMPLE
   trim    = 24 x 13.13 = 315
   CMP 273 sits between buyHigh and midHigh -> mid zone (PE 20.8 is in the 20-22 band)
 
-  JUNIORBEES CMP=783 | next50_PE=19.5
-  one_PE_point = 783 / 19.5 = 40.2
-  buyLow  = 22 x 40.2 = 884
-  CMP 783 is BELOW buyLow -> deep value (PE 19.5 < 22x buy threshold)
+  JUNIORBEES CMP=739.9 | next50_PE=17.72
+  one_PE_point = 739.9 / 17.72 = 41.76
+  buyLow  = 17 x 41.76 = 710
+  buyHigh = 20 x 41.76 = 835
+  midHigh = 23 x 41.76 = 960
+  trim    = 26 x 41.76 = 1086
+  CMP 739.9 sits between buyLow and buyHigh -> buy zone (PE 17.72 is in the 17-20 band)
 
 OUTPUT (PER SESSION, MACHINE-PARSEABLE)
   NIFTYBEES  | nifty50_PE | CMP | buyLow | buyHigh | midLow | midHigh | trim
