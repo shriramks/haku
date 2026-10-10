@@ -276,14 +276,26 @@ section of their own — Portfolio sections are asset classes, region is a separ
 - **Row:** the standard HoldingRow plus one muted line under the name — `$110.42 · 62 units` (or just `62 units`
   without a price). No ₹ symbol anywhere.
 - **Totals:** the Stocks header, portfolio totals, 1D change, overall XIRR and the donut (as equity) all include them.
-- **Add / edit:** US trades are entered in the Stocks Add modal — the chip row holds plan stocks and US holdings plus
-  "+ Add US" (symbol, Yahoo symbol, name, region; created on save). A US holding takes a USD price and a USD->INR rate,
-  auto-filled from the trade-date close and overridable. In Transactions they are Stocks rows (INR amount, trade-date
-  rate in the detail line) with inline edit / delete.
+- **Add / edit:** a US holding is planned first (Plan, below), then bought from the Stocks Add modal like any plan
+  stock — VUAA is a chip once it is in the plan. A US holding takes a USD price and a USD->INR rate, auto-filled from
+  the trade-date close and overridable. The holding is created on its first buy. In Transactions they are Stocks
+  rows (INR amount, trade-date rate in the detail line) with inline edit / delete.
 - **Detail:** `/portfolio/us/[holdingId]` in the MF-page shape — value, invested, return, 1D, XIRR, USD price, USD->INR
   rate, month-grouped transactions.
-- **Scope:** portfolio-only — no bands, tranches, investability or FY allocation. Excluded from the Tax report and
-  harvesting.
+- **Scope:** portfolio-only — no bands, tranches or investability. Excluded from the Tax report and harvesting.
+  It does take a yearly budget (below).
+
+### Plan / Allocation: US holding budget (#146)
+
+A US holding is a plain budget row in the FY plan, next to the stocks.
+- **Plan:** typed in Add Stock like any symbol. A symbol listed in `lib/us-symbols.ts` (VUAA) becomes a US plan row
+  (table `us_allocations`) with a % and no category; any other symbol is an NSE stock as before. The % total, the 100%
+  badge, the budget, Remove, and copying a plan into the next FY all include US rows. Category and Rename are not
+  offered for a US row.
+- **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the US holding
+  page, and is inert until the first buy creates the holding. Plan / Left / Invested totals include it.
+- **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount_inr` at the trade-date rate; FY
+  membership is by trade date. Same spent / left maths as stocks.
 
 ---
 

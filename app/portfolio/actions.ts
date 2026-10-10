@@ -1,5 +1,6 @@
 'use server'
 
+import { US_SYMBOLS, isUsSymbol } from '@/lib/us-symbols'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions, getUsHoldings, getUsTransactions, getFxRates } from '@/lib/data'
@@ -212,9 +213,9 @@ export async function getUsdInrOnDate(date: string): Promise<number | null> {
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export interface UsTradeInput {
-  /** Existing holding, or omitted when `newHolding` creates it. */
+  /** Existing holding, or omitted when this is the first buy: the holding is created from `newSymbol` (a `US_SYMBOLS` entry). */
   holdingId?: string
-  newHolding?: { symbol: string; yahooSymbol: string; name: string; region: 'us' | 'india' }
+  newSymbol?: string
   tradeDate: string
   tradeType: 'buy' | 'sell'
   quantity: number
@@ -231,13 +232,12 @@ export async function addUsTransaction(input: UsTradeInput): Promise<{ error?: s
   const sb = await createSupabaseServerClient()
   let holdingId = input.holdingId
   if (!holdingId) {
-    const h = input.newHolding
-    const symbol = h?.symbol.trim().toUpperCase()
-    const yahoo = h?.yahooSymbol.trim().toUpperCase()
-    if (!h || !symbol || !yahoo) return { error: 'Enter the symbol and Yahoo symbol' }
+    const symbol = input.newSymbol?.trim().toUpperCase()
+    if (!symbol || !isUsSymbol(symbol)) return { error: 'Unknown US symbol' }
+    const h = US_SYMBOLS[symbol]
     const { data, error } = await sb
       .from('us_holdings')
-      .upsert({ user_id: userId, symbol, yahoo_symbol: yahoo, name: h.name.trim(), region: h.region },
+      .upsert({ user_id: userId, symbol, yahoo_symbol: h.yahoo_symbol, name: h.name, region: h.region },
               { onConflict: 'user_id,symbol' })
       .select('id')
       .single()

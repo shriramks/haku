@@ -128,6 +128,7 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
 ## Working approach
 
 - **Plan before coding.** State the intended steps and wait for confirmation — no exceptions, no matter how small the change.
+- **Always split work into vertical slices.** Each session delivers one thin, user-visible, end-to-end slice (schema + data + compute + UI + docs for that slice), never a horizontal layer (all the data work, then all the compute, then all the UI). Every slice is shippable and usable on its own.
 - **Always do the correct architectural fix — never a stopgap.** When a bug or slow path has both a quick patch and a proper structural fix, implement the proper fix, even if it touches more files or takes longer. If a stopgap genuinely has to ship first (e.g. time pressure), say so explicitly and get sign-off before taking it — never default to the smaller diff just because it's smaller.
 - **After completing any unit of work**, append an entry to `progress_haku.md`. This file is gitignored — never stage or commit it. Format rules:
   - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused. This is so a session can always be referred to by its number.

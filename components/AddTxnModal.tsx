@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, previousMonth, formatINRFine, formatINRFull, formatPriceFineNum, formatUsd } from '@/lib/formatter'
 import { lastFYEnd } from '@/lib/fy-utils'
+import { isUsSymbol } from '@/lib/us-symbols'
 import type { PPFTransaction, EPFTransaction, UsHolding } from '@/lib/portfolio-types'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
@@ -27,8 +28,6 @@ const EPF_TYPES: readonly { id: EPFType; label: string; color: string }[] = [
   { id: 'deposit',  label: 'Deposit',  color: 'var(--accent)' },
   { id: 'interest', label: 'Interest', color: 'var(--accent)' },
 ]
-
-const ADD_US_CHIP = '+ Add US'
 
 const ASSET_TYPES = [
   { id: 'stock' as AssetType, label: 'Stocks',      Icon: StockIcon },
@@ -67,16 +66,12 @@ export default function AddTxnModal({
   const [price, setPrice]         = useState('')
   const [redeploy, setRedeploy]   = useState(true)
   // Direct USD holdings share the Stocks form: picking one switches the price to USD and adds the rate.
+  // The holding itself is created on the first buy (`usHolding` is undefined until then).
   const usHolding = usHoldings.find(h => h.symbol === symbol)
-  const [addingUs, setAddingUs]   = useState(false)
-  const [newSymbol, setNewSymbol] = useState('')
-  const [newYahoo, setNewYahoo]   = useState('')
-  const [newName, setNewName]     = useState('')
-  const [newRegion, setNewRegion] = useState<'us' | 'india'>('us')
   const [fxRate, setFxRate]       = useState('')
   const [fxEdited, setFxEdited]   = useState(false)
   const [fxLoading, setFxLoading] = useState(false)
-  const isUs = !!usHolding || addingUs
+  const isUs = isUsSymbol(symbol)
 
   // ── MF ─────────────────────────────────────────────────────────────────────
   const [mfFund, setMFFund]             = useState<{ code: string; name: string; schemeType: string } | null>(null)
@@ -194,10 +189,10 @@ export default function AddTxnModal({
 
     if (assetType === 'stock' && isUs) {
       const fx = parseFloat(fxRate)
-      if (!qty || !price || !fx || (addingUs ? !newSymbol.trim() || !newYahoo.trim() : !usHolding)) { setLoading(false); return }
+      if (!qty || !price || !fx) { setLoading(false); return }
       const { error: txnErr } = await addUsTransaction({
-        holdingId: addingUs ? undefined : usHolding!.id,
-        newHolding: addingUs ? { symbol: newSymbol, yahooSymbol: newYahoo, name: newName, region: newRegion } : undefined,
+        holdingId: usHolding?.id,
+        newSymbol: usHolding ? undefined : symbol,
         tradeDate: date, tradeType: txnType,
         quantity: parseFloat(qty), price: parseFloat(price), fxRate: fx,
       })
@@ -394,51 +389,17 @@ export default function AddTxnModal({
                         className="text-subheadline" style={{ color: 'var(--text-faint)' }}>clear</button>
                     )}
                   </div>
-                  {(planSymbols.length > 0 || usHoldings.length > 0) && (
+                  {planSymbols.length > 0 ? (
                     <ChipGroup
-                      items={[...planSymbols, ...usHoldings.map(h => h.symbol), ADD_US_CHIP]}
-                      selected={addingUs ? ADD_US_CHIP : symbol}
-                      onSelect={s => {
-                        const adding = s === ADD_US_CHIP
-                        setAddingUs(adding)
-                        setSymbol(adding ? '' : s)
-                        setFxEdited(false)
-                      }}
+                      items={planSymbols}
+                      selected={symbol}
+                      onSelect={s => { setSymbol(s); setFxEdited(false) }}
                       variant={txnType === 'buy' ? 'positive' : 'negative'}
                     />
-                  )}
-                  {planSymbols.length === 0 && usHoldings.length === 0 && (
-                    <>
-                      <p className="text-subheadline mb-2" style={{ color: 'var(--text-faint)' }}>No stocks in your plan yet</p>
-                      <ChipGroup items={[ADD_US_CHIP]} selected={addingUs ? ADD_US_CHIP : null}
-                        onSelect={() => { setAddingUs(true); setSymbol(''); setFxEdited(false) }} />
-                    </>
+                  ) : (
+                    <p className="text-subheadline" style={{ color: 'var(--text-faint)' }}>No stocks in your plan yet</p>
                   )}
                 </div>
-
-                {addingUs && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <TextCell label="Symbol" value={newSymbol} onChange={setNewSymbol} placeholder="VUAA" />
-                      <TextCell label="Yahoo symbol" value={newYahoo} onChange={setNewYahoo} placeholder="VUAA.L" />
-                    </div>
-                    <TextCell label="Name (optional)" value={newName} onChange={setNewName} placeholder="Vanguard S&P 500 UCITS ETF" lower />
-                    <div>
-                      <FieldLabel>Region</FieldLabel>
-                      <div className="flex rounded-xl overflow-hidden" style={{ border: '1.5px solid var(--border)' }}>
-                        {(['us', 'india'] as const).map(r => (
-                          <button key={r} type="button" onClick={() => setNewRegion(r)}
-                            className="flex-1 py-2.5 text-body font-semibold"
-                            style={newRegion === r
-                              ? { background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }
-                              : { color: 'var(--text-muted)' }}>
-                            {r === 'us' ? 'US' : 'India'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <FieldLabel>Date</FieldLabel>
@@ -487,9 +448,9 @@ export default function AddTxnModal({
                 {error && <p className="text-negative text-body text-center">{error}</p>}
 
                 <Button type="submit" loading={loading}
-                  disabled={!qty || !price || (isUs ? !parseFloat(fxRate) || (addingUs && (!newSymbol.trim() || !newYahoo.trim())) : !symbol)} fullWidth
+                  disabled={!qty || !price || (isUs ? !parseFloat(fxRate) : !symbol)} fullWidth
                   style={{ background: done ? 'var(--border)' : (txnType === 'buy' ? '#34C759' : '#FF3B30') }}>
-                  {done ? '✓ Added' : `${txnType === 'buy' ? 'Buy' : 'Sell'} ${(addingUs ? newSymbol.trim().toUpperCase() : symbol) || '…'}`}
+                  {done ? '✓ Added' : `${txnType === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
                 </Button>
               </>
             )}
@@ -769,22 +730,6 @@ function TwoColCell({ label, value, onChange, placeholder, decimal, right }: {
         className="w-full bg-transparent tabnum font-bold outline-none"
         style={{ fontSize: 22, color: 'var(--text-primary)', textAlign: right ? 'right' : 'left' }}
       />
-    </div>
-  )
-}
-
-function TextCell({ label, value, onChange, placeholder, lower }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; lower?: boolean
-}) {
-  return (
-    <div>
-      <FieldLabel>{label}</FieldLabel>
-      <input type="text" value={value} placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        autoCapitalize={lower ? 'words' : 'characters'} autoCorrect="off"
-        onFocus={e => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })}
-        className="w-full px-3 py-2.5 rounded-xl text-body outline-none"
-        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { getFiscalYears, getAllocations, getCurrentFY } from '@/lib/data'
+import { getFiscalYears, getPlanAllocations, getCurrentFY } from '@/lib/data'
 import PlanClient from './PlanClient'
 
 export default async function PlanPage({
@@ -11,7 +11,7 @@ export default async function PlanPage({
 
   const currentFY = getCurrentFY(fiscalYears, fyParam)
 
-  const allocations = currentFY ? await getAllocations(currentFY.id) : []
+  const allocations = currentFY ? await getPlanAllocations(currentFY.id) : []
 
   return (
     <>

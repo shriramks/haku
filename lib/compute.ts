@@ -1,4 +1,4 @@
-import type { StockAllocation, Transaction, BuyBand, StockRow, FiscalYear } from './types'
+import type { StockAllocation, Transaction, FYTxn, BuyBand, StockRow, FiscalYear } from './types'
 
 // ── Sequential cost basis ─────────────────────────────────────────────────────
 
@@ -65,7 +65,7 @@ export function computeAllTimeHoldings(transactions: Transaction[]): Record<stri
 
 export function computeStockRows(
   allocations: StockAllocation[],
-  transactions: Transaction[],
+  transactions: FYTxn[],
   bands: BuyBand[],
   totalBudget: number,
   allTimeHoldings?: Record<string, AllTimeHolding>,

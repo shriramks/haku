@@ -10,6 +10,7 @@ import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
+import { isUsSymbol } from '@/lib/us-symbols'
 import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
@@ -25,6 +26,11 @@ interface Props {
   fiscalYears: FiscalYear[]
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
+}
+
+/** US plan rows live in their own table; everything else is a stock row. */
+function allocTable(alloc: StockAllocation) {
+  return alloc.exchange === 'US' ? 'us_allocations' : 'stock_allocations'
 }
 
 function setOnboardingStep(step: string) {
@@ -49,6 +55,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     // instead of issuing a duplicate count query here.
     await Promise.all([
       sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
+      sb.from('us_allocations').delete().eq('fy_id', selectedFY.id),
       sb.from('buy_tranches').delete().eq('fy_id', selectedFY.id),
     ])
 
@@ -211,7 +218,7 @@ function PlanTab({
   }
 
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
-    await getSupabaseBrowser().from('stock_allocations').update({ allocation_pct: pct }).eq('id', alloc.id)
+    await getSupabaseBrowser().from(allocTable(alloc)).update({ allocation_pct: pct }).eq('id', alloc.id)
     await revalidateAllocations()
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, allocation_pct: pct } : a))
   }
@@ -222,10 +229,10 @@ function PlanTab({
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, category } : a))
   }
 
-  async function removeAlloc(id: string) {
-    await getSupabaseBrowser().from('stock_allocations').delete().eq('id', id)
+  async function removeAlloc(alloc: StockAllocation) {
+    await getSupabaseBrowser().from(allocTable(alloc)).delete().eq('id', alloc.id)
     await revalidateAllocations()
-    onAllocationsChange(allocations.filter(a => a.id !== id))
+    onAllocationsChange(allocations.filter(a => a.id !== alloc.id))
   }
 
   async function addStock(symbol: string, category: StockCategory, pct: number) {
@@ -233,11 +240,17 @@ function PlanTab({
     const sb = getSupabaseBrowser()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return
-    const { data } = await sb.from('stock_allocations').insert({
-      fy_id: selectedFY.id, user_id: user.id,
-      symbol: symbol.toUpperCase(), exchange: 'NSE',
-      allocation_pct: pct, category,
-    }).select().single()
+    const sym = symbol.toUpperCase()
+    const { data } = isUsSymbol(sym)
+      ? await sb.from('us_allocations').insert({
+          fy_id: selectedFY.id, user_id: user.id, symbol: sym, allocation_pct: pct,
+        }).select('id, fy_id, symbol, allocation_pct').single()
+          .then(r => ({ data: r.data && { ...r.data, allocation_pct: Number(r.data.allocation_pct), exchange: 'US', category: '' } }))
+      : await sb.from('stock_allocations').insert({
+          fy_id: selectedFY.id, user_id: user.id,
+          symbol: sym, exchange: 'NSE',
+          allocation_pct: pct, category,
+        }).select().single()
     await revalidateAllocations()
     if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
@@ -257,7 +270,11 @@ function PlanTab({
 
   async function clearAllStocks() {
     if (!selectedFY) return
-    await getSupabaseBrowser().from('stock_allocations').delete().eq('fy_id', selectedFY.id)
+    const sb = getSupabaseBrowser()
+    await Promise.all([
+      sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
+      sb.from('us_allocations').delete().eq('fy_id', selectedFY.id),
+    ])
     await revalidateAllocations()
     onAllocationsChange([])
     setConfirmClear(false)
@@ -455,7 +472,7 @@ function PlanTab({
           onClose={() => setEditingAlloc(null)}
           onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
           onCategoryChange={async (cat) => { await updateAllocCategory(editingAlloc, cat); setEditingAlloc({ ...editingAlloc, category: cat }) }}
-          onRemove={async () => { await removeAlloc(editingAlloc.id); setEditingAlloc(null) }}
+          onRemove={async () => { await removeAlloc(editingAlloc); setEditingAlloc(null) }}
           onRename={async (newSym) => { await renameAllocSymbol(editingAlloc, newSym) }}
         />
       )}
@@ -689,7 +706,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         </div>
 
         {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4">
+        {alloc.exchange !== 'US' && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Category</p>
           <select
             value={alloc.category}
@@ -698,10 +715,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
+        </div>}
 
         {/* Rename Ticker */}
-        {renaming ? (
+        {alloc.exchange === 'US' ? null : renaming ? (
           <div className="flex items-center justify-between px-5 py-4">
             <p className="text-body" style={{ color: 'var(--text-2)' }}>New Ticker</p>
             <div className="flex items-center gap-2">
@@ -855,7 +872,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4">
+        {!isUsSymbol(symbol) && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
           <select
             value={category}
@@ -864,7 +881,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
+        </div>}
       </div>
     </>
   )
@@ -908,10 +925,17 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
     if (!prior) return
 
-    getSupabaseBrowser()
-      .from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category')
-      .eq('fy_id', prior.id)
-      .then(({ data }) => { if (data?.length) setSourceAllocs(data) })
+    const sb = getSupabaseBrowser()
+    Promise.all([
+      sb.from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category').eq('fy_id', prior.id),
+      sb.from('us_allocations').select('id, fy_id, symbol, allocation_pct').eq('fy_id', prior.id),
+    ]).then(([stocks, us]) => {
+      const rows = [
+        ...(stocks.data ?? []),
+        ...(us.data ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' })),
+      ]
+      if (rows.length) setSourceAllocs(rows)
+    })
   }, [selectedYear, existingFYs])
 
   async function create() {
@@ -950,12 +974,18 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (fyErr || !fy) { setError(fyErr?.message ?? 'Failed to create plan'); setCreating(false); return }
 
     if (copyStocks && sourceAllocs.length > 0) {
-      const inserts = sourceAllocs.map(a => ({
-        fy_id: fy.id, user_id: user.id,
-        symbol: a.symbol, exchange: a.exchange,
-        allocation_pct: a.allocation_pct, category: a.category,
-      }))
-      await sb.from('stock_allocations').insert(inserts)
+      const stockRows = sourceAllocs.filter(a => a.exchange !== 'US')
+      const usRows = sourceAllocs.filter(a => a.exchange === 'US')
+      await Promise.all([
+        stockRows.length && sb.from('stock_allocations').insert(stockRows.map(a => ({
+          fy_id: fy.id, user_id: user.id,
+          symbol: a.symbol, exchange: a.exchange,
+          allocation_pct: a.allocation_pct, category: a.category,
+        }))),
+        usRows.length && sb.from('us_allocations').insert(usRows.map(a => ({
+          fy_id: fy.id, user_id: user.id, symbol: a.symbol, allocation_pct: a.allocation_pct,
+        }))),
+      ])
     }
 
     setCreating(false)

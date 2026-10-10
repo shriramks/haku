@@ -4,8 +4,9 @@ import { unstable_cache } from 'next/cache'
 import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
+import type { FiscalYear, StockAllocation, Transaction, FYTxn, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, UsHolding, UsTransaction } from './portfolio-types'
+import { usFYTransactions } from './us-compute'
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 
 // cache()         — deduplicates within a single request (per-render)
@@ -66,6 +67,25 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
     .order('allocation_pct', { ascending: false })
   return data ?? []
 })
+
+/** US plan rows for a FY, shaped as StockAllocation (`exchange: 'US'`, no category) so Plan and
+ * Allocation treat them like any other row. Uncached like `stock_allocations`; written client-side under RLS. */
+export const getUsAllocations = cache(async (fyId: string): Promise<StockAllocation[]> => {
+  const userId = await getUserId()
+  if (!userId) return []
+  const { data } = await createSupabaseServiceClient()
+    .from('us_allocations')
+    .select('id, fy_id, symbol, allocation_pct')
+    .eq('user_id', userId)
+    .eq('fy_id', fyId)
+  return (data ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' }))
+})
+
+/** Stock + US plan rows for a FY, largest first — the Plan screen's list. */
+export async function getPlanAllocations(fyId: string): Promise<StockAllocation[]> {
+  const [stocks, us] = await Promise.all([getAllocations(fyId), getUsAllocations(fyId)])
+  return [...stocks, ...us].sort((a, b) => b.allocation_pct - a.allocation_pct)
+}
 
 const _fetchTransactions = unstable_cache(
   async (userId: string, fyId?: string): Promise<Transaction[]> => {
@@ -129,14 +149,19 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
 export const getAllStockSymbols = cache(async (): Promise<string[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('stock_allocations')
-    .select('symbol')
-    .eq('user_id', userId)
-    .order('symbol')
-  if (!data) return []
-  return [...new Set(data.map(a => a.symbol))].sort()
+  const sb = createSupabaseServiceClient()
+  const [stocks, us] = await Promise.all([
+    sb.from('stock_allocations').select('symbol').eq('user_id', userId),
+    sb.from('us_allocations').select('symbol').eq('user_id', userId),
+  ])
+  return [...new Set([...(stocks.data ?? []), ...(us.data ?? [])].map(a => a.symbol))].sort()
 })
+
+/** A FY's US trades as `FYTxn` — see `usFYTransactions`. */
+export async function getUsFYTransactions(fy: FiscalYear): Promise<FYTxn[]> {
+  const [holdings, txns] = await Promise.all([getUsHoldings(), getUsTransactions()])
+  return usFYTransactions(holdings, txns, fy)
+}
 
 const _fetchBuyBands = unstable_cache(
   async (userId: string): Promise<BuyBand[]> => {

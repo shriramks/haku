@@ -27,6 +27,7 @@
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 | `stock_prices` | Last-fetched CMP + previous close per NSE symbol, plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
 | `us_holdings` | Direct USD stocks / ETFs per user (`symbol`, `yahoo_symbol`, explicit `region`: us / india / global) — portfolio-only, no bands or tranches (#131) |
+| `us_allocations` | A FY budget % for a US holding, keyed by `symbol` (not `holding_id`) so it can be planned before the first buy; uncached, written client-side under RLS like `stock_allocations` (#146) |
 | `us_transactions` | Buy/sell log for US holdings: `quantity`, USD `price`, trade-date `fx_rate` (INR per USD), generated `amount` (USD) and `amount_inr` (cost fixed at the trade-date rate) |
 | `fx_rates` | Daily USD->INR closes from Yahoo `USDINR=X` (public market data; written only by the Prices refresh route, which backfills on first run). A trade date with no row uses the previous trading day (`rateOnOrBefore` in `lib/fx.ts`). Today's rate sits in `stock_prices` under `_USDINR`; US quotes under `US:<yahoo symbol>` (`usPriceKey`; the prefix keeps user-entered symbols out of the shared NSE / reserved key space — validate with `isValidYahooSymbol` on write) |
 | `mf_navs` | Latest + previous AMFI NAV per scheme code (`nav`, `prev_nav`, `nav_date`; public market data, not user-scoped; written only by `syncMfNav` from the Portfolio Prices button's refresh route) — see "MF NAV Fetch Flow" |
@@ -262,7 +263,8 @@ lib/
   mf-nav-sync.ts                        syncMfNav + latestNavRows: AMFI window → mf_navs — see "MF NAV Fetch Flow"
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
-  us-compute.ts                         US holding math in INR: computeUsPosition(s) — avg-cost basis from trade-date `amount_inr`, value at today's price × rate, XIRR on INR flows (#131)
+  us-symbols.ts                         Plannable US symbols (VUAA → Yahoo symbol, name, region); `isUsSymbol` routes Plan / Add txn (#146)
+  us-compute.ts                         US holding math in INR: computeUsPosition(s), usFYTransactions (FY trades as INR `FYTxn` for the budget row) — avg-cost basis from trade-date `amount_inr`, value at today's price × rate, XIRR on INR flows (#131)
   fx.ts                                 USD->INR helpers: rateOnOrBefore, parseYahooFxHistory, USDINR_PRICE_KEY
   stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"
   price-freshness.ts                    lastMarketClose, pricesAreStale, laggingDates, istDay — Prices-button status + per-row dates ("Price Fetch Flow")

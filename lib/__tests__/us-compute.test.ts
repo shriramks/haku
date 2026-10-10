@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { computeUsPosition, computeUsPositions } from '../us-compute'
+import { computeUsPosition, computeUsPositions, usFYTransactions } from '../us-compute'
+import { computeStockRows } from '../compute'
+import { isUsSymbol } from '../us-symbols'
 import type { UsHolding, UsTransaction } from '../portfolio-types'
 import type { StockPriceInfo } from '../stock-prices'
 
@@ -78,5 +80,45 @@ describe('computeUsPositions', () => {
       txn('2025-02-01', 'sell', 1, 100, 80, 'h3'),
     ], { 'US:VUAA.L': q(100, null), 'US:VWRA.L': q(200, null) }, { rate: 80, prevRate: null })
     expect(out.map(p => p.holding.symbol)).toEqual(['VWRA', 'VUAA'])
+  })
+})
+
+describe('usFYTransactions + computeStockRows (US budget row)', () => {
+  const fy = { start_date: '2026-04-01', end_date: '2027-03-31' }
+  const txns = [
+    txn('2026-03-31', 'buy', 5, 100, 80),    // previous FY
+    txn('2026-05-10', 'buy', 10, 100, 80),   // 80,000 INR
+    txn('2026-09-01', 'sell', 2, 110, 84),   // 18,480 INR
+    txn('2026-06-01', 'buy', 1, 1, 1, 'other-holding'),   // holding not in the list
+  ]
+
+  it('keeps only this FY’s trades of known holdings, in INR', () => {
+    const rows = usFYTransactions([holding], txns, fy)
+    expect(rows.map(r => [r.symbol, r.trade_type, r.amount])).toEqual([
+      ['VUAA', 'buy', 80_000], ['VUAA', 'sell', 18_480],
+    ])
+  })
+
+  it('spent is INR buys minus INR sells against the % budget', () => {
+    const alloc = { id: 'a1', fy_id: 'fy', symbol: 'VUAA', exchange: 'US', allocation_pct: 20, category: '' }
+    const [row] = computeStockRows([alloc], usFYTransactions([holding], txns, fy), [], 1_200_000)
+    expect(row.budget).toBe(240_000)
+    expect(row.spent).toBe(61_520)
+    expect(row.remaining).toBe(178_480)
+  })
+
+  it('a planned symbol with no trades yet spends nothing', () => {
+    const alloc = { id: 'a1', fy_id: 'fy', symbol: 'VUAA', exchange: 'US', allocation_pct: 20, category: '' }
+    const [row] = computeStockRows([alloc], usFYTransactions([], [], fy), [], 1_200_000)
+    expect(row.spent).toBe(0)
+    expect(row.remaining).toBe(240_000)
+  })
+})
+
+describe('isUsSymbol', () => {
+  it('knows VUAA only', () => {
+    expect(isUsSymbol('VUAA')).toBe(true)
+    expect(isUsSymbol('TCS')).toBe(false)
+    expect(isUsSymbol('toString')).toBe(false)
   })
 })

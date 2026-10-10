@@ -5,6 +5,7 @@ import { seqCost } from './compute'
 import { stockXirr } from './xirr'
 import { HELD_QTY_EPSILON, usPriceKey, type StockPriceInfo } from './stock-prices'
 import type { UsHolding, UsTransaction } from './portfolio-types'
+import type { FYTxn } from './types'
 
 export interface UsPosition {
   holding: UsHolding
@@ -81,4 +82,22 @@ export function computeUsPositions(
     .map(h => computeUsPosition(h, byHolding.get(h.id) ?? [], prices[usPriceKey(h.yahoo_symbol)] ?? null, fx))
     .filter((p): p is UsPosition => p !== null)
     .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
+}
+
+/**
+ * A FY's US trades as `FYTxn` (symbol from the holding, `amount` = INR at the trade-date rate), so
+ * Allocation reuses the stock spent / current-cost maths. FY membership is by trade date.
+ */
+export function usFYTransactions(
+  holdings: UsHolding[],
+  transactions: UsTransaction[],
+  fy: { start_date: string; end_date: string },
+): FYTxn[] {
+  const symbolById = new Map(holdings.map(h => [h.id, h.symbol]))
+  return transactions
+    .filter(t => t.trade_date >= fy.start_date && t.trade_date <= fy.end_date && symbolById.has(t.holding_id))
+    .map(t => ({
+      symbol: symbolById.get(t.holding_id)!, trade_date: t.trade_date,
+      trade_type: t.trade_type, quantity: t.quantity, amount: t.amount_inr,
+    }))
 }

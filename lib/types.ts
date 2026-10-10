@@ -22,6 +22,9 @@ export interface StockAllocation {
   category: string
 }
 
+/** The transaction fields allocation math reads. US trades are mapped to this shape with `amount` in INR. */
+export type FYTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
+
 export interface Transaction {
   id: string
   user_id?: string

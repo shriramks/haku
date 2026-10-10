@@ -6,7 +6,8 @@ import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
-import type { FiscalYear, StockAllocation, Transaction, BuyBand } from '@/lib/types'
+import { isUsSymbol } from '@/lib/us-symbols'
+import type { FiscalYear, StockAllocation, FYTxn, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -16,15 +17,17 @@ interface Props {
   fiscalYears: FiscalYear[]
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
-  initialTransactions: Transaction[]
+  initialTransactions: FYTxn[]
   allTimeHoldings: Record<string, AllTimeHolding>
   bands: BuyBand[]
+  /** US holding id by symbol; a US plan row has none until its first buy. */
+  usHoldingIds: Record<string, string>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, usHoldingIds }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
-  const [transactions, setTransactions] = useState(initialTransactions)
+  const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
   const [loading, setLoading]           = useState(false)
 
   const rows = useMemo(() =>
@@ -157,7 +160,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Flat allocation rows */}
           <div>
-            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim={row.remaining <= 0} />)}
+            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} usHoldingIds={usHoldingIds} dim={row.remaining <= 0} />)}
           </div>
 
           <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
@@ -169,18 +172,21 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
+function AllocationRow({ row, fyLabel, usHoldingIds, dim }: { row: StockRow; fyLabel: string; usHoldingIds: Record<string, string>; dim?: boolean }) {
   const isDone      = row.remaining <= 0
   // Invested % pairs with the currentCost amount below (and the bar fill);
   // Left % pairs with the remaining (budget − spent) amount. Different bases —
   // they need not sum to 100.
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
+  // US rows open the holding page; before the first buy there is no holding, so the row is inert.
+  const rowTarget = !isUsSymbol(row.symbol)
+    ? { href: `/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}` }
+    : usHoldingIds[row.symbol]
+      ? { href: `/portfolio/us/${usHoldingIds[row.symbol]}` }
+      : { onClick: () => {} }
   return (
-    <RowShell
-      href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`}
-      dim={dim}
-    >
+    <RowShell {...rowTarget} dim={dim}>
       <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', alignItems: 'baseline' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">

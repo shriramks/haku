@@ -1,9 +1,9 @@
 'use server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
+import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot, getFiscalYears, getUsFYTransactions } from '@/lib/data'
 import { fyIdForDate } from '@/lib/fy-utils'
-import type { StockAllocation, Transaction, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
+import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -26,7 +26,7 @@ export async function revalidateBuyTranches() {
 
 /** Fetch allocations for a FY — used by PlanClient on FY switch */
 export async function getAllocationsForFY(fyId: string): Promise<StockAllocation[]> {
-  return getAllocations(fyId)
+  return getPlanAllocations(fyId)
 }
 
 /** Returns true if the FY has any transactions — used to decide delete vs reset */
@@ -77,16 +77,18 @@ export async function loadAllStockTransactions(): Promise<Transaction[]> {
   return getTransactions()
 }
 
-/** Fetches allocations + transactions for a FY — used by DashboardClient switchFY */
+/** Fetches allocations + transactions for a FY (stock and US) — used by DashboardClient switchFY */
 export async function getFYData(fyId: string): Promise<{
   allocations: StockAllocation[]
-  transactions: Transaction[]
+  transactions: FYTxn[]
 }> {
-  const [allocations, transactions] = await Promise.all([
-    getAllocations(fyId),
+  const fy = (await getFiscalYears()).find(f => f.id === fyId)
+  const [allocations, transactions, usTransactions] = await Promise.all([
+    getPlanAllocations(fyId),
     getTransactions(fyId),
+    fy ? getUsFYTransactions(fy) : [],
   ])
-  return { allocations, transactions }
+  return { allocations, transactions: [...transactions, ...usTransactions] }
 }
 
 /** Batch-upserts dividend rows (keyed on user_id + symbol + ex_date) */
@@ -269,15 +271,31 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
     .select('symbol, exchange, allocation_pct, category')
     .eq('user_id', userId)
     .eq('fy_id', fromFyId)
-  if (!source?.length) return []
-  const { data: inserted } = await sb
-    .from('stock_allocations')
-    .insert(source.map(a => ({
-      fy_id: toFyId, user_id: userId,
-      symbol: a.symbol, exchange: a.exchange,
-      allocation_pct: a.allocation_pct, category: a.category,
-    })))
-    .select()
+  const { data: usSource } = await sb
+    .from('us_allocations')
+    .select('symbol, allocation_pct')
+    .eq('user_id', userId)
+    .eq('fy_id', fromFyId)
+  if (!source?.length && !usSource?.length) return []
+  const [{ data: inserted }, { data: usInserted }] = await Promise.all([
+    source?.length
+      ? sb.from('stock_allocations')
+          .insert(source.map(a => ({
+            fy_id: toFyId, user_id: userId,
+            symbol: a.symbol, exchange: a.exchange,
+            allocation_pct: a.allocation_pct, category: a.category,
+          })))
+          .select()
+      : { data: [] },
+    usSource?.length
+      ? sb.from('us_allocations')
+          .insert(usSource.map(a => ({ fy_id: toFyId, user_id: userId, symbol: a.symbol, allocation_pct: a.allocation_pct })))
+          .select('id, fy_id, symbol, allocation_pct')
+      : { data: [] },
+  ])
   revalidatePath('/', 'layout')
-  return inserted ?? []
+  return [
+    ...(inserted ?? []),
+    ...(usInserted ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' })),
+  ]
 }
