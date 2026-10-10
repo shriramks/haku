@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeUsPosition, computeUsPositions, usFYTransactions } from '../us-compute'
+import { computeUsPosition, computeUsPositions, usFYTransactions, netDeployed } from '../us-compute'
 import { computeStockRows } from '../compute'
 import { isUsSymbol } from '../us-symbols'
 import type { UsHolding, UsTransaction } from '../portfolio-types'
@@ -112,6 +112,24 @@ describe('usFYTransactions + computeStockRows (US budget row)', () => {
     const [row] = computeStockRows([alloc], usFYTransactions([], [], fy), [], 1_200_000)
     expect(row.spent).toBe(0)
     expect(row.remaining).toBe(240_000)
+  })
+})
+
+describe('netDeployed', () => {
+  it('is buys minus sell proceeds', () => {
+    expect(netDeployed([
+      { trade_type: 'buy', amount: 80_000 }, { trade_type: 'buy', amount: 20_000 }, { trade_type: 'sell', amount: 18_480 },
+    ])).toBe(81_520)
+  })
+
+  it('is zero with no trades', () => {
+    expect(netDeployed([])).toBe(0)
+  })
+
+  it('counts US trades of the FY, so carryover shrinks by US net spend', () => {
+    const fy = { start_date: '2026-04-01', end_date: '2027-03-31' }
+    const us = usFYTransactions([holding], [txn('2026-05-10', 'buy', 10, 100, 80), txn('2026-09-01', 'sell', 2, 110, 84)], fy)
+    expect(1_000_000 - netDeployed([{ trade_type: 'buy', amount: 100_000 }]) - netDeployed(us)).toBe(838_480)
   })
 })
 

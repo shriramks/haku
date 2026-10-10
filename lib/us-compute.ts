@@ -101,3 +101,8 @@ export function usFYTransactions(
       trade_type: t.trade_type, quantity: t.quantity, amount: t.amount_inr,
     }))
 }
+
+/** Net deployed = buys minus sell proceeds; the one definition behind FY carryover for stocks and US trades. */
+export function netDeployed(txns: Pick<FYTxn, 'trade_type' | 'amount'>[]): number {
+  return txns.reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+}

@@ -296,6 +296,8 @@ A US holding is a plain budget row in the FY plan, next to the stocks.
   page, and is inert until the first buy creates the holding. Plan / Left / Invested totals include it.
 - **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount_inr` at the trade-date rate; FY
   membership is by trade date. Same spent / left maths as stocks.
+- **Carryover:** a closed FY's unallocated carryover deducts US net spend (buys minus sells, INR) as well as stock
+  net spend.
 
 ---
 

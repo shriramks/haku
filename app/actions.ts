@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot, getFiscalYears, getUsFYTransactions } from '@/lib/data'
 import { fyIdForDate } from '@/lib/fy-utils'
+import { netDeployed } from '@/lib/us-compute'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
@@ -43,22 +44,22 @@ export async function checkFYHasTxns(fyId: string): Promise<boolean> {
 
 /**
  * Computes carryover from a previous FY: pool (budget + its own carryover) minus
- * net deployed (all buys minus all sell proceeds). Can be negative if over-invested.
+ * net deployed (all buys minus all sell proceeds, stocks and US holdings). Can be negative if over-invested.
  */
 export async function getPrevFYCarryover(prevFYId: string, prevFYPool: number): Promise<number> {
   const userId = await getUserId()
   if (!userId) return 0
-  const { data } = await createSupabaseServiceClient()
-    .from('transactions')
-    .select('trade_type, amount')
-    .eq('user_id', userId)
-    .eq('fy_id', prevFYId)
-  const netDeployed = (data ?? []).reduce(
-    (s, t: { trade_type: string; amount: number }) =>
-      s + (t.trade_type === 'buy' ? t.amount : -t.amount),
-    0
-  )
-  return prevFYPool - netDeployed
+  const prevFY = (await getFiscalYears()).find(f => f.id === prevFYId)
+  const [{ data }, usTxns] = await Promise.all([
+    createSupabaseServiceClient()
+      .from('transactions')
+      .select('trade_type, amount')
+      .eq('user_id', userId)
+      .eq('fy_id', prevFYId),
+    prevFY ? getUsFYTransactions(prevFY) : [],
+  ])
+  const stockTxns = (data ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[]
+  return prevFYPool - netDeployed(stockTxns) - netDeployed(usTxns)
 }
 
 /** Returns true if any current buy bands exist — used for onboarding step */
