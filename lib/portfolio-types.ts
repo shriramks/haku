@@ -114,16 +114,3 @@ export interface EPFSummary {
   computedBalance: number
   xirr: number | null
 }
-
-
-// ── US holdings (direct USD stocks / ETFs — progress log #131) ───────────────
-
-export interface UsHolding {
-  id: string
-  user_id?: string
-  symbol: string          // display ticker, e.g. VUAA
-  yahoo_symbol: string    // price-fetch symbol, e.g. VUAA.L
-  name: string
-  region: 'us' | 'india'   // explicit, not inferred; same values as exposure.ts `Region`
-  created_at?: string
-}

@@ -281,7 +281,6 @@ section of their own — Portfolio sections are asset classes, region is a separ
   the trade-date close and overridable (editable on an existing trade too). The master row is created on the first buy. In Transactions they are Stocks
   rows (INR amount, trade-date rate in the detail line) with inline edit / delete. The Redeploy-proceeds toggle is not offered for them.
 - **Detail:** the same `/portfolio/stock/[symbol]` page as any stock; value is qty × price × today's rate and the price shows in USD.
-  `/portfolio/us/[holdingId]` redirects there.
 - **Scope:** portfolio-only — no bands, tranches or investability. Excluded from the Tax report and harvesting.
   It does take a yearly budget (below).
 

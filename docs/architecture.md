@@ -27,9 +27,6 @@
 | `dividend_transactions` | Per-stock dividend income records (ex_date, per_share, shares, generated amount) |
 | `stocks` | Instrument master (#152): `symbol` pk, `exchange`, `currency`, `yahoo_symbol`, explicit `region` (`india` / `us`, exposure not domicile — VUAA is `us`), `name`. Shared reference data, service-role only (RLS on, no client policy); written only server-side by `ensureStocks` (`lib/stock-master.ts`) — on every stock transaction write, on a US holding's first buy, and before a plan-only symbol is priced or its bands generated. A row is created only when Yahoo confirms the `SYMBOL.NS` listing (the master is shared, so a typo must not become a permanent mapping); an unconfirmed symbol is skipped and reported `failed`, never guessed. Uncached, like `stock_prices` |
 | `stock_prices` | Last-fetched CMP + previous close per instrument, keyed by plain symbol (Yahoo symbol comes from `stocks`), plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
-| `us_holdings` | Retired by #153: nothing writes it any more (a USD holding is a `transactions` row plus a `stocks` master row); only the old `/portfolio/us/[holdingId]` redirect reads it. Dropped in #155 |
-| `us_allocations` | Retired by #154: its rows were copied into `stock_allocations` (venue from `stocks`, empty category) by `20261013_us_allocations_into_stock_allocations.sql`; nothing reads or writes it. Dropped in #155 |
-| `us_transactions` | Retired by #153: any rows were folded into `transactions` by `20261012_transactions_fx_rate.sql`; nothing reads or writes it. Dropped in #155 |
 | `fx_rates` | Daily USD->INR closes from Yahoo `USDINR=X` (public market data; written only by the Prices refresh route, which backfills on first run). A trade date with no row uses the previous trading day (`rateOnOrBefore` in `lib/fx.ts`). Today's rate sits in `stock_prices` under `_USDINR`; US quotes sit under the plain symbol like any other instrument (the `US:` namespace was retired in #152; `isValidStockSymbol` rejects a leading underscore so no symbol can collide with a reserved key) |
 | `mf_navs` | Latest + previous AMFI NAV per scheme code (`nav`, `prev_nav`, `nav_date`; public market data, not user-scoped; written only by `syncMfNav` from the Portfolio Prices button's refresh route) — see "MF NAV Fetch Flow" |
 
@@ -251,7 +248,6 @@ app/
     [symbol]/TranchesSheet.tsx          Buy Levels sheet (signal pill + descriptor + TrancheSection)
   portfolio/
     page.tsx                            server page — fetches, runs buildPortfolio, passes finished data
-    us/[holdingId]/                     redirect to stock/[symbol] (old links; reads `us_holdings` for the symbol until #155)
     PortfolioClient.tsx                 renders the summary + sections; sort/filter/open state, Prices button, PPF/EPF inline edit
   transactions/
     TransactionsClient.tsx              transaction list, filters, import entry point
