@@ -30,6 +30,10 @@ describe('us-symbols', () => {
     expect(isUsSymbol('toString')).toBe(false)
   })
 
+  it('knownInstruments ignores prototype members', () => {
+    expect(knownInstruments(['constructor', 'toString', 'hasOwnProperty'])).toEqual({})
+  })
+
   it('knownInstruments gives the master row VUAA is created from, and nothing for NSE symbols', () => {
     expect(knownInstruments(['VUAA', 'TCS'])).toEqual({
       VUAA: { symbol: 'VUAA', exchange: 'LSE', currency: 'USD', yahooSymbol: 'VUAA.L', region: 'us', name: 'Vanguard S&P 500 UCITS ETF' },

@@ -13,7 +13,7 @@ export const US_SYMBOLS: Record<string, Pick<UsHolding, 'yahoo_symbol' | 'name' 
 export function knownInstruments(symbols: string[]): Record<string, Stock> {
   const known: Record<string, Stock> = {}
   for (const symbol of symbols) {
-    const h = US_SYMBOLS[symbol]
+    const h = Object.hasOwn(US_SYMBOLS, symbol) ? US_SYMBOLS[symbol] : undefined   // own keys only: 'constructor' is not an instrument
     if (h) known[symbol] = { symbol, exchange: h.exchange, currency: h.currency, yahooSymbol: h.yahoo_symbol, region: h.region, name: h.name }
   }
   return known

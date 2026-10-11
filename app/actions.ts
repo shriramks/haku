@@ -8,6 +8,7 @@ import { netDeployed } from '@/lib/compute'
 import { ensureStocks, getStocks } from '@/lib/stock-master'
 import { knownInstruments } from '@/lib/us-symbols'
 import { tradeFxRate } from '@/lib/trade-fx'
+import { isValidStockSymbol } from '@/lib/stock-master'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
@@ -149,12 +150,32 @@ export interface StockTxnInput {
   fx_rate?: number
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const positive = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0
+
+/** A `transactions` row as written: only these fields, with the rate and venue resolved server-side. */
+interface TradeRow {
+  symbol: string; exchange: string; trade_date: string; trade_type: 'buy' | 'sell'
+  quantity: number; price: number; fx_rate: number
+}
+
+/** The fields a client may set on a trade; everything else on the object it sent is ignored. */
+function tradeFieldError(t: { trade_date: unknown; quantity: unknown; price: unknown }): string | null {
+  if (typeof t.trade_date !== 'string' || !ISO_DATE.test(t.trade_date)) return 'Invalid date'
+  if (!positive(t.quantity) || !positive(t.price)) return 'Enter quantity and price'
+  return null
+}
+
 /** Inserts a stock transaction; fy_id derived from trade_date. Returns the fy_id for follow-up actions (e.g. redeploy). */
 export async function addStockTransaction(
   input: StockTxnInput
 ): Promise<{ fyId: string | null; error: string | null }> {
   const userId = await getUserId()
   if (!userId) return { fyId: null, error: 'Not signed in' }
+  if (!isValidStockSymbol(input.symbol)) return { fyId: null, error: 'Invalid symbol' }
+  if (input.trade_type !== 'buy' && input.trade_type !== 'sell') return { fyId: null, error: 'Invalid trade type' }
+  const fieldError = tradeFieldError(input)
+  if (fieldError) return { fyId: null, error: fieldError }
   const svc = createSupabaseServiceClient()
   // The instrument master is kept in step with what is traded, so the price pull can resolve the symbol.
   const master = await ensureStocks([input.symbol], knownInstruments([input.symbol]))
@@ -163,7 +184,9 @@ export async function addStockTransaction(
   if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
   const fyId = await fyIdForDate(svc, input.trade_date, userId)
   const { error } = await svc.from('transactions').insert({
-    ...input, exchange: master[input.symbol]?.exchange ?? input.exchange, fx_rate: fxRate,
+    symbol: input.symbol, exchange: master[input.symbol]?.exchange ?? 'NSE',
+    trade_date: input.trade_date, trade_type: input.trade_type,
+    quantity: input.quantity, price: input.price, fx_rate: fxRate,
     user_id: userId, fy_id: fyId,
   })
   if (error) return { fyId, error: error.message }
@@ -178,6 +201,8 @@ export async function updateStockTransaction(
 ): Promise<{ fyId: string | null; error: string | null }> {
   const userId = await getUserId()
   if (!userId) return { fyId: null, error: 'Not signed in' }
+  const fieldError = tradeFieldError(patch)
+  if (fieldError) return { fyId: null, error: fieldError }
   const svc = createSupabaseServiceClient()
   // The row's own instrument decides whether a rate applies (INR rows stay at 1).
   const { data: row } = await svc.from('transactions').select('symbol').eq('id', id).eq('user_id', userId).single()
@@ -186,7 +211,7 @@ export async function updateStockTransaction(
   if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
   const fyId = await fyIdForDate(svc, patch.trade_date, userId)
   const { error } = await svc.from('transactions')
-    .update({ ...patch, fx_rate: fxRate, fy_id: fyId })
+    .update({ quantity: patch.quantity, price: patch.price, trade_date: patch.trade_date, fx_rate: fxRate, fy_id: fyId })
     .eq('id', id)
     .eq('user_id', userId)
   if (error) return { fyId, error: error.message }
@@ -221,14 +246,25 @@ export async function importStockTransactions(
   if (rows.length === 0) return { error: null }
   const svc = createSupabaseServiceClient()
 
+  // Validate every row before any Yahoo / master work or write.
+  for (const r of rows) {
+    if (!isValidStockSymbol(r.symbol)) return { error: `Invalid symbol ${r.symbol}` }
+    if (r.trade_type !== 'buy' && r.trade_type !== 'sell') return { error: 'Invalid trade type' }
+    const fieldError = tradeFieldError(r)
+    if (fieldError) return { error: fieldError }
+  }
+
   const symbols = [...new Set(rows.map(r => r.symbol))]
   const master = await ensureStocks(symbols, knownInstruments(symbols))
   if (!master) return { error: 'Could not save the instruments' }
-  const withRate: (StockTxnInput & { fx_rate: number })[] = []
+  const withRate: TradeRow[] = []
   for (const r of rows) {
     const fxRate = tradeFxRate(master[r.symbol], r.fx_rate)
     if (fxRate === null) return { error: `Enter the rate for ${r.symbol}` }
-    withRate.push({ ...r, exchange: master[r.symbol]?.exchange ?? r.exchange, fx_rate: fxRate })
+    withRate.push({
+      symbol: r.symbol, exchange: master[r.symbol]?.exchange ?? 'NSE', trade_date: r.trade_date,
+      trade_type: r.trade_type, quantity: r.quantity, price: r.price, fx_rate: fxRate,
+    })
   }
 
   const uniqueDates = [...new Set(rows.map(r => r.trade_date))]

@@ -34,14 +34,17 @@ const toRow = (s: Stock): StockRow => ({
   symbol: s.symbol, exchange: s.exchange, currency: s.currency, yahoo_symbol: s.yahooSymbol, region: s.region, name: s.name,
 })
 
+/** A symbol-keyed map with no prototype: `map['constructor']` is undefined, not Object's function (every ticker-shaped string is a valid symbol). */
+const symbolMap = (init: Record<string, Stock> = {}): Record<string, Stock> => Object.assign(Object.create(null), init)
+
 async function readStocks(symbols: string[]): Promise<Record<string, Stock> | null> {
-  if (symbols.length === 0) return {}
+  if (symbols.length === 0) return symbolMap()
   const { data, error } = await createSupabaseServiceClient()
     .from('stocks')
     .select(COLUMNS)
     .in('symbol', symbols)
   if (error) return null
-  const result: Record<string, Stock> = {}
+  const result = symbolMap()
   for (const row of (data ?? []) as StockRow[]) result[row.symbol] = toStock(row)
   return result
 }
@@ -65,21 +68,22 @@ export async function ensureStocks(
   known: Record<string, Stock> = {},
 ): Promise<Record<string, Stock> | null> {
   const wanted = [...new Set(symbols.map(s => s.trim()).filter(isValidStockSymbol))]
-  if (wanted.length === 0) return {}
+  if (wanted.length === 0) return symbolMap()
   const existing = await readStocks(wanted)
   if (!existing) return null
   const missing = wanted.filter(s => !existing[s])
   if (missing.length === 0) return existing
-  const unknown = missing.filter(s => !known[s])
+  const isKnown = (s: string) => Object.hasOwn(known, s)   // own keys only: 'constructor' / 'toString' are valid symbols
+  const unknown = missing.filter(s => !isKnown(s))
   const checks = await Promise.all(unknown.map(async s => ({ s, quote: await fetchYahooQuote(nseStock(s).yahooSymbol) })))
   const confirmed = new Set(checks.filter(c => c.quote).map(c => c.s))
-  const created = missing.filter(s => known[s] || confirmed.has(s)).map(s => known[s] ?? nseStock(s))
+  const created = missing.filter(s => isKnown(s) || confirmed.has(s)).map(s => isKnown(s) ? known[s] : nseStock(s))
   if (created.length === 0) return existing
   const { error } = await createSupabaseServiceClient()
     .from('stocks')
     .upsert(created.map(toRow), { onConflict: 'symbol', ignoreDuplicates: true })
   if (error) return null
-  const result = { ...existing }
+  const result = symbolMap(existing)
   for (const s of created) result[s.symbol] = s
   return result
 }

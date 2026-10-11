@@ -59,6 +59,14 @@ describe('ensureStocks', () => {
     expect(Object.keys(out ?? {})).toEqual(['TCS'])
   })
 
+  it('a symbol that names an Object.prototype member is not "known": Yahoo decides, nothing odd is written', async () => {
+    const { upsert } = setup([])
+    fetchYahooQuote.mockResolvedValue(null)
+    expect(await ensureStocks(['constructor', 'toString'])).toEqual({})
+    expect(fetchYahooQuote).toHaveBeenCalledWith('constructor.NS')
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
   it('writes nothing and still succeeds when no new symbol is confirmed', async () => {
     const { upsert } = setup([])
     fetchYahooQuote.mockResolvedValue(null)
