@@ -4,7 +4,7 @@
 import { seqCost } from './compute'
 import { computeMFHolding } from './mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from './sgb-compute'
-import { HELD_QTY_EPSILON, resolveCmp, usPriceKey, type StockPriceInfo } from './stock-prices'
+import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from './stock-prices'
 import { computeUsPositions, type UsPosition, type UsdInrRate } from './us-compute'
 import { formatUsd, trimZero } from './formatter'
 import { istDay, laggingDates, shortDate } from './price-freshness'
@@ -43,7 +43,7 @@ export interface PortfolioInput {
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
   epfTransactions: EPFTransaction[]
-  /** Direct USD holdings (#131). Positions are priced from `stockPrices` under `usPriceKey(yahoo_symbol)`. */
+  /** Direct USD holdings (#131). Positions are priced from `stockPrices` under their plain `symbol`. */
   usHoldings: UsHolding[]
   usTransactions: UsTransaction[]
   /** Today's USD->INR rate; null until the first Prices tap (US values then fall back to cost). */
@@ -228,7 +228,7 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
     if (day) stockDays[h.symbol] = day
   }
   for (const p of usPositions) {
-    const info = stockPrices[usPriceKey(p.holding.yahoo_symbol)]
+    const info = stockPrices[p.holding.symbol]
     const day = info ? istDay(info.fetchedAt) : null
     if (day) stockDays[usRowKey(p)] = day
   }

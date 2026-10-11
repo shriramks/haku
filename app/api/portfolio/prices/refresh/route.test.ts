@@ -5,14 +5,15 @@ const createSupabaseServiceClient = vi.fn()
 const getStockPrices = vi.fn()
 const fetchCmpBatch = vi.fn()
 const fetchGoldPrice = vi.fn()
-const fetchYahooQuote = vi.fn()
+const getStocks = vi.fn()
 const fetchUsdInrHistory = vi.fn()
 const syncMfNav = vi.fn()
 
 vi.mock('@/lib/supabase-server', () => ({ createSupabaseServerClient }))
 vi.mock('@/lib/supabase-service', () => ({ createSupabaseServiceClient }))
 vi.mock('@/lib/data', () => ({ getStockPrices }))
-vi.mock('@/lib/market-data', () => ({ fetchCmpBatch, fetchGoldPrice, fetchYahooQuote, fetchUsdInrHistory }))
+vi.mock('@/lib/stock-master', () => ({ getStocks }))
+vi.mock('@/lib/market-data', () => ({ fetchCmpBatch, fetchGoldPrice, fetchUsdInrHistory }))
 vi.mock('@/lib/mf-nav-sync', () => ({ syncMfNav }))
 
 import { GOLD_PRICE_KEY } from '@/lib/stock-prices'
@@ -29,7 +30,7 @@ function setup({
   goldError = null as { message: string } | null,
   mfFundRows = [] as { id: string }[],
   mfFundError = null as { message: string } | null,
-  usHoldings = [] as { yahoo_symbol: string }[],
+  usHoldings = [] as { symbol: string }[],
   firstUsTrade = null as string | null,
   firstFxDate = null as string | null,
 } = {}) {
@@ -77,7 +78,10 @@ describe('POST /api/portfolio/prices/refresh', () => {
     getStockPrices.mockResolvedValue({})
     fetchGoldPrice.mockResolvedValue(null)
     syncMfNav.mockResolvedValue(undefined)
-    fetchYahooQuote.mockResolvedValue(null)
+    // The master resolves every symbol to NSE unless a test says otherwise (VUAA is the LSE line).
+    getStocks.mockImplementation(async (symbols: string[]) => Object.fromEntries(symbols.map(s => [s, {
+      symbol: s, yahooSymbol: s === 'VUAA' ? 'VUAA.L' : `${s}.NS`,
+    }])))
     fetchUsdInrHistory.mockResolvedValue([])
   })
 
@@ -111,7 +115,10 @@ describe('POST /api/portfolio/prices/refresh', () => {
     const res = await post()
     const body = await res.json()
 
-    expect(fetchCmpBatch).toHaveBeenCalledWith(['CAMS', 'TCS'])
+    expect(fetchCmpBatch).toHaveBeenCalledWith([
+      { symbol: 'CAMS', yahooSymbol: 'CAMS.NS' },
+      { symbol: 'TCS', yahooSymbol: 'TCS.NS' },
+    ])
     const [rows, opts] = upsert.mock.calls[0]
     expect(opts).toEqual({ onConflict: 'symbol' })
     expect(rows).toEqual([
@@ -309,10 +316,9 @@ describe('POST /api/portfolio/prices/refresh', () => {
     })
   })
 
-  it('US holdings: saves their quotes and USD->INR to stock_prices, FX history to fx_rates, and backfills when fx_rates is empty', async () => {
-    const { upsert } = setup({ usHoldings: [{ yahoo_symbol: 'VUAA.L' }] })
-    fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
-    fetchYahooQuote.mockResolvedValue({ price: 110, previousClose: 109 })
+  it('US holdings: priced through the same batch under the plain symbol, USD->INR to stock_prices, FX history to fx_rates, and backfills when fx_rates is empty', async () => {
+    const { upsert } = setup({ usHoldings: [{ symbol: 'VUAA' }] })
+    fetchCmpBatch.mockResolvedValue({ prices: { VUAA: 110 }, prevClose: { VUAA: 109 } })
     fetchUsdInrHistory.mockResolvedValue([
       { rate_date: '2026-10-07', rate: 83.0 },
       { rate_date: '2026-10-08', rate: 83.5 },
@@ -320,6 +326,7 @@ describe('POST /api/portfolio/prices/refresh', () => {
 
     const body = await (await post()).json()
 
+    expect(fetchCmpBatch).toHaveBeenCalledWith([{ symbol: 'VUAA', yahooSymbol: 'VUAA.L' }])
     expect(fetchUsdInrHistory).toHaveBeenCalledWith('max')
     const fxCall = upsert.mock.calls.find(([, o]) => o.onConflict === 'currency,rate_date')!
     expect(fxCall[0]).toEqual([
@@ -328,31 +335,35 @@ describe('POST /api/portfolio/prices/refresh', () => {
     ])
     const priceCall = upsert.mock.calls.find(([, o]) => o.onConflict === 'symbol')!
     expect(priceCall[0]).toEqual([
-      expect.objectContaining({ symbol: 'US:VUAA.L', cmp: 110, prev_close: 109 }),
+      expect.objectContaining({ symbol: 'VUAA', cmp: 110, prev_close: 109 }),
       expect.objectContaining({ symbol: USDINR_PRICE_KEY, cmp: 83.5, prev_close: 83.0 }),
     ])
     expect(body.us).toEqual({ requested: 1, updated: 1, fx: 'updated' })
+    expect(body.stocks).toEqual({ requested: 0, updated: 0, moved: 0, failed: [] })
   })
 
   it('US holdings: refreshes only the last month once fx_rates already covers the first trade', async () => {
-    setup({ usHoldings: [{ yahoo_symbol: 'VUAA.L' }], firstUsTrade: '2026-03-01', firstFxDate: '2026-01-02' })
+    setup({ usHoldings: [{ symbol: 'VUAA' }], firstUsTrade: '2026-03-01', firstFxDate: '2026-01-02' })
     fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
     await post()
     expect(fetchUsdInrHistory).toHaveBeenCalledWith('1mo')
   })
 
-  it('US holdings: skips invalid Yahoo symbols and de-duplicates, so nothing outside the US: namespace is written', async () => {
-    setup({ usHoldings: [{ yahoo_symbol: 'VUAA.L' }, { yahoo_symbol: 'VUAA.L' }, { yahoo_symbol: '_GOLD_INR_PER_GRAM' }] })
-    fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
-    await post()
-    expect(fetchYahooQuote).toHaveBeenCalledTimes(1)
-    expect(fetchYahooQuote).toHaveBeenCalledWith('VUAA.L')
+  it('a symbol with no master row is never fetched or guessed, and is reported failed', async () => {
+    const { upsert } = setup({ txns: [buy('TCS'), buy('NEWCO')] })
+    getStocks.mockResolvedValue({ TCS: { symbol: 'TCS', yahooSymbol: 'TCS.NS' } })
+    fetchCmpBatch.mockResolvedValue({ prices: { TCS: 4000 }, prevClose: {} })
+
+    const body = await (await post()).json()
+
+    expect(fetchCmpBatch).toHaveBeenCalledWith([{ symbol: 'TCS', yahooSymbol: 'TCS.NS' }])
+    expect(upsert.mock.calls[0][0].map((r: { symbol: string }) => r.symbol)).toEqual(['TCS'])
+    expect(body.stocks.failed).toEqual(['NEWCO'])
   })
 
   it('US holdings: reports a failed quote and a failed FX fetch so the client can show Retry', async () => {
-    setup({ usHoldings: [{ yahoo_symbol: 'VUAA.L' }] })
+    setup({ usHoldings: [{ symbol: 'VUAA' }] })
     fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
-    fetchYahooQuote.mockResolvedValue(null)
     fetchUsdInrHistory.mockResolvedValue([])
     const body = await (await post()).json()
     expect(body.us).toEqual({ requested: 1, updated: 0, fx: 'failed' })

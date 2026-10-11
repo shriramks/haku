@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions, getUsHoldings, getUsTransactions, getUsdInrRate } from '@/lib/data'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
-import { heldSymbols, usPriceKey } from '@/lib/stock-prices'
+import { heldSymbols } from '@/lib/stock-prices'
 import { newestTimestamp, pricesAreStale } from '@/lib/price-freshness'
 import { buildPortfolio, type StockTxn } from '@/lib/portfolio-compute'
 import type { StockAllocation } from '@/lib/types'
@@ -53,7 +53,7 @@ export default async function PortfolioPage() {
   const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice, usdInr] = await Promise.all([
     currentFY ? getAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
     getMFNavs(activeMfFunds.map(f => f.scheme_code)),
-    getStockPrices([...held, ...usHoldings.map(h => usPriceKey(h.yahoo_symbol))]),
+    getStockPrices([...held, ...usHoldings.map(h => h.symbol)]),
     getGoldPrice(),
     getUsdInrRate(),
   ])

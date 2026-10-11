@@ -293,7 +293,7 @@ const usBuy = (trade_date: string, quantity: number, price: number, fx_rate: num
   id: `u1-${trade_date}`, holding_id: 'u1', trade_date, trade_type: 'buy', quantity, price, fx_rate,
   amount: quantity * price, amount_inr: quantity * price * fx_rate,
 })
-const usPrices = { 'US:VUAA.L': { cmp: 120, prevClose: 118, fetchedAt: '2026-09-25T10:00:00Z' } }
+const usPrices = { VUAA: { cmp: 120, prevClose: 118, fetchedAt: '2026-09-25T10:00:00Z' } }
 const usInput: Partial<PortfolioInput> = {
   usHoldings: [vuaa],
   usTransactions: [usBuy('2025-01-10', 10, 100, 80)],
@@ -335,7 +335,7 @@ describe('buildPortfolio — direct USD holdings (#131)', () => {
 
   it('overall XIRR runs on the INR cash flows (currency gain counts)', () => {
     const weaker = build(usInput, { usdInr: { rate: 95, prevRate: 95 } })
-    const flat = build(usInput, { usdInr: { rate: 80, prevRate: 80 }, stockPrices: { 'US:VUAA.L': { cmp: 100, prevClose: 100, fetchedAt: '2026-09-25T10:00:00Z' } } })
+    const flat = build(usInput, { usdInr: { rate: 80, prevRate: 80 }, stockPrices: { VUAA: { cmp: 100, prevClose: 100, fetchedAt: '2026-09-25T10:00:00Z' } } })
     expect(flat.summary.xirr!).toBeCloseTo(0, 2)
     expect(weaker.summary.xirr!).toBeGreaterThan(0.2)
   })
@@ -352,7 +352,7 @@ describe('buildPortfolio — direct USD holdings (#131)', () => {
   })
 
   it('a price a day behind the rest carries its own date, like stocks', () => {
-    const d = build(both, { stockPrices: { ...stockPrices, 'US:VUAA.L': { cmp: 120, prevClose: 118, fetchedAt: '2026-09-23T10:00:00Z' } } })
+    const d = build(both, { stockPrices: { ...stockPrices, VUAA: { cmp: 120, prevClose: 118, fetchedAt: '2026-09-23T10:00:00Z' } } })
     expect(d.stocks.rows.find(r => r.key === 'us:u1')?.staleDate).toBe('23 Sep')
   })
 

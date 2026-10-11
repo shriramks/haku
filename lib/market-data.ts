@@ -1,6 +1,6 @@
 /**
- * Yahoo Finance helpers for fetching live prices of NSE-listed securities.
- * All symbols are expected without the .NS suffix; it is added internally.
+ * Yahoo Finance helpers for fetching live prices. Callers pass the full Yahoo symbol, suffix
+ * included (the `stocks` master's `yahooSymbol`); nothing here assumes an exchange.
  */
 
 import { parseYahooFxHistory, type FxRate } from './fx'
@@ -36,14 +36,9 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<CmpQuote | n
   }
 }
 
-/** Fetches CMP + prev close + 52W low/high for a single NSE symbol. Returns null on any failure. */
-export async function fetchCmpQuote(symbol: string): Promise<CmpQuote | null> {
-  return fetchYahooQuote(`${symbol}.NS`)
-}
-
-/** Fetches the current market price for a single NSE symbol. Returns null on any failure. */
-export async function fetchCmp(symbol: string): Promise<number | null> {
-  return (await fetchCmpQuote(symbol))?.price ?? null
+/** Fetches the current market price for a Yahoo symbol. Returns null on any failure. */
+export async function fetchCmp(yahooSymbol: string): Promise<number | null> {
+  return (await fetchYahooQuote(yahooSymbol))?.price ?? null
 }
 
 export interface YearChart {
@@ -51,12 +46,12 @@ export interface YearChart {
   week52Low: number | null   // min of daily lows over the past year
 }
 
-/** Fetches the 1-year daily chart for an NSE symbol: live CMP (from meta) +
+/** Fetches the 1-year daily chart for a Yahoo symbol: live CMP (from meta) +
  *  52-week low (from daily lows). Returns nulls on any failure. */
-export async function fetchYearChart(symbol: string): Promise<YearChart> {
+export async function fetchYearChart(yahooSymbol: string): Promise<YearChart> {
   try {
     const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}.NS?range=1y&interval=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1y&interval=1d`,
       { headers: { 'User-Agent': YAHOO_UA } }
     )
     if (!res.ok) return { price: null, week52Low: null }
@@ -78,15 +73,22 @@ export interface CmpQuoteBatch {
   week52: Record<string, { low: number | null; high: number | null }>
 }
 
-/** Fetches CMP + prev close + 52W low/high for multiple NSE symbols in one request.
+/** An instrument to price: `symbol` is the app's key (results are keyed by it), `yahooSymbol` is what Yahoo is asked for. */
+export interface QuoteTarget {
+  symbol: string
+  yahooSymbol: string
+}
+
+/** Fetches CMP + prev close + 52W low/high for multiple instruments in one request.
  *  Tries Yahoo v7 batch first; falls back to parallel v8 chart calls if the
  *  batch returns empty results (Yahoo frequently blocks server-side batch
  *  requests while the per-symbol chart endpoint remains accessible). */
-export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
+export async function fetchCmpBatch(targets: QuoteTarget[]): Promise<CmpQuoteBatch> {
+  const symbolByYahoo = new Map(targets.map(t => [t.yahooSymbol, t.symbol]))
   // Attempt 1: Yahoo v7 batch endpoint
   try {
-    const nsSuffixed = symbols.map(s => `${s}.NS`).join(',')
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${nsSuffixed}`
+    const joined = targets.map(t => encodeURIComponent(t.yahooSymbol)).join(',')
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${joined}`
     const res = await fetch(url, { headers: { 'User-Agent': YAHOO_UA } })
     if (res.ok) {
       const json = await res.json()
@@ -104,7 +106,8 @@ export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
         const changePercent: Record<string, number | null> = {}
         const week52: Record<string, { low: number | null; high: number | null }> = {}
         for (const r of results) {
-          const sym = r.symbol.replace(/\.NS$/, '')
+          const sym = symbolByYahoo.get(r.symbol)
+          if (!sym) continue
           if (r.regularMarketPrice) prices[sym] = r.regularMarketPrice
           prevClose[sym] = r.regularMarketPreviousClose ?? null
           changePercent[sym] = r.regularMarketChangePercent ?? null
@@ -116,7 +119,7 @@ export async function fetchCmpBatch(symbols: string[]): Promise<CmpQuoteBatch> {
   } catch { /* fall through to per-symbol fallback */ }
 
   // Attempt 2: Parallel per-symbol v8 chart calls
-  const quotes = await Promise.all(symbols.map(sym => fetchCmpQuote(sym).then(q => ({ sym, q }))))
+  const quotes = await Promise.all(targets.map(t => fetchYahooQuote(t.yahooSymbol).then(q => ({ sym: t.symbol, q }))))
   const prices: Record<string, number> = {}
   const prevClose: Record<string, number | null> = {}
   const changePercent: Record<string, number | null> = {}

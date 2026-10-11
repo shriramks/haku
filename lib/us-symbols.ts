@@ -3,8 +3,9 @@
 // anything else is an NSE stock. Add an entry here to support another one.
 import type { UsHolding } from './portfolio-types'
 
-export const US_SYMBOLS: Record<string, Pick<UsHolding, 'yahoo_symbol' | 'name' | 'region'>> = {
-  VUAA: { yahoo_symbol: 'VUAA.L', name: 'Vanguard S&P 500 UCITS ETF', region: 'us' },
+// `exchange` / `currency` seed the `stocks` instrument master (#152) when a holding is first created.
+export const US_SYMBOLS: Record<string, Pick<UsHolding, 'yahoo_symbol' | 'name' | 'region'> & { exchange: string; currency: string }> = {
+  VUAA: { yahoo_symbol: 'VUAA.L', name: 'Vanguard S&P 500 UCITS ETF', region: 'us', exchange: 'LSE', currency: 'USD' },
 }
 
 export function isUsSymbol(symbol: string): boolean {

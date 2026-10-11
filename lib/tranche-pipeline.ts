@@ -12,6 +12,7 @@ import {
 } from './band-calculator'
 import { computeSnowball } from './snowball'
 import { fetchYearChart } from './market-data'
+import { ensureStocks } from './stock-master'
 import type { BuyTranche, StockCategory } from './types'
 
 export type TrancheGenResult =
@@ -125,7 +126,8 @@ export async function generateTranchesForSymbol(
     : null
 
   // 1-year daily chart: live CMP (from meta) + 52-week low (from daily lows)
-  const chart = await fetchYearChart(upperSymbol)
+  const instrument = (await ensureStocks([upperSymbol]))?.[upperSymbol]
+  const chart = instrument ? await fetchYearChart(instrument.yahooSymbol) : { price: null, week52Low: null }
   const liveCmp: number | null = chart.price ?? band?.cmp ?? null
   const fiftyTwoWeekLow = chart.week52Low
 

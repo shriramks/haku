@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getUsHoldings, getUsTransactions, getStockPrices, getUsdInrRate } from '@/lib/data'
-import { usPriceKey } from '@/lib/stock-prices'
 import UsHoldingDetailClient from './UsHoldingDetailClient'
 
 export default async function UsHoldingDetailPage({
@@ -21,9 +20,8 @@ export default async function UsHoldingDetailPage({
   if (!holding) redirect('/portfolio')
   const transactions = usTransactions.filter(t => t.holding_id === holdingId)
 
-  const key = usPriceKey(holding.yahoo_symbol)
-  const [prices, usdInr] = await Promise.all([getStockPrices([key]), getUsdInrRate()])
-  const quote = prices[key] ?? null
+  const [prices, usdInr] = await Promise.all([getStockPrices([holding.symbol]), getUsdInrRate()])
+  const quote = prices[holding.symbol] ?? null
 
   return (
     <UsHoldingDetailClient

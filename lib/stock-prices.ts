@@ -13,21 +13,10 @@ export const HELD_QTY_EPSILON = 0.001
 
 /**
  * Gold's row in stock_prices: INR per gram, `prev_close` = the prior per-gram price.
- * The leading underscore can't collide with an NSE ticker.
+ * The leading underscore can't collide with a stock symbol (`isValidStockSymbol` in
+ * stock-master.ts rejects a leading underscore). Every instrument is keyed by its plain symbol.
  */
 export const GOLD_PRICE_KEY = '_GOLD_INR_PER_GRAM'
-
-/**
- * stock_prices key for a US holding's quote. The `US:` prefix keeps user-entered Yahoo symbols
- * out of the NSE / reserved key space (stock_prices is shared by every user), so a holding named
- * `TCS` or `_GOLD_INR_PER_GRAM` can never overwrite another price. Validate with isValidYahooSymbol on write.
- */
-export const usPriceKey = (yahooSymbol: string) => `US:${yahooSymbol}`
-
-/** Yahoo tickers are letters, digits and . - ^ = only; no leading underscore or punctuation, max 20 chars. */
-export function isValidYahooSymbol(symbol: string): boolean {
-  return /^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$/.test(symbol)
-}
 
 type HeldTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
 

@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { createSupabaseServiceClient, getStockPrices, getUserId, fetchCmpBatch } = vi.hoisted(() => ({
+const { createSupabaseServiceClient, getStockPrices, getUserId, fetchCmpBatch, ensureStocks } = vi.hoisted(() => ({
   createSupabaseServiceClient: vi.fn(),
   getStockPrices: vi.fn(),
   getUserId: vi.fn(),
   fetchCmpBatch: vi.fn(),
+  ensureStocks: vi.fn(),
 }))
 
 vi.mock('../supabase-service', () => ({ createSupabaseServiceClient }))
 vi.mock('../data', () => ({ getStockPrices, getUserId }))
 vi.mock('../market-data', () => ({ fetchCmpBatch }))
+vi.mock('../stock-master', () => ({ ensureStocks }))
 
 import { refreshStockPrices } from '../stock-price-refresh'
 
@@ -33,6 +35,8 @@ describe('refreshStockPrices', () => {
     vi.clearAllMocks()
     getUserId.mockResolvedValue('user-1')
     getStockPrices.mockResolvedValue({})
+    ensureStocks.mockImplementation(async (symbols: string[]) =>
+      Object.fromEntries(symbols.map(s => [s, { symbol: s, yahooSymbol: `${s}.NS` }])))
     fetchCmpBatch.mockResolvedValue({
       prices: { TCS: 4000 }, prevClose: { TCS: 3950 }, changePercent: {}, week52: { TCS: { low: 3000, high: 4200 } },
     })
@@ -57,7 +61,8 @@ describe('refreshStockPrices', () => {
   it('ignores symbols the caller has no row for', async () => {
     setup({ transactions: ['TCS'] })
     await refreshStockPrices(['TCS', 'EVIL'])
-    expect(fetchCmpBatch).toHaveBeenCalledWith(['TCS'])
+    expect(ensureStocks).toHaveBeenCalledWith(['TCS'])
+    expect(fetchCmpBatch).toHaveBeenCalledWith([{ symbol: 'TCS', yahooSymbol: 'TCS.NS' }])
   })
 
   it('fetches nothing when no requested symbol is owned', async () => {
@@ -72,6 +77,13 @@ describe('refreshStockPrices', () => {
     await refreshStockPrices(['TCS', 'INFY'])
     const rows = upsert.mock.calls[0][0] as { symbol: string }[]
     expect(rows.map(r => r.symbol)).toEqual(['TCS'])
+  })
+
+  it('returns null when the instrument master cannot be read or written', async () => {
+    setup({ buy_bands: ['TCS'] })
+    ensureStocks.mockResolvedValue(null)
+    expect(await refreshStockPrices(['TCS'])).toBeNull()
+    expect(fetchCmpBatch).not.toHaveBeenCalled()
   })
 
   it('returns null when the save fails', async () => {

@@ -5,6 +5,7 @@ import { calculateBands, computeGrowth, computeHospitalGrowth, deriveIndexEps, g
 import { fetchScreenerData } from '@/lib/screener'
 import { fetchNseIndex } from '@/lib/nse'
 import { fetchCmp } from '@/lib/market-data'
+import { ensureStocks } from '@/lib/stock-master'
 import { fiscalQuarterLabel } from '@/lib/fy-utils'
 import { generateTranchesForSymbol } from '@/lib/tranche-pipeline'
 import { saveSnapshotIfChanged } from '@/app/actions'
@@ -20,14 +21,16 @@ const INDEX_NAME: Partial<Record<StockCategory, string>> = {
 interface IndexInputs { level: number; pe: number; cmp: number; eps: number }
 
 // Fetch a fresh, consistent (CMP, PE) pair for an index ETF and derive eps = cmp/pe.
-// fetchNseIndex keys on the index name (from category); fetchCmp keys on the ETF
-// ticker (the allocation symbol). Both read in one moment so the stored band, eps,
+// fetchNseIndex keys on the index name (from category); fetchCmp takes the ETF's
+// Yahoo symbol from the instrument master. Both read in one moment so the stored band, eps,
 // and cmp stay mutually consistent — that consistency is what makes the rupee-band
 // zone test reduce exactly to a PE comparison.
 async function fetchIndexInputs(category: StockCategory, symbol: string): Promise<IndexInputs> {
   const indexName = INDEX_NAME[category]
   if (!indexName) throw new Error(`No NSE index mapping for category "${category}"`)
-  const [idx, cmp] = await Promise.all([fetchNseIndex(indexName), fetchCmp(symbol)])
+  const instrument = (await ensureStocks([symbol]))?.[symbol]
+  if (!instrument) throw new Error(`No instrument master row for ${symbol}`)
+  const [idx, cmp] = await Promise.all([fetchNseIndex(indexName), fetchCmp(instrument.yahooSymbol)])
   if (cmp == null) throw new Error(`No CMP available for ${symbol}`)
   const eps = deriveIndexEps(cmp, idx.pe)
   if (eps == null) throw new Error(`Cannot derive index eps for ${symbol} (cmp=${cmp}, pe=${idx.pe})`)

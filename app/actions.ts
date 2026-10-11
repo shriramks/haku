@@ -5,6 +5,7 @@ import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot, getF
 import { fyIdForDate } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/us-compute'
+import { ensureStocks } from '@/lib/stock-master'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
@@ -157,6 +158,8 @@ export async function addStockTransaction(
   const userId = await getUserId()
   if (!userId) return { fyId: null, error: 'Not signed in' }
   const svc = createSupabaseServiceClient()
+  // The instrument master is kept in step with what is traded, so the price pull can resolve the symbol.
+  if (!(await ensureStocks([input.symbol]))) return { fyId: null, error: 'Could not save the instrument' }
   const fyId = await fyIdForDate(svc, input.trade_date, userId)
   const { error } = await svc.from('transactions').insert({
     ...input, user_id: userId, fy_id: fyId,
@@ -210,6 +213,8 @@ export async function importStockTransactions(
   if (!userId) return { error: 'Not signed in' }
   if (rows.length === 0) return { error: null }
   const svc = createSupabaseServiceClient()
+
+  if (!(await ensureStocks(rows.map(r => r.symbol)))) return { error: 'Could not save the instruments' }
 
   const uniqueDates = [...new Set(rows.map(r => r.trade_date))]
   const fyByDate = new Map<string, string | null>()

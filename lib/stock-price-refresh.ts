@@ -1,10 +1,11 @@
-// Bands "Refresh CMP" (#151): fetch latest NSE prices for symbols the caller owns and save
+// Bands "Refresh CMP" (#151): fetch latest prices for symbols the caller owns and save
 // them to stock_prices, so Bands and Portfolio read one price. Like the Portfolio refresh route,
 // the price always comes from Yahoo server-side — the client only names symbols, never supplies a
 // price, so nothing client-supplied reaches a table every user reads.
 import { createSupabaseServiceClient } from './supabase-service'
 import { getStockPrices, getUserId } from './data'
 import { fetchCmpBatch, type CmpQuoteBatch } from './market-data'
+import { ensureStocks } from './stock-master'
 import { buildPriceUpdate } from './stock-prices'
 
 export type RefreshedStockPrices = Pick<CmpQuoteBatch, 'prices' | 'week52'>
@@ -25,7 +26,14 @@ export async function refreshStockPrices(symbols: string[]): Promise<RefreshedSt
   const allowed = requested.filter(s => owned.has(s))
   if (allowed.length === 0) return { prices: {}, week52: {} }
 
-  const [previous, batch] = await Promise.all([getStockPrices(allowed), fetchCmpBatch(allowed)])
+  // A plan-only symbol may not have a master row yet (allocations are written from the browser);
+  // it is created here, server-side, before it is priced.
+  const instruments = await ensureStocks(allowed)
+  if (!instruments) return null
+  const targets = allowed.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
+  if (targets.length === 0) return { prices: {}, week52: {} }
+
+  const [previous, batch] = await Promise.all([getStockPrices(allowed), fetchCmpBatch(targets)])
   const { rows } = buildPriceUpdate(allowed, batch, previous, new Date().toISOString())
   if (rows.length > 0) {
     const { error } = await service.from('stock_prices').upsert(rows, { onConflict: 'symbol' })

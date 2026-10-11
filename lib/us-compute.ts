@@ -3,7 +3,7 @@
 // today's rate, so XIRR and gain are on INR cash flows and currency movement counts.
 import { seqCost } from './compute'
 import { stockXirr } from './xirr'
-import { HELD_QTY_EPSILON, usPriceKey, type StockPriceInfo } from './stock-prices'
+import { HELD_QTY_EPSILON, type StockPriceInfo } from './stock-prices'
 import type { UsHolding, UsTransaction } from './portfolio-types'
 import type { FYTxn } from './types'
 
@@ -69,7 +69,7 @@ export function computeUsPosition(
 export function computeUsPositions(
   holdings: UsHolding[],
   transactions: UsTransaction[],
-  prices: Record<string, StockPriceInfo>,   // stock_prices rows, keyed as getStockPrices returns them (`US:<yahoo symbol>`)
+  prices: Record<string, StockPriceInfo>,   // stock_prices rows, keyed by plain symbol, as getStockPrices returns them
   fx: UsdInrRate | null,
 ): UsPosition[] {
   const byHolding = new Map<string, UsTransaction[]>()
@@ -79,7 +79,7 @@ export function computeUsPositions(
     else byHolding.set(t.holding_id, [t])
   }
   return holdings
-    .map(h => computeUsPosition(h, byHolding.get(h.id) ?? [], prices[usPriceKey(h.yahoo_symbol)] ?? null, fx))
+    .map(h => computeUsPosition(h, byHolding.get(h.id) ?? [], prices[h.symbol] ?? null, fx))
     .filter((p): p is UsPosition => p !== null)
     .sort((a, b) => (b.currentValue ?? b.invested) - (a.currentValue ?? a.invested))
 }

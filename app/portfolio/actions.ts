@@ -1,6 +1,7 @@
 'use server'
 
 import { US_SYMBOLS, isUsSymbol } from '@/lib/us-symbols'
+import { ensureStocks } from '@/lib/stock-master'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions, getUsHoldings, getUsTransactions, getFxRates } from '@/lib/data'
@@ -235,6 +236,8 @@ export async function addUsTransaction(input: UsTradeInput): Promise<{ error?: s
     const symbol = input.newSymbol?.trim().toUpperCase()
     if (!symbol || !isUsSymbol(symbol)) return { error: 'Unknown US symbol' }
     const h = US_SYMBOLS[symbol]
+    const instrument = { symbol, exchange: h.exchange, currency: h.currency, yahooSymbol: h.yahoo_symbol, region: h.region, name: h.name }
+    if (!(await ensureStocks([symbol], { [symbol]: instrument }))) return { error: 'Could not save the instrument' }
     const { data, error } = await sb
       .from('us_holdings')
       .upsert({ user_id: userId, symbol, yahoo_symbol: h.yahoo_symbol, name: h.name, region: h.region },

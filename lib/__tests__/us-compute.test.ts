@@ -70,7 +70,7 @@ describe('computeUsPosition', () => {
 })
 
 describe('computeUsPositions', () => {
-  it('drops sold-out holdings, looks quotes up by Yahoo symbol and sorts by value', () => {
+  it('drops sold-out holdings, looks quotes up by symbol and sorts by value', () => {
     const other: UsHolding = { ...holding, id: 'h2', symbol: 'VWRA', yahoo_symbol: 'VWRA.L', region: 'india' }
     const sold: UsHolding = { ...holding, id: 'h3', symbol: 'OLD', yahoo_symbol: 'OLD' }
     const out = computeUsPositions([holding, other, sold], [
@@ -78,7 +78,7 @@ describe('computeUsPositions', () => {
       txn('2025-01-01', 'buy', 1, 100, 80, 'h2'),
       txn('2025-01-01', 'buy', 1, 100, 80, 'h3'),
       txn('2025-02-01', 'sell', 1, 100, 80, 'h3'),
-    ], { 'US:VUAA.L': q(100, null), 'US:VWRA.L': q(200, null) }, { rate: 80, prevRate: null })
+    ], { VUAA: q(100, null), VWRA: q(200, null) }, { rate: 80, prevRate: null })
     expect(out.map(p => p.holding.symbol)).toEqual(['VWRA', 'VUAA'])
   })
 })

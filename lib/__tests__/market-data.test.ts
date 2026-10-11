@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchGoldPrice, goldPerGram } from '../market-data'
+import { fetchCmpBatch, fetchCmp, fetchYearChart, fetchGoldPrice, goldPerGram } from '../market-data'
 
 // Yahoo chart response for one symbol
 const chart = (price: number | undefined, chartPreviousClose?: number) => ({
@@ -65,6 +65,48 @@ describe('fetchGoldPrice', () => {
     await fetchGoldPrice()
     for (const [, init] of fetchMock.mock.calls as unknown as [string, RequestInit & { next?: unknown }][]) {
       expect(init.next).toBeUndefined()
+    }
+  })
+})
+
+describe('instrument-agnostic fetchers (#152)', () => {
+  const v7 = (result: object[]) => ({ ok: true, json: async () => ({ quoteResponse: { result } }) })
+  const stubByUrl = (handler: (url: string) => unknown) => {
+    const fetchMock = vi.fn(async (url: string) => handler(String(url)))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+  const urls = (m: ReturnType<typeof stubByUrl>) => m.mock.calls.map(c => String(c[0]))
+
+  it('fetchCmpBatch asks Yahoo for the given symbols as-is and keys the result by plain symbol', async () => {
+    const fetchMock = stubByUrl(() => v7([
+      { symbol: 'VUAA.L', regularMarketPrice: 110, regularMarketPreviousClose: 109 },
+      { symbol: 'TCS.NS', regularMarketPrice: 4000, regularMarketPreviousClose: 3950 },
+    ]))
+    const out = await fetchCmpBatch([
+      { symbol: 'VUAA', yahooSymbol: 'VUAA.L' },
+      { symbol: 'TCS', yahooSymbol: 'TCS.NS' },
+    ])
+    expect(urls(fetchMock)[0]).toContain('symbols=VUAA.L,TCS.NS')
+    expect(out.prices).toEqual({ VUAA: 110, TCS: 4000 })
+    expect(out.prevClose).toEqual({ VUAA: 109, TCS: 3950 })
+  })
+
+  it('fetchCmpBatch falls back to per-symbol charts on the given Yahoo symbol, never adding a suffix', async () => {
+    const fetchMock = stubByUrl(url => (url.includes('/v7/') ? v7([]) : chart(110)))
+    const out = await fetchCmpBatch([{ symbol: 'VUAA', yahooSymbol: 'VUAA.L' }])
+    expect(urls(fetchMock).some(u => u.includes('/chart/VUAA.L'))).toBe(true)
+    expect(urls(fetchMock).some(u => u.includes('.NS'))).toBe(false)
+    expect(out.prices).toEqual({ VUAA: 110 })
+  })
+
+  it('fetchCmp and fetchYearChart use the Yahoo symbol exactly as given', async () => {
+    const fetchMock = stubByUrl(() => chart(110))
+    expect(await fetchCmp('VUAA.L')).toBe(110)
+    await fetchYearChart('VUAA.L')
+    for (const u of urls(fetchMock)) {
+      expect(u).toContain('/chart/VUAA.L')
+      expect(u).not.toContain('.NS')
     }
   })
 })
