@@ -6,7 +6,7 @@ import { fyIdForDate } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
 import { ensureStocks, getStocks, type Stock } from '@/lib/stock-master'
-import { fetchYahooInstrument } from '@/lib/market-data'
+import { fetchYahooInstrument, yahooListingExists } from '@/lib/market-data'
 import { isValidYahooSymbol } from '@/lib/instrument'
 import { tradeFxRate } from '@/lib/trade-fx'
 import { isValidStockSymbol } from '@/lib/stock-master'
@@ -81,7 +81,10 @@ export async function registerInstrument(
   if (instrument.yahooSymbol.split('.')[0] !== sym) {
     return { exchange: null, name: '', error: `Symbol must be ${instrument.yahooSymbol.split('.')[0]}` }
   }
-  if (await fetchYahooInstrument(`${sym}.NS`)) return { exchange: null, name: '', error: `${sym} is an Indian listing` }
+  // Fail closed: if Yahoo cannot say whether SYMBOL.NS exists, do not write the shared master.
+  const nse = await yahooListingExists(`${sym}.NS`)
+  if (nse === null) return { exchange: null, name: '', error: 'Could not verify the symbol, try again' }
+  if (nse) return { exchange: null, name: '', error: `${sym} is an Indian listing` }
   const stock: Stock = {
     symbol: sym, exchange: instrument.exchange, currency: instrument.currency,
     yahooSymbol: instrument.yahooSymbol, region: 'us', name: instrument.name,

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getUserId, ensureStocks, fetchYahooInstrument } = vi.hoisted(() => ({
+const { getUserId, ensureStocks, fetchYahooInstrument, yahooListingExists } = vi.hoisted(() => ({
   getUserId: vi.fn(),
   ensureStocks: vi.fn(),
   fetchYahooInstrument: vi.fn(),
+  yahooListingExists: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn(), revalidatePath: vi.fn() }))
@@ -14,7 +15,7 @@ vi.mock('@/lib/stock-master', () => ({
   ensureStocks, getStocks: vi.fn(),
   isValidStockSymbol: (s: string) => /^[A-Za-z0-9][A-Za-z0-9.\-&_]{0,19}$/.test(s),
 }))
-vi.mock('@/lib/market-data', () => ({ fetchYahooInstrument }))
+vi.mock('@/lib/market-data', () => ({ fetchYahooInstrument, yahooListingExists }))
 vi.mock('@/lib/stock-price-refresh', () => ({ refreshStockPrices: vi.fn() }))
 
 import { lookupInstrument, registerInstrument } from '@/app/actions'
@@ -65,7 +66,8 @@ describe('registerInstrument (#154)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getUserId.mockResolvedValue('user-1')
-    fetchYahooInstrument.mockImplementation(async (t: string) => (t.endsWith('.NS') ? null : VUAA_QUOTE))
+    fetchYahooInstrument.mockResolvedValue(VUAA_QUOTE)
+    yahooListingExists.mockResolvedValue(false)
   })
 
   it('creates the master row from the server-side quote, never from client-supplied fields', async () => {
@@ -83,9 +85,17 @@ describe('registerInstrument (#154)', () => {
   })
 
   it('refuses a symbol that already resolves as an NSE listing', async () => {
-    fetchYahooInstrument.mockImplementation(async () => VUAA_QUOTE)   // VUAA.NS quotes too
+    yahooListingExists.mockResolvedValue(true)   // VUAA.NS quotes too
     const res = await registerInstrument('VUAA', 'VUAA.L')
     expect(res.error).toBe('VUAA is an Indian listing')
+    expect(ensureStocks).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when Yahoo cannot say whether the NSE listing exists', async () => {
+    yahooListingExists.mockResolvedValue(null)
+    const res = await registerInstrument('VUAA', 'VUAA.L')
+    expect(res.exchange).toBeNull()
+    expect(res.error).toBe('Could not verify the symbol, try again')
     expect(ensureStocks).not.toHaveBeenCalled()
   })
 

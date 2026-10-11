@@ -68,6 +68,26 @@ export async function fetchYahooInstrument(yahooSymbol: string, timeoutMs = 5000
   }
 }
 
+/**
+ * Whether a Yahoo ticker quotes: true if it has a price, false if Yahoo says it does not exist
+ * (404 or no price), null when that could not be established (network error, timeout, 5xx,
+ * rate limit). Callers that use "does not exist" as a safety condition must treat null as unknown.
+ */
+export async function yahooListingExists(yahooSymbol: string, timeoutMs = 5000): Promise<boolean | null> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`,
+      { headers: { 'User-Agent': YAHOO_UA }, signal: AbortSignal.timeout(timeoutMs) },
+    )
+    if (res.status === 404) return false
+    if (!res.ok) return null
+    const meta = (await res.json())?.chart?.result?.[0]?.meta
+    return !!meta?.regularMarketPrice
+  } catch {
+    return null
+  }
+}
+
 /** Fetches the current market price for a Yahoo symbol. Returns null on any failure. */
 export async function fetchCmp(yahooSymbol: string): Promise<number | null> {
   return (await fetchYahooQuote(yahooSymbol))?.price ?? null
