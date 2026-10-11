@@ -23,3 +23,20 @@ export function inrTransactions<T extends { symbol: string }>(
 ): T[] {
   return txns.filter(t => (stocks[t.symbol]?.currency ?? 'INR') === 'INR')
 }
+
+/**
+ * INR per one unit of each instrument's quote currency, for converting a native price to INR.
+ * INR instruments are omitted (rate 1); a foreign one maps to its rate, or null when none is known
+ * (non-USD currency, or no USD->INR saved yet) so the caller shows no figure instead of a wrong one.
+ */
+export function inrPerUnit(
+  stocks: Record<string, Pick<Stock, 'currency'>>,
+  usdInr: number | null,
+): Record<string, number | null> {
+  const rates: Record<string, number | null> = {}
+  for (const [symbol, stock] of Object.entries(stocks)) {
+    if (stock.currency === 'INR') continue
+    rates[symbol] = stock.currency === 'USD' && usdInr !== null && usdInr > 0 ? usdInr : null
+  }
+  return rates
+}

@@ -305,6 +305,26 @@ describe('computeStockRows — price source', () => {
   })
 })
 
+describe('computeStockRows — foreign instrument P&L', () => {
+  // 10 units bought at $100 with a 80 INR/USD trade-date rate: amount (INR) = 80,000, so avg cost 8,000 INR.
+  const allocs = [mkAlloc('VUAA', 100)]
+  const txns   = [{ ...mkTxn('VUAA', 'buy', 10, 100), fx_rate: 80, amount: 80000 }]
+  const saved  = { VUAA: { cmp: 150, prevClose: 148, fetchedAt: '2026-10-11T10:00:00Z' } }
+
+  it('converts the native price to INR before comparing with the INR average cost', () => {
+    const [row] = computeStockRows(allocs, txns, [], totalBudget, undefined, saved, { VUAA: 90 })
+    expect(row.cmp).toBe(150)                          // still the native price
+    expect(row.unrealisedPnL).toBe((150 * 90 - 8000) * 10)
+    expect(row.unrealisedPnLPct).toBeCloseTo((13500 - 8000) / 8000 * 100)
+  })
+
+  it('shows no figure when the rate is unknown, instead of mixing currencies', () => {
+    const [row] = computeStockRows(allocs, txns, [], totalBudget, undefined, saved, { VUAA: null })
+    expect(row.unrealisedPnL).toBeNull()
+    expect(row.unrealisedPnLPct).toBeNull()
+  })
+})
+
 describe('netDeployed', () => {
   it('is buys minus sell proceeds', () => {
     expect(netDeployed([

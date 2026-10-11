@@ -7,7 +7,7 @@ import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
-import { isUsSymbol } from '@/lib/us-symbols'
+import { isNseExchange } from '@/lib/instrument'
 import type { FiscalYear, StockAllocation, FYTxn, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -23,10 +23,11 @@ interface Props {
   bands: BuyBand[]
   /** Saved stock_prices by symbol — resolveCmp prefers these over the band snapshot. */
   prices: Record<string, StockPriceInfo>
-  /** US holding id by symbol; a US plan row has none until its first buy. */
+  /** INR per unit of an overseas instrument's quote currency; a symbol not listed is INR. */
+  inrRates: Record<string, number | null>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, prices }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, prices, inrRates }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
@@ -36,9 +37,13 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     computeStockRows(
       allocations, transactions, bands,
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
-      allTimeHoldings, prices,
+      allTimeHoldings, prices, inrRates,
     ),
-    [allocations, transactions, bands, selectedFY, allTimeHoldings, prices]
+    [allocations, transactions, bands, selectedFY, allTimeHoldings, prices, inrRates]
+  )
+  const overseas = useMemo(
+    () => new Set(allocations.filter(a => !isNseExchange(a.exchange)).map(a => a.symbol)),
+    [allocations]
   )
 
   async function switchFY(fy: FiscalYear) {
@@ -162,7 +167,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Flat allocation rows */}
           <div>
-            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} traded={!!allTimeHoldings[row.symbol]} dim={row.remaining <= 0} />)}
+            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} overseas={overseas.has(row.symbol)} traded={!!allTimeHoldings[row.symbol]} dim={row.remaining <= 0} />)}
           </div>
 
           <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
@@ -174,15 +179,15 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function AllocationRow({ row, fyLabel, traded, dim }: { row: StockRow; fyLabel: string; traded: boolean; dim?: boolean }) {
+function AllocationRow({ row, fyLabel, overseas, traded, dim }: { row: StockRow; fyLabel: string; overseas: boolean; traded: boolean; dim?: boolean }) {
   const isDone      = row.remaining <= 0
   // Invested % pairs with the currentCost amount below (and the bar fill);
   // Left % pairs with the remaining (budget − spent) amount. Different bases —
   // they need not sum to 100.
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
-  // US rows open the holding page; before the first buy there is nothing to show, so the row is inert.
-  const rowTarget = !isUsSymbol(row.symbol)
+  // Overseas rows open the holding page; before the first buy there is nothing to show, so the row is inert.
+  const rowTarget = !overseas
     ? { href: `/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}` }
     : traded
       ? { href: `/portfolio/stock/${encodeURIComponent(row.symbol)}` }

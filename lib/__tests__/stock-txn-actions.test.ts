@@ -68,10 +68,10 @@ describe('stock transaction writes carry the trade-date rate (#153)', () => {
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ symbol: 'TCS', exchange: 'NSE', fx_rate: 1 }))
   })
 
-  it('add: ensures the master row with VUAA known, so a first buy creates it', async () => {
+  it('add: resolves the instrument through the master only, with no built-in instrument list', async () => {
     setup()
     await addStockTransaction({ ...trade, symbol: 'VUAA', fx_rate: 104.47 })
-    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'], { VUAA: expect.objectContaining({ currency: 'USD', yahooSymbol: 'VUAA.L' }) })
+    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'])
   })
 
   it('update: the row own instrument decides the rate; USD keeps the edit, tag revalidated', async () => {

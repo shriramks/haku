@@ -4,7 +4,6 @@ import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getStockPrices } from '@/lib/data'
 import { syncMfNav } from '@/lib/mf-nav-sync'
 import { ensureStocks } from '@/lib/stock-master'
-import { knownInstruments } from '@/lib/us-symbols'
 import { fetchCmpBatch, fetchGoldPrice, fetchUsdInrHistory } from '@/lib/market-data'
 import { USDINR_PRICE_KEY } from '@/lib/fx'
 import { heldSymbols, buildPriceUpdate, GOLD_PRICE_KEY } from '@/lib/stock-prices'
@@ -68,7 +67,7 @@ export async function POST() {
   const symbols = heldStocks
   // Resolves through the master, creating a confirmed NSE listing that is missing (self-heals a write
   // whose Yahoo check failed). An unconfirmed symbol stays absent and is reported failed below.
-  const instruments = (await ensureStocks(symbols, knownInstruments(symbols))) ?? {}
+  const instruments = (await ensureStocks(symbols)) ?? {}
   const targets = symbols.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
   const usSymbols = symbols.filter(s => instruments[s]?.currency === 'USD')
   const holdsUs = usSymbols.length > 0

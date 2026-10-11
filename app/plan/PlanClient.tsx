@@ -4,14 +4,14 @@ import { useState, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFine, formatINRFull } from '@/lib/formatter'
+import { formatINRFine, formatINRFull, formatUsd } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
-import { isUsSymbol } from '@/lib/us-symbols'
-import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations } from '@/app/actions'
+import { isNseExchange } from '@/lib/instrument'
+import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations, lookupInstrument, registerInstrument, type InstrumentLookup } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -26,11 +26,6 @@ interface Props {
   fiscalYears: FiscalYear[]
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
-}
-
-/** US plan rows live in their own table; everything else is a stock row. */
-function allocTable(alloc: StockAllocation) {
-  return alloc.exchange === 'US' ? 'us_allocations' : 'stock_allocations'
 }
 
 function setOnboardingStep(step: string) {
@@ -55,7 +50,6 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     // instead of issuing a duplicate count query here.
     await Promise.all([
       sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
-      sb.from('us_allocations').delete().eq('fy_id', selectedFY.id),
       sb.from('buy_tranches').delete().eq('fy_id', selectedFY.id),
     ])
 
@@ -218,7 +212,7 @@ function PlanTab({
   }
 
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
-    await getSupabaseBrowser().from(allocTable(alloc)).update({ allocation_pct: pct }).eq('id', alloc.id)
+    await getSupabaseBrowser().from('stock_allocations').update({ allocation_pct: pct }).eq('id', alloc.id)
     await revalidateAllocations()
     onAllocationsChange(allocations.map(a => a.id === alloc.id ? { ...a, allocation_pct: pct } : a))
   }
@@ -230,30 +224,38 @@ function PlanTab({
   }
 
   async function removeAlloc(alloc: StockAllocation) {
-    await getSupabaseBrowser().from(allocTable(alloc)).delete().eq('id', alloc.id)
+    await getSupabaseBrowser().from('stock_allocations').delete().eq('id', alloc.id)
     await revalidateAllocations()
     onAllocationsChange(allocations.filter(a => a.id !== alloc.id))
   }
 
-  async function addStock(symbol: string, category: StockCategory, pct: number) {
-    if (!selectedFY) return
+  /** Returns an error message to show in the sheet, or null once the row is added. */
+  async function addStock(symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null): Promise<string | null> {
+    if (!selectedFY) return null
     const sb = getSupabaseBrowser()
     const { data: { user } } = await sb.auth.getUser()
-    if (!user) return
+    if (!user) return null
     const sym = symbol.toUpperCase()
-    const { data } = isUsSymbol(sym)
-      ? await sb.from('us_allocations').insert({
-          fy_id: selectedFY.id, user_id: user.id, symbol: sym, allocation_pct: pct,
-        }).select('id, fy_id, symbol, allocation_pct').single()
-          .then(r => ({ data: r.data && { ...r.data, allocation_pct: Number(r.data.allocation_pct), exchange: 'US', category: '' } }))
-      : await sb.from('stock_allocations').insert({
-          fy_id: selectedFY.id, user_id: user.id,
-          symbol: sym, exchange: 'NSE',
-          allocation_pct: pct, category,
-        }).select().single()
+    let exchange = 'NSE'
+    let name: string | undefined
+    if (yahooSymbol) {
+      // Overseas: the server confirms the ticker with Yahoo and writes the shared master row first.
+      const reg = await registerInstrument(sym, yahooSymbol)
+      if (!reg.exchange) return reg.error ?? 'Could not add the instrument'
+      exchange = reg.exchange
+      name = reg.name || undefined
+    }
+    const { data, error } = await sb.from('stock_allocations').insert({
+      fy_id: selectedFY.id, user_id: user.id,
+      symbol: sym, exchange,
+      allocation_pct: pct, category: yahooSymbol ? '' : category,
+    }).select().single()
+    if (error || !data) return error?.message ?? 'Could not add the stock'
     await revalidateAllocations()
-    if (data) onAllocationsChange([...allocations, data].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    const row: StockAllocation = { ...data, name }
+    onAllocationsChange([...allocations, row].sort((a, b) => b.allocation_pct - a.allocation_pct))
     setShowAddStock(false)
+    return null
   }
 
   async function renameAllocSymbol(alloc: StockAllocation, newSymbol: string) {
@@ -273,7 +275,6 @@ function PlanTab({
     const sb = getSupabaseBrowser()
     await Promise.all([
       sb.from('stock_allocations').delete().eq('fy_id', selectedFY.id),
-      sb.from('us_allocations').delete().eq('fy_id', selectedFY.id),
     ])
     await revalidateAllocations()
     onAllocationsChange([])
@@ -449,7 +450,7 @@ function PlanTab({
           totalPct={totalPct}
           totalBudget={effectiveBudget}
           onClose={() => setShowAddStock(false)}
-          onAdd={async (symbol, category, pct) => { await addStock(symbol, category, pct); setShowAddStock(false) }}
+          onAdd={addStock}
         />
       )}
 
@@ -491,7 +492,7 @@ function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit
 }) {
   const budget = (alloc.allocation_pct / 100) * totalBudget
   const baseBudget = carryoverShare != null ? budget - carryoverShare : budget
-  const name = getStockName(alloc.symbol)
+  const name = alloc.name ?? getStockName(alloc.symbol)
   return (
     <RowShell onClick={onEdit}>
       <div className="flex items-center gap-3">
@@ -662,8 +663,8 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         title={
           <div>
             <p>{alloc.symbol}</p>
-            {getStockName(alloc.symbol) && (
-              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{getStockName(alloc.symbol)}</p>
+            {(alloc.name ?? getStockName(alloc.symbol)) && (
+              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{alloc.name ?? getStockName(alloc.symbol)}</p>
             )}
           </div>
         }
@@ -706,7 +707,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         </div>
 
         {/* Category picker */}
-        {alloc.exchange !== 'US' && <div className="flex items-center justify-between px-5 py-4">
+        {isNseExchange(alloc.exchange) && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Category</p>
           <select
             value={alloc.category}
@@ -718,7 +719,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         </div>}
 
         {/* Rename Ticker */}
-        {alloc.exchange === 'US' ? null : renaming ? (
+        {!isNseExchange(alloc.exchange) ? null : renaming ? (
           <div className="flex items-center justify-between px-5 py-4">
             <p className="text-body" style={{ color: 'var(--text-2)' }}>New Ticker</p>
             <div className="flex items-center gap-2">
@@ -780,13 +781,38 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   totalPct: number
   totalBudget: number
   onClose: () => void
-  onAdd: (symbol: string, category: StockCategory, pct: number) => Promise<void>
+  /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
+  onAdd: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
 }) {
   const [symbol, setSymbol]     = useState('')
   const [pct, setPct]           = useState(10)
   const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
   const [saving, setSaving]     = useState(false)
+  const [market, setMarket]     = useState<'IND' | 'Other'>('IND')
+  const [yahoo, setYahoo]       = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+  const [lookup, setLookup]     = useState<
+    { status: 'idle' } | { status: 'loading' } | { status: 'ok'; instrument: InstrumentLookup } | { status: 'error'; error: string }
+  >({ status: 'idle' })
   const kh = useKeyboardHeight()
+  const overseas = market === 'Other'
+
+  // Quote-checks the typed Yahoo symbol once typing pauses; a stale answer is dropped.
+  useEffect(() => {
+    if (!overseas) return
+    const ys = yahoo.trim()
+    if (!ys) { setLookup({ status: 'idle' }); return }
+    setLookup({ status: 'loading' })
+    let stale = false
+    const timer = setTimeout(async () => {
+      const r = await lookupInstrument(ys)
+      if (stale) return
+      setLookup(r.instrument ? { status: 'ok', instrument: r.instrument } : { status: 'error', error: r.error ?? 'No quote found' })
+    }, 600)
+    return () => { stale = true; clearTimeout(timer) }
+  }, [overseas, yahoo])
+
+  const canAdd = !!symbol && pct > 0 && (!overseas || lookup.status === 'ok')
 
   const freeWithoutThis  = 100 - totalPct
   const sliderMax        = Math.min(100, freeWithoutThis)
@@ -796,9 +822,11 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   const planFreeInr      = (planFreePct / 100) * totalBudget
 
   async function handleAdd() {
-    if (!symbol || pct <= 0) return
+    if (!canAdd) return
     setSaving(true)
-    await onAdd(symbol, category, pct)
+    setAddError(null)
+    const error = await onAdd(symbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
+    if (error) setAddError(error)
     setSaving(false)
   }
 
@@ -819,7 +847,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
               : <p className="font-semibold text-headline text-center">Add Stock</p>
             }
           </div>
-          <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!symbol || pct <= 0} style={{ minHeight: 44 }}>
+          <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!canAdd} style={{ minHeight: 44 }}>
             Add
           </Button>
         </div>
@@ -840,6 +868,58 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             autoFocus
           />
         </div>
+
+        {/* Market: an Indian listing is resolved automatically; anything else needs its Yahoo symbol */}
+        <div className="flex items-center justify-between px-5 py-4">
+          <p className="text-body" style={{ color: 'var(--text-2)' }}>Market</p>
+          <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
+            {(['IND', 'Other'] as const).map(m => (
+              <button key={m} onClick={() => { setMarket(m); setAddError(null) }}
+                className="text-body font-semibold rounded-xl px-4"
+                style={{
+                  minHeight: 36,
+                  background: market === m ? 'var(--bg-secondary)' : 'transparent',
+                  color: market === m ? 'var(--text-primary)' : 'var(--text-2)',
+                }}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {overseas && (
+          <>
+            <div className="flex items-center justify-between px-5 py-4">
+              <p className="text-body" style={{ color: 'var(--text-2)' }}>Yahoo symbol</p>
+              <input
+                placeholder="VUAA.L"
+                value={yahoo}
+                onChange={e => { setYahoo(e.target.value.toUpperCase()); setAddError(null) }}
+                className={`text-body font-semibold text-right outline-none uppercase placeholder:font-normal bg-transparent${lookup.status === 'error' ? ' text-negative' : ''}`}
+                style={{ color: lookup.status === 'error' ? undefined : 'var(--text-primary)', width: 140 }}
+              />
+            </div>
+            {lookup.status === 'loading' && (
+              <div className="px-5 py-3"><p className="text-body" style={{ color: 'var(--text-2)' }}>Checking</p></div>
+            )}
+            {lookup.status === 'error' && (
+              <div className="px-5 py-3"><p className="text-body text-negative">{lookup.error}</p></div>
+            )}
+            {lookup.status === 'ok' && (
+              <div className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-headline font-semibold truncate">{lookup.instrument.name || lookup.instrument.yahooSymbol}</p>
+                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.exchange}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-headline font-semibold tabnum">{formatUsd(lookup.instrument.price)}</p>
+                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.currency}</p>
+                </div>
+              </div>
+            )}
+            {addError && <div className="px-5 py-3"><p className="text-body text-negative">{addError}</p></div>}
+          </>
+        )}
 
         {/* % stepper + slider + plan context */}
         <div className="px-5 pt-5 pb-4 text-center">
@@ -872,7 +952,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* Category picker */}
-        {!isUsSymbol(symbol) && <div className="flex items-center justify-between px-5 py-4">
+        {!overseas && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
           <select
             value={category}
@@ -926,16 +1006,8 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (!prior) return
 
     const sb = getSupabaseBrowser()
-    Promise.all([
-      sb.from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category').eq('fy_id', prior.id),
-      sb.from('us_allocations').select('id, fy_id, symbol, allocation_pct').eq('fy_id', prior.id),
-    ]).then(([stocks, us]) => {
-      const rows = [
-        ...(stocks.data ?? []),
-        ...(us.data ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' })),
-      ]
-      if (rows.length) setSourceAllocs(rows)
-    })
+    sb.from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category').eq('fy_id', prior.id)
+      .then(({ data }) => { if (data?.length) setSourceAllocs(data) })
   }, [selectedYear, existingFYs])
 
   async function create() {
@@ -974,18 +1046,11 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (fyErr || !fy) { setError(fyErr?.message ?? 'Failed to create plan'); setCreating(false); return }
 
     if (copyStocks && sourceAllocs.length > 0) {
-      const stockRows = sourceAllocs.filter(a => a.exchange !== 'US')
-      const usRows = sourceAllocs.filter(a => a.exchange === 'US')
-      await Promise.all([
-        stockRows.length && sb.from('stock_allocations').insert(stockRows.map(a => ({
-          fy_id: fy.id, user_id: user.id,
-          symbol: a.symbol, exchange: a.exchange,
-          allocation_pct: a.allocation_pct, category: a.category,
-        }))),
-        usRows.length && sb.from('us_allocations').insert(usRows.map(a => ({
-          fy_id: fy.id, user_id: user.id, symbol: a.symbol, allocation_pct: a.allocation_pct,
-        }))),
-      ])
+      await sb.from('stock_allocations').insert(sourceAllocs.map(a => ({
+        fy_id: fy.id, user_id: user.id,
+        symbol: a.symbol, exchange: a.exchange,
+        allocation_pct: a.allocation_pct, category: a.category,
+      })))
     }
 
     setCreating(false)

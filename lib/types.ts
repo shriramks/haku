@@ -19,7 +19,10 @@ export interface StockAllocation {
   symbol: string
   exchange: string
   allocation_pct: number
+  /** Empty for an overseas instrument until it has a category (#160). */
   category: string
+  /** Display name from the `stocks` master; absent when the master has none. Not a column. */
+  name?: string
 }
 
 /** The transaction fields allocation math reads. US trades are mapped to this shape with `amount` in INR. */

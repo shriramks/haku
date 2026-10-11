@@ -1,8 +1,6 @@
-// Static display names for NSE symbols.
+// Static display names for NSE symbols; overseas names come from the `stocks` master.
 // Purely presentational — shown as small muted text below the symbol.
 // Add new entries here as stocks are added to the watchlist.
-
-import { US_SYMBOLS } from './us-symbols'
 
 const NAMES: Record<string, string> = {
   CAMS:       'Computer Age Mgmt Services',
@@ -21,5 +19,5 @@ const NAMES: Record<string, string> = {
 /** Returns the display name for a symbol, or undefined if not in the dictionary. */
 export function getStockName(symbol: string): string | undefined {
   const key = symbol.toUpperCase()
-  return NAMES[key] ?? US_SYMBOLS[key]?.name
+  return Object.hasOwn(NAMES, key) ? NAMES[key] : undefined
 }

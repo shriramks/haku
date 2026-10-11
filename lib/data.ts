@@ -7,6 +7,8 @@ import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, FYTxn, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
+import { getStocks } from './stock-master'
+import { inrPerUnit } from './trade-fx'
 
 // cache()         — deduplicates within a single request (per-render)
 // unstable_cache  — persists across requests in the Next.js Data Cache
@@ -66,23 +68,11 @@ export const getAllocations = cache(async (fyId: string): Promise<StockAllocatio
   return data ?? []
 })
 
-/** US plan rows for a FY, shaped as StockAllocation (`exchange: 'US'`, no category) so Plan and
- * Allocation treat them like any other row. Uncached like `stock_allocations`; written client-side under RLS. */
-export const getUsAllocations = cache(async (fyId: string): Promise<StockAllocation[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('us_allocations')
-    .select('id, fy_id, symbol, allocation_pct')
-    .eq('user_id', userId)
-    .eq('fy_id', fyId)
-  return (data ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' }))
-})
-
-/** Stock + US plan rows for a FY, largest first — the Plan screen's list. */
+/** A FY's plan rows, largest first, with display names from the `stocks` master — the Plan screen's list. */
 export async function getPlanAllocations(fyId: string): Promise<StockAllocation[]> {
-  const [stocks, us] = await Promise.all([getAllocations(fyId), getUsAllocations(fyId)])
-  return [...stocks, ...us].sort((a, b) => b.allocation_pct - a.allocation_pct)
+  const allocations = await getAllocations(fyId)
+  const stocks = await getStocks(allocations.map(a => a.symbol))
+  return allocations.map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), name: stocks[a.symbol]?.name || undefined }))
 }
 
 const _fetchTransactions = unstable_cache(
@@ -147,12 +137,11 @@ export const getSymbolAllocations = cache(async (symbol: string): Promise<StockA
 export const getAllStockSymbols = cache(async (): Promise<string[]> => {
   const userId = await getUserId()
   if (!userId) return []
-  const sb = createSupabaseServiceClient()
-  const [stocks, us] = await Promise.all([
-    sb.from('stock_allocations').select('symbol').eq('user_id', userId),
-    sb.from('us_allocations').select('symbol').eq('user_id', userId),
-  ])
-  return [...new Set([...(stocks.data ?? []), ...(us.data ?? [])].map(a => a.symbol))].sort()
+  const { data } = await createSupabaseServiceClient()
+    .from('stock_allocations')
+    .select('symbol')
+    .eq('user_id', userId)
+  return [...new Set((data ?? []).map(a => a.symbol))].sort()
 })
 
 const _fetchBuyBands = unstable_cache(
@@ -502,6 +491,12 @@ export async function getFxRates(): Promise<FxRate[]> {
     .eq('currency', 'USD')
     .order('rate_date', { ascending: true })
   return ((data ?? []) as { rate_date: string; rate: number | string }[]).map(r => ({ rate_date: r.rate_date, rate: Number(r.rate) }))
+}
+
+/** INR per unit of each symbol's quote currency (`inrPerUnit`), for the currency-correct P&L in `computeStockRows`. */
+export async function getInrPerUnit(symbols: string[]): Promise<Record<string, number | null>> {
+  const [stocks, usdInr] = await Promise.all([getStocks(symbols), getUsdInrRate()])
+  return inrPerUnit(stocks, usdInr?.cmp ?? null)
 }
 
 /** Today's saved USD->INR rate (`prevClose` = prior close) or null if never fetched. Uncached, like getGoldPrice. */

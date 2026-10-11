@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tradeFxRate, inrTransactions } from '../trade-fx'
-import { isUsSymbol, knownInstruments } from '../us-symbols'
+import { tradeFxRate, inrTransactions, inrPerUnit } from '../trade-fx'
 
 describe('tradeFxRate', () => {
   it('stores 1 for an INR instrument, whatever the caller sent', () => {
@@ -23,21 +22,16 @@ describe('tradeFxRate', () => {
   })
 })
 
-describe('us-symbols', () => {
-  it('isUsSymbol knows VUAA only', () => {
-    expect(isUsSymbol('VUAA')).toBe(true)
-    expect(isUsSymbol('TCS')).toBe(false)
-    expect(isUsSymbol('toString')).toBe(false)
+describe('inrPerUnit', () => {
+  const stocks = { TCS: { currency: 'INR' }, VUAA: { currency: 'USD' }, ODD: { currency: 'EUR' } }
+
+  it('omits INR instruments and maps USD ones to the USD->INR rate', () => {
+    expect(inrPerUnit(stocks, 90)).toEqual({ VUAA: 90, ODD: null })
   })
 
-  it('knownInstruments ignores prototype members', () => {
-    expect(knownInstruments(['constructor', 'toString', 'hasOwnProperty'])).toEqual({})
-  })
-
-  it('knownInstruments gives the master row VUAA is created from, and nothing for NSE symbols', () => {
-    expect(knownInstruments(['VUAA', 'TCS'])).toEqual({
-      VUAA: { symbol: 'VUAA', exchange: 'LSE', currency: 'USD', yahooSymbol: 'VUAA.L', region: 'us', name: 'Vanguard S&P 500 UCITS ETF' },
-    })
+  it('maps foreign instruments to null when no USD->INR rate is saved', () => {
+    expect(inrPerUnit(stocks, null)).toEqual({ VUAA: null, ODD: null })
+    expect(inrPerUnit(stocks, 0)).toEqual({ VUAA: null, ODD: null })
   })
 })
 

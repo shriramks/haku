@@ -5,8 +5,9 @@ import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot } fro
 import { fyIdForDate } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
-import { ensureStocks, getStocks } from '@/lib/stock-master'
-import { knownInstruments } from '@/lib/us-symbols'
+import { ensureStocks, getStocks, type Stock } from '@/lib/stock-master'
+import { fetchYahooInstrument } from '@/lib/market-data'
+import { isValidYahooSymbol } from '@/lib/instrument'
 import { tradeFxRate } from '@/lib/trade-fx'
 import { isValidStockSymbol } from '@/lib/stock-master'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
@@ -33,6 +34,58 @@ export async function refreshStockPrices(symbols: string[]): Promise<RefreshedSt
   const result = await refreshStockPricesImpl(symbols)
   if (result) revalidatePath('/', 'layout')
   return result
+}
+
+export interface InstrumentLookup {
+  yahooSymbol: string
+  name: string
+  exchange: string
+  currency: string
+  price: number
+}
+
+/** Quote-confirms an overseas ticker. Only USD quotes are supported: the trade-date rate table is USD->INR. */
+async function confirmOverseas(yahooSymbol: string): Promise<{ instrument: InstrumentLookup | null; error: string | null }> {
+  const symbol = yahooSymbol.trim().toUpperCase()
+  if (!isValidYahooSymbol(symbol)) return { instrument: null, error: 'No quote found' }
+  const q = await fetchYahooInstrument(symbol)
+  if (!q) return { instrument: null, error: 'No quote found' }
+  if (q.currency !== 'USD') return { instrument: null, error: `${q.currency} quotes are not supported` }
+  return { instrument: { yahooSymbol: symbol, name: q.name, exchange: q.exchange.toUpperCase() || 'OTHER', currency: q.currency, price: q.price }, error: null }
+}
+
+/** Add Stock "Other": what Yahoo says this ticker is (name, venue, currency, last price). Writes nothing. */
+export async function lookupInstrument(yahooSymbol: string): Promise<{ instrument: InstrumentLookup | null; error: string | null }> {
+  if (!(await getUserId())) return { instrument: null, error: 'Not signed in' }
+  return confirmOverseas(yahooSymbol)
+}
+
+/**
+ * Creates the shared `stocks` master row for an overseas instrument added in Plan. The venue,
+ * currency and name come from a fresh server-side Yahoo quote, never from the client, because the
+ * master is read by every user. An existing row is never overwritten: a symbol already mapped to a
+ * different ticker is an error. Returns the venue to store on the plan row.
+ */
+export async function registerInstrument(
+  symbol: string,
+  yahooSymbol: string,
+): Promise<{ exchange: string | null; name: string; error: string | null }> {
+  if (!(await getUserId())) return { exchange: null, name: '', error: 'Not signed in' }
+  const sym = symbol.trim().toUpperCase()
+  if (!isValidStockSymbol(sym)) return { exchange: null, name: '', error: 'Invalid symbol' }
+  const { instrument, error } = await confirmOverseas(yahooSymbol)
+  if (!instrument) return { exchange: null, name: '', error }
+  const stock: Stock = {
+    symbol: sym, exchange: instrument.exchange, currency: instrument.currency,
+    yahooSymbol: instrument.yahooSymbol, region: 'us', name: instrument.name,
+  }
+  const master = await ensureStocks([sym], { [sym]: stock })
+  const row = master?.[sym]
+  if (!row) return { exchange: null, name: '', error: 'Could not save the instrument' }
+  if (row.yahooSymbol.toUpperCase() !== instrument.yahooSymbol) {
+    return { exchange: null, name: '', error: `${sym} is already set up as ${row.yahooSymbol}` }
+  }
+  return { exchange: row.exchange, name: row.name, error: null }
 }
 
 export async function revalidateBuyTranches() {
@@ -178,7 +231,7 @@ export async function addStockTransaction(
   if (fieldError) return { fyId: null, error: fieldError }
   const svc = createSupabaseServiceClient()
   // The instrument master is kept in step with what is traded, so the price pull can resolve the symbol.
-  const master = await ensureStocks([input.symbol], knownInstruments([input.symbol]))
+  const master = await ensureStocks([input.symbol])
   if (!master) return { fyId: null, error: 'Could not save the instrument' }
   const fxRate = tradeFxRate(master[input.symbol], input.fx_rate)
   if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
@@ -255,7 +308,7 @@ export async function importStockTransactions(
   }
 
   const symbols = [...new Set(rows.map(r => r.symbol))]
-  const master = await ensureStocks(symbols, knownInstruments(symbols))
+  const master = await ensureStocks(symbols)
   if (!master) return { error: 'Could not save the instruments' }
   const withRate: TradeRow[] = []
   for (const r of rows) {
@@ -338,31 +391,16 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
     .select('symbol, exchange, allocation_pct, category')
     .eq('user_id', userId)
     .eq('fy_id', fromFyId)
-  const { data: usSource } = await sb
-    .from('us_allocations')
-    .select('symbol, allocation_pct')
-    .eq('user_id', userId)
-    .eq('fy_id', fromFyId)
-  if (!source?.length && !usSource?.length) return []
-  const [{ data: inserted }, { data: usInserted }] = await Promise.all([
-    source?.length
-      ? sb.from('stock_allocations')
-          .insert(source.map(a => ({
-            fy_id: toFyId, user_id: userId,
-            symbol: a.symbol, exchange: a.exchange,
-            allocation_pct: a.allocation_pct, category: a.category,
-          })))
-          .select()
-      : { data: [] },
-    usSource?.length
-      ? sb.from('us_allocations')
-          .insert(usSource.map(a => ({ fy_id: toFyId, user_id: userId, symbol: a.symbol, allocation_pct: a.allocation_pct })))
-          .select('id, fy_id, symbol, allocation_pct')
-      : { data: [] },
-  ])
+  if (!source?.length) return []
+  const { data: inserted } = await sb
+    .from('stock_allocations')
+    .insert(source.map(a => ({
+      fy_id: toFyId, user_id: userId,
+      symbol: a.symbol, exchange: a.exchange,
+      allocation_pct: a.allocation_pct, category: a.category,
+    })))
+    .select()
   revalidatePath('/', 'layout')
-  return [
-    ...(inserted ?? []),
-    ...(usInserted ?? []).map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), exchange: 'US', category: '' })),
-  ]
+  const stocks = await getStocks((inserted ?? []).map(a => a.symbol))
+  return (inserted ?? []).map(a => ({ ...a, name: stocks[a.symbol]?.name || undefined }))
 }

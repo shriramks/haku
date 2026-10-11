@@ -285,15 +285,21 @@ section of their own — Portfolio sections are asset classes, region is a separ
 - **Scope:** portfolio-only — no bands, tranches or investability. Excluded from the Tax report and harvesting.
   It does take a yearly budget (below).
 
-### Plan / Allocation: US holding budget (#146)
+### Plan / Allocation: overseas instrument budget (#146, #154)
 
-A US holding is a plain budget row in the FY plan, next to the stocks.
-- **Plan:** typed in Add Stock like any symbol. A symbol listed in `lib/us-symbols.ts` (VUAA) becomes a US plan row
-  (table `us_allocations`) with a % and no category; any other symbol is an NSE stock as before. The % total, the 100%
-  badge, the budget, Remove, and copying a plan into the next FY all include US rows. Category and Rename are not
-  offered for a US row.
-- **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the US holding
+An overseas instrument (VUAA) is a normal `stock_allocations` row in the FY plan, next to the stocks; its `exchange`
+is the venue from the `stocks` master (`LSE`), not `NSE`.
+- **Plan:** Add Stock has a Market control, **IND** (default) or **Other**. IND is the Indian-stock flow: type the
+  symbol, a category, a %; the venue and `.NS` ticker are resolved automatically. Other asks for the Yahoo symbol
+  (`VUAA.L`); after typing pauses, a server action quote-checks it and shows name, venue, currency and last price,
+  and Add stays disabled until it resolves (unknown ticker: "No quote found"; non-USD: not supported). Add then
+  creates the shared `stocks` master row (region `us`) from a fresh server-side quote, and the plan row with an empty
+  category until #160. The % total, the 100% badge, the budget, Remove, and copying a plan into the next FY treat it
+  like any row. Category and Rename are not offered for an overseas row.
+- **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the holding
   page (`/portfolio/stock/[symbol]`), and is inert until the first buy. Plan / Left / Invested totals include it.
+- **Unrealised P&L** (`computeStockRows`): the native price is converted at today's USD->INR before it is compared with
+  the INR average cost; with no rate saved the figure is absent, never mixed-currency.
 - **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount` (INR at the trade-date rate); FY
   membership is by trade date. Same spent / left maths as stocks.
 - **Carryover:** a closed FY's unallocated carryover deducts US net spend (buys minus sells, INR) as well as stock

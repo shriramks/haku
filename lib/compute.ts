@@ -76,6 +76,8 @@ export function computeStockRows(
   totalBudget: number,
   allTimeHoldings?: Record<string, AllTimeHolding>,
   prices: Record<string, StockPriceInfo> = {},
+  /** INR per unit of a foreign instrument's quote currency (`inrPerUnit`); a symbol not listed is INR. */
+  inrRates: Record<string, number | null> = {},
 ): StockRow[] {
   return allocations.map(alloc => {
     const txns  = transactions.filter(t => t.symbol === alloc.symbol)
@@ -108,9 +110,13 @@ export function computeStockRows(
     const band = bands.find(b => b.symbol === alloc.symbol) ?? null
     const cmp  = resolveCmp(alloc.symbol, prices, band?.cmp)
 
-    const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
-    const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)
-      ? (cmp - allTimeAvg) / allTimeAvg * 100 : null
+    // `cmp` is in the instrument's own currency, `allTimeAvg` is INR (amount = qty x price x fx_rate),
+    // so convert the price before comparing; no rate means no figure rather than a mixed-currency one.
+    const rate   = Object.hasOwn(inrRates, alloc.symbol) ? inrRates[alloc.symbol] : 1
+    const cmpInr = cmp !== null && rate !== null ? cmp * rate : null
+    const unrealisedPnL    = cmpInr !== null ? (cmpInr - allTimeAvg) * allTimeQty : null
+    const unrealisedPnLPct = (cmpInr !== null && allTimeAvg > 0)
+      ? (cmpInr - allTimeAvg) / allTimeAvg * 100 : null
 
     return {
       symbol:          alloc.symbol,

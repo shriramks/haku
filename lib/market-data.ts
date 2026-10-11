@@ -36,6 +36,38 @@ export async function fetchYahooQuote(yahooSymbol: string): Promise<CmpQuote | n
   }
 }
 
+export interface YahooInstrument {
+  price: number
+  currency: string
+  exchange: string
+  name: string
+}
+
+/**
+ * What Yahoo says a ticker is: last price, quote currency, venue and name, for registering an
+ * overseas instrument (#154). Bounded by `timeoutMs` so a stalled request reads as "not found".
+ * Null on any failure or when the ticker has no price.
+ */
+export async function fetchYahooInstrument(yahooSymbol: string, timeoutMs = 5000): Promise<YahooInstrument | null> {
+  try {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}`,
+      { headers: { 'User-Agent': YAHOO_UA }, signal: AbortSignal.timeout(timeoutMs) },
+    )
+    if (!res.ok) return null
+    const meta = (await res.json())?.chart?.result?.[0]?.meta
+    if (!meta?.regularMarketPrice || typeof meta.currency !== 'string') return null
+    return {
+      price:    meta.regularMarketPrice as number,
+      currency: meta.currency as string,
+      exchange: String(meta.exchangeName ?? ''),
+      name:     String(meta.longName ?? meta.shortName ?? ''),
+    }
+  } catch {
+    return null
+  }
+}
+
 /** Fetches the current market price for a Yahoo symbol. Returns null on any failure. */
 export async function fetchCmp(yahooSymbol: string): Promise<number | null> {
   return (await fetchYahooQuote(yahooSymbol))?.price ?? null
