@@ -5,14 +5,14 @@ const createSupabaseServiceClient = vi.fn()
 const getStockPrices = vi.fn()
 const fetchCmpBatch = vi.fn()
 const fetchGoldPrice = vi.fn()
-const getStocks = vi.fn()
+const ensureStocks = vi.fn()
 const fetchUsdInrHistory = vi.fn()
 const syncMfNav = vi.fn()
 
 vi.mock('@/lib/supabase-server', () => ({ createSupabaseServerClient }))
 vi.mock('@/lib/supabase-service', () => ({ createSupabaseServiceClient }))
 vi.mock('@/lib/data', () => ({ getStockPrices }))
-vi.mock('@/lib/stock-master', () => ({ getStocks }))
+vi.mock('@/lib/stock-master', () => ({ ensureStocks }))
 vi.mock('@/lib/market-data', () => ({ fetchCmpBatch, fetchGoldPrice, fetchUsdInrHistory }))
 vi.mock('@/lib/mf-nav-sync', () => ({ syncMfNav }))
 
@@ -79,7 +79,7 @@ describe('POST /api/portfolio/prices/refresh', () => {
     fetchGoldPrice.mockResolvedValue(null)
     syncMfNav.mockResolvedValue(undefined)
     // The master resolves every symbol to NSE unless a test says otherwise (VUAA is the LSE line).
-    getStocks.mockImplementation(async (symbols: string[]) => Object.fromEntries(symbols.map(s => [s, {
+    ensureStocks.mockImplementation(async (symbols: string[]) => Object.fromEntries(symbols.map(s => [s, {
       symbol: s, yahooSymbol: s === 'VUAA' ? 'VUAA.L' : `${s}.NS`,
     }])))
     fetchUsdInrHistory.mockResolvedValue([])
@@ -351,7 +351,7 @@ describe('POST /api/portfolio/prices/refresh', () => {
 
   it('a symbol with no master row is never fetched or guessed, and is reported failed', async () => {
     const { upsert } = setup({ txns: [buy('TCS'), buy('NEWCO')] })
-    getStocks.mockResolvedValue({ TCS: { symbol: 'TCS', yahooSymbol: 'TCS.NS' } })
+    ensureStocks.mockResolvedValue({ TCS: { symbol: 'TCS', yahooSymbol: 'TCS.NS' } })
     fetchCmpBatch.mockResolvedValue({ prices: { TCS: 4000 }, prevClose: {} })
 
     const body = await (await post()).json()

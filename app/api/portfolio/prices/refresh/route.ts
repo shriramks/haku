@@ -3,7 +3,8 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getStockPrices } from '@/lib/data'
 import { syncMfNav } from '@/lib/mf-nav-sync'
-import { getStocks } from '@/lib/stock-master'
+import { ensureStocks } from '@/lib/stock-master'
+import { US_SYMBOLS } from '@/lib/us-symbols'
 import { fetchCmpBatch, fetchGoldPrice, fetchUsdInrHistory } from '@/lib/market-data'
 import { USDINR_PRICE_KEY } from '@/lib/fx'
 import { heldSymbols, buildPriceUpdate, GOLD_PRICE_KEY } from '@/lib/stock-prices'
@@ -17,8 +18,8 @@ import { heldSymbols, buildPriceUpdate, GOLD_PRICE_KEY } from '@/lib/stock-price
 // in the same call, only when the caller has any mf_funds; a failed AMFI sync is logged and
 // never fails the price save, and the response carries no NAV figures (progress log #120.c).
 // One price path (#152): every held stock and US holding is looked up in the `stocks` master, which
-// supplies its Yahoo symbol, and is saved under its plain symbol. A symbol with no master row is
-// reported as failed, never guessed. US holdings (#131.a) ride along when the caller has any: today's
+// supplies its Yahoo symbol, and is saved under its plain symbol. A symbol with no master row (and no
+// confirmed NSE listing to create one from) is reported as failed, never guessed. US holdings (#131.a) ride along when the caller has any: today's
 // USD->INR goes under USDINR_PRICE_KEY and the daily USD->INR history is upserted into fx_rates —
 // a full backfill the first time or when a trade predates it, else just the last month.
 export async function POST() {
@@ -80,7 +81,13 @@ export async function POST() {
   const usSymbols = [...new Set((usHoldings ?? []).map(h => h.symbol as string))]
   const holdsUs = usSymbols.length > 0
   const symbols = [...new Set([...heldStocks, ...usSymbols])].sort()
-  const instruments = await getStocks(symbols)
+  // Resolves through the master, creating a confirmed NSE listing that is missing (self-heals a write
+  // whose Yahoo check failed). An unconfirmed symbol stays absent and is reported failed below.
+  const knownUs = Object.fromEntries(usSymbols.filter(s => US_SYMBOLS[s]).map(s => [s, {
+    symbol: s, exchange: US_SYMBOLS[s].exchange, currency: US_SYMBOLS[s].currency,
+    yahooSymbol: US_SYMBOLS[s].yahoo_symbol, region: US_SYMBOLS[s].region, name: US_SYMBOLS[s].name,
+  }]))
+  const instruments = (await ensureStocks(symbols, knownUs)) ?? {}
   const targets = symbols.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
   const firstTrade = usTxnDates?.[0]?.trade_date as string | undefined
   const firstFx = fxFirst?.[0]?.rate_date as string | undefined

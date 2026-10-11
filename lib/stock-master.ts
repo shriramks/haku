@@ -3,6 +3,7 @@
 // the service-role client, so a client-supplied Yahoo symbol can never reach a table every user
 // reads. Uncached on purpose, same as stock_prices: the Prices refresh must see a new row at once.
 import { createSupabaseServiceClient } from './supabase-service'
+import { fetchYahooQuote } from './market-data'
 
 export interface Stock {
   symbol: string
@@ -52,9 +53,12 @@ export async function getStocks(symbols: string[]): Promise<Record<string, Stock
 
 /**
  * Makes sure every symbol has a master row, creating missing ones from `known` (an instrument the
- * caller already has full details for, e.g. VUAA) or else as NSE / INR / `SYMBOL.NS`. Existing rows
- * are never overwritten. Symbols that fail `isValidStockSymbol` are not written. Returns the master
- * rows for the requested symbols; null if the master could not be read or written.
+ * caller already has full details for, e.g. VUAA) or else as NSE / INR / `SYMBOL.NS`, but only when
+ * Yahoo confirms that NSE listing quotes — the master is shared by every user, so a typo or a
+ * non-NSE ticker must not become a permanent mapping. An unconfirmed symbol gets no row and is
+ * absent from the result (retried on the next call). Existing rows are never overwritten. Symbols
+ * that fail `isValidStockSymbol` are not written. Returns the master rows for the requested symbols;
+ * null if the master could not be read or written.
  */
 export async function ensureStocks(
   symbols: string[],
@@ -66,7 +70,11 @@ export async function ensureStocks(
   if (!existing) return null
   const missing = wanted.filter(s => !existing[s])
   if (missing.length === 0) return existing
-  const created = missing.map(s => known[s] ?? nseStock(s))
+  const unknown = missing.filter(s => !known[s])
+  const checks = await Promise.all(unknown.map(async s => ({ s, quote: await fetchYahooQuote(nseStock(s).yahooSymbol) })))
+  const confirmed = new Set(checks.filter(c => c.quote).map(c => c.s))
+  const created = missing.filter(s => known[s] || confirmed.has(s)).map(s => known[s] ?? nseStock(s))
+  if (created.length === 0) return existing
   const { error } = await createSupabaseServiceClient()
     .from('stocks')
     .upsert(created.map(toRow), { onConflict: 'symbol', ignoreDuplicates: true })

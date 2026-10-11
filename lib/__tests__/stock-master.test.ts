@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { createSupabaseServiceClient } = vi.hoisted(() => ({ createSupabaseServiceClient: vi.fn() }))
+const { fetchYahooQuote } = vi.hoisted(() => ({ fetchYahooQuote: vi.fn() }))
 vi.mock('../supabase-service', () => ({ createSupabaseServiceClient }))
+vi.mock('../market-data', () => ({ fetchYahooQuote }))
 
 import { ensureStocks, getStocks, isValidStockSymbol, nseStock } from '../stock-master'
 
@@ -43,7 +45,33 @@ describe('getStocks', () => {
 })
 
 describe('ensureStocks', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchYahooQuote.mockResolvedValue({ price: 100 })
+  })
+
+  it('creates a row only when Yahoo confirms the NSE listing, and leaves an unconfirmed symbol out', async () => {
+    const { upsert } = setup([])
+    fetchYahooQuote.mockImplementation(async (y: string) => (y === 'TCS.NS' ? { price: 4000 } : null))
+    const out = await ensureStocks(['TCS', 'TYPO'])
+    expect(fetchYahooQuote).toHaveBeenCalledWith('TYPO.NS')
+    expect(upsert.mock.calls[0][0]).toEqual([row('TCS', 'TCS.NS')])
+    expect(Object.keys(out ?? {})).toEqual(['TCS'])
+  })
+
+  it('writes nothing and still succeeds when no new symbol is confirmed', async () => {
+    const { upsert } = setup([])
+    fetchYahooQuote.mockResolvedValue(null)
+    expect(await ensureStocks(['TYPO'])).toEqual({})
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('does not ask Yahoo about symbols with a row or full details from the caller', async () => {
+    setup([row('TCS', 'TCS.NS')])
+    const vuaa = { symbol: 'VUAA', exchange: 'LSE', currency: 'USD', yahooSymbol: 'VUAA.L', region: 'us' as const, name: '' }
+    await ensureStocks(['TCS', 'VUAA'], { VUAA: vuaa })
+    expect(fetchYahooQuote).not.toHaveBeenCalled()
+  })
 
   it('creates missing symbols as NSE / INR / SYMBOL.NS without overwriting existing rows', async () => {
     const { upsert } = setup([row('TCS', 'TCS.NS')])
