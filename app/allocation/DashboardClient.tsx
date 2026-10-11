@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
+import type { StockPriceInfo } from '@/lib/stock-prices'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
@@ -20,11 +21,13 @@ interface Props {
   initialTransactions: FYTxn[]
   allTimeHoldings: Record<string, AllTimeHolding>
   bands: BuyBand[]
+  /** Saved stock_prices by symbol — resolveCmp prefers these over the band snapshot. */
+  prices: Record<string, StockPriceInfo>
   /** US holding id by symbol; a US plan row has none until its first buy. */
   usHoldingIds: Record<string, string>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, usHoldingIds }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, prices, usHoldingIds }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
@@ -34,9 +37,9 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     computeStockRows(
       allocations, transactions, bands,
       (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
-      allTimeHoldings,
+      allTimeHoldings, prices,
     ),
-    [allocations, transactions, bands, selectedFY, allTimeHoldings]
+    [allocations, transactions, bands, selectedFY, allTimeHoldings, prices]
   )
 
   async function switchFY(fy: FiscalYear) {

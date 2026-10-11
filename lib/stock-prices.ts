@@ -4,6 +4,9 @@
 import { seqCost } from './compute'
 import type { Transaction } from './types'
 import type { CmpQuoteBatch } from './market-data'
+import type { StockPriceInfo } from './resolve-cmp'
+
+export { resolveCmp, type StockPriceInfo } from './resolve-cmp'
 
 /** Net quantity above this counts as a held position — the Portfolio list and the refresh route share the cut-off. */
 export const HELD_QTY_EPSILON = 0.001
@@ -26,12 +29,6 @@ export function isValidYahooSymbol(symbol: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9.\-^=]{0,19}$/.test(symbol)
 }
 
-export interface StockPriceInfo {
-  cmp: number
-  prevClose: number | null
-  fetchedAt: string   // ISO timestamp of the fetch that wrote this row
-}
-
 type HeldTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
 
 /** Symbols with a live position (net qty > 0) across all of a user's stock transactions, sorted. */
@@ -47,19 +44,6 @@ export function heldSymbols(transactions: HeldTxn[]): string[] {
     if (seqCost(txns).qty > HELD_QTY_EPSILON) held.push(symbol)
   }
   return held.sort()
-}
-
-/**
- * The one place a stock's display price is decided: the saved price if there is one,
- * else the stored band snapshot (`buy_bands.cmp`), else null. Portfolio list and
- * stock detail both go through this so they can never disagree.
- */
-export function resolveCmp(
-  symbol: string,
-  prices: Record<string, StockPriceInfo>,
-  bandCmp: number | null | undefined,
-): number | null {
-  return prices[symbol]?.cmp ?? bandCmp ?? null
 }
 
 export interface PriceRow {

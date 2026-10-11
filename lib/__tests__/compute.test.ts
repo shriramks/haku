@@ -283,3 +283,24 @@ describe('seqCost — buyAvgCost (buy-only weighted average, sells ignored)', ()
     expect(r.qty).toBe(0)
   })
 })
+
+// ── computeStockRows — unrealised P&L price source (#151) ────────────────────
+
+describe('computeStockRows — price source', () => {
+  const allocs = [mkAlloc('TCS', 100)]
+  const txns   = [mkTxn('TCS', 'buy', 10, 100)]
+  const bands  = [mkBand('TCS', { cmp: 120 })]
+  const saved  = { TCS: { cmp: 150, prevClose: 148, fetchedAt: '2026-10-11T10:00:00Z' } }
+
+  it('prefers the saved price over the band snapshot', () => {
+    const [row] = computeStockRows(allocs, txns, bands, totalBudget, undefined, saved)
+    expect(row.cmp).toBe(150)
+    expect(row.unrealisedPnL).toBe(500)
+  })
+
+  it('falls back to the band snapshot when no saved price exists', () => {
+    const [row] = computeStockRows(allocs, txns, bands, totalBudget)
+    expect(row.cmp).toBe(120)
+    expect(row.unrealisedPnL).toBe(200)
+  })
+})

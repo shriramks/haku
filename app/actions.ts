@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot, getFiscalYears, getUsFYTransactions } from '@/lib/data'
 import { fyIdForDate } from '@/lib/fy-utils'
+import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/us-compute'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
@@ -19,6 +20,15 @@ export async function revalidateAllocations() {
 
 export async function revalidateBuyBands() {
   revalidateTag('buy_bands', {})
+}
+
+/** Bands "Refresh CMP": fetches the symbols' latest prices server-side and saves them to
+ * stock_prices (#151). stock_prices is uncached; revalidatePath purges the client router
+ * cache so Portfolio / stock detail show the new price on the next visit. */
+export async function refreshStockPrices(symbols: string[]): Promise<RefreshedStockPrices | null> {
+  const result = await refreshStockPricesImpl(symbols)
+  if (result) revalidatePath('/', 'layout')
+  return result
 }
 
 export async function revalidateBuyTranches() {

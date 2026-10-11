@@ -9,7 +9,7 @@ import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
 import BandBar from '@/components/BandBar'
 import { RefreshIcon, SparkleIcon, ChevronRightIcon } from '@/components/icons'
-import { revalidateBuyBands, revalidateBuyTranches } from '@/app/actions'
+import { revalidateBuyBands, revalidateBuyTranches, refreshStockPrices } from '@/app/actions'
 import UserMenu from '@/components/UserMenu'
 import { DetailRow } from '@/components/detail-rows'
 import RiskOverlaySheet from './RiskOverlaySheet'
@@ -119,9 +119,12 @@ export default function BandDetailClient({
   async function refreshCMP() {
     setRefreshing(true)
     try {
-      const res = await fetch(`/api/cmp/${encodeURIComponent(symbol)}`)
-      if (!res.ok) throw new Error('fetch failed')
-      const { price, week52Low, week52High } = await res.json()
+      // Server action: fetches the price and saves it to stock_prices (shared with Portfolio, #151).
+      const quote = await refreshStockPrices([symbol])
+      const price = quote?.prices[symbol]
+      if (price == null) throw new Error('fetch failed')
+      const week52Low = quote?.week52[symbol]?.low
+      const week52High = quote?.week52[symbol]?.high
       setCmp(price)
       setWeek52({ low: week52Low ?? null, high: week52High ?? null })
       const sb = getSupabaseBrowser()

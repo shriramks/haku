@@ -1,3 +1,4 @@
+import { resolveCmp, type StockPriceInfo } from './resolve-cmp'
 import type { StockAllocation, Transaction, FYTxn, BuyBand, StockRow, FiscalYear } from './types'
 
 // ── Sequential cost basis ─────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export function computeStockRows(
   bands: BuyBand[],
   totalBudget: number,
   allTimeHoldings?: Record<string, AllTimeHolding>,
+  prices: Record<string, StockPriceInfo> = {},
 ): StockRow[] {
   return allocations.map(alloc => {
     const txns  = transactions.filter(t => t.symbol === alloc.symbol)
@@ -99,7 +101,7 @@ export function computeStockRows(
       : seqCost(txns)
 
     const band = bands.find(b => b.symbol === alloc.symbol) ?? null
-    const cmp  = band?.cmp ?? null
+    const cmp  = resolveCmp(alloc.symbol, prices, band?.cmp)
 
     const unrealisedPnL    = cmp !== null ? (cmp - allTimeAvg) * allTimeQty : null
     const unrealisedPnLPct = (cmp !== null && allTimeAvg > 0)

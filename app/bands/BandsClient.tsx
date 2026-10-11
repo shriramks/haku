@@ -11,7 +11,7 @@ import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
 import { formatPriceNum } from '@/lib/formatter'
-import { revalidateBuyBands } from '@/app/actions'
+import { revalidateBuyBands, refreshStockPrices } from '@/app/actions'
 
 // Mini 3-zone band bar for list rows (deep · buy · mid — no trim zone, matches BandBar)
 function MiniBar({ buyLow, buyHigh, midHigh, cmp }: {
@@ -75,12 +75,12 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
   const [savingRiskFree, setSavingRiskFree] = useState(false)
   const [riskFreeError, setRiskFreeError] = useState('')
 
-  // Fetches CMP + 52W for the given symbols and persists to DB + local state.
+  // Fetches CMP + 52W for the given symbols and persists to stock_prices + buy_bands + local state.
   async function fetchAndSaveCmp(symbols: string[]) {
     if (symbols.length === 0) return
-    const res = await fetch(`/api/cmp/batch?symbols=${encodeURIComponent(symbols.join(','))}`)
-    if (!res.ok) return
-    const data = await res.json()
+    // Server action: fetches the prices and saves them to stock_prices (shared with Portfolio, #151).
+    const data = await refreshStockPrices(symbols)
+    if (!data) return
     const sb = getSupabaseBrowser()
 
     if (data.prices) {

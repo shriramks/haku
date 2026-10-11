@@ -1,7 +1,7 @@
 import {
   getFiscalYears, getAllocations, getTransactions, getBuyBands, getBuyTranches,
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
-  getLatestSnapshots,
+  getLatestSnapshots, getStockPrices,
 } from './data'
 import { computeStockRows, seqCost } from './compute'
 import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, BuyBandSnapshot } from './types'
@@ -41,7 +41,7 @@ export async function fetchStockDetailProps(
 
   const [
     allocations, transactions, bands, tranches,
-    aiKeyStatus, symbolTxns, investability, snapshots,
+    aiKeyStatus, symbolTxns, investability, snapshots, prices,
   ] = fy
     ? await Promise.all([
         getAllocations(fy.id),
@@ -52,6 +52,7 @@ export async function fetchStockDetailProps(
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
         getLatestSnapshots(symbol),
+        getStockPrices([symbol]),
       ])
     : await Promise.all([
         Promise.resolve([]),
@@ -62,10 +63,11 @@ export async function fetchStockDetailProps(
         getTransactionsBySymbol(symbol),
         getInvestabilityForSymbol(symbol),
         getLatestSnapshots(symbol),
+        getStockPrices([symbol]),
       ])
 
   const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
-  const rows = computeStockRows(allocations, transactions, bands, totalBudget)
+  const rows = computeStockRows(allocations, transactions, bands, totalBudget, undefined, prices)
   const fyRow = rows.find(r => r.symbol === symbol) ?? null
   const allTimePosition = seqCost(symbolTxns as Parameters<typeof seqCost>[0])
 

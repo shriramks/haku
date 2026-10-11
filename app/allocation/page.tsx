@@ -1,5 +1,6 @@
-import { getFiscalYears, getPlanAllocations, getTransactions, getBuyBands, getCurrentFY, getUsFYTransactions, getUsHoldings } from '@/lib/data'
+import { getFiscalYears, getPlanAllocations, getTransactions, getBuyBands, getCurrentFY, getUsFYTransactions, getUsHoldings, getStockPrices } from '@/lib/data'
 import { computeAllTimeHoldings } from '@/lib/compute'
+import { heldSymbols } from '@/lib/stock-prices'
 import DashboardClient from './DashboardClient'
 
 export default async function DashboardPage({
@@ -30,6 +31,9 @@ export default async function DashboardPage({
   // Per-symbol all-time aggregates only — the full history stays server-side
   const allTimeHoldings = computeAllTimeHoldings(allTransactions)
 
+  // Saved prices (resolveCmp) for every symbol the page can show across FY switches: held + banded.
+  const prices = await getStockPrices([...new Set([...heldSymbols(allTransactions), ...bands.map(b => b.symbol)])])
+
   return (
     <>
       <DashboardClient
@@ -39,6 +43,7 @@ export default async function DashboardPage({
         initialTransactions={transactions}
         allTimeHoldings={allTimeHoldings}
         bands={bands}
+        prices={prices}
         usHoldingIds={Object.fromEntries(usHoldings.map(h => [h.symbol, h.id]))}
       />
     </>
