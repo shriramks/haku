@@ -294,7 +294,8 @@ is the venue from the `stocks` master (`LSE`), not `NSE`.
   (`VUAA.L`); after typing pauses, a server action quote-checks it and shows name, venue, currency and last price,
   and Add stays disabled until it resolves (unknown ticker: "No quote found"; non-USD: not supported). Add then
   creates the shared `stocks` master row (region `us`) from a fresh server-side quote, and the plan row with an empty
-  category until #160. The % total, the 100% badge, the budget, Remove, and copying a plan into the next FY treat it
+  category until #160. The symbol must equal the Yahoo ticker's base (`VUAA` for `VUAA.L`) and must not already
+  resolve as an NSE listing, since the master row is shared by every user. The % total, the 100% badge, the budget, Remove, and copying a plan into the next FY treat it
   like any row. Category and Rename are not offered for an overseas row.
 - **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the holding
   page (`/portfolio/stock/[symbol]`), and is inert until the first buy. Plan / Left / Invested totals include it.

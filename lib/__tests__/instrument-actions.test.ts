@@ -65,7 +65,7 @@ describe('registerInstrument (#154)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getUserId.mockResolvedValue('user-1')
-    fetchYahooInstrument.mockResolvedValue(VUAA_QUOTE)
+    fetchYahooInstrument.mockImplementation(async (t: string) => (t.endsWith('.NS') ? null : VUAA_QUOTE))
   })
 
   it('creates the master row from the server-side quote, never from client-supplied fields', async () => {
@@ -73,6 +73,20 @@ describe('registerInstrument (#154)', () => {
     const res = await registerInstrument('vuaa', 'VUAA.L')
     expect(ensureStocks).toHaveBeenCalledWith(['VUAA'], { VUAA: VUAA_ROW })
     expect(res).toEqual({ exchange: 'LSE', name: VUAA_QUOTE.name, error: null })
+  })
+
+  it('refuses a symbol that is not the ticker itself, so one user cannot point another symbol at it', async () => {
+    const res = await registerInstrument('NEWNSECO', 'VUAA.L')
+    expect(res.exchange).toBeNull()
+    expect(res.error).toBe('Symbol must be VUAA')
+    expect(ensureStocks).not.toHaveBeenCalled()
+  })
+
+  it('refuses a symbol that already resolves as an NSE listing', async () => {
+    fetchYahooInstrument.mockImplementation(async () => VUAA_QUOTE)   // VUAA.NS quotes too
+    const res = await registerInstrument('VUAA', 'VUAA.L')
+    expect(res.error).toBe('VUAA is an Indian listing')
+    expect(ensureStocks).not.toHaveBeenCalled()
   })
 
   it('refuses a symbol already mapped to a different ticker', async () => {

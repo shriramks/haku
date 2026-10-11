@@ -63,8 +63,8 @@ export async function lookupInstrument(yahooSymbol: string): Promise<{ instrumen
 /**
  * Creates the shared `stocks` master row for an overseas instrument added in Plan. The venue,
  * currency and name come from a fresh server-side Yahoo quote, never from the client, because the
- * master is read by every user. An existing row is never overwritten: a symbol already mapped to a
- * different ticker is an error. Returns the venue to store on the plan row.
+ * master is read by every user, and the symbol must equal the ticker's base and not be an NSE listing.
+ * An existing row is never overwritten: a symbol already mapped to a different ticker is an error. Returns the venue to store on the plan row.
  */
 export async function registerInstrument(
   symbol: string,
@@ -75,6 +75,13 @@ export async function registerInstrument(
   if (!isValidStockSymbol(sym)) return { exchange: null, name: '', error: 'Invalid symbol' }
   const { instrument, error } = await confirmOverseas(yahooSymbol)
   if (!instrument) return { exchange: null, name: '', error }
+  // The master is shared by every user, so the app symbol must be the ticker itself (VUAA <- VUAA.L),
+  // and must not be a symbol that already resolves as an NSE listing: either would let one user point
+  // another user's symbol at a different instrument's price.
+  if (instrument.yahooSymbol.split('.')[0] !== sym) {
+    return { exchange: null, name: '', error: `Symbol must be ${instrument.yahooSymbol.split('.')[0]}` }
+  }
+  if (await fetchYahooInstrument(`${sym}.NS`)) return { exchange: null, name: '', error: `${sym} is an Indian listing` }
   const stock: Stock = {
     symbol: sym, exchange: instrument.exchange, currency: instrument.currency,
     yahooSymbol: instrument.yahooSymbol, region: 'us', name: instrument.name,
