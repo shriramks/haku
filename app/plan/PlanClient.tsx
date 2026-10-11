@@ -812,7 +812,9 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
     return () => { stale = true; clearTimeout(timer) }
   }, [overseas, yahoo])
 
-  const canAdd = !!symbol && pct > 0 && (!overseas || lookup.status === 'ok')
+  // An overseas symbol is the Yahoo ticker's base (VUAA.L -> VUAA), so it is typed once.
+  const shownSymbol = overseas ? yahoo.trim().toUpperCase().split('.')[0] : symbol
+  const canAdd = !!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok')
 
   const freeWithoutThis  = 100 - totalPct
   const sliderMax        = Math.min(100, freeWithoutThis)
@@ -825,7 +827,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
     if (!canAdd) return
     setSaving(true)
     setAddError(null)
-    const error = await onAdd(symbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
+    const error = await onAdd(shownSymbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
     if (error) setAddError(error)
     setSaving(false)
   }
@@ -842,8 +844,8 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
           <div>
-            {symbol
-              ? <p className="font-semibold text-headline text-center">{symbol}</p>
+            {shownSymbol
+              ? <p className="font-semibold text-headline text-center">{shownSymbol}</p>
               : <p className="font-semibold text-headline text-center">Add Stock</p>
             }
           </div>
@@ -852,8 +854,8 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
           </Button>
         </div>
 
-        {/* Symbol input */}
-        <div className="flex items-center justify-between px-5 py-4">
+        {/* Symbol input (IND only: an overseas symbol comes from its Yahoo ticker) */}
+        {!overseas && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Symbol</p>
           <input
             placeholder="INFY"
@@ -867,7 +869,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             style={{ color: 'var(--text-primary)', width: 120 }}
             autoFocus
           />
-        </div>
+        </div>}
 
         {/* Market: an Indian listing is resolved automatically; anything else needs its Yahoo symbol */}
         <div className="flex items-center justify-between px-5 py-4">
