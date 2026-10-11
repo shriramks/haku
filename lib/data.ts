@@ -37,7 +37,25 @@ export const getUserId = cache(async (): Promise<string | null> => {
   return session?.user.id ?? null
 })
 
-const _fetchFiscalYears = unstable_cache(
+/** Per-request dedupe + signed-out guard: `fn` runs with the user id, or the caller gets `fallback`. */
+function userScoped<A extends unknown[], R>(fallback: R, fn: (userId: string, ...args: A) => Promise<R>) {
+  return cache(async (...args: A): Promise<R> => {
+    const userId = await getUserId()
+    if (!userId) return Array.isArray(fallback) ? ([...fallback] as R) : fallback
+    return fn(userId, ...args)
+  })
+}
+
+interface CacheSpec { key: string[]; tags: string[]; revalidate: number }
+
+/** `userScoped` over a cross-request Data Cache entry. `key` must change with the row shape — unstable_cache keys ignore the query. */
+function cachedUserScoped<A extends unknown[], R>(spec: CacheSpec, fallback: R, fn: (userId: string, ...args: A) => Promise<R>) {
+  return userScoped(fallback, unstable_cache(fn, spec.key, { revalidate: spec.revalidate, tags: spec.tags }))
+}
+
+export const getFiscalYears = cachedUserScoped(
+  { key: ['fiscal_years'], tags: ['fiscal_years'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<FiscalYear[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('fiscal_years')
@@ -45,28 +63,21 @@ const _fetchFiscalYears = unstable_cache(
       .eq('user_id', userId)
       .order('start_date', { ascending: true })
     return data ?? []
-  },
-  ['fiscal_years'],
-  { revalidate: 3600, tags: ['fiscal_years'] }
+  }
 )
 
-export const getFiscalYears = cache(async (): Promise<FiscalYear[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchFiscalYears(userId)
-})
-
-export const getAllocations = cache(async (fyId: string): Promise<StockAllocation[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category')
-    .eq('user_id', userId)
-    .eq('fy_id', fyId)
-    .order('allocation_pct', { ascending: false })
-  return data ?? []
-})
+export const getAllocations = userScoped(
+  [],
+  async (userId: string, fyId: string): Promise<StockAllocation[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('stock_allocations')
+      .select('id, fy_id, symbol, exchange, allocation_pct, category')
+      .eq('user_id', userId)
+      .eq('fy_id', fyId)
+      .order('allocation_pct', { ascending: false })
+    return data ?? []
+  }
+)
 
 /** A FY's plan rows, largest first, with display names from the `stocks` master — the Plan screen's list. */
 export async function getPlanAllocations(fyId: string): Promise<StockAllocation[]> {
@@ -75,7 +86,9 @@ export async function getPlanAllocations(fyId: string): Promise<StockAllocation[
   return allocations.map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), name: stocks[a.symbol]?.name || undefined }))
 }
 
-const _fetchTransactions = unstable_cache(
+export const getTransactions = cachedUserScoped(
+  { key: ['transactions', 'fx_rate'], tags: ['transactions'], revalidate: 3600 },
+  [],
   async (userId: string, fyId?: string): Promise<Transaction[]> => {
     const q = createSupabaseServiceClient()
       .from('transactions')
@@ -87,18 +100,12 @@ const _fetchTransactions = unstable_cache(
       ? await q.eq('fy_id', fyId)
       : await q
     return data ?? []
-  },
-  ['transactions', 'fx_rate'],  // key part marks the row shape — unstable_cache keys ignore the query, so a new column needs a new key
-  { revalidate: 3600, tags: ['transactions'] }
+  }
 )
 
-export const getTransactions = cache(async (fyId?: string): Promise<Transaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchTransactions(userId, fyId)
-})
-
-const _fetchTransactionsBySymbol = unstable_cache(
+export const getTransactionsBySymbol = cachedUserScoped(
+  { key: ['transactions_by_symbol', 'fx_rate'], tags: ['transactions'], revalidate: 3600 },
+  [],
   async (userId: string, symbol: string): Promise<Transaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('transactions')
@@ -107,44 +114,40 @@ const _fetchTransactionsBySymbol = unstable_cache(
       .eq('symbol', symbol)
       .order('trade_date', { ascending: false })
     return data ?? []
-  },
-  ['transactions_by_symbol', 'fx_rate'],
-  { revalidate: 3600, tags: ['transactions'] }
+  }
 )
 
-export const getTransactionsBySymbol = cache(async (symbol: string): Promise<Transaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchTransactionsBySymbol(userId, symbol)
-})
-
-export const getSymbolAllocations = cache(async (symbol: string): Promise<StockAllocation[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('stock_allocations')
-    .select('id, fy_id, symbol, exchange, allocation_pct, category')
-    .eq('user_id', userId)
-    .eq('symbol', symbol)
-    .order('fy_id', { ascending: true })
-  return data ?? []
-})
+export const getSymbolAllocations = userScoped(
+  [],
+  async (userId: string, symbol: string): Promise<StockAllocation[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('stock_allocations')
+      .select('id, fy_id, symbol, exchange, allocation_pct, category')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .order('fy_id', { ascending: true })
+    return data ?? []
+  }
+)
 
 /** Every symbol ever given an allocation, across all fiscal years — the Add-transaction
  * picker's stock chips (root layout → BottomNav → AddTxnModal, and the /add shortcut page).
  * Not scoped to current holdings: a symbol stays listed until removed from whichever FY plan
  * it was added to, even if fully sold. */
-export const getAllStockSymbols = cache(async (): Promise<string[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('stock_allocations')
-    .select('symbol')
-    .eq('user_id', userId)
-  return [...new Set((data ?? []).map(a => a.symbol))].sort()
-})
+export const getAllStockSymbols = userScoped(
+  [],
+  async (userId: string): Promise<string[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('stock_allocations')
+      .select('symbol')
+      .eq('user_id', userId)
+    return [...new Set((data ?? []).map(a => a.symbol))].sort()
+  }
+)
 
-const _fetchBuyBands = unstable_cache(
+export const getBuyBands = cachedUserScoped(
+  { key: ['buy_bands'], tags: ['buy_bands'], revalidate: 300 },
+  [],
   async (userId: string): Promise<BuyBand[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_bands')
@@ -152,18 +155,12 @@ const _fetchBuyBands = unstable_cache(
       .eq('user_id', userId)
       .order('generated_at', { ascending: false })
     return data ?? []
-  },
-  ['buy_bands'],
-  { revalidate: 300, tags: ['buy_bands'] }
+  }
 )
 
-export const getBuyBands = cache(async (): Promise<BuyBand[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchBuyBands(userId)
-})
-
-const _fetchMFFunds = unstable_cache(
+export const getMFFunds = cachedUserScoped(
+  { key: ['mf_funds'], tags: ['mf_funds'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<MFund[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('mf_funds')
@@ -171,18 +168,12 @@ const _fetchMFFunds = unstable_cache(
       .eq('user_id', userId)
       .order('scheme_name')
     return (data ?? []) as MFund[]
-  },
-  ['mf_funds'],
-  { revalidate: 3600, tags: ['mf_funds'] }
+  }
 )
 
-export const getMFFunds = cache(async (): Promise<MFund[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchMFFunds(userId)
-})
-
-const _fetchMFTransactions = unstable_cache(
+export const getMFTransactions = cachedUserScoped(
+  { key: ['mf_transactions'], tags: ['mf_transactions'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<MFTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('mf_transactions')
@@ -191,16 +182,8 @@ const _fetchMFTransactions = unstable_cache(
       .order('trade_date', { ascending: true })
       .order('trade_type', { ascending: true })
     return (data ?? []) as MFTransaction[]
-  },
-  ['mf_transactions'],
-  { revalidate: 3600, tags: ['mf_transactions'] }
+  }
 )
-
-export const getMFTransactions = cache(async (): Promise<MFTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchMFTransactions(userId)
-})
 
 export interface MFNavInfo {
   nav: number
@@ -266,7 +249,9 @@ export async function getGoldPrice(): Promise<StockPriceInfo | null> {
   return (await getStockPrices([GOLD_PRICE_KEY]))[GOLD_PRICE_KEY] ?? null
 }
 
-const _fetchSGBTransactions = unstable_cache(
+export const getSGBTransactions = cachedUserScoped(
+  { key: ['sgb_transactions'], tags: ['sgb_transactions'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<SGBTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('sgb_transactions')
@@ -274,18 +259,12 @@ const _fetchSGBTransactions = unstable_cache(
       .eq('user_id', userId)
       .order('trade_date', { ascending: true })
     return (data ?? []) as SGBTransaction[]
-  },
-  ['sgb_transactions'],
-  { revalidate: 3600, tags: ['sgb_transactions'] }
+  }
 )
 
-export const getSGBTransactions = cache(async (): Promise<SGBTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchSGBTransactions(userId)
-})
-
-const _fetchPPFTransactions = unstable_cache(
+export const getPPFTransactions = cachedUserScoped(
+  { key: ['ppf_transactions'], tags: ['ppf_transactions'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<PPFTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('ppf_transactions')
@@ -293,18 +272,12 @@ const _fetchPPFTransactions = unstable_cache(
       .eq('user_id', userId)
       .order('trade_date', { ascending: true })
     return (data ?? []) as PPFTransaction[]
-  },
-  ['ppf_transactions'],
-  { revalidate: 3600, tags: ['ppf_transactions'] }
+  }
 )
 
-export const getPPFTransactions = cache(async (): Promise<PPFTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchPPFTransactions(userId)
-})
-
-const _fetchPPFOverride = unstable_cache(
+export const getPPFOverride = cachedUserScoped(
+  { key: ['ppf_balance_override'], tags: ['ppf_balance_override'], revalidate: 3600 },
+  null,
   async (userId: string): Promise<PPFBalanceOverride | null> => {
     const { data } = await createSupabaseServiceClient()
       .from('ppf_balance_override')
@@ -312,18 +285,12 @@ const _fetchPPFOverride = unstable_cache(
       .eq('user_id', userId)
       .limit(1)
     return (data?.[0] ?? null) as PPFBalanceOverride | null
-  },
-  ['ppf_balance_override'],
-  { revalidate: 3600, tags: ['ppf_balance_override'] }
+  }
 )
 
-export const getPPFOverride = cache(async (): Promise<PPFBalanceOverride | null> => {
-  const userId = await getUserId()
-  if (!userId) return null
-  return _fetchPPFOverride(userId)
-})
-
-const _fetchEPFTransactions = unstable_cache(
+export const getEPFTransactions = cachedUserScoped(
+  { key: ['epf_transactions', 'wage_month'], tags: ['epf_transactions'], revalidate: 3600 },
+  [],
   async (userId: string): Promise<EPFTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('epf_transactions')
@@ -331,18 +298,12 @@ const _fetchEPFTransactions = unstable_cache(
       .eq('user_id', userId)
       .order('trade_date', { ascending: true })
     return (data ?? []) as EPFTransaction[]
-  },
-  ['epf_transactions', 'wage_month'],  // key part marks the row shape — unstable_cache keys ignore the query, so adding a column needs a new key or old-shaped rows serve for up to an hour
-  { revalidate: 3600, tags: ['epf_transactions'] }
+  }
 )
 
-export const getEPFTransactions = cache(async (): Promise<EPFTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchEPFTransactions(userId)
-})
-
-const _fetchBuyTranches = unstable_cache(
+export const getBuyTranches = cachedUserScoped(
+  { key: ['buy_tranches'], tags: ['buy_tranches'], revalidate: 120 },
+  [],
   async (userId: string, fyId: string): Promise<BuyTranche[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_tranches')
@@ -352,55 +313,51 @@ const _fetchBuyTranches = unstable_cache(
       .order('symbol')
       .order('sort_order')
     return data ?? []
-  },
-  ['buy_tranches'],
-  { revalidate: 120, tags: ['buy_tranches'] }
+  }
 )
 
-export const getBuyTranches = cache(async (fyId: string): Promise<BuyTranche[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchBuyTranches(userId, fyId)
-})
 
+export const getAIKeyStatus = userScoped(
+  { hasKey: false },
+  async (userId: string): Promise<{ hasKey: boolean }> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('user_settings')
+      .select('gemini_api_key')
+      .eq('user_id', userId)
+      .maybeSingle()
+    return { hasKey: !!data?.gemini_api_key }
+  }
+)
 
-export const getAIKeyStatus = cache(async (): Promise<{ hasKey: boolean }> => {
-  const userId = await getUserId()
-  if (!userId) return { hasKey: false }
-  const { data } = await createSupabaseServiceClient()
-    .from('user_settings')
-    .select('gemini_api_key')
-    .eq('user_id', userId)
-    .maybeSingle()
-  return { hasKey: !!data?.gemini_api_key }
-})
+export const getInvestability = userScoped(
+  [],
+  async (userId: string, symbols: string[]): Promise<Pick<Investability, 'symbol' | 'investable' | 'total_score'>[]> => {
+    if (symbols.length === 0) return []
+    const { data } = await createSupabaseServiceClient()
+      .from('investability')
+      .select('symbol, investable, total_score')
+      .eq('user_id', userId)
+      .in('symbol', symbols)
+    return data ?? []
+  }
+)
 
-export const getInvestability = cache(async (
-  symbols: string[]
-): Promise<Pick<Investability, 'symbol' | 'investable' | 'total_score'>[]> => {
-  const userId = await getUserId()
-  if (!userId || symbols.length === 0) return []
-  const { data } = await createSupabaseServiceClient()
-    .from('investability')
-    .select('symbol, investable, total_score')
-    .eq('user_id', userId)
-    .in('symbol', symbols)
-  return data ?? []
-})
+export const getInvestabilityForSymbol = userScoped(
+  null,
+  async (userId: string, symbol: string): Promise<Investability | null> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('investability')
+      .select('id, symbol, assessed_at, g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation, g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory, g9_market_cap, g10_capital_discipline, total_score, investable, notes, rationale')
+      .eq('user_id', userId)
+      .eq('symbol', symbol)
+      .maybeSingle()
+    return data ?? null
+  }
+)
 
-export const getInvestabilityForSymbol = cache(async (symbol: string): Promise<Investability | null> => {
-  const userId = await getUserId()
-  if (!userId) return null
-  const { data } = await createSupabaseServiceClient()
-    .from('investability')
-    .select('id, symbol, assessed_at, g1_moat, g2_owner_earnings, g3_capital_efficiency, g4_innovation, g5_execution_track, g6_sector_winds, g7_governance, g8_supply_regulatory, g9_market_cap, g10_capital_discipline, total_score, investable, notes, rationale')
-    .eq('user_id', userId)
-    .eq('symbol', symbol)
-    .maybeSingle()
-  return data ?? null
-})
-
-const _fetchDividendsForSymbol = unstable_cache(
+export const getDividendsForSymbol = cachedUserScoped(
+  { key: ['dividend_transactions'], tags: ['dividend_transactions'], revalidate: 300 },
+  [],
   async (userId: string, symbol: string): Promise<DividendTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('dividend_transactions')
@@ -409,18 +366,12 @@ const _fetchDividendsForSymbol = unstable_cache(
       .eq('symbol', symbol)
       .order('ex_date', { ascending: false })
     return data ?? []
-  },
-  ['dividend_transactions'],
-  { revalidate: 300, tags: ['dividend_transactions'] }
+  }
 )
 
-export const getDividendsForSymbol = cache(async (symbol: string): Promise<DividendTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchDividendsForSymbol(userId, symbol)
-})
-
-const _fetchAllDividends = unstable_cache(
+export const getAllDividends = cachedUserScoped(
+  { key: ['dividend_transactions_all'], tags: ['dividend_transactions'], revalidate: 300 },
+  [],
   async (userId: string): Promise<DividendTransaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('dividend_transactions')
@@ -428,19 +379,13 @@ const _fetchAllDividends = unstable_cache(
       .eq('user_id', userId)
       .order('ex_date', { ascending: false })
     return data ?? []
-  },
-  ['dividend_transactions_all'],
-  { revalidate: 300, tags: ['dividend_transactions'] }
+  }
 )
 
-export const getAllDividends = cache(async (): Promise<DividendTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchAllDividends(userId)
-})
 
-
-const _fetchLatestSnapshot = unstable_cache(
+export const getLatestSnapshot = cachedUserScoped(
+  { key: ['buy_band_snapshots'], tags: ['buy_band_snapshots'], revalidate: 300 },
+  null,
   async (userId: string, symbol: string): Promise<BuyBandSnapshot | null> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_band_snapshots')
@@ -451,18 +396,12 @@ const _fetchLatestSnapshot = unstable_cache(
       .limit(1)
       .maybeSingle()
     return data ?? null
-  },
-  ['buy_band_snapshots'],
-  { revalidate: 300, tags: ['buy_band_snapshots'] }
+  }
 )
 
-export const getLatestSnapshot = cache(async (symbol: string): Promise<BuyBandSnapshot | null> => {
-  const userId = await getUserId()
-  if (!userId) return null
-  return _fetchLatestSnapshot(userId, symbol)
-})
-
-const _fetchLatestTwoSnapshots = unstable_cache(
+export const getLatestSnapshots = cachedUserScoped(
+  { key: ['buy_band_snapshots_two'], tags: ['buy_band_snapshots'], revalidate: 300 },
+  [],
   async (userId: string, symbol: string): Promise<BuyBandSnapshot[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('buy_band_snapshots')
@@ -472,16 +411,8 @@ const _fetchLatestTwoSnapshots = unstable_cache(
       .order('snapshotted_at', { ascending: false })
       .limit(2)
     return data ?? []
-  },
-  ['buy_band_snapshots_two'],
-  { revalidate: 300, tags: ['buy_band_snapshots'] }
+  }
 )
-
-export const getLatestSnapshots = cache(async (symbol: string): Promise<BuyBandSnapshot[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchLatestTwoSnapshots(userId, symbol)
-})
 
 /** USD->INR daily history from `fx_rates` (public market data, no user filter). Pair with rateOnOrBefore. Uncached. */
 export async function getFxRates(): Promise<FxRate[]> {

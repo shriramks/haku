@@ -5,9 +5,10 @@ import type { FiscalYear } from '../types'
 // --- user_id isolation tests ---
 
 // vi.hoisted ensures these are available inside vi.mock factory closures
-const { TEST_USER_ID, OTHER_USER_ID } = vi.hoisted(() => ({
+const { TEST_USER_ID, OTHER_USER_ID, cacheCalls } = vi.hoisted(() => ({
   TEST_USER_ID: 'test-user-123',
   OTHER_USER_ID: 'other-user-456',
+  cacheCalls: [] as { key: string[]; revalidate: number; tags: string[] }[],
 }))
 
 vi.mock('react', async (importOriginal) => {
@@ -16,7 +17,10 @@ vi.mock('react', async (importOriginal) => {
 })
 
 vi.mock('next/cache', () => ({
-  unstable_cache: (fn: unknown) => fn,
+  unstable_cache: (fn: unknown, key: string[], opts: { revalidate: number; tags: string[] }) => {
+    cacheCalls.push({ key, revalidate: opts.revalidate, tags: opts.tags })
+    return fn
+  },
   revalidateTag: vi.fn(),
 }))
 
@@ -35,9 +39,11 @@ vi.mock('../supabase-service', () => ({
 }))
 
 import { createSupabaseServiceClient } from '../supabase-service'
+import { createSupabaseServerClient } from '../supabase-server'
 import {
   getAllocations, getTransactions, getTransactionsBySymbol,
   getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavs, getStockPrices,
+  getFiscalYears, getAIKeyStatus, getInvestabilityForSymbol,
 } from '../data'
 
 // Builds a chainable Supabase query mock that records eq() calls
@@ -244,5 +250,60 @@ describe('getStockPrices', () => {
       from: () => makeStockPricesMock([]),
     } as never)
     expect(await getStockPrices(['NEWCO'])).toEqual({})
+  })
+})
+
+// --- cache keys / tags / revalidate ---
+// unstable_cache keys ignore the query, so a changed key part is a cache bust and a changed tag
+// breaks revalidateTag — pin every fetcher's spec.
+
+describe('data.ts — cached fetcher specs', () => {
+  const expected = [
+    { key: ['buy_band_snapshots'], revalidate: 300, tags: ['buy_band_snapshots'] },
+    { key: ['buy_band_snapshots_two'], revalidate: 300, tags: ['buy_band_snapshots'] },
+    { key: ['buy_bands'], revalidate: 300, tags: ['buy_bands'] },
+    { key: ['buy_tranches'], revalidate: 120, tags: ['buy_tranches'] },
+    { key: ['dividend_transactions'], revalidate: 300, tags: ['dividend_transactions'] },
+    { key: ['dividend_transactions_all'], revalidate: 300, tags: ['dividend_transactions'] },
+    { key: ['epf_transactions', 'wage_month'], revalidate: 3600, tags: ['epf_transactions'] },
+    { key: ['fiscal_years'], revalidate: 3600, tags: ['fiscal_years'] },
+    { key: ['mf_funds'], revalidate: 3600, tags: ['mf_funds'] },
+    { key: ['mf_transactions'], revalidate: 3600, tags: ['mf_transactions'] },
+    { key: ['ppf_balance_override'], revalidate: 3600, tags: ['ppf_balance_override'] },
+    { key: ['ppf_transactions'], revalidate: 3600, tags: ['ppf_transactions'] },
+    { key: ['sgb_transactions'], revalidate: 3600, tags: ['sgb_transactions'] },
+    { key: ['transactions', 'fx_rate'], revalidate: 3600, tags: ['transactions'] },
+    { key: ['transactions_by_symbol', 'fx_rate'], revalidate: 3600, tags: ['transactions'] },
+  ]
+
+  it('registers each cached fetcher with its key, revalidate and tags', () => {
+    const byKey = (a: { key: string[] }, b: { key: string[] }) => a.key.join().localeCompare(b.key.join())
+    expect([...cacheCalls].sort(byKey)).toEqual([...expected].sort(byKey))
+  })
+})
+
+describe('data.ts — signed out', () => {
+  function signedOut() {
+    vi.mocked(createSupabaseServerClient).mockResolvedValueOnce({
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null } }) },
+    } as never)
+  }
+
+  it('returns [] from a cached list fetcher without querying', async () => {
+    const from = vi.fn()
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({ from } as never)
+    signedOut()
+    expect(await getFiscalYears()).toEqual([])
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('returns the declared fallback from uncached and nullable fetchers', async () => {
+    const from = vi.fn()
+    vi.mocked(createSupabaseServiceClient).mockReturnValue({ from } as never)
+    signedOut()
+    expect(await getAIKeyStatus()).toEqual({ hasKey: false })
+    signedOut()
+    expect(await getInvestabilityForSymbol('ABC')).toBeNull()
+    expect(from).not.toHaveBeenCalled()
   })
 })
