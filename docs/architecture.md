@@ -295,3 +295,11 @@ supabase/
   seed.sql                              sample FY/allocations
   seed-bands.sql                        optional sample PE-only buy bands
 ```
+
+---
+
+## Local Development
+
+`npm run dev` is risky on this 8 GB machine. A `next dev` left running unattended was observed (macOS resource-monitor diagnostics, 2026-09-18) escalating from ~120 KB/s to 160+ MB/s of disk writes over ~21 hours before the machine became unresponsive, consistent with unbounded cache growth or swap thrashing on this hardware. Confirm it is killed before ending a session (`lsof -ti:3000`, not just closing the terminal tab).
+
+`next.config.ts` pins `turbopack.root` to this repo because Turbopack's auto-detection otherwise walks up to a stray `~/Projects/package-lock.json` and scopes its file watcher to all 15+ sibling repos under `~/Projects` instead of just `haku/`. A real bug worth keeping fixed, but unconfirmed as the sole cause of the above; treat both as live risk factors.

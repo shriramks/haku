@@ -14,51 +14,21 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 | `docs/design.md` | All UI/design rules — typography, colour, spacing, components, platform |
 | `docs/architecture.md` | Data model, Supabase schema, server/client split |
 | `docs/valuation-playbook.md` | Band calculation methodology, PE multiples by category |
+| `docs/tax-rules.md` | Capital-gains constants and loss set-off rules |
 
-**Before any UI change: read `docs/design.md` first. Before any logic change: read `docs/app-spec.md` first.**
-
----
-
-## Key directories
-
-| Path | Purpose |
-|------|---------|
-| `app/allocation/` | Allocation overview — FY deployment status per stock |
-| `app/bands/` | Buy Bands screen; `[symbol]/` is Stock Detail |
-| `app/plan/` | FY planning — allocation percentages, carryover |
-| `app/transactions/` | Transaction history, all asset types |
-| `app/portfolio/` | MF / Gold / PPF / EPF portfolio screen |
-| `app/add/` | Add transaction (FAB) |
-| `app/import/` | CSV import |
-| `app/api/` | Server-side API routes (CMP, bands gen, investability, tranches) |
-| `lib/` | Computation, types, data fetching, formatters |
-| `components/` | Shared UI components |
+**Before any UI change: read `docs/design.md` first. Before any logic change: read `docs/app-spec.md` first. Before any tax change: read `docs/tax-rules.md` first.**
 
 ---
 
-## Key files
+## Layout
 
-| File | Purpose |
-|------|---------|
-| `lib/types.ts` | Core types: `Transaction`, `FiscalYear`, `StockRow`, etc. |
-| `lib/portfolio-types.ts` | `MFTransaction`, `SGBTransaction`, `PPFTransaction`, `EPFTransaction`, `MFund` |
-| `lib/compute.ts` | Stock row computation: allocation, spent, currentCost, bands, XIRR |
-| `lib/mf-compute.ts` | MF holding computation: units, cost, current value, XIRR |
-| `lib/band-calculator.ts` | PE/PB/EV band price calculation by category |
-| `lib/tranche-pipeline.ts` | Buy-level generation pipeline — shared by tranches + bands generate routes |
-| `lib/fy-utils.ts` | FY selection + Apr–Mar date math: `getCurrentFY`, `fyIdForDate`, `fiscalQuarterLabel` |
-| `lib/data.ts` | Supabase data fetching helpers |
-| `lib/xirr.ts` | XIRR implementation |
-| `lib/formatter.ts` | `formatPriceNum()`, `formatDate()`, compact Indian number formatting |
-| `lib/screener.ts` | Screener.in HTML parsing for financials (EPS, PAT, ROCE, Mcap) |
-| `lib/nse.ts` | NSE API for index level and PE |
-| `lib/amfi.ts` | AMFI NAV history parsing + staleness guard for MF NAVs — see `docs/architecture.md` "MF NAV Fetch Flow" |
-| `lib/supabase-browser.ts` | Browser Supabase client (for client-side mutations) |
-| `app/actions.ts` | Server actions for DB writes + `revalidateTag` cache invalidation |
-| `components/icons.tsx` | All SVG icons — check here before adding SVGs inline |
-| `components/Num.tsx` | Compact Indian number formatting component — use for all amounts |
-| `app/globals.css` | CSS tokens, global styles, iOS body hack |
-| `tailwind.config.ts` | Tailwind token extensions (colour, type scale) |
+Routes and files: see `docs/architecture.md` "Route → Screen Map" and "Key File Map". Pointers that matter when writing code:
+
+- `app/actions.ts` — server actions for DB writes + `revalidateTag`; `app/portfolio/actions.ts` for the portfolio tables.
+- `lib/band-calculator.ts` — implements `docs/valuation-playbook.md`; `lib/tranche-pipeline.ts` is shared by the tranches and bands generate routes.
+- `lib/formatter.ts` (`formatPriceNum()`, compact Indian notation) and `components/Num.tsx` — use `Num` for all amounts.
+- `components/icons.tsx` — check here before adding an inline SVG.
+- `lib/supabase-browser.ts` — browser client, for client-side mutations only (see Data / caching).
 
 ---
 
@@ -66,7 +36,7 @@ Personal finance app for Indian investors. Tracks stock allocation (FY-budgeted,
 
 | Asset | Compute | DB tables |
 |-------|---------|-----------|
-| Stocks | `lib/compute.ts`, `lib/band-calculator.ts` | `transactions`, `stocks`, `fiscal_years` |
+| Stocks | `lib/compute.ts`, `lib/band-calculator.ts` | `transactions`, `stock_allocations`, `buy_bands`, `fiscal_years` |
 | Mutual Funds | `lib/mf-compute.ts` | `mf_funds`, `mf_transactions` |
 | Gold / SGB | `app/portfolio/` | `sgb_transactions` |
 | PPF | `app/portfolio/` | `ppf_transactions` |
@@ -80,40 +50,10 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 
 ## Data / caching
 
-- DB writes go through server actions in `app/actions.ts`; always call `revalidateTag(tag)` after a write — otherwise `unstable_cache` serves stale data.
-- Cached tables (see the caching table in `docs/architecture.md`): `fiscal_years`, `transactions`, `buy_bands`, `buy_tranches`, `dividend_transactions`, `buy_band_snapshots`, plus MF/gold/PPF/EPF (`mf_funds`, `mf_transactions`, `sgb_transactions`, `ppf_transactions`, `ppf_balance_override`, `epf_transactions`) — every write must revalidate the matching tag: prefer a server action that writes + revalidates (`app/actions.ts` or `app/portfolio/actions.ts`); a browser write is only OK if immediately followed by the matching revalidate action (PlanClient pattern for `fiscal_years`; `revalidateMFTransactions()`/`revalidateSGBTransactions()`/`revalidatePPFTransactions()`/`revalidateEPFTransactions()` for the portfolio tables' client-side edit/delete in `TransactionsClient.tsx`). `stock_allocations` (`getAllocations`) is the one table genuinely uncached and may be written client-side under RLS with nothing to revalidate.
+- Every write to a cached table must revalidate its tag, or `unstable_cache` serves stale data. The tag-per-fetcher table and the write paths are in `docs/architecture.md` "Data Caching & Writes". Prefer a server action that writes and revalidates together; a browser write is only OK when immediately followed by the matching revalidate action. `stock_allocations` is the one uncached table and may be written client-side under RLS.
 - Stock transaction writes use `addStockTransaction` / `updateStockTransaction` / `deleteStockTransaction` / `importStockTransactions`; `fy_id` is derived server-side from `trade_date`.
 - `stock_prices` (`getStockPrices`) is deliberately uncached and written only by `POST /api/portfolio/prices/refresh`; display prices go through `resolveCmp` (`lib/stock-prices.ts`), never `buy_bands.cmp` directly.
 - DB queries: always select specific columns and add WHERE filters server-side — never fetch full table rows and filter client-side.
-
----
-
-## Tax constants
-
-### Equity capital gains (stocks + equity-oriented MFs)
-- **STCG** (held < 365 days): taxed at 20%.
-- **LTCG** (held ≥ 365 days): taxed at 12.5% on gains above the 1.25 L annual exemption (raised from 1 L by Budget 2024, effective FY 2024–25 onwards).
-- **1.25 L exemption** applies only to equity LTCG — not to debt or gold.
-
-### Debt MF capital gains
-Finance Act 2023 split debt MF treatment by purchase date (effective April 1, 2023):
-- **Units bought before April 1, 2023:** old rules — LTCG threshold 3 years (1095 days), 20% with indexation; STCG at slab. BUT Budget 2024 (Finance Act 2024, effective July 23, 2024) removed indexation across capital assets; the only carve-out was real estate. So for pre-April 2023 debt units sold on/after July 23, 2024, indexation benefit is likely gone too — gains at slab.
-- **Units bought on/after April 1, 2023:** LTCG benefit removed entirely — all gains taxed at slab rate regardless of holding period.
-- The 1.25 L LTCG exemption does **not** apply to debt MF gains.
-- **Indexation in this app:** We do not compute indexed cost. Debt gains are shown at purchase cost with a note to verify with a CA. Indexation requires a CBDT CII table (maintained annually each June) and the slab-rate outcome is user-specific anyway — false precision is worse than a clear disclaimer.
-
-### Gold capital gains
-- **LTCG threshold:** 1095 days (3 years).
-- **SGB held to maturity:** fully exempt from capital gains tax.
-- **SGB/ETF sold before maturity:** normal gold LTCG rules apply.
-
-### Loss set-off rules
-Set-off follows the **term of the loss** (short-term vs long-term), not the asset class — this matches actual Indian tax law (s.70): equity vs debt only changes the *rate*, not who can absorb whose loss.
-- **Short-term losses** (equity STCG, debt STCG) can be set off against **any** of the four buckets — equity STCG, equity LTCG, debt STCG, or debt LTCG — highest-rate-first.
-- **Long-term losses** (equity LTCG, debt LTCG) can only be set off against the two LTCG buckets (equity or debt) — never against a short-term gain.
-- "Debt" bucket = debt MF **and** gold ETF sold before maturity combined (`gatherBucketedGains`) — so gold ETF fully participates in the above, including crossing into equity via the short-term leg.
-- **SGB held to maturity and physical gold are excluded from the bucketed model entirely** — no resolved bucket, no participation in set-off, reported separately. (SGB-to-maturity is tax-exempt anyway.)
-- Harvesting analysis therefore applies only to equity positions; debt, gold ETF, SGB, and physical gold are reported separately.
 
 ---
 
@@ -131,30 +71,34 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
 - **Always split work into vertical slices.** Each session delivers one thin, user-visible, end-to-end slice (schema + data + compute + UI + docs for that slice), never a horizontal layer (all the data work, then all the compute, then all the UI). Every slice is shippable and usable on its own.
 - **Always do the correct architectural fix — never a stopgap.** When a bug or slow path has both a quick patch and a proper structural fix, implement the proper fix, even if it touches more files or takes longer. If a stopgap genuinely has to ship first (e.g. time pressure), say so explicitly and get sign-off before taking it — never default to the smaller diff just because it's smaller.
 - **After completing any unit of work**, append an entry to `progress_haku.md`. This file is gitignored — never stage or commit it. Format rules:
-  - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused. This is so a session can always be referred to by its number.
-  - Splitting a Todo entry into multiple sessions: sub-parts take a letter suffix on the original number (`79.a`, `79.b`, ...), not new top-level numbers — keeps them grouped under the parent while each sub-part still has its own stable, permanent identifier.
+  - Every entry (Todo and Done) has a globally sequential number, assigned once at creation. Numbers are permanent identifiers — never renumbered, never reused. This is so a session can always be referred to by its number. Number Todo entries in the order they will be executed, so ascending number is the order of work; a Todo that nothing has yet referenced (no commit, code comment or doc cites it) may be renumbered once to restore that order.
+  - Splitting work into sessions: when planning, give each session its own top-level number, in execution order. A letter suffix (`79.a`, `79.b`) is only for a Todo already in flight or already referenced that has to split mid-session.
   - Heading format: `### N — YYYY-MM-DD — Title` (Done) or `### N — Title` (Todo).
   - Done entries are ordered by actual completion recency, most-recent-at-top — not by number. Todo entries sit above `## Done` under `## Todo`.
   - Each entry: `Files:` line listing changed files, then 2–4 terse bullets on what changed and why.
-  - When planning a multi-session task, add all sessions as numbered Todo entries first (using letter suffixes for a split, per above). When a session is completed, move it to Done under its existing number/suffix and append the files + bullets.
+  - When planning a multi-session task, add all sessions as numbered Todo entries first, in execution order. When a session is completed, move it to Done under its existing number/suffix and append the files + bullets.
   - "Local progress log", "update progress", or similar phrases always refer to this file — do not grep for it.
   - A **Done** entry requires its tracked (non-gitignored) files to be committed and pushed to `main`. Work that's implemented and tested but not yet committed stays under `## Todo` — do not mark something Done on the strength of a passing build alone. This never justifies overriding ignore rules to get there: gitignored files (this file itself, `mockups/`, `supabase/migrations/`) are never committed regardless of Done status; for a session that only touches gitignored files, Done means the work is finished, full stop.
 - **Playbook and code stay in sync.** `docs/valuation-playbook.md` is the spec for `lib/band-calculator.ts`. Any playbook change that alters thresholds, ranges, formulas or categories ships in the same session as the matching code and test change, and the progress entry records both. If the code can't be updated in that session, say so explicitly and add a numbered Todo before committing the playbook.
 - **No helper text in the UI.** No hints, notes, explanations or disclaimers — labels, values and actions only (`docs/design.md`).
-- **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it.
+- **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it, and never put mocks in `public/` or any other folder. Open them with `open <absolute-path>` as a `file://` URL.
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
-- **Schema changes:** push code first, then hand over migration SQL — never the reverse (live app crashes on dropped columns until code lands).
+- **Schema changes:** an additive migration (new table or column; nothing the live app reads is removed) is handed over and run first, so code that reads it can ship. A destructive one (drop, rename, tighten) goes the other way: push code first, then hand over the SQL — the live app crashes on a dropped column until code lands.
 - **Commit directly to `main`.** Push straight to `main` — never create a feature branch or open a PR for ordinary work.
 - **Git email:** always run `git config user.email "12730252+shriramks@users.noreply.github.com"` before committing.
 - **Never override ignore rules.** No `git add -f`, never stage ignored files.
-- **Diagnose bugs from code only.** If an error maps to a code line, that is the diagnosis — stop there. Never use `git log`/`git show` to corroborate something already clear from code.
-- **Targeted reads only.** Use grep/glob for lookups; open files only when something is genuinely missing. Avoid full-codebase explore agents unless clearly needed.
-- **Ask for a screenshot before a second guess.** If the user reports a UI/number mismatch and you have no way to verify visually yourself, don't reverse-engineer a fix from approximate numbers typed in chat — ask for a screenshot (or exact on-screen text) before trying again. Escalating the fix's scope on a second guess (bigger rewrites, deeper theories) only compounds the risk of being wrong twice.
-- **PWA status bar: keep `statusBarStyle: 'default'` in `app/layout.tsx`.** Never use `black-translucent` + `viewportFit: 'cover'` for the status bar. On iOS 26+/27 that setup puts the page under the status bar and iOS draws a system Liquid Glass blur over the top ~40pt (it blurred every heading on iOS 27.0.1). The blur is drawn by the system, so no CSS fixes it; a fixed solid strip and opaque headers were tried and did not help. `themeColor` must match `--bg-primary` (`#FFFFFF` light, `#000000` dark) since the status bar now shows it. The status bar style is read at install time, so a change needs the Home Screen app deleted and re-added.
-- **`npm run dev` is risky on this machine — 8 GB RAM.** A `next dev` left running unattended has been observed (macOS resource-monitor diagnostics, 2026-09-18) escalating from ~120 KB/s to 160+ MB/s of disk writes over ~21 hours before the machine became unresponsive — consistent with unbounded cache growth or swap thrashing on this hardware, not a one-off fluke. Always confirm it's actually killed before ending a session (`lsof -ti:3000`, not just closing the terminal tab) — don't leave it running long-lived. `next.config.ts` pins `turbopack.root` to this repo because Turbopack's auto-detection otherwise walks up to a stray `~/Projects/package-lock.json` and scopes its file watcher to all 15+ sibling repos under `~/Projects` instead of just `haku/` — real bug, worth keeping fixed, but unconfirmed as the sole cause of the above; treat both as live risk factors, not a closed case.
+- **This repo is public — check every change for PII or sensitive data before committing.** Look at the staged diff, including screenshots, mocks, test fixtures, seed or sample data, docs examples and comments, for: secrets and keys, emails or personal identifiers, user or project IDs, real holdings, balances or transaction data, and anything that identifies the owner. Use illustrative values in examples and fixtures. If something sensitive is found, stop and raise it before committing; a commit is permanent once pushed.
+- **PWA status bar: keep `statusBarStyle: 'default'` in `app/layout.tsx`.** Never `black-translucent` + `viewportFit: 'cover'` — iOS draws a system blur over the top of the page and no CSS fixes it. `themeColor` must match `--bg-primary`. Detail: `docs/design.md` "PWA status bar".
+- **`npm run dev` is risky on this 8 GB machine.** Confirm it is actually killed before ending a session (`lsof -ti:3000`, not just closing the tab); never leave it running long-lived. Evidence and the `turbopack.root` pin: `docs/architecture.md` "Local Development".
 
 ---
 
-## Debugging principle
+## Investigating (bugs, questions, features)
 
-**Fix the model, not the symptom.** When something displays wrong, first ask: what is the underlying model supposed to guarantee? A correct fix restores an invariant. A symptom fix moves the inconsistency elsewhere. Before changing any formula, write down the invariant it must satisfy, verify it holds after the change, and audit every other value that shares the same base.
+- **Understand before concluding.** Before diagnosing, answering or proposing a change, build your own model of the area: trace every writer and reader of the data, the UI controls that trigger it, and the tests that pin it. A reader of a value is never reported as a problem until its writer and the controls that update it have been found. Say what is wrong only after that.
+- **Label confidence.** Mark each finding "traced end to end" or "inferred from search". An inferred finding is not presented as fact and is not written into a plan as a defect — it goes in as "to check".
+- **Docs vs code.** When a doc or rule disagrees with the code, find out which is stale; the doc does not win by default.
+- **Read what the question needs.** Grep to locate, then open the files on the path. "Targeted" means no codebase dumps or full-codebase explore agents unless clearly needed — it does not mean stopping at the first match.
+- **Diagnose from code, not git history.** Once an error is traced to a code line, that is the diagnosis; never use `git log`/`git show` to corroborate what is already clear from code.
+- **Ask for a screenshot before a second guess.** If the user reports a UI/number mismatch and you cannot verify visually, don't reverse-engineer a fix from approximate numbers typed in chat — ask for a screenshot (or exact on-screen text) first. Escalating the fix's scope on a second guess only compounds the risk of being wrong twice.
+- **Fix the model, not the symptom.** When something displays wrong, ask what the underlying model is supposed to guarantee. A correct fix restores an invariant; a symptom fix moves the inconsistency elsewhere. Before changing any formula, write down the invariant it must satisfy, verify it holds after the change, and audit every other value that shares the same base.

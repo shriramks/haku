@@ -502,6 +502,9 @@ Design for **iPhone 16/17 width (393pt)** as the default target. Every layout de
 ### iOS fixed nav
 `body { min-height: calc(100dvh + 1px) }` in `app/globals.css` is required. It forces the WebKit scrollable-document compositing path so `position: fixed` nav renders correctly on iOS. **Never remove this line.**
 
+### PWA status bar
+Keep `statusBarStyle: 'default'` in `app/layout.tsx`. Never use `black-translucent` + `viewportFit: 'cover'`: on iOS 26+/27 that puts the page under the status bar and iOS draws a system Liquid Glass blur over the top ~40pt (it blurred every heading on iOS 27.0.1). The system draws the blur, so no CSS fixes it; a fixed solid strip and opaque headers were tried and did not help. `themeColor` must match `--bg-primary` (`#FFFFFF` light, `#000000` dark) because the status bar shows it. The status bar style is read at install time, so a change needs the Home Screen app deleted and re-added.
+
 ### New design tokens
 To add a token: define the CSS variable in `app/globals.css` (light + dark), then reference it in `tailwind.config.ts`.
 
