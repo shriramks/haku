@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { vi } from 'vitest'
 import { buildPortfolio, type PortfolioInput, type StockTxn } from '../portfolio-compute'
 import type {
-  EPFTransaction, MFTransaction, MFund, PPFBalanceOverride, PPFTransaction, SGBTransaction, UsHolding, UsTransaction,
+  EPFTransaction, MFTransaction, MFund, PPFBalanceOverride, PPFTransaction, SGBTransaction,
 } from '../portfolio-types'
 
 // XIRR reads the clock; pin it so results are repeatable.
@@ -33,7 +33,7 @@ const EMPTY: PortfolioInput = {
   stockTxns: [], bandCmps: {}, stockPrices: {}, mfFunds: [], mfTransactions: [], mfNavs: {},
   sgbTransactions: [], goldPrice: null, prevGoldPrice: null, ppfTransactions: [], ppfOverride: null,
   epfTransactions: [],
-  usHoldings: [], usTransactions: [], usdInr: null,
+  instruments: {}, usdInr: null,
 }
 
 const stockPrices = {
@@ -287,28 +287,31 @@ describe('buildPortfolio — summary', () => {
   })
 })
 
-// VUAA: 10 units bought at $100 when USD->INR was 80 → cost 80,000. Now $120 at 85 → 102,000.
-const vuaa: UsHolding = { id: 'u1', symbol: 'VUAA', yahoo_symbol: 'VUAA.L', name: 'Vanguard S&P 500 UCITS ETF', region: 'us' }
-const usBuy = (trade_date: string, quantity: number, price: number, fx_rate: number): UsTransaction => ({
-  id: `u1-${trade_date}`, holding_id: 'u1', trade_date, trade_type: 'buy', quantity, price, fx_rate,
-  amount: quantity * price, amount_inr: quantity * price * fx_rate,
-})
+// VUAA: 10 units bought at $100 when USD->INR was 80 → cost 80,000 (the trade's INR `amount`).
+// Now $120 at 85 → 102,000. It is an ordinary stock transaction whose instrument is USD.
+const vuaaInstrument = { currency: 'USD', region: 'us' as const, name: 'Vanguard S&P 500 UCITS ETF' }
+const usBuy = (trade_date: string, quantity: number, price: number, fx_rate: number): StockTxn =>
+  ({ symbol: 'VUAA', trade_date, trade_type: 'buy', quantity, amount: quantity * price * fx_rate })
 const usPrices = { VUAA: { cmp: 120, prevClose: 118, fetchedAt: '2026-09-25T10:00:00Z' } }
 const usInput: Partial<PortfolioInput> = {
-  usHoldings: [vuaa],
-  usTransactions: [usBuy('2025-01-10', 10, 100, 80)],
+  instruments: { VUAA: vuaaInstrument },
+  stockTxns: [usBuy('2025-01-10', 10, 100, 80)],
   usdInr: { rate: 85, prevRate: 84 },
   stockPrices: usPrices,
 }
-// stockInput and usInput each carry stockPrices; merge them when both are used.
-const both = { ...stockInput, ...usInput, stockPrices: { ...stockPrices, ...usPrices } }
+// stockInput and usInput each carry stockTxns / stockPrices; merge them when both are used.
+const both = {
+  ...usInput,
+  stockTxns: [...stockInput.stockTxns!, ...usInput.stockTxns!],
+  stockPrices: { ...stockPrices, ...usPrices },
+}
 
-describe('buildPortfolio — direct USD holdings (#131)', () => {
+describe('buildPortfolio — non-INR instruments on the stock path (#153)', () => {
   it('is a row in Stocks with INR figures, the native line and its own href', () => {
     const d = build(usInput)
     expect(d.stocks.rows).toHaveLength(1)
     expect(d.stocks.rows[0]).toMatchObject({
-      key: 'us:u1', name: 'Vanguard S&P 500 UCITS ETF', href: '/portfolio/us/u1',
+      key: 'VUAA', name: 'Vanguard S&P 500 UCITS ETF', href: '/portfolio/stock/VUAA',
       value: 102_000, pnl: 22_000, native: '$120.00 · 10 units', retLabel: 'XIRR',
     })
     expect(d.stocks.rows[0].day?.amount).toBeCloseTo(10 * (120 * 85 - 118 * 84))
@@ -316,7 +319,7 @@ describe('buildPortfolio — direct USD holdings (#131)', () => {
 
   it('the Stocks header and every total include it alongside Indian stocks', () => {
     const d = build(both)
-    expect(d.stocks.rows.map(r => r.name)).toEqual(['AAA', 'BBB', 'CCC', 'Vanguard S&P 500 UCITS ETF'])
+    expect(d.stocks.rows.map(r => r.name)).toEqual(['AAA', 'BBB', 'CCC', 'Vanguard S&P 500 UCITS ETF'])  // by symbol, VUAA last
     expect(d.stocks.invested).toBeCloseTo(2200 + 80_000)
     expect(d.stocks.currentValue).toBeCloseTo(2350 + 102_000)
     expect(d.summary.totalInvested).toBeCloseTo(2200 + 80_000)
@@ -330,7 +333,7 @@ describe('buildPortfolio — direct USD holdings (#131)', () => {
     expect(d.region.usValue).toBeCloseTo(102_000)
     expect(d.region.indiaValue + d.region.usValue).toBeCloseTo(d.summary.totalCurrent)
     expect(d.region.equity.find(g => g.key === 'us-stocks')?.value).toBeCloseTo(102_000)
-    expect(d.region.usHoldings.map(h => h.href)).toEqual(['/portfolio/us/u1'])
+    expect(d.region.usHoldings.map(h => h.href)).toEqual(['/portfolio/stock/VUAA'])
   })
 
   it('overall XIRR runs on the INR cash flows (currency gain counts)', () => {
@@ -353,11 +356,11 @@ describe('buildPortfolio — direct USD holdings (#131)', () => {
 
   it('a price a day behind the rest carries its own date, like stocks', () => {
     const d = build(both, { stockPrices: { ...stockPrices, VUAA: { cmp: 120, prevClose: 118, fetchedAt: '2026-09-23T10:00:00Z' } } })
-    expect(d.stocks.rows.find(r => r.key === 'us:u1')?.staleDate).toBe('23 Sep')
+    expect(d.stocks.rows.find(r => r.key === 'VUAA')?.staleDate).toBe('23 Sep')
   })
 
   it('a fully sold holding is not a row and adds nothing', () => {
-    const d = build(usInput, { usTransactions: [usBuy('2025-01-10', 10, 100, 80), { ...usBuy('2025-06-10', 10, 110, 82), trade_type: 'sell' }] })
+    const d = build(usInput, { stockTxns: [usBuy('2025-01-10', 10, 100, 80), { ...usBuy('2025-06-10', 10, 110, 82), trade_type: 'sell' }] })
     expect(d.stocks.rows).toEqual([])
     expect(d.stocks.currentValue).toBeNull()
     expect(d.region.usValue).toBe(0)

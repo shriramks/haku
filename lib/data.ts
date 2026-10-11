@@ -5,8 +5,7 @@ import { createSupabaseServerClient } from './supabase-server'
 import { createSupabaseServiceClient } from './supabase-service'
 import { GOLD_PRICE_KEY, type StockPriceInfo } from './stock-prices'
 import type { FiscalYear, StockAllocation, Transaction, FYTxn, BuyBand, BuyTranche, Investability, DividendTransaction, BuyBandSnapshot } from './types'
-import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction, UsHolding, UsTransaction } from './portfolio-types'
-import { usFYTransactions } from './us-compute'
+import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 
 // cache()         — deduplicates within a single request (per-render)
@@ -24,7 +23,6 @@ import { USDINR_PRICE_KEY, type FxRate } from './fx'
 //   getSGBTransactions / getPPFTransactions / getPPFOverride / getEPFTransactions : 1 hour —
 //     same pattern as MF: writes go through app/portfolio/actions.ts (revalidateTag), and
 //     TransactionsClient.tsx's client-side edit/delete paths call the matching revalidate*() action
-//   getUsHoldings / getUsTransactions : 1 hour — writes go through app/portfolio/actions.ts (revalidateTag('us_holdings' / 'us_transactions'))
 //   getFxRates / getUsdInrRate : no cache on purpose (fx_rates is written by the Prices refresh route)
 //   getMFNavs / getStockPrices / getGoldPrice : no cache on purpose — a Prices-button refresh must show on the next render
 //   everything else : no cross-request cache — mutated client-side without server invalidation paths
@@ -91,7 +89,7 @@ const _fetchTransactions = unstable_cache(
   async (userId: string, fyId?: string): Promise<Transaction[]> => {
     const q = createSupabaseServiceClient()
       .from('transactions')
-      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes, created_at')
+      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, fx_rate, amount, fy_id, notes, created_at')
       .eq('user_id', userId)
       .order('trade_date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -100,7 +98,7 @@ const _fetchTransactions = unstable_cache(
       : await q
     return data ?? []
   },
-  ['transactions'],
+  ['transactions', 'fx_rate'],  // key part marks the row shape — unstable_cache keys ignore the query, so a new column needs a new key
   { revalidate: 3600, tags: ['transactions'] }
 )
 
@@ -114,13 +112,13 @@ const _fetchTransactionsBySymbol = unstable_cache(
   async (userId: string, symbol: string): Promise<Transaction[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('transactions')
-      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, amount, fy_id, notes')
+      .select('id, symbol, exchange, trade_date, trade_type, quantity, price, fx_rate, amount, fy_id, notes')
       .eq('user_id', userId)
       .eq('symbol', symbol)
       .order('trade_date', { ascending: false })
     return data ?? []
   },
-  ['transactions_by_symbol'],
+  ['transactions_by_symbol', 'fx_rate'],
   { revalidate: 3600, tags: ['transactions'] }
 )
 
@@ -156,12 +154,6 @@ export const getAllStockSymbols = cache(async (): Promise<string[]> => {
   ])
   return [...new Set([...(stocks.data ?? []), ...(us.data ?? [])].map(a => a.symbol))].sort()
 })
-
-/** A FY's US trades as `FYTxn` — see `usFYTransactions`. */
-export async function getUsFYTransactions(fy: FiscalYear): Promise<FYTxn[]> {
-  const [holdings, txns] = await Promise.all([getUsHoldings(), getUsTransactions()])
-  return usFYTransactions(holdings, txns, fy)
-}
 
 const _fetchBuyBands = unstable_cache(
   async (userId: string): Promise<BuyBand[]> => {
@@ -500,48 +492,6 @@ export const getLatestSnapshots = cache(async (symbol: string): Promise<BuyBandS
   const userId = await getUserId()
   if (!userId) return []
   return _fetchLatestTwoSnapshots(userId, symbol)
-})
-
-const _fetchUsHoldings = unstable_cache(
-  async (userId: string): Promise<UsHolding[]> => {
-    const { data } = await createSupabaseServiceClient()
-      .from('us_holdings')
-      .select('id, symbol, yahoo_symbol, name, region')
-      .eq('user_id', userId)
-      .order('symbol', { ascending: true })
-    return (data ?? []) as UsHolding[]
-  },
-  ['us_holdings'],
-  { revalidate: 3600, tags: ['us_holdings'] }
-)
-
-export const getUsHoldings = cache(async (): Promise<UsHolding[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchUsHoldings(userId)
-})
-
-const _fetchUsTransactions = unstable_cache(
-  async (userId: string): Promise<UsTransaction[]> => {
-    const { data } = await createSupabaseServiceClient()
-      .from('us_transactions')
-      .select('id, holding_id, trade_date, trade_type, quantity, price, fx_rate, amount, amount_inr')
-      .eq('user_id', userId)
-      .order('trade_date', { ascending: true })
-    return ((data ?? []) as Record<string, string | number>[]).map(r => ({
-      ...r,
-      quantity: Number(r.quantity), price: Number(r.price), fx_rate: Number(r.fx_rate),
-      amount: Number(r.amount), amount_inr: Number(r.amount_inr),
-    })) as UsTransaction[]
-  },
-  ['us_transactions'],
-  { revalidate: 3600, tags: ['us_transactions'] }
-)
-
-export const getUsTransactions = cache(async (): Promise<UsTransaction[]> => {
-  const userId = await getUserId()
-  if (!userId) return []
-  return _fetchUsTransactions(userId)
 })
 
 /** USD->INR daily history from `fx_rates` (public market data, no user filter). Pair with rateOnOrBefore. Uncached. */

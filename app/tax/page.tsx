@@ -2,6 +2,8 @@ import { getFiscalYears, getCurrentFY, getTransactions, getBuyBands, getAllDivid
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { mfAssetClass, groupBy, netStockQty } from '@/lib/tax-compute'
 import { resolveCmp } from '@/lib/stock-prices'
+import { getStocks } from '@/lib/stock-master'
+import { inrTransactions } from '@/lib/trade-fx'
 import type { AdvanceTaxPaidRow, CarryForwardDbRow } from '@/lib/types'
 import TaxClient from './TaxClient'
 
@@ -13,7 +15,7 @@ export default async function TaxPage() {
 
   const [
     fiscalYears,
-    stockTxns,
+    allStockTxns,
     bands,
     mfFunds,
     mfTxns,
@@ -34,6 +36,9 @@ export default async function TaxPage() {
   ])
 
   const currentFY = getCurrentFY(fiscalYears) ?? null
+
+  // Capital-gains rules are INR-only until #161: a USD trade's price is not a rupee cost per unit.
+  const stockTxns = inrTransactions(allStockTxns, await getStocks([...new Set(allStockTxns.map(t => t.symbol))]))
 
   // Harvesting's unrealised-loss figure needs the current NAV for equity funds
   // only (no 1D gain shown on this screen, so no prevNav).

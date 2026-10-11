@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatINRFull, formatPriceNum, formatPnLFull, trimPct, getGainColor } from '@/lib/formatter'
+import { formatINRFull, formatPriceNum, formatUsd, formatPnLFull, trimPct, getGainColor } from '@/lib/formatter'
 import UserMenu from '@/components/UserMenu'
 import EmptyState from '@/components/EmptyState'
 import { seqCost } from '@/lib/compute'
@@ -13,7 +13,10 @@ import type { Transaction } from '@/lib/types'
 interface Props {
   symbol: string
   transactions: Transaction[]
-  cmp: number | null   // resolved server-side (saved price, else band snapshot) — see resolveCmp
+  cmp: number | null   // resolved server-side (saved price, else band snapshot) — see resolveCmp; in `currency`
+  currency: string
+  /** INR per unit of `currency` today (1 for INR); null when a foreign instrument has no rate yet. */
+  inrRate: number | null
 }
 
 function groupByMonth(txns: Transaction[]) {
@@ -25,7 +28,7 @@ function groupByMonth(txns: Transaction[]) {
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export default function StockDetailClient({ symbol, transactions: initialTransactions, cmp }: Props) {
+export default function StockDetailClient({ symbol, transactions: initialTransactions, cmp, currency, inrRate }: Props) {
   const router = useRouter()
   const [transactions, setTransactions] = useState(initialTransactions)
 
@@ -33,7 +36,7 @@ export default function StockDetailClient({ symbol, transactions: initialTransac
   function deleteTxn(id: string)     { setTransactions(prev => prev.filter(t => t.id !== id)) }
 
   const { qty, cost } = useMemo(() => seqCost(transactions), [transactions])
-  const currentValue = cmp !== null ? qty * cmp : null
+  const currentValue = cmp !== null && inrRate !== null ? qty * cmp * inrRate : null
   const gain = currentValue !== null ? currentValue - cost : null
   const xirr = useMemo(
     () => currentValue !== null ? stockXirr(transactions, currentValue) : null,
@@ -71,7 +74,7 @@ export default function StockDetailClient({ symbol, transactions: initialTransac
           {symbol}
         </p>
         <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
-          {qty.toLocaleString('en-IN', { maximumFractionDigits: 0 })} shares
+          {qty.toLocaleString('en-IN', { maximumFractionDigits: currency === 'INR' ? 0 : 3 })} shares
         </p>
       </div>
 
@@ -89,7 +92,7 @@ export default function StockDetailClient({ symbol, transactions: initialTransac
           value={xirr != null ? `${trimPct(Math.abs(xirr * 100))}%` : '—'}
           valueColor={getGainColor(xirr)}
         />
-        <DetailRow label="Current Price" value={cmp != null ? formatPriceNum(cmp) : '—'} last />
+        <DetailRow label="Current Price" value={cmp != null ? (currency === 'INR' ? formatPriceNum(cmp) : formatUsd(cmp)) : '—'} last />
       </div>
 
       {/* Transactions */}

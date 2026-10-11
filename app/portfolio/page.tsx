@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { getUserId, getTransactions, getBuyBands, getFiscalYears, getAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions, getUsHoldings, getUsTransactions, getUsdInrRate } from '@/lib/data'
+import { getUserId, getTransactions, getBuyBands, getFiscalYears, getPlanAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions, getUsdInrRate } from '@/lib/data'
+import { getStocks } from '@/lib/stock-master'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
 import { heldSymbols } from '@/lib/stock-prices'
@@ -27,8 +28,6 @@ export default async function PortfolioPage() {
     ppfTransactions,
     ppfOverride,
     epfTransactions,
-    usHoldings,
-    usTransactions,
   ] = await Promise.all([
     getFiscalYears(),
     getTransactions(),
@@ -39,8 +38,6 @@ export default async function PortfolioPage() {
     getPPFTransactions(),
     getPPFOverride(),
     getEPFTransactions(),
-    getUsHoldings(),
-    getUsTransactions(),
   ])
 
   const currentFY = getCurrentFY(fiscalYears)
@@ -50,12 +47,13 @@ export default async function PortfolioPage() {
 
   const held = heldSymbols(allTransactions)
 
-  const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice, usdInr] = await Promise.all([
-    currentFY ? getAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
+  const [currentFYAllocations, mfNavInfo, stockPrices, goldPrice, usdInr, stocks] = await Promise.all([
+    currentFY ? getPlanAllocations(currentFY.id) : Promise.resolve<StockAllocation[]>([]),
     getMFNavs(activeMfFunds.map(f => f.scheme_code)),
-    getStockPrices([...held, ...usHoldings.map(h => h.symbol)]),
+    getStockPrices(held),
     getGoldPrice(),
     getUsdInrRate(),
+    getStocks(held),
   ])
 
   // Only open positions are computed, and only five transaction fields are read (StockTxn) —
@@ -75,14 +73,16 @@ export default async function PortfolioPage() {
     stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs: mfNavInfo,
     sgbTransactions, goldPrice: goldPrice?.cmp ?? null, prevGoldPrice: goldPrice?.prevClose ?? null,
     ppfTransactions, ppfOverride, epfTransactions,
-    usHoldings, usTransactions, usdInr: usdInr ? { rate: usdInr.cmp, prevRate: usdInr.prevClose } : null,
+    // A held symbol with no master row is an INR / India stock, the same default the price pull skips.
+    instruments: Object.fromEntries(Object.values(stocks).map(s => [s.symbol, { currency: s.currency, region: s.region, name: s.name }])),
+    usdInr: usdInr ? { rate: usdInr.cmp, prevRate: usdInr.prevClose } : null,
   })
 
   // Drives the amber dot on the Prices button: the newest saved stock/gold/US price predates the last
   // market close. Only meaningful with something to price — an MF-only user has no stock/gold price
   // to go stale (their NAVs show per-row dates instead). Computed here, not in the client, so the
   // clock read never differs between server render and hydration.
-  const hasPricedHoldings = held.length > 0 || sgbTransactions.length > 0 || usHoldings.length > 0
+  const hasPricedHoldings = held.length > 0 || sgbTransactions.length > 0
   const pricesStale = hasPricedHoldings && pricesAreStale(
     newestTimestamp([...Object.values(stockPrices).map(p => p.fetchedAt), goldPrice?.fetchedAt, usdInr?.fetchedAt]),
     new Date(),

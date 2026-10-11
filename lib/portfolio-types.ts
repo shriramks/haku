@@ -127,17 +127,3 @@ export interface UsHolding {
   region: 'us' | 'india'   // explicit, not inferred; same values as exposure.ts `Region`
   created_at?: string
 }
-
-export interface UsTransaction {
-  id: string
-  user_id?: string
-  holding_id: string
-  trade_date: string
-  trade_type: 'buy' | 'sell'
-  quantity: number
-  price: number           // USD per unit
-  fx_rate: number         // INR per USD on trade_date
-  amount: number          // USD (quantity × price)
-  amount_inr: number      // INR, fixed at the trade-date rate
-  created_at?: string
-}

@@ -1,11 +1,13 @@
 'use server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot, getFiscalYears, getUsFYTransactions } from '@/lib/data'
+import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
 import { fyIdForDate } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
-import { netDeployed } from '@/lib/us-compute'
-import { ensureStocks } from '@/lib/stock-master'
+import { netDeployed } from '@/lib/compute'
+import { ensureStocks, getStocks } from '@/lib/stock-master'
+import { knownInstruments } from '@/lib/us-symbols'
+import { tradeFxRate } from '@/lib/trade-fx'
 import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
@@ -55,22 +57,17 @@ export async function checkFYHasTxns(fyId: string): Promise<boolean> {
 
 /**
  * Computes carryover from a previous FY: pool (budget + its own carryover) minus
- * net deployed (all buys minus all sell proceeds, stocks and US holdings). Can be negative if over-invested.
+ * net deployed (all buys minus all sell proceeds; every instrument's `amount` is INR). Can be negative if over-invested.
  */
 export async function getPrevFYCarryover(prevFYId: string, prevFYPool: number): Promise<number> {
   const userId = await getUserId()
   if (!userId) return 0
-  const prevFY = (await getFiscalYears()).find(f => f.id === prevFYId)
-  const [{ data }, usTxns] = await Promise.all([
-    createSupabaseServiceClient()
-      .from('transactions')
-      .select('trade_type, amount')
-      .eq('user_id', userId)
-      .eq('fy_id', prevFYId),
-    prevFY ? getUsFYTransactions(prevFY) : [],
-  ])
-  const stockTxns = (data ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[]
-  return prevFYPool - netDeployed(stockTxns) - netDeployed(usTxns)
+  const { data } = await createSupabaseServiceClient()
+    .from('transactions')
+    .select('trade_type, amount')
+    .eq('user_id', userId)
+    .eq('fy_id', prevFYId)
+  return prevFYPool - netDeployed((data ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[])
 }
 
 /** Returns true if any current buy bands exist — used for onboarding step */
@@ -89,18 +86,16 @@ export async function loadAllStockTransactions(): Promise<Transaction[]> {
   return getTransactions()
 }
 
-/** Fetches allocations + transactions for a FY (stock and US) — used by DashboardClient switchFY */
+/** Fetches allocations + transactions for a FY — used by DashboardClient switchFY */
 export async function getFYData(fyId: string): Promise<{
   allocations: StockAllocation[]
   transactions: FYTxn[]
 }> {
-  const fy = (await getFiscalYears()).find(f => f.id === fyId)
-  const [allocations, transactions, usTransactions] = await Promise.all([
+  const [allocations, transactions] = await Promise.all([
     getPlanAllocations(fyId),
     getTransactions(fyId),
-    fy ? getUsFYTransactions(fy) : [],
   ])
-  return { allocations, transactions: [...transactions, ...usTransactions] }
+  return { allocations, transactions }
 }
 
 /** Batch-upserts dividend rows (keyed on user_id + symbol + ex_date) */
@@ -148,7 +143,10 @@ export interface StockTxnInput {
   trade_date: string
   trade_type: 'buy' | 'sell'
   quantity: number
+  /** In the instrument's own currency. */
   price: number
+  /** INR per unit of the instrument's currency on trade_date. Ignored (stored as 1) for an INR instrument. */
+  fx_rate?: number
 }
 
 /** Inserts a stock transaction; fy_id derived from trade_date. Returns the fy_id for follow-up actions (e.g. redeploy). */
@@ -159,10 +157,14 @@ export async function addStockTransaction(
   if (!userId) return { fyId: null, error: 'Not signed in' }
   const svc = createSupabaseServiceClient()
   // The instrument master is kept in step with what is traded, so the price pull can resolve the symbol.
-  if (!(await ensureStocks([input.symbol]))) return { fyId: null, error: 'Could not save the instrument' }
+  const master = await ensureStocks([input.symbol], knownInstruments([input.symbol]))
+  if (!master) return { fyId: null, error: 'Could not save the instrument' }
+  const fxRate = tradeFxRate(master[input.symbol], input.fx_rate)
+  if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
   const fyId = await fyIdForDate(svc, input.trade_date, userId)
   const { error } = await svc.from('transactions').insert({
-    ...input, user_id: userId, fy_id: fyId,
+    ...input, exchange: master[input.symbol]?.exchange ?? input.exchange, fx_rate: fxRate,
+    user_id: userId, fy_id: fyId,
   })
   if (error) return { fyId, error: error.message }
   revalidateTag('transactions', {})
@@ -172,14 +174,19 @@ export async function addStockTransaction(
 /** Updates qty/price/date of a stock transaction; fy_id re-derived from the new date. */
 export async function updateStockTransaction(
   id: string,
-  patch: { quantity: number; price: number; trade_date: string }
+  patch: { quantity: number; price: number; trade_date: string; fx_rate?: number }
 ): Promise<{ fyId: string | null; error: string | null }> {
   const userId = await getUserId()
   if (!userId) return { fyId: null, error: 'Not signed in' }
   const svc = createSupabaseServiceClient()
+  // The row's own instrument decides whether a rate applies (INR rows stay at 1).
+  const { data: row } = await svc.from('transactions').select('symbol').eq('id', id).eq('user_id', userId).single()
+  if (!row) return { fyId: null, error: 'Transaction not found' }
+  const fxRate = tradeFxRate((await getStocks([row.symbol]))[row.symbol], patch.fx_rate)
+  if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
   const fyId = await fyIdForDate(svc, patch.trade_date, userId)
   const { error } = await svc.from('transactions')
-    .update({ ...patch, fy_id: fyId })
+    .update({ ...patch, fx_rate: fxRate, fy_id: fyId })
     .eq('id', id)
     .eq('user_id', userId)
   if (error) return { fyId, error: error.message }
@@ -214,7 +221,15 @@ export async function importStockTransactions(
   if (rows.length === 0) return { error: null }
   const svc = createSupabaseServiceClient()
 
-  if (!(await ensureStocks(rows.map(r => r.symbol)))) return { error: 'Could not save the instruments' }
+  const symbols = [...new Set(rows.map(r => r.symbol))]
+  const master = await ensureStocks(symbols, knownInstruments(symbols))
+  if (!master) return { error: 'Could not save the instruments' }
+  const withRate: (StockTxnInput & { fx_rate: number })[] = []
+  for (const r of rows) {
+    const fxRate = tradeFxRate(master[r.symbol], r.fx_rate)
+    if (fxRate === null) return { error: `Enter the rate for ${r.symbol}` }
+    withRate.push({ ...r, exchange: master[r.symbol]?.exchange ?? r.exchange, fx_rate: fxRate })
+  }
 
   const uniqueDates = [...new Set(rows.map(r => r.trade_date))]
   const fyByDate = new Map<string, string | null>()
@@ -222,7 +237,7 @@ export async function importStockTransactions(
     fyByDate.set(d, await fyIdForDate(svc, d, userId))
   }))
 
-  const inserts = rows.map(r => ({
+  const inserts = withRate.map(r => ({
     ...r, user_id: userId, fy_id: fyByDate.get(r.trade_date) ?? null,
   }))
   const CHUNK = 500
@@ -234,11 +249,11 @@ export async function importStockTransactions(
 
   if (redeploySellProceeds) {
     const sellByFy = new Map<string, number>()
-    for (const r of rows) {
+    for (const r of withRate) {
       if (r.trade_type !== 'sell') continue
       const fyId = fyByDate.get(r.trade_date)
       if (!fyId) continue
-      sellByFy.set(fyId, (sellByFy.get(fyId) ?? 0) + r.quantity * r.price)
+      sellByFy.set(fyId, (sellByFy.get(fyId) ?? 0) + r.quantity * r.price * r.fx_rate)
     }
     for (const [fyId, amount] of sellByFy) {
       const { error } = await addToCarryover(svc, userId, fyId, amount)

@@ -251,7 +251,7 @@ transaction history for a stock filter the Transactions tab.
 The Portfolio screen's pie is asset class (equity / debt / gold). Tapping it opens a sheet with the
 same money cut by region: India vs US, as a stacked bar with share of total and amount.
 
-- **Region rule:** Indian stocks, gold / SGB, PPF and EPF are India. A direct USD holding (`us_holdings`) uses its explicit `region` (`us` default, or `india`) — never inferred from its name. A mutual fund is US when its scheme name
+- **Region rule:** Indian stocks, gold / SGB, PPF and EPF are India. A stock's region is the `region` of its `stocks` master row (`india`, or `us` for VUAA) — never inferred from its name. A mutual fund is US when its scheme name
   contains the whole word "US" (or "U.S."), "S&P" (any spacing / `&amp;` / "S and P" / "SnP"), or
   "Nasdaq" — `mfRegion` in `lib/exposure.ts`. Everything else is India. Overseas funds that carry none
   of those words (global, China, emerging) count as India until a keyword is added.
@@ -262,26 +262,26 @@ same money cut by region: India vs US, as a stacked bar with share of total and 
   equity value. An India-region direct holding counts in India stocks. XIRR is `stockXirr` / `mfXirr` over the group's transactions; "—" when the group has no
   value or no transactions. Empty groups are hidden. A debt-class fund inferred US counts in the
   India / US bar but not here.
-- **US funds & ETFs** (below Equity by region): one row per US-region MF of any class and per US-region direct holding — name, value, share of
-  total portfolio, XIRR — largest first; row links to its detail page (`/portfolio/mf/[id]` or `/portfolio/us/[id]`). Values sum to the bar's US
+- **US funds & ETFs** (below Equity by region): one row per US-region MF of any class and per US-region stock — name, value, share of
+  total portfolio, XIRR — largest first; row links to its detail page (`/portfolio/mf/[id]` or `/portfolio/stock/[symbol]`). Values sum to the bar's US
   amount. Hidden when there are none.
 
-### Portfolio: direct USD holdings (#131)
+### Portfolio: USD instruments (#131, unified in #153)
 
-Direct US stocks / ETFs (e.g. VUAA via IBKR) are **equity**, so they are rows in the **Stocks** section, not a
+A USD stock / ETF (e.g. VUAA via IBKR) is an ordinary stock: its trades are `transactions` rows with a trade-date `fx_rate`, and its currency and region come from the `stocks` master. It is **equity**, so it is a row in the **Stocks** section, not a
 section of their own — Portfolio sections are asset classes, region is a separate lens (the region sheet).
-- **Currency:** INR is the base everywhere. Cost is fixed at each trade's USD->INR rate (`amount_inr`); value =
+- **Currency:** INR is the base everywhere. Cost is fixed at each trade's USD->INR rate (`amount` = quantity × price × `fx_rate`); value =
   qty × latest USD price × today's rate; P&L is one total INR gain (price + currency together); XIRR runs on the INR
   cash flows. With no price or no rate yet, the row has no value and counts at cost, like an MF without a NAV.
-- **Row:** the standard HoldingRow plus one muted line under the name — `$110.42 · 62 units` (or just `62 units`
-  without a price). No ₹ symbol anywhere.
+- **Row:** the standard HoldingRow, named by the master's name, plus one muted line under it — `$110.42 · 62 units` (or just `62 units`
+  without a price). No ₹ symbol anywhere. Rows are ordered by symbol like every other stock.
 - **Totals:** the Stocks header, portfolio totals, 1D change, overall XIRR and the donut (as equity) all include them.
 - **Add / edit:** a US holding is planned first (Plan, below), then bought from the Stocks Add modal like any plan
-  stock — VUAA is a chip once it is in the plan. A US holding takes a USD price and a USD->INR rate, auto-filled from
-  the trade-date close and overridable. The holding is created on its first buy. In Transactions they are Stocks
-  rows (INR amount, trade-date rate in the detail line) with inline edit / delete.
-- **Detail:** `/portfolio/us/[holdingId]` in the MF-page shape — value, invested, return, 1D, XIRR, USD price, USD->INR
-  rate, month-grouped transactions.
+  stock — VUAA is a chip once it is in the plan. A non-INR instrument takes a price in its currency and a rate to INR, auto-filled from
+  the trade-date close and overridable (editable on an existing trade too). The master row is created on the first buy. In Transactions they are Stocks
+  rows (INR amount, trade-date rate in the detail line) with inline edit / delete. The Redeploy-proceeds toggle is not offered for them.
+- **Detail:** the same `/portfolio/stock/[symbol]` page as any stock; value is qty × price × today's rate and the price shows in USD.
+  `/portfolio/us/[holdingId]` redirects there.
 - **Scope:** portfolio-only — no bands, tranches or investability. Excluded from the Tax report and harvesting.
   It does take a yearly budget (below).
 
@@ -293,8 +293,8 @@ A US holding is a plain budget row in the FY plan, next to the stocks.
   badge, the budget, Remove, and copying a plan into the next FY all include US rows. Category and Rename are not
   offered for a US row.
 - **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the US holding
-  page, and is inert until the first buy creates the holding. Plan / Left / Invested totals include it.
-- **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount_inr` at the trade-date rate; FY
+  page (`/portfolio/stock/[symbol]`), and is inert until the first buy. Plan / Left / Invested totals include it.
+- **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount` (INR at the trade-date rate); FY
   membership is by trade date. Same spent / left maths as stocks.
 - **Carryover:** a closed FY's unallocated carryover deducts US net spend (buys minus sells, INR) as well as stock
   net spend.

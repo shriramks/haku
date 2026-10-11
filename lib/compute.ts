@@ -1,6 +1,11 @@
 import { resolveCmp, type StockPriceInfo } from './resolve-cmp'
 import type { StockAllocation, Transaction, FYTxn, BuyBand, StockRow, FiscalYear } from './types'
 
+/** Net deployed = buys minus sell proceeds; the one definition behind FY carryover. `amount` is INR for every instrument. */
+export function netDeployed(txns: Pick<FYTxn, 'trade_type' | 'amount'>[]): number {
+  return txns.reduce((s, t) => s + (t.trade_type === 'buy' ? t.amount : -t.amount), 0)
+}
+
 // ── Sequential cost basis ─────────────────────────────────────────────────────
 
 /**

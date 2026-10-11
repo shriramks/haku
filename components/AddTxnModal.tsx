@@ -4,14 +4,13 @@ import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { todayISO, previousMonth, formatINRFine, formatINRFull, formatPriceFineNum, formatUsd } from '@/lib/formatter'
 import { lastFYEnd } from '@/lib/fy-utils'
-import { isUsSymbol } from '@/lib/us-symbols'
-import type { PPFTransaction, EPFTransaction, UsHolding } from '@/lib/portfolio-types'
+import type { PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import { addStockTransaction, redeployToFY } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Button } from '@/components/Button'
 import { ChipGroup } from '@/components/ChipGroup'
-import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction, addUsTransaction, getUsdInrOnDate } from '@/app/portfolio/actions'
+import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction, getUsdInrOnDate } from '@/app/portfolio/actions'
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
 type GoldType  = 'sgb' | 'etf' | 'physical'
@@ -41,12 +40,13 @@ export default function AddTxnModal({
   onClose,
   initialSymbol,
   planSymbols,
-  usHoldings,
+  foreignCurrencies,
 }: {
   onClose: () => void
   initialSymbol?: string
   planSymbols: string[]
-  usHoldings: UsHolding[]
+  /** Quote currency of every plan symbol that is not INR (from the `stocks` master), by symbol. */
+  foreignCurrencies: Record<string, string>
 }) {
   const router = useRouter()
 
@@ -65,13 +65,13 @@ export default function AddTxnModal({
   const [qty, setQty]             = useState('')
   const [price, setPrice]         = useState('')
   const [redeploy, setRedeploy]   = useState(true)
-  // Direct USD holdings share the Stocks form: picking one switches the price to USD and adds the rate.
-  // The holding itself is created on the first buy (`usHolding` is undefined until then).
-  const usHolding = usHoldings.find(h => h.symbol === symbol)
+  // A symbol quoted in another currency uses the same form: the price is in that currency and a
+  // trade-date rate is added (the server stores it as `fx_rate`, so `amount` is INR).
   const [fxRate, setFxRate]       = useState('')
   const [fxEdited, setFxEdited]   = useState(false)
   const [fxLoading, setFxLoading] = useState(false)
-  const isUs = isUsSymbol(symbol)
+  const currency  = foreignCurrencies[symbol] ?? 'INR'
+  const isForeign = currency !== 'INR'
 
   // ── MF ─────────────────────────────────────────────────────────────────────
   const [mfFund, setMFFund]             = useState<{ code: string; name: string; schemeType: string } | null>(null)
@@ -111,7 +111,7 @@ export default function AddTxnModal({
 
   // ── Trade-date USD->INR rate: auto-filled until the user types their own ──
   useEffect(() => {
-    if (!isUs || fxEdited || !date) return
+    if (!isForeign || fxEdited || !date) return
     let stale = false
     setFxLoading(true)
     getUsdInrOnDate(date).then(r => {
@@ -120,7 +120,7 @@ export default function AddTxnModal({
       setFxLoading(false)
     })
     return () => { stale = true }
-  }, [isUs, date, fxEdited])
+  }, [isForeign, date, fxEdited])
 
   // ── Existing MF holdings (non-zero only) ───────────────────────────────────
   useEffect(() => {
@@ -152,8 +152,8 @@ export default function AddTxnModal({
         .slice(0, 8)
 
   // ── Derived amounts ────────────────────────────────────────────────────────
-  const stockUsd    = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
-  const stockAmount = isUs ? stockUsd * (parseFloat(fxRate) || 0) : stockUsd
+  const stockNative = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
+  const stockAmount = isForeign ? stockNative * (parseFloat(fxRate) || 0) : stockNative
   const mfAmount    = (parseFloat(mfUnits) || 0) * (parseFloat(mfNav) || 0)
   const goldAmount  = (parseFloat(goldQty) || 0) * (parseFloat(goldPrice) || 0)
 
@@ -187,27 +187,17 @@ export default function AddTxnModal({
     setLoading(true); setError(null)
     let err: string | null = null
 
-    if (assetType === 'stock' && isUs) {
+    if (assetType === 'stock') {
       const fx = parseFloat(fxRate)
-      if (!qty || !price || !fx) { setLoading(false); return }
-      const { error: txnErr } = await addUsTransaction({
-        holdingId: usHolding?.id,
-        newSymbol: usHolding ? undefined : symbol,
-        tradeDate: date, tradeType: txnType,
-        quantity: parseFloat(qty), price: parseFloat(price), fxRate: fx,
-      })
-      if (txnErr === 'Not signed in') { onClose(); return }
-      err = txnErr ?? null
-
-    } else if (assetType === 'stock') {
-      if (!symbol || !qty || !price) { setLoading(false); return }
+      if (!symbol || !qty || !price || (isForeign && !fx)) { setLoading(false); return }
       const { fyId, error: txnErr } = await addStockTransaction({
-        symbol, exchange: 'NSE',
+        symbol, exchange: 'NSE',   // the server takes the venue from the master
         trade_date: date, trade_type: txnType,
         quantity: parseFloat(qty), price: parseFloat(price),
+        ...(isForeign && { fx_rate: fx }),
       })
       if (txnErr === 'Not signed in') { onClose(); return }
-      if (!txnErr && txnType === 'sell' && redeploy && fyId) {
+      if (!txnErr && txnType === 'sell' && redeploy && !isForeign && fyId) {
         await redeployToFY(fyId, stockAmount)
       }
       err = txnErr
@@ -343,8 +333,8 @@ export default function AddTxnModal({
               </p>
               {assetType === 'stock' && (
                 <p className="text-subheadline tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  {isUs
-                    ? `${qty} × ${formatUsd(parseFloat(price) || 0)} = ${formatUsd(stockUsd)}`
+                  {isForeign
+                    ? `${qty} × ${formatUsd(parseFloat(price) || 0)} = ${formatUsd(stockNative)}`
                     : `${qty} × ${formatPriceFineNum(parseFloat(price) || 0)}`}
                 </p>
               )}
@@ -408,13 +398,13 @@ export default function AddTxnModal({
 
                 <div className="grid grid-cols-2 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
                   <TwoColCell label="Quantity" value={qty} onChange={setQty} placeholder="100" decimal={false} />
-                  <TwoColCell label={isUs ? 'Price (USD)' : 'Price'} value={price} onChange={setPrice} placeholder={isUs ? '110.42' : '1250.50'} decimal right />
+                  <TwoColCell label={isForeign ? `Price (${currency})` : 'Price'} value={price} onChange={setPrice} placeholder={isForeign ? '110.42' : '1250.50'} decimal right />
                 </div>
 
-                {isUs && (
+                {isForeign && (
                   <div>
                     <div className="flex items-baseline justify-between mb-1.5">
-                      <p className="label-field">USD to INR rate</p>
+                      <p className="label-field">{currency} to INR rate</p>
                       {fxEdited && (
                         <button type="button" onClick={() => setFxEdited(false)} className="text-subheadline text-accent">Reset to close on date</button>
                       )}
@@ -427,7 +417,7 @@ export default function AddTxnModal({
                   </div>
                 )}
 
-                {!isUs && txnType === 'sell' && stockAmount > 0 && (
+                {!isForeign && txnType === 'sell' && stockAmount > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                        style={{ background: 'rgba(255,59,48,0.06)', border: '1px solid rgba(255,59,48,0.15)', opacity: redeploy ? 1 : 0.6 }}>
                     <div className="flex-1 mr-3">
@@ -448,7 +438,7 @@ export default function AddTxnModal({
                 {error && <p className="text-negative text-body text-center">{error}</p>}
 
                 <Button type="submit" loading={loading}
-                  disabled={!qty || !price || (isUs ? !parseFloat(fxRate) : !symbol)} fullWidth
+                  disabled={!qty || !price || !symbol || (isForeign && !parseFloat(fxRate))} fullWidth
                   style={{ background: done ? 'var(--border)' : (txnType === 'buy' ? '#34C759' : '#FF3B30') }}>
                   {done ? '✓ Added' : `${txnType === 'buy' ? 'Buy' : 'Sell'} ${symbol || '…'}`}
                 </Button>

@@ -33,8 +33,9 @@ export interface Transaction {
   trade_date: string   // "YYYY-MM-DD"
   trade_type: 'buy' | 'sell'
   quantity: number
-  price: number
-  amount: number       // generated: quantity * price
+  price: number        // in the instrument's own currency
+  fx_rate: number      // INR per unit of that currency on trade_date (1 for INR)
+  amount: number       // generated: quantity * price * fx_rate, always INR
   fy_id: string | null
   notes: string
   created_at?: string

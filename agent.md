@@ -42,9 +42,9 @@ Routes and files: see `docs/architecture.md` "Route → Screen Map" and "Key Fil
 | PPF | `app/portfolio/` | `ppf_transactions` |
 | EPF | `app/portfolio/` | `epf_transactions` |
 | Dividends | `app/dividends/`, `components/StockDividends.tsx` | `dividend_transactions` |
-| Direct USD stocks / ETFs | `lib/us-compute.ts`, `app/portfolio/us/` | `us_holdings`, `us_transactions` (+ `fx_rates`) |
+| USD stocks / ETFs | same as Stocks (`transactions.fx_rate`, `stocks` master); `lib/trade-fx.ts` | `transactions` (+ `stocks`, `fx_rates`); `us_allocations` until 154 |
 
-Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches. Direct USD holdings are portfolio-only too, shown as Stocks rows in INR.
+Stocks have buy bands, tranches, and an investability scorecard. MFs are portfolio-only — no bands or tranches. USD holdings are Stocks rows in INR, portfolio-only (no bands or tranches).
 
 ---
 

@@ -30,8 +30,6 @@ function setup({
   goldError = null as { message: string } | null,
   mfFundRows = [] as { id: string }[],
   mfFundError = null as { message: string } | null,
-  usHoldings = [] as { symbol: string }[],
-  firstUsTrade = null as string | null,
   firstFxDate = null as string | null,
 } = {}) {
   createSupabaseServerClient.mockResolvedValue({
@@ -46,14 +44,10 @@ function setup({
   const mfLimit = vi.fn().mockResolvedValue({ data: mfFundError ? null : mfFundRows, error: mfFundError })
   const mfEq = vi.fn(() => ({ limit: mfLimit }))
   const mfSelect = vi.fn(() => ({ eq: mfEq }))
-  const usHoldingsEq = vi.fn().mockResolvedValue({ data: usHoldings, error: null })
-  const usHoldingsSelect = vi.fn(() => ({ eq: usHoldingsEq }))
   const firstRow = (key: string, v: string | null) =>
     vi.fn(() => ({ eq: vi.fn(() => ({ order: vi.fn(() => ({ limit: vi.fn().mockResolvedValue({ data: v ? [{ [key]: v }] : [], error: null }) })) })) }))
   const service = {
     from: vi.fn((table: string) => {
-      if (table === 'us_holdings') return { select: usHoldingsSelect }
-      if (table === 'us_transactions') return { select: firstRow('trade_date', firstUsTrade) }
       if (table === 'fx_rates') return { select: firstRow('rate_date', firstFxDate), upsert }
       if (table === 'transactions') return { select }
       if (table === 'sgb_transactions') return { select: goldSelect }
@@ -78,9 +72,9 @@ describe('POST /api/portfolio/prices/refresh', () => {
     getStockPrices.mockResolvedValue({})
     fetchGoldPrice.mockResolvedValue(null)
     syncMfNav.mockResolvedValue(undefined)
-    // The master resolves every symbol to NSE unless a test says otherwise (VUAA is the LSE line).
+    // The master resolves every symbol to NSE unless a test says otherwise (VUAA is the USD LSE line).
     ensureStocks.mockImplementation(async (symbols: string[]) => Object.fromEntries(symbols.map(s => [s, {
-      symbol: s, yahooSymbol: s === 'VUAA' ? 'VUAA.L' : `${s}.NS`,
+      symbol: s, yahooSymbol: s === 'VUAA' ? 'VUAA.L' : `${s}.NS`, currency: s === 'VUAA' ? 'USD' : 'INR',
     }])))
     fetchUsdInrHistory.mockResolvedValue([])
   })
@@ -316,8 +310,8 @@ describe('POST /api/portfolio/prices/refresh', () => {
     })
   })
 
-  it('US holdings: priced through the same batch under the plain symbol, USD->INR to stock_prices, FX history to fx_rates, and backfills when fx_rates is empty', async () => {
-    const { upsert } = setup({ usHoldings: [{ symbol: 'VUAA' }] })
+  it('USD holdings: priced through the same batch under the plain symbol, USD->INR to stock_prices, FX history to fx_rates, and backfills when fx_rates is empty', async () => {
+    const { upsert } = setup({ txns: [buy('VUAA')] })
     fetchCmpBatch.mockResolvedValue({ prices: { VUAA: 110 }, prevClose: { VUAA: 109 } })
     fetchUsdInrHistory.mockResolvedValue([
       { rate_date: '2026-10-07', rate: 83.0 },
@@ -342,11 +336,26 @@ describe('POST /api/portfolio/prices/refresh', () => {
     expect(body.stocks).toEqual({ requested: 0, updated: 0, moved: 0, failed: [] })
   })
 
-  it('US holdings: refreshes only the last month once fx_rates already covers the first trade', async () => {
-    setup({ usHoldings: [{ symbol: 'VUAA' }], firstUsTrade: '2026-03-01', firstFxDate: '2026-01-02' })
+  it('USD holdings: refreshes only the last month once fx_rates already covers the first trade', async () => {
+    setup({ txns: [{ ...buy('VUAA'), trade_date: '2026-03-01' }], firstFxDate: '2026-01-02' })
     fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
     await post()
     expect(fetchUsdInrHistory).toHaveBeenCalledWith('1mo')
+  })
+
+  it('USD holdings: a buy older than fx_rates triggers the full backfill', async () => {
+    setup({ txns: [{ ...buy('VUAA'), trade_date: '2025-12-01' }], firstFxDate: '2026-01-02' })
+    fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
+    await post()
+    expect(fetchUsdInrHistory).toHaveBeenCalledWith('max')
+  })
+
+  it('an INR-only portfolio never fetches FX', async () => {
+    setup({ txns: [buy('TCS')] })
+    fetchCmpBatch.mockResolvedValue({ prices: { TCS: 4000 }, prevClose: {} })
+    const body = await (await post()).json()
+    expect(fetchUsdInrHistory).not.toHaveBeenCalled()
+    expect(body.us).toEqual({ requested: 0, updated: 0, fx: 'skipped' })
   })
 
   it('a symbol with no master row is never fetched or guessed, and is reported failed', async () => {
@@ -361,8 +370,8 @@ describe('POST /api/portfolio/prices/refresh', () => {
     expect(body.stocks.failed).toEqual(['NEWCO'])
   })
 
-  it('US holdings: reports a failed quote and a failed FX fetch so the client can show Retry', async () => {
-    setup({ usHoldings: [{ symbol: 'VUAA' }] })
+  it('USD holdings: reports a failed quote and a failed FX fetch so the client can show Retry', async () => {
+    setup({ txns: [buy('VUAA')] })
     fetchCmpBatch.mockResolvedValue({ prices: {}, prevClose: {} })
     fetchUsdInrHistory.mockResolvedValue([])
     const body = await (await post()).json()

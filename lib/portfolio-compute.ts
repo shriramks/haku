@@ -5,24 +5,37 @@ import { seqCost } from './compute'
 import { computeMFHolding } from './mf-compute'
 import { computeSGBBatches, goldDisplayName, goldMeta } from './sgb-compute'
 import { HELD_QTY_EPSILON, resolveCmp, type StockPriceInfo } from './stock-prices'
-import { computeUsPositions, type UsPosition, type UsdInrRate } from './us-compute'
 import { formatUsd, trimZero } from './formatter'
 import { istDay, laggingDates, shortDate } from './price-freshness'
 import { returnMetric } from './holdings-sort'
 import { mfAssetClass } from './tax-compute'
-import { computeRegionExposure, type RegionExposure } from './exposure'
+import { computeRegionExposure, type DirectHoldingInput, type RegionExposure } from './exposure'
 import {
   computeEPFBalance, computePPFBalance, epfXirr, mfXirr, portfolioXirr, sgbXirr, stockXirr,
 } from './xirr'
 import type { HoldingRowData } from '@/components/HoldingRow'
 import type {
   EPFTransaction, MFHolding, MFTransaction, MFund, PPFBalanceOverride, PPFTransaction, SGBTransaction,
-  UsHolding, UsTransaction,
 } from './portfolio-types'
 import type { Transaction } from './types'
 
 /** The only stock-transaction fields the maths reads. */
 export type StockTxn = Pick<Transaction, 'symbol' | 'trade_date' | 'trade_type' | 'quantity' | 'amount'>
+
+/** Today's USD->INR rate and the prior close (`getUsdInrRate` shape, reduced to the numbers). */
+export interface UsdInrRate {
+  rate: number
+  prevRate: number | null
+}
+
+/** What the `stocks` master says about a symbol; a symbol without an entry is an INR / India stock. */
+export interface InstrumentInfo {
+  currency: string
+  region: 'india' | 'us'
+  name: string
+}
+
+const INR_INSTRUMENT: InstrumentInfo = { currency: 'INR', region: 'india', name: '' }
 
 /** A saved MF NAV row (`getMFNavs`), keyed by scheme code in the input. */
 export interface MFNavRow { nav: number; prevNav: number | null; navDate: string }
@@ -43,10 +56,9 @@ export interface PortfolioInput {
   ppfTransactions: PPFTransaction[]
   ppfOverride: PPFBalanceOverride | null
   epfTransactions: EPFTransaction[]
-  /** Direct USD holdings (#131). Positions are priced from `stockPrices` under their plain `symbol`. */
-  usHoldings: UsHolding[]
-  usTransactions: UsTransaction[]
-  /** Today's USD->INR rate; null until the first Prices tap (US values then fall back to cost). */
+  /** Master rows by symbol (#153). `stockTxns` amounts are INR at the trade-date rate; prices are in the instrument's currency. */
+  instruments: Record<string, InstrumentInfo>
+  /** Today's USD->INR rate; null until the first Prices tap (USD values then fall back to cost). */
   usdInr: UsdInrRate | null
 }
 
@@ -84,16 +96,30 @@ export interface PortfolioData {
   epf: SectionHeaderData
 }
 
-/** HoldingRow key for a USD holding; the prefix keeps it clear of NSE symbols in the shared stale-date map. */
-const usRowKey = (p: UsPosition) => `us:${p.holding.id}`
-
 // ── Per-asset helpers ─────────────────────────────────────────────────────────
+
+interface StockHolding {
+  symbol: string
+  qty: number
+  invested: number
+  /** INR. */
+  currentValue: number | null
+  gain: number | null
+  xirr: number | null
+  gain1d: number | null
+  gain1dPct: number | null
+  instrument: InstrumentInfo
+  /** Latest price in the instrument's own currency. */
+  cmp: number | null
+}
 
 function computeStockHoldings(
   transactions: StockTxn[],
   bandCmps: Record<string, number>,
   stockPrices: Record<string, StockPriceInfo>,
-): { symbol: string; qty: number; invested: number; currentValue: number | null; gain: number | null; xirr: number | null; gain1d: number | null; gain1dPct: number | null }[] {
+  instruments: Record<string, InstrumentInfo>,
+  usdInr: UsdInrRate | null,
+): StockHolding[] {
   const bySymbol: Record<string, StockTxn[]> = {}
   for (const t of transactions) {
     ;(bySymbol[t.symbol] ??= []).push(t)
@@ -106,13 +132,19 @@ function computeStockHoldings(
       // band snapshot, which only updates when bands are regenerated and can be
       // stale for days — see resolveCmp.
       const cmp = resolveCmp(symbol, stockPrices, bandCmps[symbol])
-      const currentValue = cmp ? qty * cmp : null
+      const instrument = instruments[symbol] ?? INR_INSTRUMENT
+      // INR per unit of the quote currency: 1 for INR; the USD->INR pair for USD. A foreign
+      // instrument with no rate yet has no INR value (falls back to cost in the totals).
+      const inr = instrument.currency === 'INR' ? { rate: 1, prevRate: 1 } : instrument.currency === 'USD' ? usdInr : null
+      const currentValue = cmp && inr ? qty * cmp * inr.rate : null
       const gain = currentValue !== null ? currentValue - cost : null
       const xirrVal = currentValue !== null ? stockXirr(txns, currentValue) : null
       const prev = stockPrices[symbol]?.prevClose ?? null
-      const gain1d = cmp && prev ? qty * (cmp - prev) : null
-      const gain1dPct = cmp && prev ? (cmp / prev - 1) * 100 : null
-      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal, gain1d, gain1dPct }]
+      // The day change is in INR, so a USD holding includes the overnight FX move; with no prior rate, hold the rate flat.
+      const gain1d = cmp && prev && inr ? currentValue! - qty * prev * (inr.prevRate ?? inr.rate) : null
+      const prevValue = cmp && prev && inr ? qty * prev * (inr.prevRate ?? inr.rate) : null
+      const gain1dPct = gain1d !== null && prevValue ? gain1d / prevValue * 100 : null
+      return [{ symbol, qty, invested: cost, currentValue, gain, xirr: xirrVal, gain1d, gain1dPct, instrument, cmp }]
     })
     .sort((a, b) => a.symbol.localeCompare(b.symbol))
 }
@@ -148,26 +180,21 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
   const {
     stockTxns, bandCmps, stockPrices, mfFunds, mfTransactions, mfNavs,
     sgbTransactions, goldPrice, prevGoldPrice, ppfTransactions, ppfOverride, epfTransactions,
-    usHoldings, usTransactions, usdInr,
+    instruments, usdInr,
   } = input
 
-  const stockHoldings = computeStockHoldings(stockTxns, bandCmps, stockPrices)
+  const stockHoldings = computeStockHoldings(stockTxns, bandCmps, stockPrices, instruments, usdInr)
   const mfHoldings = computeMFHoldings(mfFunds, mfTransactions, mfNavs)
   const sgbBatches = computeSGBBatches(sgbTransactions, goldPrice)
-  const usPositions = computeUsPositions(usHoldings, usTransactions, stockPrices, usdInr)
 
   // Stocks — no-CMP positions fall back to cost (gain 0) in the totals.
-  const equityInvested = stockHoldings.reduce((s, h) => s + h.invested, 0)
-  const equityCurrent = stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
-  const equityGain1d = stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0)
-
-  // Direct USD holdings (#131) are equity too: they sit in the Stocks section and every total, in INR.
-  // `equity*` above stays NSE-only because the region split needs the two apart.
-  const usInvested = usPositions.reduce((s, p) => s + p.invested, 0)
-  const usCurrent = usPositions.reduce((s, p) => s + (p.currentValue ?? p.invested), 0)
-  const usGain1d = usPositions.reduce((s, p) => s + (p.gain1d ?? 0), 0)
-  const stocksInvested = equityInvested + usInvested
-  const stocksCurrent = equityCurrent + usCurrent
+  // Every instrument is one list, in INR (#153). The region split below cuts it by the master's region.
+  const stocksInvested = stockHoldings.reduce((s, h) => s + h.invested, 0)
+  const stocksCurrent = stockHoldings.reduce((s, h) => s + (h.currentValue ?? h.invested), 0)
+  const stocksGain1d = stockHoldings.reduce((s, h) => s + (h.gain1d ?? 0), 0)
+  const indiaStockHoldings = stockHoldings.filter(h => h.instrument.region === 'india')
+  const foreignHoldings = stockHoldings.filter(h => h.instrument.region !== 'india')
+  const indiaStockTxns = stockTxns.filter(t => indiaStockHoldings.some(h => h.symbol === t.symbol))
 
   // MF
   const mfInvested = mfHoldings.reduce((s, h) => s + h.invested, 0)
@@ -198,18 +225,17 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
   const totalCurrent = stocksCurrent + mfCurrentValue + sgbCurrentValue + ppfBalance + epfBalance
   const totalGain = totalCurrent - totalInvested
 
-  // Overall XIRR (INR flows throughout — US positions use their trade-date-rate `amount_inr`): wait for the gold price before computing so the terminal value is accurate.
+  // Overall XIRR (INR flows throughout — every trade's `amount` is INR at its trade-date rate): wait for the gold price before computing so the terminal value is accurate.
   // stockTxns is the same open-position list computeStockHoldings uses, so the stock cashflows
   // and totalCurrent cover the same stocks (exited positions are in neither).
-  const usFlows = usPositions.flatMap(p => p.transactions.map(t => ({ trade_date: t.trade_date, trade_type: t.trade_type, amount: t.amount_inr })))
   const xirr = sgbTransactions.length > 0 && goldPrice === null
     ? null
-    : portfolioXirr([...stockTxns, ...usFlows], mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
+    : portfolioXirr(stockTxns, mfTransactions, sgbTransactions, ppfTransactions, epfTransactions, totalCurrent)
 
   // 1D Gain rolls in Stocks (incl. USD holdings) + MF + Gold — PPF/EPF excluded (no daily price). 1D % is
   // the plain (non-annualised) move: totalCurrent − totalGain1d is "yesterday", so
   // static PPF/EPF sit in the denominator with zero movement and dilute it, as they should.
-  const totalGain1d = equityGain1d + usGain1d + mfGain1d + (goldGain1d ?? 0)
+  const totalGain1d = stocksGain1d + mfGain1d + (goldGain1d ?? 0)
   const prevTotal = totalCurrent - totalGain1d
   const dayPct = prevTotal > 0 ? totalGain1d / prevTotal * 100 : null
 
@@ -227,11 +253,6 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
     const day = info ? istDay(info.fetchedAt) : null
     if (day) stockDays[h.symbol] = day
   }
-  for (const p of usPositions) {
-    const info = stockPrices[p.holding.symbol]
-    const day = info ? istDay(info.fetchedAt) : null
-    if (day) stockDays[usRowKey(p)] = day
-  }
   const stockLag = laggingDates(stockDays)
   const mfDays: Record<string, string> = {}
   for (const h of mfHoldings) {
@@ -242,22 +263,16 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
 
   const stockRows: HoldingRowData[] = stockHoldings.map(h => {
     const r = returnMetric(h.xirr, h.gain, h.invested)
+    const foreign = h.instrument.currency !== 'INR'
     return {
-      key: h.symbol, name: h.symbol, href: `/portfolio/stock/${encodeURIComponent(h.symbol)}`,
+      key: h.symbol, name: foreign ? h.instrument.name || h.symbol : h.symbol,
+      href: `/portfolio/stock/${encodeURIComponent(h.symbol)}`,
       value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
       dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
+      ...(foreign && {
+        native: `${h.cmp !== null ? `${formatUsd(h.cmp)} · ` : ''}${trimZero(h.qty, 3)} units`,
+      }),
       staleDate: stockLag[h.symbol] ? shortDate(stockLag[h.symbol]) : undefined,
-    }
-  })
-  const usRows: HoldingRowData[] = usPositions.map(p => {
-    const r = returnMetric(p.xirr, p.gain, p.invested)
-    const key = usRowKey(p)
-    return {
-      key, name: p.holding.name || p.holding.symbol, href: `/portfolio/us/${p.holding.id}`,
-      value: p.currentValue, pnl: p.gain, retPct: r.pct, retLabel: r.label,
-      dayPct: p.gain1dPct, day: { amount: p.gain1d, pct: p.gain1dPct },
-      native: `${p.priceUsd !== null ? `${formatUsd(p.priceUsd)} · ` : ''}${trimZero(p.quantity, 3)} units`,
-      staleDate: stockLag[key] ? shortDate(stockLag[key]) : undefined,
     }
   })
   const mfRows: HoldingRowData[] = mfHoldings.map(h => {
@@ -282,12 +297,20 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
 
   return {
     summary: { totalCurrent, totalInvested, totalGain, totalGain1d, dayPct, xirr, eqPct, debtPct, goldPct },
-    region: computeRegionExposure(mfHoldings, totalCurrent, { value: equityCurrent, txns: stockTxns }, usPositions),
+    region: computeRegionExposure(
+      mfHoldings, totalCurrent,
+      { value: indiaStockHoldings.reduce((v, h) => v + (h.currentValue ?? h.invested), 0), txns: indiaStockTxns },
+      foreignHoldings.map((h): DirectHoldingInput => ({
+        holding: { symbol: h.symbol, name: h.instrument.name, region: h.instrument.region },
+        transactions: stockTxns.filter(t => t.symbol === h.symbol),
+        currentValue: h.currentValue, invested: h.invested,
+      })),
+    ),
     stocks: {
       invested: stocksInvested > 0 ? stocksInvested : null,
       gainPct: gainOverInvested(stocksCurrent, stocksInvested),
       currentValue: stocksCurrent > 0 ? stocksCurrent : null,
-      rows: [...stockRows, ...usRows],
+      rows: stockRows,
     },
     mf: {
       invested: mfInvested > 0 ? mfInvested : null,

@@ -10,7 +10,7 @@ function fy(label: string, start: string, end: string): FiscalYear {
 }
 
 function stockTxn(tradeDate: string, tradeType: 'buy' | 'sell', qty: number, price: number): Transaction {
-  return { id: `${tradeDate}-${tradeType}`, symbol: 'X', exchange: 'NSE', trade_date: tradeDate, trade_type: tradeType, quantity: qty, price, amount: qty * price, fy_id: null, notes: '' }
+  return { id: `${tradeDate}-${tradeType}`, symbol: 'X', exchange: 'NSE', trade_date: tradeDate, trade_type: tradeType, quantity: qty, price, fx_rate: 1, amount: qty * price, fy_id: null, notes: '' }
 }
 
 function mfTxn(id: string, tradeDate: string, tradeType: 'buy' | 'sell', units: number, nav: number): MFTransaction {

@@ -131,10 +131,10 @@ describe('computeRegionExposure', () => {
     })
   })
 
-  describe('direct USD holdings', () => {
+  describe('non-NSE stocks', () => {
     const direct = (id: string, region: 'us' | 'india', value: number | null, invested: number) => ({
-      holding: { id, symbol: id.toUpperCase(), name: `${id} ETF`, region },
-      transactions: [{ trade_date: '2025-01-01', trade_type: 'buy' as const, amount_inr: invested }],
+      holding: { symbol: id.toUpperCase(), name: `${id} ETF`, region },
+      transactions: [{ trade_date: '2025-01-01', trade_type: 'buy' as const, amount: invested }],
       currentValue: value, invested,
     })
     const stocks = { value: 1000, txns: [tx('2025-01-01', 'buy', 800)] }
@@ -161,8 +161,8 @@ describe('computeRegionExposure', () => {
     it('counts at cost without a price, and lists beside US MFs largest first with its own href', () => {
       const r = computeRegionExposure([us], 1000, undefined, [direct('vuaa', 'us', null, 700)])
       expect(r.usValue).toBe(1000)
-      expect(r.usHoldings.map(h => h.key)).toEqual(['vuaa', us.fund.id])
-      expect(r.usHoldings[0]).toMatchObject({ href: '/portfolio/us/vuaa', name: 'vuaa ETF', value: 700 })
+      expect(r.usHoldings.map(h => h.key)).toEqual(['VUAA', us.fund.id])
+      expect(r.usHoldings[0]).toMatchObject({ href: '/portfolio/stock/VUAA', name: 'vuaa ETF', value: 700 })
       expect(r.usHoldings[1].href).toBe(`/portfolio/mf/${us.fund.id}`)
     })
   })

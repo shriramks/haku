@@ -1,8 +1,8 @@
 // Region exposure: how much of the portfolio sits in India vs the US. Pure — called from
 // lib/portfolio-compute.ts. Stocks, gold, PPF and EPF are India by definition; a mutual fund is
 // US when its scheme name says so (same keyword-on-name approach as `mfAssetClass`). A direct USD
-// holding (us_holdings) carries an explicit region instead — never inferred from its name.
-import type { MFund, MFTransaction, UsHolding, UsTransaction } from './portfolio-types'
+// stock carries the region of its `stocks` master row instead — never inferred from its name.
+import type { MFund, MFTransaction } from './portfolio-types'
 import type { Transaction } from './types'
 import { mfAssetClass } from './tax-compute'
 import { mfXirr, stockXirr } from './xirr'
@@ -52,17 +52,16 @@ export interface EquityRegionGroup {
 
 type TxnFlow = Pick<Transaction, 'trade_date' | 'trade_type' | 'amount'>
 
-/** A held direct USD holding as computeRegionExposure needs it (a UsPosition satisfies this). */
+/** A held stock outside the NSE book, as computeRegionExposure needs it. Amounts are INR. */
 export interface DirectHoldingInput {
-  holding: Pick<UsHolding, 'id' | 'symbol' | 'name' | 'region'>
-  transactions: Pick<UsTransaction, 'trade_date' | 'trade_type' | 'amount_inr'>[]
+  holding: { symbol: string; name: string; region: Region }
+  transactions: TxnFlow[]
   currentValue: number | null
   invested: number
 }
 
 /** INR cash flows of direct holdings, in the shape stockXirr reads. */
-const directFlows = (hs: DirectHoldingInput[]): TxnFlow[] =>
-  hs.flatMap(h => h.transactions.map(t => ({ trade_date: t.trade_date, trade_type: t.trade_type, amount: t.amount_inr })))
+const directFlows = (hs: DirectHoldingInput[]): TxnFlow[] => hs.flatMap(h => h.transactions)
 
 /**
  * `usValue` is the current value of US-region MFs and direct US holdings (cost where a NAV / price is
@@ -123,7 +122,7 @@ export function computeRegionExposure(
       }),
     ...directUs.map(h => {
       const value = h.currentValue ?? h.invested
-      return { key: h.holding.id, href: `/portfolio/us/${h.holding.id}`, name: h.holding.name || h.holding.symbol, value,
+      return { key: h.holding.symbol, href: `/portfolio/stock/${encodeURIComponent(h.holding.symbol)}`, name: h.holding.name || h.holding.symbol, value,
         pctOfTotal: pctOfTotal(value), xirr: flowsXirr(value, directFlows([h])) }
     }),
   ].sort((a, b) => b.value - a.value)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStockRows, computeAllTimeHoldings, seqCost } from '../compute'
+import { computeStockRows, computeAllTimeHoldings, seqCost, netDeployed } from '../compute'
 import type { StockAllocation, Transaction, BuyBand } from '../types'
 
 const FY25 = 'fy25-id'
@@ -23,7 +23,7 @@ function mkTxn(
   return {
     id: Math.random().toString(), symbol, exchange: 'NSE',
     trade_date: '2025-06-01', trade_type: type,
-    quantity: qty, price, amount: qty * price,
+    quantity: qty, price, fx_rate: 1, amount: qty * price,
     fy_id: fyId, notes: '',
   }
 }
@@ -302,5 +302,27 @@ describe('computeStockRows — price source', () => {
     const [row] = computeStockRows(allocs, txns, bands, totalBudget)
     expect(row.cmp).toBe(120)
     expect(row.unrealisedPnL).toBe(200)
+  })
+})
+
+describe('netDeployed', () => {
+  it('is buys minus sell proceeds', () => {
+    expect(netDeployed([
+      { trade_type: 'buy', amount: 80_000 }, { trade_type: 'buy', amount: 20_000 }, { trade_type: 'sell', amount: 18_480 },
+    ])).toBe(81_520)
+  })
+
+  it('is zero with no trades', () => {
+    expect(netDeployed([])).toBe(0)
+  })
+
+  it('a USD trade counts at its INR amount, so carryover shrinks by it like any other stock', () => {
+    // 100,000 NSE buy + 10 units at $100 x 80 = 80,000 bought, 2 x $110 x 84 = 18,480 sold
+    const month = [
+      { trade_type: 'buy' as const, amount: 100_000 },
+      { trade_type: 'buy' as const, amount: 10 * 100 * 80 },
+      { trade_type: 'sell' as const, amount: 2 * 110 * 84 },
+    ]
+    expect(1_000_000 - netDeployed(month)).toBe(838_480)
   })
 })

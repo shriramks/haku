@@ -4,7 +4,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getStockPrices } from '@/lib/data'
 import { syncMfNav } from '@/lib/mf-nav-sync'
 import { ensureStocks } from '@/lib/stock-master'
-import { US_SYMBOLS } from '@/lib/us-symbols'
+import { knownInstruments } from '@/lib/us-symbols'
 import { fetchCmpBatch, fetchGoldPrice, fetchUsdInrHistory } from '@/lib/market-data'
 import { USDINR_PRICE_KEY } from '@/lib/fx'
 import { heldSymbols, buildPriceUpdate, GOLD_PRICE_KEY } from '@/lib/stock-prices'
@@ -17,11 +17,12 @@ import { heldSymbols, buildPriceUpdate, GOLD_PRICE_KEY } from '@/lib/stock-price
 // fetched only when the caller has gold transactions. MF NAVs (mf_navs) are synced from AMFI
 // in the same call, only when the caller has any mf_funds; a failed AMFI sync is logged and
 // never fails the price save, and the response carries no NAV figures (progress log #120.c).
-// One price path (#152): every held stock and US holding is looked up in the `stocks` master, which
-// supplies its Yahoo symbol, and is saved under its plain symbol. A symbol with no master row (and no
-// confirmed NSE listing to create one from) is reported as failed, never guessed. US holdings (#131.a) ride along when the caller has any: today's
-// USD->INR goes under USDINR_PRICE_KEY and the daily USD->INR history is upserted into fx_rates —
-// a full backfill the first time or when a trade predates it, else just the last month.
+// One price path (#152, #153): every held symbol, whatever its currency, is looked up in the `stocks`
+// master, which supplies its Yahoo symbol, and is saved under its plain symbol. A symbol with no master
+// row (and no confirmed NSE listing to create one from) is reported as failed, never guessed. When any
+// held symbol is quoted in USD, today's USD->INR goes under USDINR_PRICE_KEY and the daily USD->INR
+// history is upserted into fx_rates — a full backfill the first time or when a trade predates it, else
+// just the last month.
 export async function POST() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,8 +34,6 @@ export async function POST() {
     { data: txns, error: txnError },
     { data: goldTxns, error: goldTxnError },
     { data: mfFundRows, error: mfFundError },
-    { data: usHoldings, error: usHoldingError },
-    { data: usTxnDates, error: usTxnError },
     { data: fxFirst, error: fxError },
   ] = await Promise.all([
     service
@@ -52,16 +51,6 @@ export async function POST() {
       .eq('user_id', user.id)
       .limit(1),
     service
-      .from('us_holdings')
-      .select('symbol')
-      .eq('user_id', user.id),
-    service
-      .from('us_transactions')
-      .select('trade_date')
-      .eq('user_id', user.id)
-      .order('trade_date', { ascending: true })
-      .limit(1),
-    service
       .from('fx_rates')
       .select('rate_date')
       .eq('currency', 'USD')
@@ -71,25 +60,22 @@ export async function POST() {
   if (txnError) return NextResponse.json({ error: txnError.message }, { status: 500 })
   if (goldTxnError) return NextResponse.json({ error: goldTxnError.message }, { status: 500 })
   if (mfFundError) return NextResponse.json({ error: mfFundError.message }, { status: 500 })
-  if (usHoldingError) return NextResponse.json({ error: usHoldingError.message }, { status: 500 })
-  if (usTxnError) return NextResponse.json({ error: usTxnError.message }, { status: 500 })
   if (fxError) return NextResponse.json({ error: fxError.message }, { status: 500 })
 
   const heldStocks = heldSymbols(txns ?? [])
   const holdsGold = (goldTxns ?? []).length > 0
   const holdsMf = (mfFundRows ?? []).length > 0
-  const usSymbols = [...new Set((usHoldings ?? []).map(h => h.symbol as string))]
-  const holdsUs = usSymbols.length > 0
-  const symbols = [...new Set([...heldStocks, ...usSymbols])].sort()
+  const symbols = heldStocks
   // Resolves through the master, creating a confirmed NSE listing that is missing (self-heals a write
   // whose Yahoo check failed). An unconfirmed symbol stays absent and is reported failed below.
-  const knownUs = Object.fromEntries(usSymbols.filter(s => US_SYMBOLS[s]).map(s => [s, {
-    symbol: s, exchange: US_SYMBOLS[s].exchange, currency: US_SYMBOLS[s].currency,
-    yahooSymbol: US_SYMBOLS[s].yahoo_symbol, region: US_SYMBOLS[s].region, name: US_SYMBOLS[s].name,
-  }]))
-  const instruments = (await ensureStocks(symbols, knownUs)) ?? {}
+  const instruments = (await ensureStocks(symbols, knownInstruments(symbols))) ?? {}
   const targets = symbols.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
-  const firstTrade = usTxnDates?.[0]?.trade_date as string | undefined
+  const usSymbols = symbols.filter(s => instruments[s]?.currency === 'USD')
+  const holdsUs = usSymbols.length > 0
+  const usSet = new Set(usSymbols)
+  const firstTrade = (txns ?? [])
+    .filter(t => usSet.has(t.symbol as string))
+    .reduce<string | undefined>((min, t) => (!min || (t.trade_date as string) < min ? t.trade_date as string : min), undefined)
   const firstFx = fxFirst?.[0]?.rate_date as string | undefined
   const fxRange = !firstFx || (firstTrade && firstTrade < firstFx) ? 'max' : '1mo'
 
@@ -105,7 +91,6 @@ export async function POST() {
 
   const fetchedAt = new Date().toISOString()
   const { rows, moved, failed } = buildPriceUpdate(symbols, batch, previous, fetchedAt)
-  const usSet = new Set(usSymbols)
   const isStock = (symbol: string) => !usSet.has(symbol)
 
   // Like a failed stock symbol, a failed gold fetch gets no row — the saved price stays.
@@ -137,7 +122,7 @@ export async function POST() {
   return NextResponse.json({
     fetchedAt,
     stocks: {
-      requested: heldStocks.length,
+      requested: heldStocks.length - usSymbols.length,
       updated: rows.filter(r => isStock(r.symbol)).length,
       moved: moved.filter(isStock).length,
       failed: failed.filter(isStock),

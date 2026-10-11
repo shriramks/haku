@@ -24,10 +24,9 @@ interface Props {
   /** Saved stock_prices by symbol — resolveCmp prefers these over the band snapshot. */
   prices: Record<string, StockPriceInfo>
   /** US holding id by symbol; a US plan row has none until its first buy. */
-  usHoldingIds: Record<string, string>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, prices, usHoldingIds }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, allTimeHoldings, bands, prices }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
@@ -163,7 +162,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Flat allocation rows */}
           <div>
-            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} usHoldingIds={usHoldingIds} dim={row.remaining <= 0} />)}
+            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} traded={!!allTimeHoldings[row.symbol]} dim={row.remaining <= 0} />)}
           </div>
 
           <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
@@ -175,18 +174,18 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function AllocationRow({ row, fyLabel, usHoldingIds, dim }: { row: StockRow; fyLabel: string; usHoldingIds: Record<string, string>; dim?: boolean }) {
+function AllocationRow({ row, fyLabel, traded, dim }: { row: StockRow; fyLabel: string; traded: boolean; dim?: boolean }) {
   const isDone      = row.remaining <= 0
   // Invested % pairs with the currentCost amount below (and the bar fill);
   // Left % pairs with the remaining (budget − spent) amount. Different bases —
   // they need not sum to 100.
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
-  // US rows open the holding page; before the first buy there is no holding, so the row is inert.
+  // US rows open the holding page; before the first buy there is nothing to show, so the row is inert.
   const rowTarget = !isUsSymbol(row.symbol)
     ? { href: `/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}` }
-    : usHoldingIds[row.symbol]
-      ? { href: `/portfolio/us/${usHoldingIds[row.symbol]}` }
+    : traded
+      ? { href: `/portfolio/stock/${encodeURIComponent(row.symbol)}` }
       : { onClick: () => {} }
   return (
     <RowShell {...rowTarget} dim={dim}>

@@ -202,10 +202,10 @@ const NO_CF = { shortTerm: 0, longTerm: 0 }
 const FY_START = '2025-04-01'
 
 function stkBuy(date: string, qty: number, price: number): Transaction {
-  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'buy', quantity: qty, price, amount: qty * price, fy_id: null, notes: '' }
+  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'buy', quantity: qty, price, fx_rate: 1, amount: qty * price, fy_id: null, notes: '' }
 }
 function stkSell(date: string, qty: number, price: number): Transaction {
-  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'sell', quantity: qty, price, amount: qty * price, fy_id: null, notes: '' }
+  return { id: Math.random().toString(), symbol: 'ITC', exchange: 'NSE', trade_date: date, trade_type: 'sell', quantity: qty, price, fx_rate: 1, amount: qty * price, fy_id: null, notes: '' }
 }
 function mfBuy(date: string, units: number, nav: number): MFTransaction {
   return { id: Math.random().toString(), fund_id: 'f1', trade_date: date, trade_type: 'buy', units, nav, amount: units * nav }
