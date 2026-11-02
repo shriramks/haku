@@ -5,42 +5,86 @@
 import type { StockCategory } from './types'
 import type { Zone, Signal } from './snowball'
 
-// ── Multiple tables ──────────────────────────────────────────────────────────
+// ── Category registry ────────────────────────────────────────────────────────
+// One definition per category. A new StockCategory is a compile error until it has a spec.
 
 interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: number; trim: number }
 
-const PE: Partial<Record<StockCategory, Mult>> = {
-  'Cap-Light Infra': { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 },
-  'Hospitals':       { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 },
-  'Branded Pharma':  { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 },
-  'Tobacco Corp':    { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 },
-  'Niche Cap Goods': { buyLow: 24, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 },
-  'Jewellery':       { buyLow: 24, buyHigh: 32, midLow: 33, midHigh: 42, trim: 43 },
+interface IndexSpec {
+  kind: 'index'
+  multiples: Mult
+  /** NSE index name used to fetch level and PE. */
+  indexSource: string
+}
+
+interface StockSpec {
+  kind: 'stock'
+  multiples: Mult
+  midpointPE: number
+  roceThreshold: number
+  /** Hospitals: floor g when PAT CAGR is low but ROCE is high (expansion phase). */
+  growthFloor?: boolean
+  /** Stop and ask for an EV/EBITDA override when CMP / EPS exceeds this. */
+  peGuardMax?: number
+}
+
+export type CategorySpec = IndexSpec | StockSpec
+
+export const CATEGORY_SPEC: Record<StockCategory, CategorySpec> = {
   // Index ETFs (v11; Next 50 recalibrated Oct 2026): eps = cmp / indexPE  (rupee value of 1 PE point, live)
-  'Nifty 50 Index':      { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 },
-  'Nifty Next 50 Index': { buyLow: 17, buyHigh: 20, midLow: 20, midHigh: 23, trim: 26 },
+  'Nifty 50 Index':      { kind: 'index', indexSource: 'NIFTY 50',
+    multiples: { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 } },
+  'Nifty Next 50 Index': { kind: 'index', indexSource: 'NIFTY NEXT 50',
+    multiples: { buyLow: 17, buyHigh: 20, midLow: 20, midHigh: 23, trim: 26 } },
+  'Cap-Light Infra': { kind: 'stock', midpointPE: 31.5, roceThreshold: 22,
+    multiples: { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 } },
+  'Hospitals':       { kind: 'stock', midpointPE: 41.5, roceThreshold: 16, growthFloor: true, peGuardMax: 80,
+    multiples: { buyLow: 38, buyHigh: 45, midLow: 46, midHigh: 55, trim: 56 } },
+  'Branded Pharma':  { kind: 'stock', midpointPE: 23.0, roceThreshold: 18,
+    multiples: { buyLow: 20, buyHigh: 26, midLow: 27, midHigh: 32, trim: 33 } },
+  'Tobacco Corp':    { kind: 'stock', midpointPE: 22.5, roceThreshold: 20,
+    multiples: { buyLow: 20, buyHigh: 25, midLow: 26, midHigh: 30, trim: 31 } },
+  'Niche Cap Goods': { kind: 'stock', midpointPE: 27.0, roceThreshold: 20,
+    multiples: { buyLow: 24, buyHigh: 30, midLow: 31, midHigh: 38, trim: 39 } },
+  'Jewellery':       { kind: 'stock', midpointPE: 28.0, roceThreshold: 18,
+    multiples: { buyLow: 24, buyHigh: 32, midLow: 33, midHigh: 42, trim: 43 } },
 }
 
-export const INDEX_CATEGORIES = new Set<StockCategory>(['Nifty 50 Index', 'Nifty Next 50 Index'])
-
-// ── Factor computation constants ──────────────────────────────────────────────
-
-const CATEGORY_MIDPOINT_PE: Partial<Record<StockCategory, number>> = {
-  'Tobacco Corp':    22.5,
-  'Cap-Light Infra': 31.5,
-  'Hospitals':       41.5,
-  'Branded Pharma':  23.0,
-  'Niche Cap Goods': 27.0,
-  'Jewellery':       28.0,
+function specOf(category: string | null | undefined): CategorySpec | null {
+  return category && category in CATEGORY_SPEC ? CATEGORY_SPEC[category as StockCategory] : null
 }
 
-const ROCE_THRESHOLDS: Partial<Record<StockCategory, number>> = {
-  'Cap-Light Infra': 22,
-  'Tobacco Corp':    20,
-  'Hospitals':       16,
-  'Branded Pharma':  18,
-  'Niche Cap Goods': 20,
-  'Jewellery':       18,
+export function isIndexCategory(category: string | null | undefined): boolean {
+  return specOf(category)?.kind === 'index'
+}
+
+/** NSE index name for an index category, else null. */
+export function getIndexSource(category: string | null | undefined): string | null {
+  const spec = specOf(category)
+  return spec?.kind === 'index' ? spec.indexSource : null
+}
+
+export function hasGrowthFloor(category: string | null | undefined): boolean {
+  const spec = specOf(category)
+  return spec?.kind === 'stock' && !!spec.growthFloor
+}
+
+/** Max CMP / EPS before the band computation stops, or null when the category has no guard. */
+export function getPeGuardMax(category: string | null | undefined): number | null {
+  const spec = specOf(category)
+  return spec?.kind === 'stock' ? spec.peGuardMax ?? null : null
+}
+
+/** Growth for a category: applies the category's growth floor if it has one. */
+export function computeCategoryGrowth(
+  category: string | null | undefined,
+  patNow: number | null,
+  pat3yrAgo: number | null,
+  roce3yrAvg: number | null,
+): { g: number | null; growthSource: 'hospital_expansion_phase_floor' | 'calculated_3y_pat_cagr' } {
+  return hasGrowthFloor(category)
+    ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg)
+    : { g: computeGrowth(patNow, pat3yrAgo), growthSource: 'calculated_3y_pat_cagr' }
 }
 
 export const DEFAULT_ERP = 0.05
@@ -66,7 +110,8 @@ export function getSizeModRangeLabel(mcap: number | null): string {
 }
 
 export function getRoceThreshold(category: StockCategory): number | null {
-  return ROCE_THRESHOLDS[category] ?? null
+  const spec = CATEGORY_SPEC[category]
+  return spec.kind === 'stock' ? spec.roceThreshold : null
 }
 
 export function computeGrowth(patNow: number | null, pat3yrAgo: number | null): number | null {
@@ -248,10 +293,11 @@ export function calculateBands(input: BandInput): BandResult | null {
   const eps = input.eps
   if (!eps || eps <= 0) return null
 
-  const base = PE[input.category]
-  if (!base) return null
+  const spec = CATEGORY_SPEC[input.category]
+  if (!spec) return null
+  const base = spec.multiples
 
-  if (INDEX_CATEGORIES.has(input.category)) {
+  if (spec.kind === 'index') {
     return {
       anchorUsed: 'PE',
       buyLow:    base.buyLow  * eps,
@@ -268,7 +314,7 @@ export function calculateBands(input: BandInput): BandResult | null {
 
   // Part B: DDM factor for stocks
   const { g = null, ke = null, mcap = null, roce3yrAvg = null } = input
-  const midpointPE = CATEGORY_MIDPOINT_PE[input.category] ?? null
+  const midpointPE = spec.midpointPE
 
   let factorBase: number
   let path: 'A' | 'B'

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { encrypt } from '@/lib/encrypt'
+import { isIndexCategory } from '@/lib/band-calculator'
 
-const INDEX_CATEGORIES = new Set(['Nifty 50 Index', 'Nifty Next 50 Index'])
 
 export async function GET() {
   const supabase = await createSupabaseServerClient()
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
       const nonIndexSymbols = Array.from(new Set(
         (allocations ?? [])
-          .filter((row: { category: string }) => !INDEX_CATEGORIES.has(row.category))
+          .filter((row: { category: string }) => !isIndexCategory(row.category))
           .map((row: { symbol: string }) => row.symbol)
       ))
 

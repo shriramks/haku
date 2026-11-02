@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { INDEX_CATEGORIES, isBandStale, effectiveBands } from '@/lib/band-calculator'
+import { isIndexCategory, isBandStale, effectiveBands } from '@/lib/band-calculator'
 import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, BuyBandSnapshot } from '@/lib/types'
 import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
@@ -92,7 +92,7 @@ export default function BandDetailClient({
   const staleBands = isBandStale(band?.generated_at, band?.last_updated_at)
 
   const fyRemaining = fyRow?.remaining ?? 0
-  const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
+  const isIndex = isIndexCategory(allocation?.category)
   const financialSummary = isIndex ? '2 inputs' : '5 inputs'
 
   const snowball = useMemo(() => {

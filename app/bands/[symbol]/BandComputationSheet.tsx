@@ -10,7 +10,8 @@ import {
   getSizeMod,
   getSizeModValueLabel,
   isBandStale,
-  INDEX_CATEGORIES,
+  isIndexCategory,
+  getPeGuardMax,
 } from '@/lib/band-calculator'
 import type { BuyBand, StockAllocation, StockCategory } from '@/lib/types'
 import BottomSheet from '@/components/BottomSheet'
@@ -22,7 +23,7 @@ export default function BandComputationSheet({ band, allocation, onClose }: {
   allocation: StockAllocation | null
   onClose: () => void
 }) {
-  const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
+  const isIndex = isIndexCategory(allocation?.category)
   const [riskFree, setRiskFree] = useState(0.07)
 
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function BandComputationSheet({ band, allocation, onClose }: {
 
                 <SectionLabel label="Output" />
                 <CompRow k="Band Formula" v="PE multiple × factor × EPS" />
-                {allocation?.category === 'Hospitals' && <CompRow k="Hospital Guard" v="Stop if CMP / EPS > 80x" />}
+                {getPeGuardMax(allocation?.category) != null && <CompRow k="Hospital Guard" v={`Stop if CMP / EPS > ${getPeGuardMax(allocation?.category)}x`} />}
               </div>
             </>
           )}

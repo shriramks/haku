@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { deriveIndexEps, isBandStale, INDEX_CATEGORIES, computeGrowth, computeHospitalGrowth } from '@/lib/band-calculator'
+import { deriveIndexEps, isBandStale, isIndexCategory, computeCategoryGrowth } from '@/lib/band-calculator'
 import type { BuyBand, StockAllocation, StockCategory } from '@/lib/types'
 import { SparkleIcon, RefreshIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
@@ -33,7 +33,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
   onBandSaved: (b: BuyBand) => void
   onClose: () => void
 }) {
-  const isIndex = INDEX_CATEGORIES.has(allocation?.category as StockCategory)
+  const isIndex = isIndexCategory(allocation?.category)
   const [saving, setSaving]         = useState(false)
   const [saveFeedback, setSaveFeedback] = useState<{ tone: 'positive' | 'negative'; message: string } | null>(null)
   const [eps, setEps]               = useState(band?.eps?.toString() ?? '')
@@ -127,10 +127,7 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
       }
 
       if (patNowVal != null && pat3yrAgoVal != null) {
-        const category = allocation?.category as StockCategory | undefined
-        const g = category === 'Hospitals'
-          ? computeHospitalGrowth(patNowVal, pat3yrAgoVal, parseFloat(roce3yrAvg) || null).g
-          : computeGrowth(patNowVal, pat3yrAgoVal)
+        const { g } = computeCategoryGrowth(allocation?.category, patNowVal, pat3yrAgoVal, parseFloat(roce3yrAvg) || null)
         const opMargin = (opProfitVal != null && revenueVal != null && revenueVal !== 0)
           ? opProfitVal / revenueVal
           : null

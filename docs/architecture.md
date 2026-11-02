@@ -108,7 +108,7 @@ Signal display uses shared helpers `signalLabel()`, `signalColor()`, `signalStra
 
 ## Valuation Model
 
-`lib/band-calculator.ts` implements the v9 playbook.
+`lib/band-calculator.ts` implements the v9 playbook. Per-category data (multiples, index source, ROCE threshold, midpoint PE, Hospitals growth floor and PE guard) lives in one `CATEGORY_SPEC` registry; use `isIndexCategory` / `getIndexSource` / `hasGrowthFloor` / `getPeGuardMax` / `computeCategoryGrowth` instead of comparing category names.
 
 Supported categories:
 

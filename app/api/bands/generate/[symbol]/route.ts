@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { calculateBands, computeGrowth, computeHospitalGrowth, deriveIndexEps, getCostOfEquity } from '@/lib/band-calculator'
+import { calculateBands, computeCategoryGrowth, deriveIndexEps, getCostOfEquity, getIndexSource, getPeGuardMax, isIndexCategory } from '@/lib/band-calculator'
 import { fetchScreenerData } from '@/lib/screener'
 import { fetchNseIndex } from '@/lib/nse'
 import { fetchCmp } from '@/lib/market-data'
@@ -13,11 +13,6 @@ import type { StockCategory } from '@/lib/types'
 
 type GenerateAction = 'bands' | 'financials'
 
-const INDEX_NAME: Partial<Record<StockCategory, string>> = {
-  'Nifty 50 Index': 'NIFTY 50',
-  'Nifty Next 50 Index': 'NIFTY NEXT 50',
-}
-
 interface IndexInputs { level: number; pe: number; cmp: number; eps: number }
 
 // Fetch a fresh, consistent (CMP, PE) pair for an index ETF and derive eps = cmp/pe.
@@ -26,7 +21,7 @@ interface IndexInputs { level: number; pe: number; cmp: number; eps: number }
 // and cmp stay mutually consistent — that consistency is what makes the rupee-band
 // zone test reduce exactly to a PE comparison.
 async function fetchIndexInputs(category: StockCategory, symbol: string): Promise<IndexInputs> {
-  const indexName = INDEX_NAME[category]
+  const indexName = getIndexSource(category)
   if (!indexName) throw new Error(`No NSE index mapping for category "${category}"`)
   const instrument = (await ensureStocks([symbol]))?.[symbol]
   if (!instrument) throw new Error(`No instrument master row for ${symbol}`)
@@ -84,7 +79,7 @@ export async function POST(
   }
 
   const category = alloc.category as StockCategory
-  const isIndex = category === 'Nifty 50 Index' || category === 'Nifty Next 50 Index'
+  const isIndex = isIndexCategory(category)
   const riskFree = userSettings?.risk_free ?? 0.07
   const ke = getCostOfEquity(riskFree)
   const existingCmp = existingBand?.cmp ?? null
@@ -158,9 +153,7 @@ export async function POST(
     revalidateTag('buy_bands', {})
 
     if (patNow != null && pat3yrAgo != null) {
-      const g = category === 'Hospitals'
-        ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg).g
-        : computeGrowth(patNow, pat3yrAgo)
+      const { g } = computeCategoryGrowth(category, patNow, pat3yrAgo, roce3yrAvg)
       const opMargin = (opProfitCr != null && revenueCr != null && revenueCr !== 0)
         ? opProfitCr / revenueCr
         : null
@@ -180,9 +173,7 @@ export async function POST(
       category,
       mode: action,
       financials: { eps, patNow, pat3yrAgo, roce3yrAvg, mcap,
-        g: category === 'Hospitals'
-          ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg).g
-          : computeGrowth(patNow, pat3yrAgo),
+        g: computeCategoryGrowth(category, patNow, pat3yrAgo, roce3yrAvg).g,
         ke, asOf },
       band: savedBand,
     })
@@ -215,9 +206,8 @@ export async function POST(
   const pat3yrAgo = existingBand?.pat_3yr_ago ?? null
   const roce3yrAvg = existingBand?.roce_3yr_avg ?? null
   const mcap = existingBand?.mcap ?? null
-  const { g, growthSource } = category === 'Hospitals'
-    ? computeHospitalGrowth(patNow, pat3yrAgo, roce3yrAvg)
-    : { g: computeGrowth(patNow, pat3yrAgo), growthSource: 'calculated_3y_pat_cagr' as const }
+  const { g, growthSource } = computeCategoryGrowth(category, patNow, pat3yrAgo, roce3yrAvg)
+  const peGuardMax = getPeGuardMax(category)
 
   if (!eps || (!isIndex && (patNow == null || pat3yrAgo == null || roce3yrAvg == null || mcap == null))) {
     return NextResponse.json({
@@ -227,7 +217,7 @@ export async function POST(
     }, { status: 422 })
   }
 
-  if (category === 'Hospitals' && existingCmp && eps && existingCmp / eps > 80) {
+  if (peGuardMax != null && existingCmp && eps && existingCmp / eps > peGuardMax) {
     return NextResponse.json({
       error: `PE unreliable (${Math.round(existingCmp / eps)}×) — EV/EBITDA override needed for ${upperSymbol}`,
     }, { status: 422 })

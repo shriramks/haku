@@ -8,7 +8,7 @@ import { revalidateTag } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, snapPrice, snapUnit,
-  INDEX_CATEGORIES, convictionMatrix, effectiveBands,
+  isIndexCategory, convictionMatrix, effectiveBands,
 } from './band-calculator'
 import { computeSnowball } from './snowball'
 import { fetchYearChart } from './market-data'
@@ -135,7 +135,7 @@ export async function generateTranchesForSymbol(
   const stagedCmp = stagedDeepCmp(liveCmp, buyLow, minBuyPrice)
 
   const deployable = remaining
-  const isIndex = alloc?.category ? INDEX_CATEGORIES.has(alloc.category as StockCategory) : false
+  const isIndex = isIndexCategory(alloc?.category)
 
   // Compute Snowball signal from stored snapshots and live CMP
   const snap0 = snapshots?.[0] ?? null

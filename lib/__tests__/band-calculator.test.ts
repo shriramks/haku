@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
+import { ALL_CATEGORIES } from '../types'
 import {
   calculateBands,
+  CATEGORY_SPEC,
+  computeCategoryGrowth,
+  getIndexSource,
+  getPeGuardMax,
+  hasGrowthFloor,
+  isIndexCategory,
   computeGrowth,
   computeTranchePrices,
   trancheSuggestion,
@@ -797,5 +804,35 @@ describe('effectiveBands — risk overlay single source', () => {
   it('preserves nulls (does not coerce) when scaling', () => {
     const eb = effectiveBands({ buy_low: 100, buy_high: 120, risk_multiplier: 0.9 })
     expect(eb.trimPrice).toBeNull()
+  })
+})
+
+// ── Category registry ────────────────────────────────────────────────────────
+
+describe('category registry', () => {
+  it('every category has a spec with ordered multiples', () => {
+    for (const c of ALL_CATEGORIES) {
+      const m = CATEGORY_SPEC[c].multiples
+      expect(m.buyLow).toBeLessThanOrEqual(m.buyHigh)
+      expect(m.buyHigh).toBeLessThanOrEqual(m.midLow)
+      expect(m.midHigh).toBeLessThan(m.trim)
+    }
+  })
+
+  it('index categories are exactly the two Nifty ETFs, each with an NSE source', () => {
+    const idx = ALL_CATEGORIES.filter(isIndexCategory)
+    expect(idx).toEqual(['Nifty 50 Index', 'Nifty Next 50 Index'])
+    expect(getIndexSource('Nifty 50 Index')).toBe('NIFTY 50')
+    expect(getIndexSource('Nifty Next 50 Index')).toBe('NIFTY NEXT 50')
+    expect(getIndexSource('Hospitals')).toBeNull()
+    expect(isIndexCategory(null)).toBe(false)
+  })
+
+  it('only Hospitals has the growth floor and the 80x PE guard', () => {
+    expect(ALL_CATEGORIES.filter(hasGrowthFloor)).toEqual(['Hospitals'])
+    expect(getPeGuardMax('Hospitals')).toBe(80)
+    expect(getPeGuardMax('Jewellery')).toBeNull()
+    expect(computeCategoryGrowth('Hospitals', 120, 100, 18).g).toBe(0.15)
+    expect(computeCategoryGrowth('Jewellery', 120, 100, 18).g).toBeCloseTo(Math.pow(1.2, 1 / 3) - 1)
   })
 })
