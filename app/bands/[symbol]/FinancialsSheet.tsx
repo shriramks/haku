@@ -1,24 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { deriveIndexEps, isBandStale, isIndexCategory, computeCategoryGrowth } from '@/lib/band-calculator'
+import { deriveIndexEps, isBandStale, isIndexCategory } from '@/lib/band-calculator'
 import type { BuyBand, StockAllocation, StockCategory } from '@/lib/types'
 import { SparkleIcon, RefreshIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
-import { saveSnapshotIfChanged } from '@/app/actions'
+import { saveBandFinancials } from '@/app/actions'
+import type { FinancialsEdit } from '@/lib/band-generate'
 import { Button } from '@/components/Button'
 import { LabeledInput } from '@/components/LabeledInput'
-
-function fiscalQuarterLabel(d: Date): string {
-  const year = d.getFullYear()
-  const month = d.getMonth() + 1
-  const fyEnd = month >= 4 ? year + 1 : year
-  const quarter = month >= 4 && month <= 6 ? 'Q1'
-    : month >= 7 && month <= 9 ? 'Q2'
-    : month >= 10 && month <= 12 ? 'Q3'
-    : 'Q4'
-  return `FY${String(fyEnd).slice(-2)} ${quarter}`
-}
 
 export default function FinancialsSheet({ symbol, band, allocation, generating, refreshingFinancials, genError, onGenerateBands, onRecomputeBands, onRefreshFinancials, onBandSaved, onClose }: {
   symbol: string
@@ -70,50 +59,15 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
     setSaving(true)
     setSaveFeedback(null)
     try {
-      const sb = getSupabaseBrowser()
-      const cmpVal        = parseFloat(cmp) || null
-      const indexPeVal    = parseFloat(indexPe) || null
-      const derivedIndexEps = deriveIndexEps(cmpVal, indexPeVal)
-      const patNowVal    = parseFloat(patNow) || null
-      const pat3yrAgoVal = parseFloat(pat3yrAgo) || null
-      const opProfitVal  = parseFloat(opProfitCr) || null
-      const revenueVal   = parseFloat(revenueCr) || null
-
-      const fields: Record<string, unknown> = {
-        eps: isIndex ? derivedIndexEps : (parseFloat(eps) || null),
-        last_updated_at: new Date().toISOString(),
-      }
-      if (!isIndex) {
-        fields.pat_now      = patNowVal
-        fields.pat_3yr_ago  = pat3yrAgoVal
-        fields.op_profit_cr = opProfitVal
-        fields.revenue_cr   = revenueVal
-        fields.roce_3yr_avg = parseFloat(roce3yrAvg) || null
-        fields.mcap         = parseFloat(mcap) || null
-      } else {
-        // Index: persist the edited (CMP, PE) pair + derived eps. Band prices are
-        // then recomputed from these stored values via onRecomputeBands (no fetch),
-        // so the manual correction holds until the next fresh Regen Bands.
-        fields.index_pe = indexPeVal
-        fields.cmp      = cmpVal
-      }
-
-      let savedBand: BuyBand | null = null
-      if (band) {
-        const { data, error } = await sb.from('buy_bands').update(fields).eq('id', band.id).select().single()
-        if (error) throw error
-        savedBand = data
-      } else {
-        const { data: { user } } = await sb.auth.getUser()
-        if (!user) throw new Error('Missing user session')
-        const { data, error } = await sb.from('buy_bands').upsert({
-          user_id: user.id, symbol, anchor_type: 'PE', ...fields,
-        }, { onConflict: 'user_id,symbol' }).select().single()
-        if (error) throw error
-        savedBand = data
-      }
-
-      if (!savedBand) throw new Error('Save returned no data')
+      const num = (v: string) => parseFloat(v) || null
+      const edit: FinancialsEdit = isIndex
+        ? { kind: 'index', cmp: num(cmp), indexPe: num(indexPe) }
+        : {
+            kind: 'equity', eps: num(eps), patNow: num(patNow), pat3yrAgo: num(pat3yrAgo),
+            opProfitCr: num(opProfitCr), revenueCr: num(revenueCr), roce3yrAvg: num(roce3yrAvg), mcap: num(mcap),
+          }
+      const { band: savedBand, error } = await saveBandFinancials(symbol, edit)
+      if (error || !savedBand) throw new Error(error ?? 'Save returned no data')
 
       if (isIndex) {
         // Recompute band prices from the values just saved (refetch:false).
@@ -124,21 +78,6 @@ export default function FinancialsSheet({ symbol, band, allocation, generating, 
         feedbackTimerRef.current = setTimeout(() => setSaveFeedback(null), 1800)
         setSaving(false)
         return
-      }
-
-      if (patNowVal != null && pat3yrAgoVal != null) {
-        const { g } = computeCategoryGrowth(allocation?.category, patNowVal, pat3yrAgoVal, parseFloat(roce3yrAvg) || null)
-        const opMargin = (opProfitVal != null && revenueVal != null && revenueVal !== 0)
-          ? opProfitVal / revenueVal
-          : null
-        await saveSnapshotIfChanged(symbol, {
-          pat_now: patNowVal,
-          pat_3yr_ago: pat3yrAgoVal,
-          op_profit_cr: opProfitVal,
-          revenue_cr: revenueVal,
-          g_computed: g,
-          op_margin: opMargin,
-        }, fiscalQuarterLabel(new Date()))
       }
 
       onBandSaved(savedBand)

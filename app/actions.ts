@@ -2,7 +2,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
 import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
-import { fyIdForDate } from '@/lib/fy-utils'
+import { fyIdForDate, fiscalQuarterLabel } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
 import { ensureStocks, getStocks, type Stock } from '@/lib/stock-master'
@@ -10,7 +10,9 @@ import { fetchYahooInstrument, yahooListingExists } from '@/lib/market-data'
 import { isValidYahooSymbol } from '@/lib/instrument'
 import { tradeFxRate } from '@/lib/trade-fx'
 import { isValidStockSymbol } from '@/lib/stock-master'
-import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot } from '@/lib/types'
+import { deriveBandInputs, isIndexCategory } from '@/lib/band-calculator'
+import { buildFinancialsEditFields, type FinancialsEdit } from '@/lib/band-generate'
+import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot, BuyBand } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -195,6 +197,43 @@ export async function saveSnapshotIfChanged(
     .from('buy_band_snapshots')
     .insert({ ...snap, user_id: userId, symbol, label })
   revalidateTag('buy_band_snapshots', {})
+}
+
+/**
+ * Financials sheet Save: writes the edited inputs to `buy_bands`, revalidates, and (equity only)
+ * records the quarterly snapshot. The category comes from the user's plan row, never the client,
+ * so an index row cannot be saved with equity fields or vice versa. Index band prices are then
+ * recomputed from the saved values by the generate route with refetch:false.
+ */
+export async function saveBandFinancials(
+  symbol: string,
+  edit: FinancialsEdit,
+): Promise<{ band: BuyBand | null; error: string | null }> {
+  const userId = await getUserId()
+  if (!userId) return { band: null, error: 'Not signed in' }
+  const sym = symbol.trim().toUpperCase()
+  const db = createSupabaseServiceClient()
+
+  const { data: alloc } = await db
+    .from('stock_allocations').select('category').eq('user_id', userId).eq('symbol', sym).limit(1).maybeSingle()
+  if (!alloc?.category) return { band: null, error: `${sym} is not in your allocations` }
+  if (isIndexCategory(alloc.category) !== (edit.kind === 'index')) return { band: null, error: 'Wrong input type for this category' }
+
+  const fields = buildFinancialsEditFields(edit, new Date().toISOString())
+  const { data, error } = await db
+    .from('buy_bands')
+    .upsert({ user_id: userId, symbol: sym, anchor_type: 'PE', ...fields }, { onConflict: 'user_id,symbol' })
+    .select()
+    .single()
+  if (error || !data) return { band: null, error: error?.message ?? 'Save returned no data' }
+
+  revalidateTag('buy_bands', {})
+
+  if (edit.kind === 'equity') {
+    const { snapshot } = deriveBandInputs(alloc.category, edit)
+    if (snapshot) await saveSnapshotIfChanged(sym, snapshot, fiscalQuarterLabel(new Date()))
+  }
+  return { band: data as BuyBand, error: null }
 }
 
 // ── Stock transaction writes ──────────────────────────────────────────────────

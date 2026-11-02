@@ -142,6 +142,61 @@ export function deriveIndexEps(cmp: number | null, indexPE: number | null): numb
     : null
 }
 
+export interface FinancialInputs {
+  patNow: number | null
+  pat3yrAgo: number | null
+  roce3yrAvg: number | null
+  opProfitCr: number | null
+  revenueCr: number | null
+}
+
+export interface SnapshotFields {
+  pat_now: number
+  pat_3yr_ago: number
+  op_profit_cr: number | null
+  revenue_cr: number | null
+  g_computed: number | null
+  op_margin: number | null
+}
+
+/**
+ * Single derivation of everything computed from a stock's stored financials: growth (with the
+ * category floor), operating margin, and the quarterly snapshot row. The route and the Financials
+ * save both go through this so they cannot disagree. `snapshot` is null until both PAT figures exist.
+ */
+export function deriveBandInputs(
+  category: string | null | undefined,
+  f: FinancialInputs,
+): { g: number | null; growthSource: 'hospital_expansion_phase_floor' | 'calculated_3y_pat_cagr'; opMargin: number | null; snapshot: SnapshotFields | null } {
+  const { g, growthSource } = computeCategoryGrowth(category, f.patNow, f.pat3yrAgo, f.roce3yrAvg)
+  const opMargin = (f.opProfitCr != null && f.revenueCr != null && f.revenueCr !== 0)
+    ? f.opProfitCr / f.revenueCr
+    : null
+  const snapshot = (f.patNow != null && f.pat3yrAgo != null)
+    ? { pat_now: f.patNow, pat_3yr_ago: f.pat3yrAgo, op_profit_cr: f.opProfitCr, revenue_cr: f.revenueCr, g_computed: g, op_margin: opMargin }
+    : null
+  return { g, growthSource, opMargin, snapshot }
+}
+
+/** Why bands cannot be computed from the stored inputs, or null when they can. */
+export function checkBandReadiness(
+  symbol: string,
+  category: string,
+  s: { eps: number | null; patNow: number | null; pat3yrAgo: number | null; roce3yrAvg: number | null; mcap: number | null; cmp: number | null },
+): string | null {
+  const isIndex = isIndexCategory(category)
+  if (!s.eps || (!isIndex && (s.patNow == null || s.pat3yrAgo == null || s.roce3yrAvg == null || s.mcap == null))) {
+    return isIndex
+      ? `Missing CMP/PE for ${symbol}. Run Regen Bands to fetch fresh index data.`
+      : `No saved financials for ${symbol}. Use Regen Financials first.`
+  }
+  const peGuardMax = getPeGuardMax(category)
+  if (peGuardMax != null && s.cmp && s.cmp / s.eps > peGuardMax) {
+    return `PE unreliable (${Math.round(s.cmp / s.eps)}×) — EV/EBITDA override needed for ${symbol}`
+  }
+  return null
+}
+
 export function getCostOfEquity(riskFree: number): number {
   return riskFree + DEFAULT_ERP
 }

@@ -41,7 +41,7 @@ Server pages fetch through `lib/data.ts`. Fetchers wrapped in `unstable_cache` p
 | Fetcher | Tag | Fallback TTL | Invalidated by |
 |---|---|---|---|
 | `getFiscalYears` | `fiscal_years` | 1 h | plan create/edit, sell-proceeds redeploy |
-| `getBuyBands` | `buy_bands` | 5 min | band generate, CMP upsert, risk overlay save |
+| `getBuyBands` | `buy_bands` | 5 min | band generate, `saveBandFinancials` (Financials sheet Save), CMP upsert, risk overlay save |
 | `getBuyTranches` | `buy_tranches` | 2 min | tranche generate/CRUD |
 | `getTransactions`, `getTransactionsBySymbol` | `transactions` | 1 h | stock txn add/edit/delete/import |
 | `getDividendsForSymbol`, `getAllDividends` | `dividend_transactions` | 5 min | dividend save |
@@ -134,7 +134,7 @@ Index ETF bands are also PE-based, but `factor = 1.00` and `eps` is derived from
 
 ## Financial Refresh Flow
 
-`app/api/bands/generate/[symbol]/route.ts` serves two actions:
+`app/api/bands/generate/[symbol]/route.ts` serves two actions (`runFinancials` / `runBands`, with payload builders and index-input resolution in `lib/band-generate.ts`). Growth, margin, snapshot and the readiness/PE-guard checks come from `deriveBandInputs` / `checkBandReadiness` in `lib/band-calculator.ts`, shared with the Financials sheet's Save (`saveBandFinancials` server action):
 
 1. `financials`
 2. `bands`
