@@ -13,8 +13,10 @@ interface Mult { buyLow: number; buyHigh: number; midLow: number; midHigh: numbe
 interface IndexSpec {
   kind: 'index'
   multiples: Mult
-  /** NSE index name used to fetch level and PE. */
-  indexSource: string
+  /** Where the index PE comes from: an NSE index (level + PE) or multpl.com (S&P 500, PE only). */
+  indexSource: { feed: 'nse'; name: string } | { feed: 'multpl' }
+  /** Cap on generated buy levels, for a sleeve that is added to slowly. */
+  maxTranches?: number
 }
 
 interface StockSpec {
@@ -32,10 +34,13 @@ export type CategorySpec = IndexSpec | StockSpec
 
 export const CATEGORY_SPEC: Record<StockCategory, CategorySpec> = {
   // Index ETFs (v11; Next 50 recalibrated Oct 2026): eps = cmp / indexPE  (rupee value of 1 PE point, live)
-  'Nifty 50 Index':      { kind: 'index', indexSource: 'NIFTY 50',
+  'Nifty 50 Index':      { kind: 'index', indexSource: { feed: 'nse', name: 'NIFTY 50' },
     multiples: { buyLow: 18, buyHigh: 20, midLow: 20, midHigh: 22, trim: 24 } },
-  'Nifty Next 50 Index': { kind: 'index', indexSource: 'NIFTY NEXT 50',
+  'Nifty Next 50 Index': { kind: 'index', indexSource: { feed: 'nse', name: 'NIFTY NEXT 50' },
     multiples: { buyLow: 17, buyHigh: 20, midLow: 20, midHigh: 23, trim: 26 } },
+  // S&P 500 (VUAA): eps = cmp / multpl PE, in the ETF's own currency. A slow-add sleeve: 3 buy levels at most.
+  'S&P 500 Index':       { kind: 'index', indexSource: { feed: 'multpl' }, maxTranches: 3,
+    multiples: { buyLow: 22, buyHigh: 25, midLow: 25, midHigh: 28, trim: 31 } },
   'Cap-Light Infra': { kind: 'stock', midpointPE: 31.5, roceThreshold: 22,
     multiples: { buyLow: 28, buyHigh: 35, midLow: 36, midHigh: 44, trim: 45 } },
   'Hospitals':       { kind: 'stock', midpointPE: 41.5, roceThreshold: 16, growthFloor: true, peGuardMax: 80,
@@ -58,10 +63,22 @@ export function isIndexCategory(category: string | null | undefined): boolean {
   return specOf(category)?.kind === 'index'
 }
 
-/** NSE index name for an index category, else null. */
+/** NSE index name for an NSE-fed index category, else null. */
 export function getIndexSource(category: string | null | undefined): string | null {
   const spec = specOf(category)
-  return spec?.kind === 'index' ? spec.indexSource : null
+  return spec?.kind === 'index' && spec.indexSource.feed === 'nse' ? spec.indexSource.name : null
+}
+
+/** Which feed supplies an index category's PE, else null. */
+export function getIndexFeed(category: string | null | undefined): 'nse' | 'multpl' | null {
+  const spec = specOf(category)
+  return spec?.kind === 'index' ? spec.indexSource.feed : null
+}
+
+/** Maximum number of buy levels for a category, or null when uncapped. */
+export function getTrancheCap(category: string | null | undefined): number | null {
+  const spec = specOf(category)
+  return spec?.kind === 'index' ? (spec.maxTranches ?? null) : null
 }
 
 export function hasGrowthFloor(category: string | null | undefined): boolean {
@@ -308,14 +325,19 @@ const SNAP_LARGE      = 10
 const MIN_GAP_RATIO   = 0.03  // Minimum %-gap between adjacent tranches
 const WEIGHT_CAP      = 0.40  // If largest quadratic weight > 40%, fall back to linear
 
-/** Snap unit for a price: < ₹500 → ₹5, ≥ ₹500 → ₹10 */
-export function snapUnit(price: number): number {
-  return price < SNAP_THRESHOLD ? SNAP_SMALL : SNAP_LARGE
+const SNAP_SMALL_FOREIGN = 0.5
+const SNAP_LARGE_FOREIGN = 1
+
+/** Snap unit for a price. INR: < ₹500 → ₹5, ≥ ₹500 → ₹10. Any other currency: < 500 → 0.5, ≥ 500 → 1. */
+export function snapUnit(price: number, currency = 'INR'): number {
+  const foreign = currency !== 'INR'
+  if (price < SNAP_THRESHOLD) return foreign ? SNAP_SMALL_FOREIGN : SNAP_SMALL
+  return foreign ? SNAP_LARGE_FOREIGN : SNAP_LARGE
 }
 
 /** Round a price to its snap unit */
-export function snapPrice(price: number): number {
-  const unit = snapUnit(price)
+export function snapPrice(price: number, currency = 'INR'): number {
+  const unit = snapUnit(price, currency)
   return Math.round(price / unit) * unit
 }
 
@@ -427,10 +449,11 @@ export function stagedDeepCmp(
   liveCmp: number | null,
   buyLow: number,
   minBuyPrice: number | null,
+  currency = 'INR',
 ): number | null {
   const isDeep = liveCmp !== null && liveCmp < buyLow
   if (!isDeep || minBuyPrice === null) return liveCmp
-  return Math.min(liveCmp, minBuyPrice - snapUnit(minBuyPrice))
+  return Math.min(liveCmp, minBuyPrice - snapUnit(minBuyPrice, currency))
 }
 
 /** Tranche suggestion: 1–2% of total capital, capped at remaining */
@@ -482,7 +505,7 @@ export function computeTrancheAmounts(remaining: number, count: number, weightMo
  *
  * In deep zone (CMP < buyLow), floor > ceiling → collapses to single tranche at CMP.
  *
- * Price rounding: < ₹500 → nearest ₹5; ≥ ₹500 → nearest ₹10.
+ * Price rounding: INR < 500 → nearest 5; ≥ 500 → nearest 10 (other currencies: 0.5 / 1; see snapUnit).
  * Hard cap: no price above CMP. If floor ≥ ceiling, returns single tranche at CMP.
  * Deduplicates after rounding.
  *
@@ -502,6 +525,7 @@ export function computeTranchePrices(
   isIndex = false,
   ceilingOverride?: number | null,
   deepExtension = 0.05,
+  currency = 'INR',
 ): number[] {
   // Floor is the higher of 52-week low and buyLow — never price below either.
   // Exception 1: if 52wkLow >= CMP the price is AT the 52-week low (a favourable
@@ -526,7 +550,7 @@ export function computeTranchePrices(
       const deepFloor = Math.max(1, cmp - zoneWidth)
       const deepCeil  = cmp
       if (deepFloor < deepCeil) {
-        return computeTranchePrices(deepFloor, deepCeil, cmp, count, fiftyTwoWeekLow, false)
+        return computeTranchePrices(deepFloor, deepCeil, cmp, count, fiftyTwoWeekLow, false, null, 0.05, currency)
       }
     }
     const ref        = cmp ?? floor
@@ -534,7 +558,7 @@ export function computeTranchePrices(
     const step       = deepCount > 1 ? deepExtension / (deepCount - 1) : 0
     const deepPrices: number[] = []
     for (let i = 0; i < deepCount; i++) {
-      deepPrices.push(snapPrice(ref * (1 - step * i)))
+      deepPrices.push(snapPrice(ref * (1 - step * i), currency))
     }
     return [...new Set(deepPrices)]
   }
@@ -546,12 +570,12 @@ export function computeTranchePrices(
   const prices: number[] = []
   for (let i = 0; i < usedCount; i++) {
     const t = usedCount > 1 ? i / (usedCount - 1) : 0
-    prices.push(snapPrice(floor + t * range))
+    prices.push(snapPrice(floor + t * range, currency))
   }
 
   // Hard cap: no tranche above CMP (snap down so we stay below)
   const capped = cmp
-    ? prices.map(p => p <= cmp ? p : Math.floor(cmp / snapUnit(cmp)) * snapUnit(cmp))
+    ? prices.map(p => p <= cmp ? p : Math.floor(cmp / snapUnit(cmp, currency)) * snapUnit(cmp, currency))
     : prices
 
   return [...new Set(capped)]

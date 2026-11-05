@@ -153,6 +153,7 @@ export interface CarryForwardDbRow {
 export const ALL_CATEGORIES = [
   'Nifty 50 Index',
   'Nifty Next 50 Index',
+  'S&P 500 Index',
   'Cap-Light Infra',
   'Hospitals',
   'Branded Pharma',
@@ -170,6 +171,7 @@ export const DEFAULT_CATEGORY: Record<string, StockCategory> = {
   NARAYANAHRU: 'Hospitals',
   NIFTYBEES:   'Nifty 50 Index',
   JUNIORBEES:  'Nifty Next 50 Index',
+  VUAA:        'S&P 500 Index',
   ITC:         'Tobacco Corp',
 }
 

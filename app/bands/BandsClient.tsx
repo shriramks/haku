@@ -10,7 +10,7 @@ import { RefreshIcon, SparkleIcon, ChevronRightIcon, YieldIcon } from '@/compone
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
-import { formatPriceNum } from '@/lib/formatter'
+import { priceFormatter } from '@/lib/formatter'
 import { revalidateBuyBands, refreshStockPrices } from '@/app/actions'
 
 // Mini 3-zone band bar for list rows (deep · buy · mid — no trim zone, matches BandBar)
@@ -54,9 +54,11 @@ interface Props {
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
   investabilities: { symbol: string; investable: boolean; total_score: number }[]
+  /** Quote currency by symbol; a symbol not listed is INR. */
+  currencies: Record<string, string>
 }
 
-export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYears, selectedFY, investabilities }: Props) {
+export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYears, selectedFY, investabilities, currencies }: Props) {
   const router = useRouter()
   const [bands, setBands] = useState(initialBands)
   const [week52, setWeek52] = useState<Record<string, { low: number | null; high: number | null }>>(() => {
@@ -326,7 +328,7 @@ export default function BandsClient({ rows, bands: initialBands, fyId, fiscalYea
                 {/* CMP */}
                 {cmp != null ? (
                   <p className="text-headline font-bold tabnum flex-shrink-0" style={{ color: 'var(--text-primary)' }}>
-                    {formatPriceNum(cmp)}
+                    {priceFormatter(currencies[row.symbol]).num(cmp)}
                   </p>
                 ) : (
                   <p className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>No CMP</p>

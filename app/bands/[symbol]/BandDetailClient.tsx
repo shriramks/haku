@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { isIndexCategory, isBandStale, effectiveBands } from '@/lib/band-calculator'
-import { formatINRFullNum, formatPriceNum } from '@/lib/formatter'
+import { formatINRFullNum, formatPriceNum, priceFormatter } from '@/lib/formatter'
 import type { BuyBand, BuyTranche, StockAllocation, StockCategory, StockRow, Investability, Transaction, BuyBandSnapshot } from '@/lib/types'
 import { computeSnowball, signalLabel, signalColor } from '@/lib/snowball'
 import type { Signal } from '@/lib/snowball'
@@ -36,6 +36,9 @@ interface Props {
   initialHasKey: boolean
   initialInvestability: Investability | null
   symbolTxns: Transaction[]
+  /** Quote currency of this instrument's prices and INR per unit of it (1 for INR). */
+  currency?: string
+  inrPerUnit?: number
   initialSnapshot: BuyBandSnapshot | null
   initialPriorSnapshot: BuyBandSnapshot | null
 }
@@ -46,10 +49,11 @@ export default function BandDetailClient({
   tranches: initialTranches,
   fyId, fyLabel, backHref, backLabel, initialHasKey,
   initialInvestability,
-  symbolTxns,
+  symbolTxns, currency = 'INR', inrPerUnit = 1,
   initialSnapshot, initialPriorSnapshot,
 }: Props) {
   const router = useRouter()
+  const fmt = priceFormatter(currency)
   const [band, setBand]               = useState(initialBand)
   const [allocation]                  = useState(initialAllocation)
   const [tranches, setTranches]       = useState(initialTranches)
@@ -300,13 +304,13 @@ export default function BandDetailClient({
             <BandBar
               buyLow={adjBuyLow!} buyHigh={adjBuyHigh!}
               midLow={adjMidLow!} midHigh={adjMidHigh!}
-              trimPrice={adjTrimPrice!} cmp={cmp}
+              trimPrice={adjTrimPrice!} cmp={cmp} currency={currency}
             />
             {/* ── 52W Low | CMP | 52W High ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', alignItems: 'center', padding: '12px 0 14px', marginTop: 8, gap: 8 }}>
               <div>
                 <p className="label-field" style={{ marginBottom: 4 }}>52W low</p>
-                <p className="text-title-2 font-semibold tabnum">{week52.low != null ? formatPriceNum(week52.low) : '—'}</p>
+                <p className="text-title-2 font-semibold tabnum">{week52.low != null ? fmt.num(week52.low) : '—'}</p>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p className="label-field" style={{ marginBottom: 4 }}>Current price</p>
@@ -316,7 +320,7 @@ export default function BandDetailClient({
               </div>
               <div style={{ textAlign: 'right' }}>
                 <p className="label-field" style={{ marginBottom: 4 }}>52W high</p>
-                <p className="text-title-2 font-semibold tabnum">{week52.high != null ? formatPriceNum(week52.high) : '—'}</p>
+                <p className="text-title-2 font-semibold tabnum">{week52.high != null ? fmt.num(week52.high) : '—'}</p>
               </div>
             </div>
           </>
@@ -528,6 +532,8 @@ export default function BandDetailClient({
           budget={fyRow?.budget ?? 0}
           hasBands={hasBands}
           cmp={cmp}
+          currency={currency}
+          inrPerUnit={inrPerUnit}
           generating={generatingTranches}
           genError={trancheGenError}
           signal={snowball?.signal ?? null}

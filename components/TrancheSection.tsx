@@ -1,12 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { formatINRFine, formatPrice } from '@/lib/formatter'
+import { formatINRFine, priceFormatter } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { SparkleIcon, PlusIcon, TrashIcon } from '@/components/icons'
 import type { BuyTranche } from '@/lib/types'
 
 export default function TrancheSection({
-  symbol, tranches, remaining, budget, hasBands, cmp,
+  symbol, tranches, remaining, budget, hasBands, cmp, currency = 'INR', inrPerUnit = 1,
   onAdd, onDelete, onUpdate, onGenerate, onClear, generating, hideHeader,
 }: {
   symbol: string
@@ -15,6 +15,9 @@ export default function TrancheSection({
   budget: number
   hasBands: boolean
   cmp?: number | null
+  /** Quote currency of the tranche prices, and INR per unit of it (1 for INR). */
+  currency?: string
+  inrPerUnit?: number
   onAdd: (symbol: string, qty: number, price: number) => Promise<void>
   onDelete: (id: string) => void
   onUpdate: (id: string, qty: number, price: number) => Promise<void>
@@ -24,7 +27,7 @@ export default function TrancheSection({
   hideHeader?: boolean
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
-  const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price, 0)
+  const plannedTotal = tranches.reduce((s, t) => s + t.qty * t.price * inrPerUnit, 0)
 
   return (
     <div style={{ padding: '6px 0 4px 0' }}>
@@ -79,6 +82,7 @@ export default function TrancheSection({
           <div>
             <TrancheInputRow
               maxAmount={remaining - plannedTotal}
+              inrPerUnit={inrPerUnit}
               onSave={async (qty, price) => { await onAdd(symbol, qty, price); setEditingId(null) }}
               onCancel={() => setEditingId(null)}
             />
@@ -90,12 +94,13 @@ export default function TrancheSection({
               ? <TrancheInputRow
                   initialQty={String(Math.round(t.qty))}
                   initialPrice={String(t.price)}
-                  maxAmount={remaining - plannedTotal + t.qty * t.price}
+                  maxAmount={remaining - plannedTotal + t.qty * t.price * inrPerUnit}
+                  inrPerUnit={inrPerUnit}
                   onSave={async (qty, price) => { await onUpdate(t.id, qty, price); setEditingId(null) }}
                   onDelete={() => { onDelete(t.id); setEditingId(null) }}
                   onCancel={() => setEditingId(null)}
                 />
-              : <TrancheRow tranche={t} cmp={cmp} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
+              : <TrancheRow tranche={t} cmp={cmp} currency={currency} inrPerUnit={inrPerUnit} onEdit={() => setEditingId(editingId === t.id ? null : t.id)} />
             }
           </div>
         ))}
@@ -112,12 +117,15 @@ export default function TrancheSection({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 
-function TrancheRow({ tranche, cmp, onEdit }: {
+function TrancheRow({ tranche, cmp, currency, inrPerUnit, onEdit }: {
   tranche: BuyTranche
   cmp?: number | null
+  currency: string
+  inrPerUnit: number
   onEdit: () => void
 }) {
-  const amount = tranche.qty * tranche.price
+  const { price: formatPrice } = priceFormatter(currency)
+  const amount = tranche.qty * tranche.price * inrPerUnit
 
   const distPct = (cmp != null && cmp > 0)
     ? ((cmp - tranche.price) / cmp) * 100
@@ -167,10 +175,11 @@ function TrancheRow({ tranche, cmp, onEdit }: {
   )
 }
 
-function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave, onDelete, onCancel }: {
+function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, inrPerUnit, onSave, onDelete, onCancel }: {
   initialQty?: string
   initialPrice?: string
   maxAmount: number
+  inrPerUnit: number
   onSave: (qty: number, price: number) => Promise<void>
   onDelete?: () => void
   onCancel?: () => void
@@ -179,7 +188,7 @@ function TrancheInputRow({ initialQty = '', initialPrice = '', maxAmount, onSave
   const [price, setPrice] = useState(initialPrice)
   const [saving, setSaving] = useState(false)
 
-  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
+  const amount = (parseFloat(qty) || 0) * (parseFloat(price) || 0) * inrPerUnit
   const overBudget = amount > 0 && amount > maxAmount
 
   async function save() {

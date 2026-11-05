@@ -3,6 +3,7 @@ import {
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
   getLatestSnapshots, getStockPrices, getInrPerUnit,
 } from './data'
+import { getStocks } from './stock-master'
 import { computeStockRows, seqCost } from './compute'
 import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, BuyBandSnapshot } from './types'
 
@@ -19,6 +20,9 @@ export interface StockDetailProps {
   symbolTxns: Transaction[]
   initialSnapshot: BuyBandSnapshot | null
   initialPriorSnapshot: BuyBandSnapshot | null
+  /** Quote currency of the symbol's prices, and INR per unit of it (1 for INR). */
+  currency: string
+  inrPerUnit: number
 }
 
 /**
@@ -81,6 +85,7 @@ export async function fetchStockDetailProps(
   const { hasKey } = aiKeyStatus as { hasKey: boolean }
 
   const snapshotArr = snapshots as BuyBandSnapshot[]
+  const currency = (await getStocks([symbol]))[symbol]?.currency ?? 'INR'
   return {
     fy,
     fyRow,
@@ -94,5 +99,8 @@ export async function fetchStockDetailProps(
     symbolTxns: (symbolTxns as Transaction[]),
     initialSnapshot: snapshotArr[0] ?? null,
     initialPriorSnapshot: snapshotArr[1] ?? null,
+    currency,
+    // A foreign symbol with no saved rate falls back to 1; tranche generation already refuses to size without one.
+    inrPerUnit: (inrRates as Record<string, number | null>)[symbol] ?? 1,
   }
 }

@@ -67,6 +67,19 @@ export function formatUsd(amount: number): string {
   return `${sign}$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+/**
+ * Price formatters for an instrument's quote currency: ₹ for INR, otherwise USD (the only foreign
+ * currency in the app). `price` carries the symbol; `num` is the bare number for ranges.
+ */
+export function priceFormatter(currency = 'INR'): { price: (n: number) => string; num: (n: number) => string; symbol: string } {
+  if (currency === 'INR') return { price: formatPrice, num: formatPriceNum, symbol: '₹' }
+  return {
+    price: formatUsd,
+    num: n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    symbol: '$',
+  }
+}
+
 /** Full Indian-locale number without ₹ — e.g. 33,40,000 */
 export function formatINRFull(amount: number): string {
   const abs  = Math.abs(amount)

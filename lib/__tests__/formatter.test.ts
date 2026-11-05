@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fyLabel, formatINRFine, formatPriceFine, previousMonth, formatUsd } from '../formatter'
+import { fyLabel, formatINRFine, formatPriceFine, previousMonth, formatUsd, priceFormatter } from '../formatter'
 
 const THIN = ' '
 
@@ -101,5 +101,21 @@ describe('formatUsd', () => {
   })
   it('puts the minus before the $', () => {
     expect(formatUsd(-12.5)).toBe('-$12.50')
+  })
+})
+
+describe('priceFormatter', () => {
+  it('INR keeps the rupee format, whole numbers', () => {
+    const f = priceFormatter('INR')
+    expect(f.symbol).toBe('₹')
+    expect(f.price(1234.6)).toBe('₹1235')
+    expect(f.num(273.4)).toBe('273')
+    expect(priceFormatter().price(50)).toBe('₹50')
+  })
+  it('a foreign currency formats as USD with two decimals and no rupee sign', () => {
+    const f = priceFormatter('USD')
+    expect(f.symbol).toBe('$')
+    expect(f.price(145.88)).toBe('$145.88')
+    expect(f.num(1234.5)).toBe('1,234.50')
   })
 })

@@ -1,5 +1,6 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY, getInvestability, getStockPrices, getInrPerUnit } from '@/lib/data'
 import { computeStockRows } from '@/lib/compute'
+import { getStocks } from '@/lib/stock-master'
 import BandsClient from './BandsClient'
 
 export default async function BandsPage({
@@ -26,6 +27,7 @@ export default async function BandsPage({
   const symbols = allocations.map((a: { symbol: string }) => a.symbol)
   const [investabilities, prices, inrRates] = await Promise.all([getInvestability(symbols), getStockPrices(symbols), getInrPerUnit(symbols)])
 
+  const currencies = Object.fromEntries(Object.values(await getStocks(symbols)).map(s => [s.symbol, s.currency]))
   const rows = computeStockRows(allocations, transactions, bands, (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0), undefined, prices, inrRates)
   const sorted = [...rows].sort((a, b) => a.symbol.localeCompare(b.symbol))
 
@@ -38,6 +40,7 @@ export default async function BandsPage({
         fiscalYears={fiscalYears}
         selectedFY={fy ?? null}
         investabilities={investabilities}
+        currencies={currencies}
       />
     </>
   )

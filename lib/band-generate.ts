@@ -1,11 +1,12 @@
-import { deriveIndexEps, getIndexSource } from '@/lib/band-calculator'
+import { deriveIndexEps, getIndexFeed, getIndexSource } from '@/lib/band-calculator'
 import type { BandResult } from '@/lib/band-calculator'
 import { fetchNseIndex } from '@/lib/nse'
 import { fetchCmp } from '@/lib/market-data'
+import { fetchSp500Pe } from '@/lib/multpl'
 import { ensureStocks } from '@/lib/stock-master'
 import type { StockCategory } from '@/lib/types'
 
-export interface IndexInputs { level: number; pe: number; cmp: number; eps: number }
+export interface IndexInputs { level: number | null; pe: number; cmp: number; eps: number }
 
 /** The stored `buy_bands` columns the generate route reads back. */
 export interface StoredBand {
@@ -29,20 +30,31 @@ export interface IndexState {
 }
 
 // Fetch a fresh, consistent (CMP, PE) pair for an index ETF and derive eps = cmp/pe.
-// fetchNseIndex keys on the index name (from category); fetchCmp takes the ETF's
-// Yahoo symbol from the instrument master. Both read in one moment so the stored band, eps,
-// and cmp stay mutually consistent — that consistency is what makes the rupee-band
-// zone test reduce exactly to a PE comparison.
+// The PE feed comes from the category: NSE (keyed on the index name, which also gives the index
+// level) or multpl (S&P 500, PE only). fetchCmp takes the ETF's Yahoo symbol from the instrument
+// master. Both read in one moment so the stored band, eps, and cmp stay mutually
+// consistent — that consistency is what makes the rupee-band zone test reduce exactly to a PE comparison.
 export async function fetchIndexInputs(category: StockCategory, symbol: string): Promise<IndexInputs> {
-  const indexName = getIndexSource(category)
-  if (!indexName) throw new Error(`No NSE index mapping for category "${category}"`)
+  const feed = getIndexFeed(category)
+  if (!feed) throw new Error(`No PE source for category "${category}"`)
   const instrument = (await ensureStocks([symbol]))?.[symbol]
   if (!instrument) throw new Error(`No instrument master row for ${symbol}`)
-  const [idx, cmp] = await Promise.all([fetchNseIndex(indexName), fetchCmp(instrument.yahooSymbol)])
+
+  let level: number | null = null
+  let pe: number
+  let cmp: number | null
+  if (feed === 'multpl') {
+    ;[pe, cmp] = await Promise.all([fetchSp500Pe(), fetchCmp(instrument.yahooSymbol)])
+  } else {
+    const indexName = getIndexSource(category)
+    if (!indexName) throw new Error(`No NSE index mapping for category "${category}"`)
+    const [idx, price] = await Promise.all([fetchNseIndex(indexName), fetchCmp(instrument.yahooSymbol)])
+    level = idx.level; pe = idx.pe; cmp = price
+  }
   if (cmp == null) throw new Error(`No CMP available for ${symbol}`)
-  const eps = deriveIndexEps(cmp, idx.pe)
-  if (eps == null) throw new Error(`Cannot derive index eps for ${symbol} (cmp=${cmp}, pe=${idx.pe})`)
-  return { level: idx.level, pe: idx.pe, cmp, eps }
+  const eps = deriveIndexEps(cmp, pe)
+  if (eps == null) throw new Error(`Cannot derive index eps for ${symbol} (cmp=${cmp}, pe=${pe})`)
+  return { level, pe, cmp, eps }
 }
 
 /**

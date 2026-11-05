@@ -7,7 +7,7 @@ IDENTITY
 SCOPE
 - Part A: Investability gates — qualitative. Investor handles independently.
 - Part B: Price bands — purely quantitative. App computes from screener. Bands only.
-- Part C: Index ETF bands — PE-modulated rupee bands. Separate logic from Part B.
+- Part C: Index ETF bands — PE-modulated rupee bands (Nifty 50, Nifty Next 50, S&P 500). Separate logic from Part B.
 - All Part B inputs from screener.in. One macro fetch (risk_free) per session.
 - Approximate bands are acceptable. Long-term directional accuracy is the goal.
 
@@ -323,7 +323,7 @@ OUTPUT
 Section-B bands, with the overlay applied
 -------------------------------------------------------------------------------
 
-C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES)   [v11 — CMP/PE method; JUNIORBEES thresholds recalibrated Oct 2026]
+C) INDEX ETF BANDS (NIFTYBEES / JUNIORBEES / VUAA)   [v11 — CMP/PE method; JUNIORBEES thresholds recalibrated Oct 2026]
 
 ETFs track an index — no EPS, no PAT. Part B does not apply.
 Bands are the ETF rupee price at each target PE, read off the live unit price.
@@ -366,6 +366,7 @@ THRESHOLD CALIBRATION RULE (both ETFs)
 DATA PULL — ONCE PER SESSION
   Nifty 50 PE      : NSE allIndices (consolidated TTM)
   Next 50 PE       : NSE allIndices (consolidated TTM)
+  S&P 500 PE       : multpl.com trailing PE (monthly table)
   CMP (NIFTYBEES)  : exchange or yahoo
   CMP (JUNIORBEES) : exchange or yahoo
   Index level      : optional — context/display only, NOT in the formula
@@ -409,6 +410,34 @@ JUNIORBEES — NIFTY NEXT 50
     PE 20-23x : mid zone
     PE 23-26x : caution
     PE > 26x  : trim / pause
+
+VUAA — S&P 500   [added Nov 2026]
+  Same CMP/PE method, in the ETF's own currency (VUAA.L quotes in USD, not rupees).
+  PE source is multpl.com's S&P 500 trailing PE, not NSE.
+
+  one_PE_point = CMP / sp500_PE
+  buyLow  = 22 x one_PE_point
+  buyHigh = 25 x one_PE_point
+  midLow  = 25 x one_PE_point
+  midHigh = 28 x one_PE_point
+  trim    = 31 x one_PE_point
+
+  PE interpretation:
+    PE < 22x  : deep value
+    PE 22-25x : buy zone
+    PE 25-28x : mid zone
+    PE 28-31x : caution
+    PE > 31x  : trim / pause
+
+  GUARDS (enforced in the app)
+    Range guard   : multpl PE outside 14-35x fails the fetch loudly (parse error or basis change).
+    Freshness     : a multpl reading more than 10 days old fails the fetch loudly.
+    Slow-add sleeve: at most 3 buy levels. Tranche prices snap to 0.5 below 500 and 1 from 500
+                    (INR keeps 5 / 10). Quantity is sized from the INR budget at the saved
+                    USD->INR rate.
+
+  Calibration is a starting point, not yet checked against the S&P 500's own PE distribution; apply the
+  same annual review rule as above.
 
 WORKED EXAMPLE
   NIFTYBEES CMP=273 | nifty50_PE=20.8

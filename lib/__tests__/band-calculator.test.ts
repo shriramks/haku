@@ -5,6 +5,7 @@ import {
   CATEGORY_SPEC,
   computeCategoryGrowth,
   getIndexSource,
+  getIndexFeed,
   getPeGuardMax,
   hasGrowthFloor,
   isIndexCategory,
@@ -19,6 +20,9 @@ import {
   isBandStale,
   convictionMatrix,
   effectiveBands,
+  snapUnit,
+  snapPrice,
+  getTrancheCap,
 } from '../band-calculator'
 
 // ── calculateBands — base multiples (no factor inputs → Path B, sizeMod=1, no ROCE → factor=1) ──
@@ -819,11 +823,14 @@ describe('category registry', () => {
     }
   })
 
-  it('index categories are exactly the two Nifty ETFs, each with an NSE source', () => {
+  it('index categories are the two Nifty ETFs (NSE source) and the S&P 500 (multpl source)', () => {
     const idx = ALL_CATEGORIES.filter(isIndexCategory)
-    expect(idx).toEqual(['Nifty 50 Index', 'Nifty Next 50 Index'])
+    expect(idx).toEqual(['Nifty 50 Index', 'Nifty Next 50 Index', 'S&P 500 Index'])
     expect(getIndexSource('Nifty 50 Index')).toBe('NIFTY 50')
     expect(getIndexSource('Nifty Next 50 Index')).toBe('NIFTY NEXT 50')
+    expect(getIndexFeed('Nifty 50 Index')).toBe('nse')
+    expect(getIndexFeed('S&P 500 Index')).toBe('multpl')
+    expect(getIndexFeed('Hospitals')).toBeNull()
     expect(getIndexSource('Hospitals')).toBeNull()
     expect(isIndexCategory(null)).toBe(false)
   })
@@ -834,5 +841,53 @@ describe('category registry', () => {
     expect(getPeGuardMax('Jewellery')).toBeNull()
     expect(computeCategoryGrowth('Hospitals', 120, 100, 18).g).toBe(0.15)
     expect(computeCategoryGrowth('Jewellery', 120, 100, 18).g).toBeCloseTo(Math.pow(1.2, 1 / 3) - 1)
+  })
+})
+
+// ── S&P 500 Index (VUAA) ─────────────────────────────────────────────────────
+
+describe('S&P 500 Index category', () => {
+  it('is an index category with no NSE source', () => {
+    expect(ALL_CATEGORIES).toContain('S&P 500 Index')
+    expect(isIndexCategory('S&P 500 Index')).toBe(true)
+    expect(getIndexSource('S&P 500 Index')).toBeNull()
+  })
+
+  it('bands at 22 / 25 / 25 / 28 / 31 x eps', () => {
+    const r = calculateBands({ category: 'S&P 500 Index', eps: 10 })!
+    expect(r.path).toBe('index')
+    expect([r.buyLow, r.buyHigh, r.midLow, r.midHigh, r.trimPrice]).toEqual([220, 250, 250, 280, 310])
+  })
+
+  it('caps buy levels at 3 tranches; other categories are uncapped', () => {
+    expect(getTrancheCap('S&P 500 Index')).toBe(3)
+    expect(getTrancheCap('Nifty 50 Index')).toBeNull()
+    expect(getTrancheCap('Hospitals')).toBeNull()
+    expect(getTrancheCap(null)).toBeNull()
+  })
+})
+
+describe('currency-aware tranche snap', () => {
+  it('INR is unchanged: 5 below 500, 10 from 500', () => {
+    expect(snapUnit(120, 'INR')).toBe(5)
+    expect(snapUnit(600, 'INR')).toBe(10)
+    expect(snapPrice(123, 'INR')).toBe(125)
+    expect(snapPrice(123)).toBe(125)
+  })
+  it('foreign currencies snap to 0.5 below 500 and 1 from 500', () => {
+    expect(snapUnit(146, 'USD')).toBe(0.5)
+    expect(snapUnit(600, 'USD')).toBe(1)
+    expect(snapPrice(145.88, 'USD')).toBe(146)
+    expect(snapPrice(142.2, 'USD')).toBe(142)
+  })
+  it('computeTranchePrices spreads USD-scale prices without collapsing to one', () => {
+    const prices = computeTranchePrices(125, 150, 146, 3, 122.5, true, null, 0.05, 'USD')
+    expect(prices.length).toBeGreaterThanOrEqual(2)
+    expect(prices.every(p => p % 0.5 === 0)).toBe(true)
+    expect(Math.max(...prices)).toBeLessThanOrEqual(146)
+  })
+  it('stagedDeepCmp steps by the currency snap unit', () => {
+    expect(stagedDeepCmp(150, 160, 140, 'USD')).toBe(139.5)
+    expect(stagedDeepCmp(150, 160, 140)).toBe(135)
   })
 })

@@ -1,10 +1,12 @@
-import { formatPrice, formatPriceNum } from '@/lib/formatter'
+import { priceFormatter } from '@/lib/formatter'
 
-export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp }: {
+export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, cmp, currency = 'INR' }: {
   buyLow: number; buyHigh: number
   midLow: number; midHigh: number
   trimPrice: number; cmp: number | null
+  currency?: string
 }) {
+  const { price: formatPrice, num: formatPriceNum, symbol } = priceFormatter(currency)
   const naturalMin = buyLow * 0.9
   const min = cmp != null && cmp < naturalMin ? cmp * 0.97 : naturalMin
   const max = midHigh
@@ -77,17 +79,17 @@ export default function BandBar({ buyLow, buyHigh, midLow, midHigh, trimPrice, c
           <p style={{ color: 'var(--text-faint)' }}>Deep</p>
         </div>
         <div className="text-center">
-          <p className="font-semibold text-signal-buy">₹{formatPriceNum(buyLow)}–{formatPriceNum(buyHigh)}</p>
+          <p className="font-semibold text-signal-buy">{symbol}{formatPriceNum(buyLow)}–{formatPriceNum(buyHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Buy</p>
         </div>
         {showWait && (
           <div className="text-center">
-            <p className="font-semibold" style={{ color: '#5EAA80' }}>₹{formatPriceNum(buyHigh)}–{formatPriceNum(midLow)}</p>
+            <p className="font-semibold" style={{ color: '#5EAA80' }}>{symbol}{formatPriceNum(buyHigh)}–{formatPriceNum(midLow)}</p>
             <p style={{ color: 'var(--text-faint)' }}>Wait</p>
           </div>
         )}
         <div className="text-center">
-          <p className="font-semibold text-signal-hold">₹{formatPriceNum(midLow)}–{formatPriceNum(midHigh)}</p>
+          <p className="font-semibold text-signal-hold">{symbol}{formatPriceNum(midLow)}–{formatPriceNum(midHigh)}</p>
           <p style={{ color: 'var(--text-faint)' }}>Hold</p>
         </div>
         <div className="text-center">

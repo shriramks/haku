@@ -7,7 +7,8 @@
 - **Supabase** — auth + PostgreSQL with Row Level Security per user
 - **Yahoo Finance** — live CMP + 52-week range
 - **Screener.in** — HTML parsing for financial inputs (EPS, PAT, ROCE, op margin, revenue, mcap) via `lib/screener.ts`
-- **NSE API** — index level and PE for ETF bands via `lib/nse.ts`
+- **NSE API** — index level and PE for Nifty ETF bands via `lib/nse.ts`
+- **multpl.com** — S&P 500 trailing PE for the S&P 500 band (VUAA) via `lib/multpl.ts`
 - **Gemini** — optional user-provided AI key for investability scoring only
 
 ---
@@ -118,6 +119,7 @@ Supported categories:
 - `Tobacco Corp`
 - `Nifty 50 Index`
 - `Nifty Next 50 Index`
+- `S&P 500 Index`
 
 Stock bands are PE-based with a factor computed from:
 
@@ -128,7 +130,7 @@ Stock bands are PE-based with a factor computed from:
 
 Index ETF bands are also PE-based, but `factor = 1.00` and `eps` is derived from:
 
-- `index_level / index_pe / 100`
+- `cmp / index_pe` (the rupee value of one PE point, read off the live ETF price)
 
 ---
 
@@ -150,7 +152,7 @@ Index ETF bands are also PE-based, but `factor = 1.00` and `eps` is derived from
 Stored inputs:
 
 - Stocks: `eps`, `pat_now`, `pat_3yr_ago`, `roce_3yr_avg`, `mcap`, `op_profit_cr`, `revenue_cr`
-- Index ETFs: `index_level`, `index_pe`, derived `eps`
+- Index ETFs: `index_level`, `index_pe`, derived `eps`; the S&P 500 band has a null `index_level` (multpl gives PE only)
 
 ### `bands`
 

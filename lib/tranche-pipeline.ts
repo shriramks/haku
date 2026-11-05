@@ -8,11 +8,12 @@ import { revalidateTag } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, snapPrice, snapUnit,
-  isIndexCategory, convictionMatrix, effectiveBands,
+  isIndexCategory, convictionMatrix, effectiveBands, getTrancheCap,
 } from './band-calculator'
 import { computeSnowball } from './snowball'
 import { fetchYearChart } from './market-data'
 import { ensureStocks } from './stock-master'
+import { getInrPerUnit } from './data'
 import type { BuyTranche, StockCategory } from './types'
 
 export type TrancheGenResult =
@@ -132,7 +133,13 @@ export async function generateTranchesForSymbol(
   const fiftyTwoWeekLow = chart.week52Low
 
   // Staged buy: in deep value zone, cap effective CMP below the user's cheapest prior entry.
-  const stagedCmp = stagedDeepCmp(liveCmp, buyLow, minBuyPrice)
+  const currency = instrument?.currency ?? 'INR'
+  // The budget is INR but a foreign instrument's tranche prices are in its own currency, so sizing needs INR per unit.
+  const inrPerUnit = currency === 'INR' ? 1 : (await getInrPerUnit([upperSymbol]))[upperSymbol] ?? null
+  if (inrPerUnit == null) {
+    return { ok: false, status: 422, error: `Cannot size tranches for ${upperSymbol}: no ${currency}→INR rate saved. Refresh prices first.` }
+  }
+  const stagedCmp = stagedDeepCmp(liveCmp, buyLow, minBuyPrice, currency)
 
   const deployable = remaining
   const isIndex = isIndexCategory(alloc?.category)
@@ -165,9 +172,13 @@ export async function generateTranchesForSymbol(
     }
   }
 
+  // A slow-add sleeve (S&P 500) caps the number of buy levels.
+  const trancheCap = getTrancheCap(alloc?.category)
+  const trancheCount = trancheCap != null ? Math.min(conviction.trancheCount, trancheCap) : conviction.trancheCount
+
   const prices = computeTranchePrices(
-    buyLow, buyHigh, stagedCmp, conviction.trancheCount,
-    fiftyTwoWeekLow, isIndex, conviction.ceilingOverride, conviction.deepExtension,
+    buyLow, buyHigh, stagedCmp, trancheCount,
+    fiftyTwoWeekLow, isIndex, conviction.ceilingOverride, conviction.deepExtension, currency,
   )
 
   // Sort highest to lowest (index 0 = nearest to market, last = deepest)
@@ -183,8 +194,8 @@ export async function generateTranchesForSymbol(
       .filter(p => p >= priceMin && p <= priceMax)
       .sort((a, b) => b - a)[0]
     if (anchorRaw != null) {
-      const anchor = snapPrice(anchorRaw)
-      const alreadyCovered = sortedPrices.some(p => Math.abs(p - anchor) <= snapUnit(anchor))
+      const anchor = snapPrice(anchorRaw, currency)
+      const alreadyCovered = sortedPrices.some(p => Math.abs(p - anchor) <= snapUnit(anchor, currency))
       if (!alreadyCovered) {
         const closestIdx = sortedPrices.reduce((best, p, i) =>
           Math.abs(p - anchor) < Math.abs(sortedPrices[best] - anchor) ? i : best, 0)
@@ -208,7 +219,7 @@ export async function generateTranchesForSymbol(
       user_id:    userId,
       symbol:     upperSymbol,
       price,
-      qty:        amt > 0 ? Math.max(1, Math.round(amt / price)) : 0,
+      qty:        amt > 0 ? Math.max(1, Math.round(amt / (price * inrPerUnit))) : 0,
       sort_order: i + 1,
       fy_id:      fyId,
     }
