@@ -623,10 +623,10 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
 
 type Fig = { amount: number } | { pct: number }
 
-/** Planned / Invested / Left / Plan free. `withWas` adds the before column (edit only). `tone` colours a negative / positive amount. */
+/** Planned / Invested / Left / Plan total. `withWas` adds the before column (edit only; a row without `was` leaves it empty). `tone` colours an amount by sign; `gap` starts a new group. */
 function PlanFigures({ rows, withWas }: {
   withWas?: boolean
-  rows: { label: string; was?: Fig; now: Fig; tone?: boolean }[]
+  rows: { label: string; was?: Fig; now: Fig; tone?: boolean; gap?: boolean }[]
 }) {
   const cell = (f: Fig, color: string) => (
     <span className="text-body tabnum" style={{ color }}>
@@ -646,8 +646,9 @@ function PlanFigures({ rows, withWas }: {
       )}
       {rows.map(r => (
         <div key={r.label} className="contents">
+          {r.gap && <span style={{ gridColumn: '1 / -1', height: 6 }} />}
           <span className="text-body" style={{ color: 'var(--text-2)' }}>{r.label}</span>
-          {withWas && r.was && cell(r.was, 'var(--text-muted)')}
+          {withWas && (r.was ? cell(r.was, 'var(--text-muted)') : <span />)}
           {cell(r.now, r.tone ? tone(r.now) : 'var(--text-primary)')}
         </div>
       ))}
@@ -680,8 +681,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
   const sliderMax    = round1(Math.min(100, 100 - totalPct + alloc.allocation_pct))
   const wasBudget    = (alloc.allocation_pct / 100) * totalBudget
   const nowBudget    = (pct / 100) * totalBudget
-  const wasFreePct   = round1(100 - totalPct)
-  const nowFreePct   = round1(100 - (totalPct - alloc.allocation_pct + pct))
+  const nowPlanPct   = round1(totalPct - alloc.allocation_pct + pct)
 
   async function handleSave() {
     if (pct <= 0) return
@@ -739,9 +739,9 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
         </div>
         <PlanFigures withWas rows={[
           { label: 'Planned',   was: { amount: wasBudget }, now: { amount: nowBudget } },
-          { label: 'Invested',  was: { amount: invested },  now: { amount: invested } },
+          { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      was: { amount: wasBudget - invested }, now: { amount: nowBudget - invested }, tone: true },
-          { label: 'Plan free', was: { pct: wasFreePct },    now: { pct: nowFreePct } },
+          { label: 'Plan total', now: { pct: nowPlanPct }, gap: true },
         ]} />
 
         {/* Category picker */}
@@ -858,7 +858,7 @@ function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
   const sliderMax   = round1(Math.min(100, 100 - totalPct))
   const budget      = (pct / 100) * totalBudget
   const invested    = spent[shownSymbol] ?? 0
-  const nowFreePct  = round1(100 - totalPct - pct)
+  const nowPlanPct  = round1(totalPct + pct)
 
   async function handleAdd() {
     if (!canAdd) return
@@ -987,7 +987,7 @@ function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
           { label: 'Planned',   now: { amount: budget } },
           { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      now: { amount: budget - invested }, tone: true },
-          { label: 'Plan free', now: { pct: nowFreePct } },
+          { label: 'Plan total', now: { pct: nowPlanPct }, gap: true },
         ]} />
 
         {/* Category picker */}

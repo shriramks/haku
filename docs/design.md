@@ -328,7 +328,7 @@ Alignment: context-dependent
 ```
 
 ### PlanFigures (Plan edit / Add sheets)
-- Rows of label (body, `--text-2`) + right-aligned `Num align` columns, 84px each: **Was** (`--text-muted`) and **Now** (`--text-primary`), with `.label-field` column heads. Add has the Now column only, no heads.
+- Rows of label (body, `--text-2`) + right-aligned `Num align` columns, 84px each: **Was** (`--text-muted`) and **Now** (`--text-primary`), with `.label-field` column heads. A value that cannot change in the sheet (Invested, Plan total) leaves Was empty. Plan total starts its own group after a small gap. Add has the Now column only, no heads.
 - Left is `--c-positive` / `--c-negative` by sign; no ₹ anywhere, no line under the hero %.
 
 ### BottomSheet

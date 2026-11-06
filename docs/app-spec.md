@@ -246,7 +246,7 @@ transaction history for a stock filter the Transactions tab.
 
 **Edit / Add sheets (#165):**
 - The % moves in **0.1** steps (stepper and slider); stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
-- Under the %, a figures table: **Planned** (% of the Plan pool incl. carryover), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation), **Left** (Planned − Invested, red when negative) and **Plan free** (% of the plan not allocated). Edit has **Was** and **Now** columns; Add has Now only.
+- Under the %, a figures table: **Planned** (% of the Plan pool incl. carryover), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation), **Left** (Planned − Invested, red when negative), then **Plan total** (% of the plan allocated across all stocks, counting this stock at its new %). Edit has **Was** and **Now** columns for Planned and Left; Invested and Plan total show the current value only. Add has Now only.
 - Cutting a stock below what is invested is allowed; Left goes negative. Changing a % does not regenerate tranches — that stays manual.
 
 ---
