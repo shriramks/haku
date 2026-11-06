@@ -28,7 +28,6 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
   const hidden = HIDDEN_PATHS.includes(path)
   const [addOpen, setAddOpen] = useState(false)
   const [addSymbol, setAddSymbol] = useState<string | undefined>(undefined)
-  const [onboarding, setOnboarding] = useState<string | null>(null)
   const [storedFY, setStoredFY] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,14 +43,6 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
 
   useEffect(() => {
     if (hidden) return
-    setOnboarding(localStorage.getItem('haku_onboarding'))
-    function syncOnboarding() { setOnboarding(localStorage.getItem('haku_onboarding')) }
-    window.addEventListener('haku_onboarding', syncOnboarding)
-    return () => window.removeEventListener('haku_onboarding', syncOnboarding)
-  }, [hidden])
-
-  useEffect(() => {
-    if (hidden) return
     setStoredFY(localStorage.getItem('haku_fy'))
     function syncFY() { setStoredFY(localStorage.getItem('haku_fy')) }
     window.addEventListener('haku_fy_change', syncFY)
@@ -61,8 +52,6 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
   function tabHref(base: string) {
     return storedFY ? `${base}?fy=${encodeURIComponent(storedFY)}` : base
   }
-
-  const pulseBands = onboarding === 'bands'
 
   if (hidden) return null
 
@@ -82,7 +71,6 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
         <div className="flex items-center justify-around flex-1 p-2 backdrop-blur-xl pointer-events-auto" style={pillStyle}>
           {TABS.map(({ href, label, Icon }) => {
             const active   = path === href || path.startsWith(href + '/')
-            const showPulse = href === '/bands' && pulseBands
             return (
               <Link key={href} href={tabHref(href)}
                 className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-colors relative"
@@ -90,16 +78,7 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
                   color: active ? 'var(--text-primary)' : 'var(--text-muted)',
                   background: active ? 'var(--bg-tertiary)' : 'transparent',
                 }}>
-                {showPulse && (
-                  <span className="absolute whitespace-nowrap text-footnote font-semibold text-white px-2 py-0.5 rounded-md bg-accent"
-                        style={{ bottom: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', position: 'absolute' }}>
-                    {href === '/bands' ? 'Generate buy bands →' : 'Set up your plan →'}
-                  </span>
-                )}
-                <div className="relative">
-                  <Icon className="w-[25px] h-[25px]" />
-                  {showPulse && <PulseDot />}
-                </div>
+                <Icon className="w-[25px] h-[25px]" />
                 <span className="text-[10px] font-medium leading-none"
                       style={{ fontWeight: active ? 600 : 500 }}>{label}</span>
               </Link>
@@ -119,15 +98,6 @@ export default function BottomNav({ planSymbols, foreignCurrencies }: { planSymb
 
       {addOpen && <AddTxnModal onClose={() => { setAddOpen(false); setAddSymbol(undefined) }} initialSymbol={addSymbol} planSymbols={planSymbols} foreignCurrencies={foreignCurrencies} />}
     </>
-  )
-}
-
-function PulseDot() {
-  return (
-    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 bg-accent" />
-      <span className="relative inline-flex rounded-full h-2.5 w-2.5 border border-black bg-accent" />
-    </span>
   )
 }
 

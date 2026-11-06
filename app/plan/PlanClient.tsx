@@ -11,7 +11,7 @@ import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { isNseExchange } from '@/lib/instrument'
-import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, getSpentForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations, lookupInstrument, registerInstrument, type InstrumentLookup } from '@/app/actions'
+import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, getSpentForFY, checkFYHasTxns, getPrevFYCarryover, copyAllocations, lookupInstrument, registerInstrument, type InstrumentLookup } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -31,11 +31,6 @@ interface Props {
   initialAllocations: StockAllocation[]
   /** Net invested per symbol in the initial FY (`spent`). */
   initialSpent: Record<string, number>
-}
-
-function setOnboardingStep(step: string) {
-  localStorage.setItem('haku_onboarding', step)
-  window.dispatchEvent(new Event('haku_onboarding'))
 }
 
 export default function PlanClient({ fiscalYears, initialFY, initialAllocations, initialSpent }: Props) {
@@ -78,16 +73,6 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
     if (!selectedFY) { setFyHasTxns(false); return }
     checkFYHasTxns(selectedFY.id).then(setFyHasTxns)
   }, [selectedFY?.id])
-
-  useEffect(() => {
-    if (fiscalYears.length === 0) {
-      setOnboardingStep('plan')
-    } else if (allocations.length === 0) {
-      setOnboardingStep('stocks')
-    } else {
-      hasBands().then(has => setOnboardingStep(has ? 'done' : 'bands'))
-    }
-  }, [fiscalYears.length, allocations.length])
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)

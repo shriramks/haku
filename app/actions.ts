@@ -142,17 +142,6 @@ export async function getPrevFYCarryover(prevFYId: string, prevFYPool: number): 
   return prevFYPool - netDeployed((data ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[])
 }
 
-/** Returns true if any current buy bands exist — used for onboarding step */
-export async function hasBands(): Promise<boolean> {
-  const userId = await getUserId()
-  if (!userId) return false
-  const { count } = await createSupabaseServiceClient()
-    .from('buy_bands')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-  return (count ?? 0) > 0
-}
-
 /** Fetches all stock transactions (all FYs) — used by TransactionsClient to expand history beyond the initial current-FY slice. Hits the unstable_cache so it's fast when warm. */
 export async function loadAllStockTransactions(): Promise<Transaction[]> {
   return getTransactions()
