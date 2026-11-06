@@ -244,6 +244,11 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 - All four columns are `headline` (15px) — matches the primary-row size used everywhere else (Allocation, Bands). Bold/semibold weight and colour (not size) distinguish it from the HoldingRows it heads.
 - The % column is 78px: sized for the old 17px headline overflowing at +48.2 % (now 15px, so this has more headroom than strictly needed, but still holds an XIRR above 100 %).
 
+### Tax screen (`app/tax/`)
+- Slab rate and Surcharge are two 44px rows at the top (label `body` `--text-2`, native select `headline` accent), 12px above and below. They drive every figure on the page, so they sit above all sections.
+- Sections (Advance Tax, Total Tax, Harvesting) use the same header as Portfolio: `.list-row` (56px), bold `headline` label, the section's hero value on the right (next due / Net payable / remaining exemption, `headline` semibold `--text-2`), right chevron that rotates down when open. No margin between headers.
+- Instalment rows: 48px single-line, 56px with a second line (Missed / Paid / interest). Past rows recede by label colour (`--text-2`), never by opacity. "Total for the year" is a `DetailRow`.
+
 ### HoldingRow (Portfolio: Stocks incl. USD holdings, MF, Gold — `components/HoldingRow.tsx`)
 ```
 name (headline, semibold, max 2 lines)        value (headline, semibold)

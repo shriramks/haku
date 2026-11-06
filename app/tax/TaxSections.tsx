@@ -5,40 +5,40 @@ import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
-import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
+import { ChevronRightIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
 import { formatINRFine, todayISO } from '@/lib/formatter'
-import SlabRateSelect from '@/components/SlabRateSelect'
-import SurchargeSelect from '@/components/SurchargeSelect'
 import type { SurchargeBracket } from '@/lib/tax-liability'
 
 export type SectionKey = 'advance' | 'tax' | 'harvesting'
 
-// ── Collapsible section — same pattern as the rest of the app. No border —
-// sections are separated by spacing and the header label itself, per
-// docs/design.md ("groups are separated by SectionDividers — text labels —
-// ... not by background colour changes or rounded containers"). ───────────
+// ── Collapsible section — same header as Portfolio's SectionHeader: `.list-row`
+// (56px), bold headline label, the section's hero value on the right, a right
+// chevron that rotates down when open. No border; spacing is set by the page. ─
 
 export function Section({
-  title, sectionKey, expanded, onToggle, children,
+  title, sectionKey, expanded, onToggle, value, children,
 }: {
   title:      string
   sectionKey: SectionKey
   expanded:   Set<SectionKey>
   onToggle:   (k: SectionKey) => void
+  value:      React.ReactNode
   children:   React.ReactNode
 }) {
   const isOpen = expanded.has(sectionKey)
   return (
-    <div style={{ marginTop: 24 }}>
+    <div>
       <button
         onClick={() => onToggle(sectionKey)}
-        className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 48 }}>
-        <span className="text-headline font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-        <ChevronDownIcon
-          className="w-4 h-4 transition-transform"
-          style={{ color: 'var(--text-faint)', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-        />
+        className="flex items-center justify-between w-full px-4 list-row tap-row">
+        <span className="text-headline font-bold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <span className="flex items-center gap-2.5">
+          <span className="text-headline font-semibold tabnum" style={{ color: 'var(--text-2)' }}>{value}</span>
+          <ChevronRightIcon
+            className="w-4 h-4 transition-transform duration-150"
+            style={{ color: 'var(--text-muted)', transform: isOpen ? 'rotate(90deg)' : 'none' }}
+          />
+        </span>
       </button>
       {isOpen && children}
     </div>
@@ -67,9 +67,7 @@ export function InstalmentsBody({
           onTap={() => onEdit(r)}
         />
       ))}
-      <p className="px-4 pt-1 text-right text-footnote" style={{ color: 'var(--text-faint)' }}>
-        {formatINRFine(annualTarget)} total for the year
-      </p>
+      <DetailRow label="Total for the year" bold><Num amount={annualTarget} align /></DetailRow>
     </div>
   )
 }
@@ -100,9 +98,9 @@ function MilestoneRow({ result, priorInterest, onTap }: {
   // Once a milestone's own due date is behind us, its shortfall + interest
   // has already rolled forward into whichever milestone is next (see
   // `computeInstalments` in lib/advance-tax.ts) — so a past row is never
-  // something to separately act on again, paid or not. It recedes; only the
-  // nearest still-open row stays full-weight.
-  const recede = duePast
+  // something to separately act on again, paid or not. It recedes through its
+  // label colour only (never opacity — dimming is for allocation-done rows).
+  const labelColor = duePast ? 'var(--text-2)' : 'var(--text-primary)'
 
   // Settled or missed — either way `payableNow` alone (a bare "0", or a
   // stale non-zero amount that's already baked into a later row) doesn't say
@@ -118,14 +116,14 @@ function MilestoneRow({ result, priorInterest, onTap }: {
       <button
         onClick={onTap}
         className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 56, opacity: recede ? 0.35 : 1 }}>
-        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
+        style={{ minHeight: 56 }}>
+        <span className="text-body font-semibold" style={{ color: labelColor }}>{milestone.label}</span>
         <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
           <span className={`flex items-center gap-1.5 ${colorClass}`}>
             <Icon className="w-[15px] h-[15px]" />
             <span className="text-headline font-semibold">{word}</span>
           </span>
-          <span className="text-footnote tabnum" style={{ color: 'var(--text-muted)' }}><Num amount={refAmount} /></span>
+          <span className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}><Num amount={refAmount} /></span>
         </span>
       </button>
     )
@@ -140,17 +138,17 @@ function MilestoneRow({ result, priorInterest, onTap }: {
     <button
       onClick={onTap}
       className="flex items-center justify-between w-full px-4 tap-row"
-      style={{ minHeight: 56, opacity: recede ? 0.35 : 1 }}>
+      style={{ minHeight: meta ? 56 : 48 }}>
       <div className="flex flex-col gap-0.5 items-start min-w-0">
-        <span className="text-body font-semibold" style={{ color: 'var(--text-primary)' }}>{milestone.label}</span>
-        {meta && <span className="text-footnote" style={{ color: 'var(--text-faint)' }}>{meta}</span>}
+        <span className="text-body font-semibold" style={{ color: labelColor }}>{milestone.label}</span>
+        {meta && <span className="text-footnote" style={{ color: 'var(--text-2)' }}>{meta}</span>}
       </div>
       <span className="text-headline font-bold tabnum flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}><Num amount={payableNow} align /></span>
     </button>
   )
 }
 
-// ── Total Tax — answer first (slab select, Tax/Cess/TDS/Paid/Net Payable),
+// ── Total Tax — answer first (Tax/Cess/TDS/Paid/Net Payable),
 // then a Breakdown of every bucket that feeds it. ───────────────────────────
 
 const SURCHARGE_LABEL: Record<SurchargeBracket, string> = { NONE: '', S10: '10%', S15: '15%', S25: '25%' }
@@ -175,8 +173,7 @@ export interface GoldEtfSummary {
 export function TaxBody({
   rows, goldEtf, dividendIncome, dividendRateLabel, dividendTax,
   setOffLines, newCarryForwardLine,
-  tax, surcharge, surchargeBracket, onSurchargeChange, cess, tdsCredit, advancePaid, payable,
-  slabRatePct, onSlabRateChange, onShare,
+  tax, surcharge, surchargeBracket, cess, tdsCredit, advancePaid, payable, onShare,
 }: {
   rows:                TaxBucketRow[]
   goldEtf:             GoldEtfSummary
@@ -188,27 +185,14 @@ export function TaxBody({
   tax:                 number
   surcharge:           number
   surchargeBracket:    SurchargeBracket
-  onSurchargeChange:   (v: SurchargeBracket) => void
   cess:                number
   tdsCredit:           number
   advancePaid:         number
   payable:             number
-  slabRatePct:         number
-  onSlabRateChange:    (v: number) => void
   onShare:             () => void
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between px-4" style={{ minHeight: 44, paddingTop: 8 }}>
-        <span className="text-body" style={{ color: 'var(--text-2)' }}>Slab Rate</span>
-        <SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />
-      </div>
-
-      <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
-        <span className="text-body" style={{ color: 'var(--text-2)' }}>Surcharge</span>
-        <SurchargeSelect value={surchargeBracket} onChange={onSurchargeChange} />
-      </div>
-
       <DetailRow label="Tax"><Num amount={tax} align /></DetailRow>
       {surchargeBracket !== 'NONE' && (
         <DetailRow label={`Surcharge @ ${SURCHARGE_LABEL[surchargeBracket]}`}><Num amount={surcharge} align /></DetailRow>
@@ -246,9 +230,6 @@ export function TaxBody({
       {setOffLines.length > 0 && (
         <>
           <SectionLabel label="Set-off" className="px-4" />
-          <p className="px-4 pb-1.5 text-footnote" style={{ color: 'var(--text-faint)' }}>
-            Short-term losses offset any gain; long-term losses offset only long-term gains.
-          </p>
           {setOffLines.map((line, i) => (
             <p key={i} className="px-4 pb-1.5 text-footnote" style={{ color: 'var(--text-muted)' }}>{line}</p>
           ))}

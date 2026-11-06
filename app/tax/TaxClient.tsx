@@ -16,8 +16,10 @@ import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { Button } from '@/components/Button'
-import { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
-import { DEFAULT_SURCHARGE_BRACKET } from '@/components/SurchargeSelect'
+import SlabRateSelect, { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
+import SurchargeSelect, { DEFAULT_SURCHARGE_BRACKET } from '@/components/SurchargeSelect'
+import { Num } from '@/components/Num'
+import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Section, InstalmentsBody, TaxBody, HarvestingBody } from './TaxSections'
 import type { SectionKey, TaxBucketRow, GoldEtfSummary } from './TaxSections'
 
@@ -172,6 +174,8 @@ export default function TaxClient({
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
+  // Advance Tax header value: what's due at the next milestone that isn't yet past.
+  const nextDue = instalments.find(r => todayISO() <= r.milestone.date)
 
   const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER
     .filter(bucket => !bucket.startsWith('foreign') || raw[bucket] !== 0 || setOff.final[bucket] !== 0)
@@ -338,13 +342,26 @@ export default function TaxClient({
         </div>
       </div>
 
+      <div style={{ height: 12 }} />
+      <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
+        <span className="text-body" style={{ color: 'var(--text-2)' }}>Slab rate</span>
+        <SlabRateSelect value={slabRatePct} onChange={setSlabRatePct} />
+      </div>
+      <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
+        <span className="text-body" style={{ color: 'var(--text-2)' }}>Surcharge</span>
+        <SurchargeSelect value={surchargeBracket} onChange={setSurchargeBracket} />
+      </div>
+      <div style={{ height: 12 }} />
+
       {selectedFY && !suppressInstalments && (
-        <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}>
+        <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}
+                 value={nextDue ? <Num amount={nextDue.payableNow} align /> : null}>
           <InstalmentsBody results={instalments} onEdit={setEditingMilestone} />
         </Section>
       )}
 
-      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle}>
+      <Section title="Total Tax" sectionKey="tax" expanded={expanded} onToggle={toggle}
+               value={<Num amount={payable} align />}>
         <TaxBody
           rows={taxRows}
           goldEtf={goldEtf}
@@ -356,18 +373,16 @@ export default function TaxClient({
           tax={taxResult.tax}
           surcharge={taxResult.surcharge}
           surchargeBracket={surchargeBracket}
-          onSurchargeChange={setSurchargeBracket}
           cess={taxResult.cess}
           tdsCredit={tds}
           advancePaid={advancePaidTotal}
           payable={payable}
-          slabRatePct={slabRatePct}
-          onSlabRateChange={setSlabRatePct}
           onShare={shareTax}
         />
       </Section>
 
-      <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}>
+      <Section title="Harvesting" sectionKey="harvesting" expanded={expanded} onToggle={toggle}
+               value={<Num amount={LTCG_EXEMPTION - setOff.exemptionApplied} align />}>
         <HarvestingBody
           exemptionUsed={setOff.exemptionApplied}
           unrealisedLoss={harvestingData.unrealisedLoss}

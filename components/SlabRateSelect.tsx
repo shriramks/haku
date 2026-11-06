@@ -16,7 +16,7 @@ export default function SlabRateSelect({ value, onChange }: Props) {
     <select
       value={value}
       onChange={e => onChange(Number(e.target.value))}
-      className="text-footnote font-semibold tabnum"
+      className="text-headline font-semibold tabnum"
       style={{ background: 'transparent', color: 'var(--accent)', border: 'none', padding: 0 }}
     >
       {SLAB_RATES.map(rate => (

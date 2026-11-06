@@ -23,7 +23,7 @@ export default function SurchargeSelect({ value, onChange }: Props) {
     <select
       value={value}
       onChange={e => onChange(e.target.value as SurchargeBracket)}
-      className="text-footnote font-semibold tabnum"
+      className="text-headline font-semibold tabnum"
       style={{ background: 'transparent', color: 'var(--accent)', border: 'none', padding: 0 }}
     >
       {OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
