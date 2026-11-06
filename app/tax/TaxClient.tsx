@@ -5,8 +5,8 @@ import type { FiscalYear, Transaction, DividendTransaction, AdvanceTaxPaidRow, C
 import type { MFund, MFTransaction, SGBTransaction } from '@/lib/portfolio-types'
 import { gatherBucketedGains, computeStockGains, computeMFGains, computeGoldGains, mfAssetClass, groupBy, netStockQty, LTCG_DAYS_DEBT } from '@/lib/tax-compute'
 import type { RealisedGain, UnrealisedPosition } from '@/lib/tax-compute'
-import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward } from '@/lib/tax-liability'
-import type { CarryForwardRow, Bucket } from '@/lib/tax-liability'
+import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward, SURCHARGE_RATE } from '@/lib/tax-liability'
+import type { CarryForwardRow, Bucket, SurchargeBracket } from '@/lib/tax-liability'
 import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
 import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
@@ -17,6 +17,7 @@ import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { Button } from '@/components/Button'
 import { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
+import { DEFAULT_SURCHARGE_BRACKET } from '@/components/SurchargeSelect'
 import { Section, InstalmentsBody, TaxBody, HarvestingBody } from './TaxSections'
 import type { SectionKey, TaxBucketRow, GoldEtfSummary } from './TaxSections'
 
@@ -47,6 +48,7 @@ export default function TaxClient({
   const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
   const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
+  const [surchargeBracket, setSurchargeBracket] = useState<SurchargeBracket>(DEFAULT_SURCHARGE_BRACKET)
   const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
 
   const [paidRows, setPaidRows] = useState<AdvanceTaxPaidRow[]>(advanceTaxPaid)
@@ -150,7 +152,7 @@ export default function TaxClient({
   }, [carryForwardLibRows, selectedFY])
 
   const setOff     = useMemo(() => applySetOff(raw, incomingCarryForward, slabRatePct), [raw, incomingCarryForward, slabRatePct])
-  const taxResult  = useMemo(() => computeTax(setOff.final, computed.dividendIncome, slabRatePct), [setOff, computed.dividendIncome, slabRatePct])
+  const taxResult  = useMemo(() => computeTax(setOff.final, computed.dividendIncome, slabRatePct, surchargeBracket), [setOff, computed.dividendIncome, slabRatePct, surchargeBracket])
   const tds        = dividendTDS(computed.dividendIncome)
 
   const paidRow = useMemo(() => selectedFY ? paidRows.find(r => r.fy_id === selectedFY.id) : undefined, [paidRows, selectedFY])
@@ -162,10 +164,10 @@ export default function TaxClient({
   const instalments = useMemo(() => {
     if (!selectedFY) return [] as InstalmentResult[]
     const milestones     = advanceTaxMilestones(selectedFY)
-    const liabilityAsOf  = buildLiabilityAsOf({ stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart: selectedFY.start_date, incomingCarryForward, slabRatePct })
+    const liabilityAsOf  = buildLiabilityAsOf({ stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart: selectedFY.start_date, incomingCarryForward, slabRatePct, surchargeBracket })
     return computeInstalments(milestones, liabilityAsOf, paid, todayISO())
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
+  }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, incomingCarryForward, slabRatePct, surchargeBracket, paid.jun, paid.sep, paid.dec, paid.mar])
 
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
@@ -228,6 +230,7 @@ export default function TaxClient({
       `Total Tax — ${selectedFY?.label ?? ''}`,
       '',
       `Tax: ${formatINRFine(taxResult.tax)}`,
+      ...(surchargeBracket !== 'NONE' ? [`Surcharge @ ${SURCHARGE_RATE[surchargeBracket] * 100}%: ${formatINRFine(taxResult.surcharge)}`] : []),
       `Cess @ 4%: ${formatINRFine(taxResult.cess)}`,
       `Dividend TDS credit: −${formatINRFine(tds)}`,
       `Advance tax paid: −${formatINRFine(advancePaidTotal)}`,
@@ -254,7 +257,7 @@ export default function TaxClient({
     if (setOffLines.length > 0) lines.push('', 'SET-OFF', ...setOffLines)
     if (newCarryForwardLine) lines.push('', newCarryForwardLine)
     return lines.join('\n')
-  }, [selectedFY, taxResult, tds, advancePaidTotal, payable, taxRows, goldEtf, slabRatePct, computed.dividendIncome, setOffLines, newCarryForwardLine])
+  }, [selectedFY, taxResult, surchargeBracket, tds, advancePaidTotal, payable, taxRows, goldEtf, slabRatePct, computed.dividendIncome, setOffLines, newCarryForwardLine])
 
   async function shareTax() {
     if (navigator.share) {
@@ -351,6 +354,9 @@ export default function TaxClient({
           setOffLines={setOffLines}
           newCarryForwardLine={newCarryForwardLine}
           tax={taxResult.tax}
+          surcharge={taxResult.surcharge}
+          surchargeBracket={surchargeBracket}
+          onSurchargeChange={setSurchargeBracket}
           cess={taxResult.cess}
           tdsCredit={tds}
           advancePaid={advancePaidTotal}

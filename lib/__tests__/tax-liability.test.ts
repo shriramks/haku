@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   bucketGains, applySetOff, computeTax, dividendTDS,
   sumCarryForward, consumeCarryForward, buildNewCarryForwardRows,
-  LTCG_EXEMPTION, RATE_EQUITY_LTCG, RATE_EQUITY_STCG, CESS_RATE, DIVIDEND_TDS_RATE,
+  LTCG_EXEMPTION, SURCHARGE_RATE, RATE_EQUITY_LTCG, RATE_EQUITY_STCG, CESS_RATE, DIVIDEND_TDS_RATE,
 } from '../tax-liability'
 import type { RealisedGain, GainType } from '../tax-compute'
 import type { BucketTotals, CarryForwardRow } from '../tax-liability'
@@ -144,7 +144,7 @@ describe('applySetOff — incoming carryforward', () => {
 describe('computeTax', () => {
   it('rates: equity LTCG/debt LTCG at 12.5%, equity STCG at 20%, debt STCG + dividends at slab', () => {
     const final: BucketTotals = { equityLTCG: 10_000, equitySTCG: 10_000, debtLTCG: 10_000, debtSTCG: 10_000, foreignLTCG: 0, foreignSTCG: 0 }
-    const r = computeTax(final, 10_000, 30)
+    const r = computeTax(final, 10_000, 30, 'NONE')
     const byBucket = Object.fromEntries(r.lines.map(l => [l.bucket, l]))
     expect(byBucket.equityLTCG.tax).toBeCloseTo(10_000 * RATE_EQUITY_LTCG)
     expect(byBucket.equitySTCG.tax).toBeCloseTo(10_000 * RATE_EQUITY_STCG)
@@ -155,22 +155,53 @@ describe('computeTax', () => {
 
   it('a bucket left net negative after set-off contributes no tax line', () => {
     const final: BucketTotals = { equityLTCG: 0, equitySTCG: -50_000, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
-    const r = computeTax(final, 0, 30)
+    const r = computeTax(final, 0, 30, 'NONE')
     expect(r.lines.find(l => l.bucket === 'equitySTCG')).toBeUndefined()
   })
 
   it('a bucket reduced to exactly zero by set-off still shows a zero tax line', () => {
     const final: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
-    const r = computeTax(final, 0, 30)
+    const r = computeTax(final, 0, 30, 'NONE')
     expect(r.lines.find(l => l.bucket === 'debtSTCG')?.tax).toBe(0)
   })
 
   it('total = sum of bucket tax + 4% cess', () => {
     const final: BucketTotals = { equityLTCG: 100_000, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
-    const r = computeTax(final, 0, 30)
+    const r = computeTax(final, 0, 30, 'NONE')
     expect(r.tax).toBeCloseTo(100_000 * RATE_EQUITY_LTCG)
     expect(r.cess).toBeCloseTo(r.tax * CESS_RATE)
     expect(r.total).toBeCloseTo(r.tax + r.cess)
+  })
+})
+
+describe('computeTax — surcharge', () => {
+  const all = (n: number): BucketTotals => ({ equityLTCG: n, equitySTCG: n, debtLTCG: n, debtSTCG: n, foreignLTCG: n, foreignSTCG: n })
+
+  it('NONE: zero surcharge, total unchanged', () => {
+    const r = computeTax(all(10_000), 10_000, 30, 'NONE')
+    expect(r.surcharge).toBe(0)
+    expect(r.total).toBeCloseTo(r.tax * (1 + CESS_RATE))
+  })
+
+  it('S10 / S15 apply the full bracket rate to every bucket', () => {
+    for (const b of ['S10', 'S15'] as const) {
+      const r = computeTax(all(10_000), 10_000, 30, b)
+      expect(r.surcharge).toBeCloseTo(r.tax * SURCHARGE_RATE[b])
+    }
+  })
+
+  it('S25 caps gains + dividends at 15%; debt/foreign STCG (slab) take 25%', () => {
+    const r = computeTax(all(10_000), 10_000, 30, 'S25')
+    const by = Object.fromEntries(r.lines.map(l => [l.bucket, l.tax]))
+    const capped   = by.equityLTCG + by.equitySTCG + by.debtLTCG + by.foreignLTCG + by.dividends
+    const uncapped = by.debtSTCG + by.foreignSTCG
+    expect(r.surcharge).toBeCloseTo(capped * 0.15 + uncapped * 0.25)
+  })
+
+  it('cess applies on tax + surcharge', () => {
+    const r = computeTax(all(10_000), 10_000, 30, 'S25')
+    expect(r.cess).toBeCloseTo((r.tax + r.surcharge) * CESS_RATE)
+    expect(r.total).toBeCloseTo(r.tax + r.surcharge + r.cess)
   })
 })
 

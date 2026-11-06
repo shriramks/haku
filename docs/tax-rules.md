@@ -32,3 +32,10 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
 - "Debt" bucket = debt MF **and** gold ETF sold before maturity combined (`gatherBucketedGains`) — so gold ETF fully participates in the above, including crossing into equity via the short-term leg.
 - **SGB held to maturity and physical gold are excluded from the bucketed model entirely** — no resolved bucket, no participation in set-off, reported separately. (SGB-to-maturity is tax-exempt anyway.)
 - Harvesting analysis therefore applies only to equity positions; debt, gold ETF, SGB, and physical gold are reported separately.
+
+### Surcharge and cess
+- **Bracket is user-selected** on the Tax screen (never persisted), from total income including salary — Haku only sees gains and dividends, so it cannot derive it. `None` (≤ 50 L) 0%, `S10` (50 L – 1 Cr) 10%, `S15` (1 – 2 Cr) 15%, `S25` (> 2 Cr, new-regime maximum) 25%. The old-regime 37% above 5 Cr is not offered.
+- **15% cap:** surcharge on equity LTCG/STCG, debt LTCG, foreign LTCG and dividends is `min(bracket, 15%)`. Slab-rate buckets (debt STCG, foreign STCG) take the full bracket rate. `surcharge = Σ line tax × (capped ? min(rate, 15%) : rate)`.
+- **Cess** is 4% of `tax + surcharge`. `total = tax + surcharge + cess`; net payable = total − dividend TDS − advance tax paid.
+- **Advance tax:** the 15/45/75/100% schedule applies to `total − dividend TDS`, so surcharge flows through `buildLiabilityAsOf` automatically.
+- **Not handled:** marginal relief near 50 L / 1 Cr / 2 Cr (needs total income). Ignoring it overstates tax slightly — the safe side.

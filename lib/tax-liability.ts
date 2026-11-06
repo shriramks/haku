@@ -177,19 +177,39 @@ export interface TaxLine {
   tax:     number
 }
 
+// ── Surcharge ────────────────────────────────────────────────────────────────
+// Bracket is picked by the user from their total income (salary included) —
+// Haku only sees gains + dividends, so it can't derive it. Marginal relief near
+// the 50 L / 1 Cr / 2 Cr thresholds is not handled; ignoring it overstates tax.
+
+export type SurchargeBracket = 'NONE' | 'S10' | 'S15' | 'S25'
+
+export const SURCHARGE_RATE: Record<SurchargeBracket, number> = { NONE: 0, S10: 0.10, S15: 0.15, S25: 0.25 }
+
+/** Surcharge on capital gains (111A / 112 / 112A) and dividends never exceeds 15%. */
+export const SURCHARGE_CAP_CG_DIVIDEND = 0.15
+
+const CAPPED_SURCHARGE_BUCKETS: ReadonlySet<TaxLine['bucket']> = new Set<TaxLine['bucket']>([
+  'equityLTCG', 'equitySTCG', 'debtLTCG', 'foreignLTCG', 'dividends',
+])
+
 export interface TaxResult {
-  lines: TaxLine[]
-  tax:   number
-  cess:  number
-  total: number  // tax + cess, before TDS/advance-tax credits
+  lines:     TaxLine[]
+  tax:       number
+  surcharge: number
+  cess:      number
+  total:     number  // tax + surcharge + cess, before TDS/advance-tax credits
 }
 
 const CAPITAL_GAIN_BUCKETS: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG', 'foreignLTCG', 'foreignSTCG']
 
-/** Per-bucket taxable × rate, summed, plus 4% cess. A bucket that's still net
- * negative after set-off (a loss with nowhere left to go) contributes no tax
- * line — it isn't "taxable at 0", it's simply not a gain. */
-export function computeTax(final: BucketTotals, dividendIncome: number, slabRatePct: number): TaxResult {
+/** Per-bucket taxable × rate, summed, plus surcharge and 4% cess. Surcharge is
+ * capped at 15% on the 12.5%/20% gain buckets and dividends; slab-rate buckets
+ * (debt / foreign STCG) take the full bracket rate. Cess applies on tax +
+ * surcharge. A bucket that's still net negative after set-off (a loss with
+ * nowhere left to go) contributes no tax line — it isn't "taxable at 0", it's
+ * simply not a gain. */
+export function computeTax(final: BucketTotals, dividendIncome: number, slabRatePct: number, surchargeBracket: SurchargeBracket): TaxResult {
   const lines: TaxLine[] = []
   for (const bucket of CAPITAL_GAIN_BUCKETS) {
     const taxable = final[bucket]
@@ -201,9 +221,14 @@ export function computeTax(final: BucketTotals, dividendIncome: number, slabRate
   const dividendRate = slabRatePct / 100
   lines.push({ bucket: 'dividends', rate: dividendRate, taxable: dividendIncome, tax: dividendIncome * dividendRate })
 
-  const tax  = lines.reduce((s, l) => s + l.tax, 0)
-  const cess = tax * CESS_RATE
-  return { lines, tax, cess, total: tax + cess }
+  const tax = lines.reduce((s, l) => s + l.tax, 0)
+
+  const rate       = SURCHARGE_RATE[surchargeBracket]
+  const cappedRate = Math.min(rate, SURCHARGE_CAP_CG_DIVIDEND)
+  const surcharge  = lines.reduce((s, l) => s + l.tax * (CAPPED_SURCHARGE_BUCKETS.has(l.bucket) ? cappedRate : rate), 0)
+
+  const cess = (tax + surcharge) * CESS_RATE
+  return { lines, tax, surcharge, cess, total: tax + surcharge + cess }
 }
 
 /** Flat 10% TDS under s.194, credited against the final balance — not a rate

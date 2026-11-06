@@ -2,7 +2,7 @@ import type { FiscalYear, Transaction, DividendTransaction } from './types'
 import type { MFund, MFTransaction, SGBTransaction } from './portfolio-types'
 import { gatherBucketedGains } from './tax-compute'
 import { bucketGains, applySetOff, computeTax, dividendTDS } from './tax-liability'
-import type { CarryForwardAmounts } from './tax-liability'
+import type { CarryForwardAmounts, SurchargeBracket } from './tax-liability'
 
 export type MilestoneKey = 'jun' | 'sep' | 'dec' | 'mar'
 
@@ -137,6 +137,7 @@ export interface LiabilityAsOfInputs {
   fyStart:              string
   incomingCarryForward: CarryForwardAmounts
   slabRatePct:          number
+  surchargeBracket:     SurchargeBracket
 }
 
 /**
@@ -153,7 +154,7 @@ export interface LiabilityAsOfInputs {
  * equity/debt-only bucket model).
  */
 export function buildLiabilityAsOf(inputs: LiabilityAsOfInputs): (date: string) => number {
-  const { stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart, incomingCarryForward, slabRatePct } = inputs
+  const { stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart, incomingCarryForward, slabRatePct, surchargeBracket } = inputs
 
   return function liabilityAsOf(date: string): number {
     const range = { start: fyStart, end: date }
@@ -164,7 +165,7 @@ export function buildLiabilityAsOf(inputs: LiabilityAsOfInputs): (date: string) 
       .reduce((s, d) => s + d.amount, 0)
 
     const { final }  = applySetOff(bucketGains(equity, debt, foreign), incomingCarryForward, slabRatePct)
-    const taxResult   = computeTax(final, dividendIncome, slabRatePct)
+    const taxResult   = computeTax(final, dividendIncome, slabRatePct, surchargeBracket)
     return taxResult.total - dividendTDS(dividendIncome)
   }
 }

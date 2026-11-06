@@ -8,6 +8,8 @@ import { ProgressBar } from '@/components/ProgressBar'
 import { ChevronDownIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
 import { formatINRFine, todayISO } from '@/lib/formatter'
 import SlabRateSelect from '@/components/SlabRateSelect'
+import SurchargeSelect from '@/components/SurchargeSelect'
+import type { SurchargeBracket } from '@/lib/tax-liability'
 
 export type SectionKey = 'advance' | 'tax' | 'harvesting'
 
@@ -151,6 +153,8 @@ function MilestoneRow({ result, priorInterest, onTap }: {
 // ── Total Tax — answer first (slab select, Tax/Cess/TDS/Paid/Net Payable),
 // then a Breakdown of every bucket that feeds it. ───────────────────────────
 
+const SURCHARGE_LABEL: Record<SurchargeBracket, string> = { NONE: '', S10: '10%', S15: '15%', S25: '25%' }
+
 export interface TaxBucketRow {
   bucket:    Bucket
   label:     string
@@ -171,7 +175,7 @@ export interface GoldEtfSummary {
 export function TaxBody({
   rows, goldEtf, dividendIncome, dividendRateLabel, dividendTax,
   setOffLines, newCarryForwardLine,
-  tax, cess, tdsCredit, advancePaid, payable,
+  tax, surcharge, surchargeBracket, onSurchargeChange, cess, tdsCredit, advancePaid, payable,
   slabRatePct, onSlabRateChange, onShare,
 }: {
   rows:                TaxBucketRow[]
@@ -182,6 +186,9 @@ export function TaxBody({
   setOffLines:         string[]
   newCarryForwardLine: string | null
   tax:                 number
+  surcharge:           number
+  surchargeBracket:    SurchargeBracket
+  onSurchargeChange:   (v: SurchargeBracket) => void
   cess:                number
   tdsCredit:           number
   advancePaid:         number
@@ -197,7 +204,15 @@ export function TaxBody({
         <SlabRateSelect value={slabRatePct} onChange={onSlabRateChange} />
       </div>
 
+      <div className="flex items-center justify-between px-4" style={{ minHeight: 44 }}>
+        <span className="text-body" style={{ color: 'var(--text-2)' }}>Surcharge</span>
+        <SurchargeSelect value={surchargeBracket} onChange={onSurchargeChange} />
+      </div>
+
       <DetailRow label="Tax"><Num amount={tax} align /></DetailRow>
+      {surchargeBracket !== 'NONE' && (
+        <DetailRow label={`Surcharge @ ${SURCHARGE_LABEL[surchargeBracket]}`}><Num amount={surcharge} align /></DetailRow>
+      )}
       <DetailRow label="Cess @ 4%"><Num amount={cess} align /></DetailRow>
       <DetailRow label="Dividend TDS credit" muted><Num amount={-tdsCredit} align /></DetailRow>
       <DetailRow label="Advance tax paid" muted><Num amount={-advancePaid} align /></DetailRow>

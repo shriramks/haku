@@ -237,7 +237,7 @@ describe('buildLiabilityAsOf', () => {
     ]]])
     const liabilityAsOf = buildLiabilityAsOf({
       stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
-      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30, surchargeBracket: 'NONE',
     })
 
     // Only the first sell: 10,000 * 20% = 2,000 + 4% cess = 2,080.
@@ -255,7 +255,7 @@ describe('buildLiabilityAsOf', () => {
     ])
     const liabilityAsOf = buildLiabilityAsOf({
       stockMap: EMPTY_MAP, mfMap, mfFunds: [DEBT_FUND], goldMap, foreignMap: EMPTY_MAP, dividends: [],
-      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30, surchargeBracket: 'NONE',
     })
 
     // Debt MF gain 1,000 + ETF gain 1,000 = 2,000 debt STCG (s.50AA slab-only
@@ -268,7 +268,7 @@ describe('buildLiabilityAsOf', () => {
     const dividends = [dividend('2025-04-15', 5_000), dividend('2025-07-01', 3_000)]
     const liabilityAsOf = buildLiabilityAsOf({
       stockMap: EMPTY_MAP, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends,
-      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30, surchargeBracket: 'NONE',
     })
 
     // 5,000 @ 30% slab = 1,500 + 4% cess = 1,560, minus 10% TDS (500) = 1,060.
@@ -282,11 +282,11 @@ describe('buildLiabilityAsOf', () => {
     // gain = 100 * (200-100) = 10,000 STCG
     const withoutCF = buildLiabilityAsOf({
       stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
-      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
+      fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30, surchargeBracket: 'NONE',
     })
     const withCF = buildLiabilityAsOf({
       stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
-      fyStart: FY_START, incomingCarryForward: { shortTerm: 4_000, longTerm: 0 }, slabRatePct: 30,
+      fyStart: FY_START, incomingCarryForward: { shortTerm: 4_000, longTerm: 0 }, slabRatePct: 30, surchargeBracket: 'NONE',
     })
 
     expect(withoutCF('2025-06-15')).toBeCloseTo(10_000 * 0.20 * 1.04)          // 2,080
