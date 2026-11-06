@@ -248,7 +248,7 @@ function PlanTab({
     const { data, error } = await sb.from('stock_allocations').insert({
       fy_id: selectedFY.id, user_id: user.id,
       symbol: sym, exchange,
-      allocation_pct: pct, category: yahooSymbol ? '' : category,
+      allocation_pct: pct, category,
     }).select().single()
     if (error || !data) return error?.message ?? 'Could not add the stock'
     await revalidateAllocations()
@@ -707,7 +707,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         </div>
 
         {/* Category picker */}
-        {isNseExchange(alloc.exchange) && <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Category</p>
           <select
             value={alloc.category}
@@ -716,7 +716,7 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>}
+        </div>
 
         {/* Rename Ticker */}
         {!isNseExchange(alloc.exchange) ? null : renaming ? (
@@ -896,7 +896,13 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
               <input
                 placeholder="VUAA.L"
                 value={yahoo}
-                onChange={e => { setYahoo(e.target.value.toUpperCase()); setAddError(null) }}
+                onChange={e => {
+                  const y = e.target.value.toUpperCase()
+                  setYahoo(y)
+                  setAddError(null)
+                  const base = y.split('.')[0]
+                  if (DEFAULT_CATEGORY[base]) setCategory(DEFAULT_CATEGORY[base])
+                }}
                 className={`text-body font-semibold text-right outline-none uppercase placeholder:font-normal bg-transparent${lookup.status === 'error' ? ' text-negative' : ''}`}
                 style={{ color: lookup.status === 'error' ? undefined : 'var(--text-primary)', width: 140 }}
               />
@@ -954,7 +960,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
         </div>
 
         {/* Category picker */}
-        {!overseas && <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
           <select
             value={category}
@@ -963,7 +969,7 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>}
+        </div>
       </div>
     </>
   )
