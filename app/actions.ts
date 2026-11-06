@@ -72,7 +72,8 @@ export async function registerInstrument(
   symbol: string,
   yahooSymbol: string,
 ): Promise<{ exchange: string | null; name: string; error: string | null }> {
-  if (!(await getUserId())) return { exchange: null, name: '', error: 'Not signed in' }
+  const userId = await getUserId()
+  if (!userId) return { exchange: null, name: '', error: 'Not signed in' }
   const sym = symbol.trim().toUpperCase()
   if (!isValidStockSymbol(sym)) return { exchange: null, name: '', error: 'Invalid symbol' }
   const { instrument, error } = await confirmOverseas(yahooSymbol)
@@ -91,7 +92,7 @@ export async function registerInstrument(
     symbol: sym, exchange: instrument.exchange, currency: instrument.currency,
     yahooSymbol: instrument.yahooSymbol, region: 'us', name: instrument.name,
   }
-  const master = await ensureStocks([sym], { [sym]: stock })
+  const master = await ensureStocks([sym], { [sym]: stock }, userId)
   const row = master?.[sym]
   if (!row) return { exchange: null, name: '', error: 'Could not save the instrument' }
   if (row.yahooSymbol.toUpperCase() !== instrument.yahooSymbol) {
@@ -280,7 +281,7 @@ export async function addStockTransaction(
   if (fieldError) return { fyId: null, error: fieldError }
   const svc = createSupabaseServiceClient()
   // The instrument master is kept in step with what is traded, so the price pull can resolve the symbol.
-  const master = await ensureStocks([input.symbol])
+  const master = await ensureStocks([input.symbol], {}, userId)
   if (!master) return { fyId: null, error: 'Could not save the instrument' }
   const fxRate = tradeFxRate(master[input.symbol], input.fx_rate)
   if (fxRate === null) return { fyId: null, error: 'Enter the rate' }
@@ -357,7 +358,7 @@ export async function importStockTransactions(
   }
 
   const symbols = [...new Set(rows.map(r => r.symbol))]
-  const master = await ensureStocks(symbols)
+  const master = await ensureStocks(symbols, {}, userId)
   if (!master) return { error: 'Could not save the instruments' }
   const withRate: TradeRow[] = []
   for (const r of rows) {

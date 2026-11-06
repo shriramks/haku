@@ -91,6 +91,15 @@ describe('ensureStocks', () => {
     expect(out?.TCS.yahooSymbol).toBe('TCS.NS')
   })
 
+  it('stamps registered_by on created rows only when a user is given (#164)', async () => {
+    const { upsert } = setup([row('TCS', 'TCS.NS')])
+    await ensureStocks(['TCS', 'NEWCO'], {}, 'user-1')
+    expect(upsert.mock.calls[0][0]).toEqual([{ ...row('NEWCO', 'NEWCO.NS'), registered_by: 'user-1' }])
+    upsert.mockClear()
+    await ensureStocks(['OTHERCO'])
+    expect(upsert.mock.calls[0][0]).toEqual([row('OTHERCO', 'OTHERCO.NS')])
+  })
+
   it('uses full details from `known` when the caller has them', async () => {
     const { upsert } = setup([])
     const vuaa = { symbol: 'VUAA', exchange: 'LSE', currency: 'USD', yahooSymbol: 'VUAA.L', region: 'us' as const, name: 'Vanguard S&P 500 UCITS ETF' }

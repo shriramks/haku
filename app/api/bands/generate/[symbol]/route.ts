@@ -73,7 +73,7 @@ async function runBands(c: Ctx, fyId: string | null, refetch: boolean) {
   // save) passes refetch:false to recompute from the stored/edited values instead.
   let index
   try {
-    index = await resolveIndexState(c.category, c.symbol, existingBand, c.isIndex && refetch)
+    index = await resolveIndexState(c.category, c.symbol, existingBand, c.isIndex && refetch, c.userId)
   } catch (e: unknown) {
     return fail(`Failed to fetch index data: ${e instanceof Error ? e.message : String(e)}`, 502)
   }

@@ -61,7 +61,7 @@ describe('refreshStockPrices', () => {
   it('ignores symbols the caller has no row for', async () => {
     setup({ transactions: ['TCS'] })
     await refreshStockPrices(['TCS', 'EVIL'])
-    expect(ensureStocks).toHaveBeenCalledWith(['TCS'])
+    expect(ensureStocks).toHaveBeenCalledWith(['TCS'], {}, 'user-1')
     expect(fetchCmpBatch).toHaveBeenCalledWith([{ symbol: 'TCS', yahooSymbol: 'TCS.NS' }])
   })
 

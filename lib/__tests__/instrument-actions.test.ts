@@ -73,7 +73,7 @@ describe('registerInstrument (#154)', () => {
   it('creates the master row from the server-side quote, never from client-supplied fields', async () => {
     ensureStocks.mockResolvedValue({ VUAA: VUAA_ROW })
     const res = await registerInstrument('vuaa', 'VUAA.L')
-    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'], { VUAA: VUAA_ROW })
+    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'], { VUAA: VUAA_ROW }, 'user-1')
     expect(res).toEqual({ exchange: 'LSE', name: VUAA_QUOTE.name, error: null })
   })
 

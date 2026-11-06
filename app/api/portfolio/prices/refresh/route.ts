@@ -67,7 +67,7 @@ export async function POST() {
   const symbols = heldStocks
   // Resolves through the master, creating a confirmed NSE listing that is missing (self-heals a write
   // whose Yahoo check failed). An unconfirmed symbol stays absent and is reported failed below.
-  const instruments = (await ensureStocks(symbols)) ?? {}
+  const instruments = (await ensureStocks(symbols, {}, user.id)) ?? {}
   const targets = symbols.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
   const usSymbols = symbols.filter(s => instruments[s]?.currency === 'USD')
   const holdsUs = usSymbols.length > 0

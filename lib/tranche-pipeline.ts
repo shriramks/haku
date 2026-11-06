@@ -127,7 +127,7 @@ export async function generateTranchesForSymbol(
     : null
 
   // 1-year daily chart: live CMP (from meta) + 52-week low (from daily lows)
-  const instrument = (await ensureStocks([upperSymbol]))?.[upperSymbol]
+  const instrument = (await ensureStocks([upperSymbol], {}, userId))?.[upperSymbol]
   const chart = instrument ? await fetchYearChart(instrument.yahooSymbol) : { price: null, week52Low: null }
   const liveCmp: number | null = chart.price ?? band?.cmp ?? null
   const fiftyTwoWeekLow = chart.week52Low

@@ -34,10 +34,10 @@ export interface IndexState {
 // level) or multpl (S&P 500, PE only). fetchCmp takes the ETF's Yahoo symbol from the instrument
 // master. Both read in one moment so the stored band, eps, and cmp stay mutually
 // consistent — that consistency is what makes the rupee-band zone test reduce exactly to a PE comparison.
-export async function fetchIndexInputs(category: StockCategory, symbol: string): Promise<IndexInputs> {
+export async function fetchIndexInputs(category: StockCategory, symbol: string, userId: string): Promise<IndexInputs> {
   const feed = getIndexFeed(category)
   if (!feed) throw new Error(`No PE source for category "${category}"`)
-  const instrument = (await ensureStocks([symbol]))?.[symbol]
+  const instrument = (await ensureStocks([symbol], {}, userId))?.[symbol]
   if (!instrument) throw new Error(`No instrument master row for ${symbol}`)
 
   let level: number | null = null
@@ -67,6 +67,7 @@ export async function resolveIndexState(
   symbol: string,
   existing: Pick<StoredBand, 'index_level' | 'index_pe' | 'cmp'> | null,
   refetch: boolean,
+  userId: string,
 ): Promise<IndexState> {
   const stored: IndexState = {
     indexLevel: existing?.index_level ?? null,
@@ -75,7 +76,7 @@ export async function resolveIndexState(
     indexEps: deriveIndexEps(existing?.cmp ?? null, existing?.index_pe ?? null),
   }
   if (!refetch) return stored
-  const idx = await fetchIndexInputs(category, symbol)
+  const idx = await fetchIndexInputs(category, symbol, userId)
   return { indexLevel: idx.level, indexPE: idx.pe, indexCmp: idx.cmp, indexEps: idx.eps }
 }
 

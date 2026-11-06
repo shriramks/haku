@@ -60,12 +60,14 @@ export async function getStocks(symbols: string[]): Promise<Record<string, Stock
  * Yahoo confirms that NSE listing quotes — the master is shared by every user, so a typo or a
  * non-NSE ticker must not become a permanent mapping. An unconfirmed symbol gets no row and is
  * absent from the result (retried on the next call). Existing rows are never overwritten. Symbols
- * that fail `isValidStockSymbol` are not written. Returns the master rows for the requested symbols;
- * null if the master could not be read or written.
+ * that fail `isValidStockSymbol` are not written. `registeredBy` (the acting user's id) is stamped on
+ * every row this call creates, as its registration trail (#164); a row that already exists keeps its own.
+ * Returns the master rows for the requested symbols; null if the master could not be read or written.
  */
 export async function ensureStocks(
   symbols: string[],
   known: Record<string, Stock> = {},
+  registeredBy: string | null = null,
 ): Promise<Record<string, Stock> | null> {
   const wanted = [...new Set(symbols.map(s => s.trim()).filter(isValidStockSymbol))]
   if (wanted.length === 0) return symbolMap()
@@ -81,7 +83,7 @@ export async function ensureStocks(
   if (created.length === 0) return existing
   const { error } = await createSupabaseServiceClient()
     .from('stocks')
-    .upsert(created.map(toRow), { onConflict: 'symbol', ignoreDuplicates: true })
+    .upsert(created.map(s => registeredBy ? { ...toRow(s), registered_by: registeredBy } : toRow(s)), { onConflict: 'symbol', ignoreDuplicates: true })
   if (error) return null
   const result = symbolMap(existing)
   for (const s of created) result[s.symbol] = s

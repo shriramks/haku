@@ -28,7 +28,7 @@ export async function refreshStockPrices(symbols: string[]): Promise<RefreshedSt
 
   // A plan-only symbol may not have a master row yet (allocations are written from the browser);
   // it is created here, server-side, before it is priced.
-  const instruments = await ensureStocks(allowed)
+  const instruments = await ensureStocks(allowed, {}, userId)
   if (!instruments) return null
   const targets = allowed.flatMap(s => instruments[s] ? [{ symbol: s, yahooSymbol: instruments[s].yahooSymbol }] : [])
   if (targets.length === 0) return { prices: {}, week52: {} }

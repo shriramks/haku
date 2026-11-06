@@ -71,7 +71,7 @@ describe('stock transaction writes carry the trade-date rate (#153)', () => {
   it('add: resolves the instrument through the master only, with no built-in instrument list', async () => {
     setup()
     await addStockTransaction({ ...trade, symbol: 'VUAA', fx_rate: 104.47 })
-    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'])
+    expect(ensureStocks).toHaveBeenCalledWith(['VUAA'], {}, 'user-1')
   })
 
   it('update: the row own instrument decides the rate; USD keeps the edit, tag revalidated', async () => {
