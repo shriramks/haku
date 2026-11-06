@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStockRows, computeAllTimeHoldings, seqCost, netDeployed } from '../compute'
+import { computeStockRows, computeAllTimeHoldings, seqCost, netDeployed, spentOf, spentBySymbol } from '../compute'
 import type { StockAllocation, Transaction, BuyBand } from '../types'
 
 const FY25 = 'fy25-id'
@@ -344,5 +344,21 @@ describe('netDeployed', () => {
       { trade_type: 'sell' as const, amount: 2 * 110 * 84 },
     ]
     expect(1_000_000 - netDeployed(month)).toBe(838_480)
+  })
+})
+
+describe('spentOf / spentBySymbol', () => {
+  it('nets buys against sells and floors at 0', () => {
+    expect(spentOf([{ trade_type: 'buy', amount: 100 }, { trade_type: 'sell', amount: 30 }])).toBe(70)
+    expect(spentOf([{ trade_type: 'buy', amount: 100 }, { trade_type: 'sell', amount: 250 }])).toBe(0)
+    expect(spentOf([])).toBe(0)
+  })
+
+  it('groups by symbol', () => {
+    expect(spentBySymbol([
+      { symbol: 'AAA', trade_type: 'buy', amount: 100 },
+      { symbol: 'BBB', trade_type: 'buy', amount: 40 },
+      { symbol: 'AAA', trade_type: 'sell', amount: 25 },
+    ])).toEqual({ AAA: 75, BBB: 40 })
   })
 })

@@ -8,6 +8,7 @@ import type { FiscalYear, StockAllocation, Transaction, FYTxn, BuyBand, BuyTranc
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOverride, EPFTransaction } from './portfolio-types'
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 import { getStocks } from './stock-master'
+import { spentBySymbol } from './compute'
 import { inrPerUnit } from './trade-fx'
 
 // cache()         — deduplicates within a single request (per-render)
@@ -102,6 +103,11 @@ export const getTransactions = cachedUserScoped(
     return data ?? []
   }
 )
+
+/** Net invested per symbol in a FY (`spent`), from the cached FY transactions — the Plan sheets' Invested / Left. */
+export async function getFYSpent(fyId: string): Promise<Record<string, number>> {
+  return spentBySymbol(await getTransactions(fyId))
+}
 
 export const getTransactionsBySymbol = cachedUserScoped(
   { key: ['transactions_by_symbol', 'fx_rate'], tags: ['transactions'], revalidate: 3600 },

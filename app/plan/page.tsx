@@ -1,4 +1,4 @@
-import { getFiscalYears, getPlanAllocations, getCurrentFY } from '@/lib/data'
+import { getFiscalYears, getPlanAllocations, getFYSpent, getCurrentFY } from '@/lib/data'
 import PlanClient from './PlanClient'
 
 export default async function PlanPage({
@@ -11,7 +11,9 @@ export default async function PlanPage({
 
   const currentFY = getCurrentFY(fiscalYears, fyParam)
 
-  const allocations = currentFY ? await getPlanAllocations(currentFY.id) : []
+  const [allocations, spent] = currentFY
+    ? await Promise.all([getPlanAllocations(currentFY.id), getFYSpent(currentFY.id)])
+    : [[], {}]
 
   return (
     <>
@@ -19,6 +21,7 @@ export default async function PlanPage({
         fiscalYears={fiscalYears}
         initialFY={currentFY}
         initialAllocations={allocations}
+        initialSpent={spent}
       />
     </>
   )

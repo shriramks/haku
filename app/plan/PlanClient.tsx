@@ -4,14 +4,14 @@ import { useState, useMemo, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFine, formatINRFull, formatUsd } from '@/lib/formatter'
+import { formatINRFull, formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
 import { isNseExchange } from '@/lib/instrument'
-import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations, lookupInstrument, registerInstrument, type InstrumentLookup } from '@/app/actions'
+import { revalidateFiscalYears, revalidateAllocations, getAllocationsForFY, getSpentForFY, checkFYHasTxns, getPrevFYCarryover, hasBands, copyAllocations, lookupInstrument, registerInstrument, type InstrumentLookup } from '@/app/actions'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
@@ -22,10 +22,15 @@ import { ConfirmButtons } from '@/components/ConfirmButtons'
 import { LabeledInput } from '@/components/LabeledInput'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
 
+/** Allocations move in 0.1% steps; rounding keeps float sums exact. */
+const round1 = (n: number) => Math.round(n * 10) / 10
+
 interface Props {
   fiscalYears: FiscalYear[]
   initialFY: FiscalYear | null
   initialAllocations: StockAllocation[]
+  /** Net invested per symbol in the initial FY (`spent`). */
+  initialSpent: Record<string, number>
 }
 
 function setOnboardingStep(step: string) {
@@ -33,10 +38,11 @@ function setOnboardingStep(step: string) {
   window.dispatchEvent(new Event('haku_onboarding'))
 }
 
-export default function PlanClient({ fiscalYears, initialFY, initialAllocations }: Props) {
+export default function PlanClient({ fiscalYears, initialFY, initialAllocations, initialSpent }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY] = useState(initialFY)
   const [allocations, setAllocations] = useState(initialAllocations)
+  const [spent, setSpent] = useState(initialSpent)
 
   const [loading, setLoading] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
@@ -87,12 +93,13 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
     setSelectedFY(fy)
     setLoading(true)
     router.replace(`/plan?fy=${encodeURIComponent(fy.label)}`)
-    const data = await getAllocationsForFY(fy.id)
+    const [data, fySpent] = await Promise.all([getAllocationsForFY(fy.id), getSpentForFY(fy.id)])
     setAllocations(data)
+    setSpent(fySpent)
     setLoading(false)
   }
 
-  const totalPct = useMemo(() => allocations.reduce((s, a) => s + a.allocation_pct, 0), [allocations])
+  const totalPct = useMemo(() => round1(allocations.reduce((s, a) => s + a.allocation_pct, 0)), [allocations])
   const totalBudget = selectedFY?.total_budget_inr ?? 0
 
   return (
@@ -136,6 +143,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
         loading={loading}
         totalPct={totalPct}
         totalBudget={totalBudget}
+        spent={spent}
         fyHasTxns={fyHasTxns}
         onSwitchFY={switchFY}
         onAllocationsChange={setAllocations}
@@ -161,7 +169,7 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations 
 // ── Plan Tab ──────────────────────────────────────────────────────────────────
 
 function PlanTab({
-  fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget, fyHasTxns,
+  fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget, spent, fyHasTxns,
   onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange, onDeleteFY,
 }: {
   fiscalYears: FiscalYear[]
@@ -170,6 +178,7 @@ function PlanTab({
   loading: boolean
   totalPct: number
   totalBudget: number
+  spent: Record<string, number>
   fyHasTxns: boolean
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
@@ -336,8 +345,8 @@ function PlanTab({
                   const label = exact
                     ? '100%'
                     : over
-                    ? `${Math.round(totalPct)}% · over`
-                    : `${Math.round(totalPct)}% · ${Math.round(100 - totalPct)}% free`
+                    ? `${trimPct(totalPct)}% · over`
+                    : `${trimPct(totalPct)}% · ${trimPct(round1(100 - totalPct))}% free`
                   return (
                     <span
                       className={`text-footnote font-bold tabnum ${colorClass}`}
@@ -449,6 +458,7 @@ function PlanTab({
         <AddStockSheet
           totalPct={totalPct}
           totalBudget={effectiveBudget}
+          spent={spent}
           onClose={() => setShowAddStock(false)}
           onAdd={addStock}
         />
@@ -470,6 +480,7 @@ function PlanTab({
           alloc={editingAlloc}
           totalBudget={effectiveBudget}
           totalPct={totalPct}
+          invested={spent[editingAlloc.symbol] ?? 0}
           onClose={() => setEditingAlloc(null)}
           onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
           onCategoryChange={async (cat) => { await updateAllocCategory(editingAlloc, cat); setEditingAlloc({ ...editingAlloc, category: cat }) }}
@@ -501,7 +512,7 @@ function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit
           {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
         </div>
         <div className="text-right">
-          <p className="text-headline font-semibold tabnum text-accent">{alloc.allocation_pct}%</p>
+          <p className="text-headline font-semibold tabnum text-accent">{trimPct(alloc.allocation_pct)}%</p>
           <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {carryoverShare != null ? `${formatINRFull(baseBudget)} base` : formatINRFull(budget)}
           </p>
@@ -608,12 +619,50 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
   )
 }
 
+// ── Plan figures (shared by the edit and add sheets) ─────────────────────────
+
+type Fig = { amount: number } | { pct: number }
+
+/** Planned / Invested / Left / Plan free. `withWas` adds the before column (edit only). `tone` colours a negative / positive amount. */
+function PlanFigures({ rows, withWas }: {
+  withWas?: boolean
+  rows: { label: string; was?: Fig; now: Fig; tone?: boolean }[]
+}) {
+  const cell = (f: Fig, color: string) => (
+    <span className="text-body tabnum" style={{ color }}>
+      {'amount' in f ? <Num amount={f.amount} align /> : <Num pct={f.pct} align />}
+    </span>
+  )
+  const tone = (f: Fig) => 'amount' in f ? (f.amount < 0 ? 'var(--c-negative)' : 'var(--c-positive)') : 'var(--text-primary)'
+  return (
+    <div className="px-5 pt-2 pb-2 grid items-baseline gap-y-2.5 gap-x-4"
+         style={{ gridTemplateColumns: withWas ? '1fr 84px 84px' : '1fr 84px' }}>
+      {withWas && (
+        <>
+          <span />
+          <span className="label-field text-right">Was</span>
+          <span className="label-field text-right">Now</span>
+        </>
+      )}
+      {rows.map(r => (
+        <div key={r.label} className="contents">
+          <span className="text-body" style={{ color: 'var(--text-2)' }}>{r.label}</span>
+          {withWas && r.was && cell(r.was, 'var(--text-muted)')}
+          {cell(r.now, r.tone ? tone(r.now) : 'var(--text-primary)')}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Stock edit sheet ──────────────────────────────────────────────────────────
 
-function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCategoryChange, onRemove, onRename }: {
+function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSave, onCategoryChange, onRemove, onRename }: {
   alloc: StockAllocation
   totalBudget: number
   totalPct: number
+  /** Net invested in this stock this FY (`spent`). */
+  invested: number
   onClose: () => void
   onSave: (pct: number) => Promise<void>
   onCategoryChange: (cat: StockCategory) => Promise<void>
@@ -628,12 +677,11 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
   const [newSymbol, setNewSymbol] = useState(alloc.symbol)
   const [renameSaving, setRenameSaving] = useState(false)
 
-  const freeWithoutThis   = 100 - totalPct + alloc.allocation_pct
-  const sliderMax         = Math.min(100, alloc.allocation_pct + freeWithoutThis)
-  const planAllocatedPct  = totalPct - alloc.allocation_pct + pct
-  const planFreePct       = 100 - planAllocatedPct
-  const planAllocatedInr  = (planAllocatedPct / 100) * totalBudget
-  const planFreeInr       = (planFreePct / 100) * totalBudget
+  const sliderMax    = round1(Math.min(100, 100 - totalPct + alloc.allocation_pct))
+  const wasBudget    = (alloc.allocation_pct / 100) * totalBudget
+  const nowBudget    = (pct / 100) * totalBudget
+  const wasFreePct   = round1(100 - totalPct)
+  const nowFreePct   = round1(100 - (totalPct - alloc.allocation_pct + pct))
 
   async function handleSave() {
     if (pct <= 0) return
@@ -672,18 +720,12 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
         right={<Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>}
       />
 
-        {/* % stepper → slider → plan context */}
-        <div className="px-5 pt-5 pb-4 text-center">
-          {/* Hero % */}
-          <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
-          {/* Stock INR amount */}
-          <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
-            {formatINRFine((pct / 100) * totalBudget)} allocated
-          </p>
-          {/* Slider */}
+        {/* % stepper → slider → figures */}
+        <div className="px-5 pt-5 pb-2 text-center">
+          <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
           <div className="mt-4 px-1">
             <input
-              type="range" min={0} max={sliderMax} step={0.5}
+              type="range" min={0} max={sliderMax} step={0.1}
               value={pct}
               onChange={e => setPct(parseFloat(e.target.value))}
               className="w-full accent-accent"
@@ -691,20 +733,16 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
             />
             <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
               <span>0%</span>
-              <span>{sliderMax.toFixed(0)}% max</span>
+              <span>{trimPct(sliderMax)}% max</span>
             </div>
           </div>
-          {/* Plan context */}
-          <div className="mt-3 flex flex-col gap-1">
-            <p className="label-field mb-0.5">Plan</p>
-            <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
-              {Math.round(planAllocatedPct)}% allocated
-            </p>
-            <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-              {formatINRFine(planAllocatedInr)} of {formatINRFine(totalBudget)}
-            </p>
-          </div>
         </div>
+        <PlanFigures withWas rows={[
+          { label: 'Planned',   was: { amount: wasBudget }, now: { amount: nowBudget } },
+          { label: 'Invested',  was: { amount: invested },  now: { amount: invested } },
+          { label: 'Left',      was: { amount: wasBudget - invested }, now: { amount: nowBudget - invested }, tone: true },
+          { label: 'Plan free', was: { pct: wasFreePct },    now: { pct: nowFreePct } },
+        ]} />
 
         {/* Category picker */}
         <div className="flex items-center justify-between px-5 py-4">
@@ -777,9 +815,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, onClose, onSave, onCateg
 
 // ── Add stock sheet ───────────────────────────────────────────────────────────
 
-function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
+function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
   totalPct: number
   totalBudget: number
+  spent: Record<string, number>
   onClose: () => void
   /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
   onAdd: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
@@ -816,12 +855,10 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
   const shownSymbol = overseas ? yahoo.trim().toUpperCase().split('.')[0] : symbol
   const canAdd = !!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok')
 
-  const freeWithoutThis  = 100 - totalPct
-  const sliderMax        = Math.min(100, freeWithoutThis)
-  const planAllocatedPct = totalPct + pct
-  const planFreePct      = 100 - planAllocatedPct
-  const planAllocatedInr = (planAllocatedPct / 100) * totalBudget
-  const planFreeInr      = (planFreePct / 100) * totalBudget
+  const sliderMax   = round1(Math.min(100, 100 - totalPct))
+  const budget      = (pct / 100) * totalBudget
+  const invested    = spent[shownSymbol] ?? 0
+  const nowFreePct  = round1(100 - totalPct - pct)
 
   async function handleAdd() {
     if (!canAdd) return
@@ -929,15 +966,12 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
           </>
         )}
 
-        {/* % stepper + slider + plan context */}
-        <div className="px-5 pt-5 pb-4 text-center">
-          <Stepper value={pct} min={1} max={sliderMax} step={1} onChange={setPct} suffix="%" />
-          <p className="text-subheadline tabnum mt-2.5" style={{ color: 'var(--text-muted)' }}>
-            {formatINRFine((pct / 100) * totalBudget)} allocated
-          </p>
+        {/* % stepper + slider + figures */}
+        <div className="px-5 pt-5 pb-2 text-center">
+          <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
           <div className="mt-4 px-1">
             <input
-              type="range" min={0} max={sliderMax} step={0.5}
+              type="range" min={0} max={sliderMax} step={0.1}
               value={pct}
               onChange={e => setPct(parseFloat(e.target.value))}
               className="w-full accent-accent"
@@ -945,19 +979,16 @@ function AddStockSheet({ totalPct, totalBudget, onClose, onAdd }: {
             />
             <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
               <span>0%</span>
-              <span>{sliderMax.toFixed(0)}% max</span>
+              <span>{trimPct(sliderMax)}% max</span>
             </div>
           </div>
-          <div className="mt-3 flex flex-col gap-1">
-            <p className="label-field mb-0.5">Plan</p>
-            <p className="text-body tabnum" style={{ color: 'var(--text-2)' }}>
-              {Math.round(planAllocatedPct)}% allocated
-            </p>
-            <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-              {formatINRFine(planAllocatedInr)} of {formatINRFine(totalBudget)}
-            </p>
-          </div>
         </div>
+        <PlanFigures rows={[
+          { label: 'Planned',   now: { amount: budget } },
+          { label: 'Invested',  now: { amount: invested } },
+          { label: 'Left',      now: { amount: budget - invested }, tone: true },
+          { label: 'Plan free', now: { pct: nowFreePct } },
+        ]} />
 
         {/* Category picker */}
         <div className="flex items-center justify-between px-5 py-4">

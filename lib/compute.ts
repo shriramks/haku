@@ -69,6 +69,24 @@ export function computeAllTimeHoldings(transactions: Transaction[]): Record<stri
   return holdings
 }
 
+/** FY planning `spent` for one symbol's FY transactions: net buys, floored at 0 (docs/app-spec.md "Investment Math"). */
+export function spentOf(txns: Pick<FYTxn, 'trade_type' | 'amount'>[]): number {
+  return Math.max(0, netDeployed(txns))
+}
+
+/** `spentOf` for every symbol that has FY transactions. */
+export function spentBySymbol(txns: Pick<FYTxn, 'symbol' | 'trade_type' | 'amount'>[]): Record<string, number> {
+  const bySymbol = new Map<string, Pick<FYTxn, 'symbol' | 'trade_type' | 'amount'>[]>()
+  for (const t of txns) {
+    const list = bySymbol.get(t.symbol)
+    if (list) list.push(t)
+    else bySymbol.set(t.symbol, [t])
+  }
+  const out: Record<string, number> = {}
+  for (const [symbol, list] of bySymbol) out[symbol] = spentOf(list)
+  return out
+}
+
 export function computeStockRows(
   allocations: StockAllocation[],
   transactions: FYTxn[],
@@ -87,11 +105,10 @@ export function computeStockRows(
     const totalBought    = buys.reduce((s, t)  => s + t.quantity, 0)
     const totalBuyValue  = buys.reduce((s, t)  => s + t.amount,   0)
     const totalSold      = sells.reduce((s, t) => s + t.quantity,  0)
-    const totalSellValue = sells.reduce((s, t) => s + t.amount,    0)
 
     const qty     = Math.max(0, totalBought - totalSold)
     const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
-    const spent   = Math.max(0, totalBuyValue - totalSellValue)
+    const spent   = spentOf(txns)
 
     const budget    = (alloc.allocation_pct / 100) * totalBudget
     const remaining = budget - spent

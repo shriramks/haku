@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getPlanAllocations, getTransactions, getLatestSnapshot } from '@/lib/data'
+import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getLatestSnapshot } from '@/lib/data'
 import { fyIdForDate, fiscalQuarterLabel } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
@@ -108,6 +108,11 @@ export async function revalidateBuyTranches() {
 /** Fetch allocations for a FY — used by PlanClient on FY switch */
 export async function getAllocationsForFY(fyId: string): Promise<StockAllocation[]> {
   return getPlanAllocations(fyId)
+}
+
+/** Net amount invested per symbol in a FY (`spent`) — the Plan sheets' Invested / Left figures. */
+export async function getSpentForFY(fyId: string): Promise<Record<string, number>> {
+  return getFYSpent(fyId)
 }
 
 /** Returns true if the FY has any transactions — used to decide delete vs reset */

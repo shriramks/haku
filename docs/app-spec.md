@@ -244,6 +244,11 @@ transaction history for a stock filter the Transactions tab.
 3. Carryover from previous FY
 4. Investability gates (per stock)
 
+**Edit / Add sheets (#165):**
+- The % moves in **0.1** steps (stepper and slider); stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
+- Under the %, a figures table: **Planned** (% of the Plan pool incl. carryover), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation), **Left** (Planned − Invested, red when negative) and **Plan free** (% of the plan not allocated). Edit has **Was** and **Now** columns; Add has Now only.
+- Cutting a stock below what is invested is allowed; Left goes negative. Changing a % does not regenerate tranches — that stays manual.
+
 ---
 
 ### Portfolio: region exposure (tap the allocation pie)

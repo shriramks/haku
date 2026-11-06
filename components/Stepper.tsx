@@ -26,7 +26,7 @@ export function Stepper({ value, min, max, step, onChange, suffix }: StepperProp
           value={value}
           onChange={e => onChange(Math.max(0, parseFloat(e.target.value) || 0))}
           className="font-bold tabnum text-right outline-none bg-transparent"
-          style={{ fontSize: 40, width: 72, color: 'var(--text-primary)' }}
+          style={{ fontSize: 40, width: `${Math.max(72, String(value).length * 26 + 8)}px`, color: 'var(--text-primary)' }}
         />
         {suffix && <span className="font-bold" style={{ fontSize: 28, color: 'var(--text-primary)' }}>{suffix}</span>}
       </div>
