@@ -132,6 +132,7 @@ export interface LiabilityAsOfInputs {
   mfMap:                Map<string, MFTransaction[]>
   mfFunds:              MFund[]
   goldMap:              Map<string, SGBTransaction[]>   // keyed by gold_type: 'sgb' | 'etf' | 'physical'
+  foreignMap:           Map<string, Transaction[]>
   dividends:            DividendTransaction[]
   fyStart:              string
   incomingCarryForward: CarryForwardAmounts
@@ -152,17 +153,17 @@ export interface LiabilityAsOfInputs {
  * equity/debt-only bucket model).
  */
 export function buildLiabilityAsOf(inputs: LiabilityAsOfInputs): (date: string) => number {
-  const { stockMap, mfMap, mfFunds, goldMap, dividends, fyStart, incomingCarryForward, slabRatePct } = inputs
+  const { stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart, incomingCarryForward, slabRatePct } = inputs
 
   return function liabilityAsOf(date: string): number {
     const range = { start: fyStart, end: date }
-    const { equity, debt } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, fyRange: range, asOf: date })
+    const { equity, debt, foreign } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, foreignMap, fyRange: range, asOf: date })
 
     const dividendIncome = dividends
       .filter(d => d.ex_date >= range.start && d.ex_date <= range.end)
       .reduce((s, d) => s + d.amount, 0)
 
-    const { final }  = applySetOff(bucketGains(equity, debt), incomingCarryForward, slabRatePct)
+    const { final }  = applySetOff(bucketGains(equity, debt, foreign), incomingCarryForward, slabRatePct)
     const taxResult   = computeTax(final, dividendIncome, slabRatePct)
     return taxResult.total - dividendTDS(dividendIncome)
   }

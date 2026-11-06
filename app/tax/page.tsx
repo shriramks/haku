@@ -37,8 +37,11 @@ export default async function TaxPage() {
 
   const currentFY = getCurrentFY(fiscalYears) ?? null
 
-  // Capital-gains rules are INR-only until #161: a USD trade's price is not a rupee cost per unit.
-  const stockTxns = inrTransactions(allStockTxns, await getStocks([...new Set(allStockTxns.map(t => t.symbol))]))
+  // Foreign-listed trades are taxed in their own buckets (INR via each trade's stored rate); the
+  // equity pipeline and Harvesting read `price` as a rupee cost per unit, so they get INR trades only.
+  const stockMaster = await getStocks([...new Set(allStockTxns.map(t => t.symbol))])
+  const stockTxns   = inrTransactions(allStockTxns, stockMaster)
+  const foreignTxns = allStockTxns.filter(t => !stockTxns.includes(t))
 
   // Harvesting's unrealised-loss figure needs the current NAV for equity funds
   // only (no 1D gain shown on this screen, so no prevNav).
@@ -71,6 +74,7 @@ export default async function TaxPage() {
         fiscalYears={fiscalYears}
         currentFY={currentFY}
         stockTxns={stockTxns}
+        foreignTxns={foreignTxns}
         mfFunds={mfFunds}
         mfTxns={mfTxns}
         mfNavs={mfNavs}

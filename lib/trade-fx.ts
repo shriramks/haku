@@ -13,8 +13,8 @@ export function tradeFxRate(stock: Pick<Stock, 'currency'> | undefined, requeste
 }
 
 /**
- * Keeps the trades of INR instruments only. Tax rules and NSE dividend lookups are INR-only until the
- * foreign-listed bucket (#161): they read `price` as cost per unit and fetch NSE data by symbol, which a
+ * Keeps the trades of INR instruments only. The equity tax pipeline, Harvesting and NSE dividend lookups are INR-only (foreign trades
+ * have their own tax buckets, #161): they read `price` as cost per unit and fetch NSE data by symbol, which a
  * USD trade would corrupt. A symbol with no master row counts as INR, the same default as `tradeFxRate`.
  */
 export function inrTransactions<T extends { symbol: string }>(

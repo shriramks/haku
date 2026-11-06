@@ -236,7 +236,7 @@ describe('buildLiabilityAsOf', () => {
       stkSell('2025-08-01', 50, 300),   // gain 10,000, after the cutoff
     ]]])
     const liabilityAsOf = buildLiabilityAsOf({
-      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
       fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
     })
 
@@ -254,7 +254,7 @@ describe('buildLiabilityAsOf', () => {
       ['physical', [gldBuy('2025-04-01', 10, 5_000, 'physical'), gldSell('2025-05-01', 10, 15_000, 'physical')]],  // huge gain, must not count
     ])
     const liabilityAsOf = buildLiabilityAsOf({
-      stockMap: EMPTY_MAP, mfMap, mfFunds: [DEBT_FUND], goldMap, dividends: [],
+      stockMap: EMPTY_MAP, mfMap, mfFunds: [DEBT_FUND], goldMap, foreignMap: EMPTY_MAP, dividends: [],
       fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
     })
 
@@ -267,7 +267,7 @@ describe('buildLiabilityAsOf', () => {
   it('dividend income is truncated to the cutoff date and credited via TDS', () => {
     const dividends = [dividend('2025-04-15', 5_000), dividend('2025-07-01', 3_000)]
     const liabilityAsOf = buildLiabilityAsOf({
-      stockMap: EMPTY_MAP, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends,
+      stockMap: EMPTY_MAP, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends,
       fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
     })
 
@@ -281,11 +281,11 @@ describe('buildLiabilityAsOf', () => {
     const stockMap = new Map([['ITC', [stkBuy('2025-04-10', 100, 100), stkSell('2025-05-01', 100, 200)]]])
     // gain = 100 * (200-100) = 10,000 STCG
     const withoutCF = buildLiabilityAsOf({
-      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
       fyStart: FY_START, incomingCarryForward: NO_CF, slabRatePct: 30,
     })
     const withCF = buildLiabilityAsOf({
-      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, dividends: [],
+      stockMap, mfMap: EMPTY_MAP, mfFunds: [], goldMap: EMPTY_MAP, foreignMap: EMPTY_MAP, dividends: [],
       fyStart: FY_START, incomingCarryForward: { shortTerm: 4_000, longTerm: 0 }, slabRatePct: 30,
     })
 

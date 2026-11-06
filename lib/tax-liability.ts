@@ -1,10 +1,12 @@
 import type { RealisedGain } from './tax-compute'
 
 // ── Bucketing ────────────────────────────────────────────────────────────────
-// The 5 buckets a realised gain can land in. Stock + equity MF go to the
+// The 6 buckets a realised gain can land in. Stock + equity MF go to the
 // equity buckets; debt MF + gold ETF (sold, not SGB/held-to-maturity — those
 // are excluded upstream, before gains ever reach this module) share the debt
 // buckets, since post-Budget-2024 they carry the same 12.5%/slab rate split.
+// Foreign-listed holdings get their own pair: 12.5% long-term (24 months) with
+// no exemption, slab short-term.
 // Dividends aren't a capital-gains bucket (can't absorb or be absorbed by a
 // loss) so they're handled separately throughout.
 
@@ -13,6 +15,8 @@ export interface BucketTotals {
   equitySTCG: number
   debtLTCG:   number
   debtSTCG:   number
+  foreignLTCG: number
+  foreignSTCG: number
 }
 
 export type Bucket = keyof BucketTotals
@@ -29,8 +33,9 @@ export const DIVIDEND_TDS_RATE = 0.10
 /** Sums already-classified realised gains into the 4 buckets. `equity` is
  * stock + equity-MF realised gains; `debt` is debt-MF + gold-ETF realised
  * gains — the caller has already picked the right pool per source. */
-export function bucketGains(equity: RealisedGain[], debt: RealisedGain[]): BucketTotals {
-  const totals: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0 }
+export function bucketGains(equity: RealisedGain[], debt: RealisedGain[], foreign: RealisedGain[]): BucketTotals {
+  const totals: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
+  for (const g of foreign) { if (g.gainType === 'LTCG') totals.foreignLTCG += g.gain; else totals.foreignSTCG += g.gain }
   for (const g of equity) { if (g.gainType === 'LTCG') totals.equityLTCG += g.gain; else totals.equitySTCG += g.gain }
   for (const g of debt)   { if (g.gainType === 'LTCG') totals.debtLTCG   += g.gain; else totals.debtSTCG   += g.gain }
   return totals
@@ -38,23 +43,23 @@ export function bucketGains(equity: RealisedGain[], debt: RealisedGain[]): Bucke
 
 function bucketRate(bucket: Bucket, slabRatePct: number): number {
   if (bucket === 'equitySTCG') return RATE_EQUITY_STCG
-  if (bucket === 'debtSTCG')   return slabRatePct / 100
-  return RATE_EQUITY_LTCG  // equityLTCG, debtLTCG
+  if (bucket === 'debtSTCG' || bucket === 'foreignSTCG') return slabRatePct / 100
+  return RATE_EQUITY_LTCG  // equityLTCG, debtLTCG, foreignLTCG
 }
 
 // Highest-rate-first; on a tie, debt LTCG before equity LTCG (spec-mandated
 // tiebreak for the 12.5% tier — the only tie that can occur at fixed rates,
 // though a slab rate equal to 20% could also tie equitySTCG/debtSTCG, broken
 // by declaration order below since the spec doesn't address that case).
+const TIE_ORDER: Bucket[] = ['debtLTCG', 'foreignLTCG', 'equityLTCG', 'equitySTCG', 'debtSTCG', 'foreignSTCG']
+
 function sortTargets(candidates: Bucket[], values: BucketTotals, slabRatePct: number): Bucket[] {
   return candidates
     .filter(b => values[b] > EPSILON)
     .sort((a, b) => {
       const diff = bucketRate(b, slabRatePct) - bucketRate(a, slabRatePct)
       if (Math.abs(diff) > 1e-9) return diff
-      if (a === 'debtLTCG' && b === 'equityLTCG') return -1
-      if (b === 'debtLTCG' && a === 'equityLTCG') return 1
-      return 0
+      return TIE_ORDER.indexOf(a) - TIE_ORDER.indexOf(b)
     })
 }
 
@@ -103,15 +108,15 @@ export interface SetOffResult {
   carryForwardUsed: CarryForwardAmounts
 }
 
-const LT_TARGETS: Bucket[] = ['debtLTCG', 'equityLTCG']
-const ST_TARGETS: Bucket[] = ['equitySTCG', 'debtSTCG', 'debtLTCG', 'equityLTCG']
+const LT_TARGETS: Bucket[] = ['debtLTCG', 'foreignLTCG', 'equityLTCG']
+const ST_TARGETS: Bucket[] = ['equitySTCG', 'debtSTCG', 'foreignSTCG', 'debtLTCG', 'foreignLTCG', 'equityLTCG']
 
 /**
  * Exemption first, then intra-year set-off (this FY's own losses, long-term
  * pool before short-term since LT losses have fewer eligible homes), then
  * incoming carryforward mops up whatever room is left (same LT-before-ST
  * order). A short-term loss can hit any positive bucket; a long-term loss
- * only the two LT buckets. Dividends never participate.
+ * only the LT buckets. Dividends never participate.
  */
 export function applySetOff(
   raw:                  BucketTotals,
@@ -129,10 +134,12 @@ export function applySetOff(
 
   const ownLTLoss =
     (values.equityLTCG < -EPSILON ? -values.equityLTCG : 0) +
-    (values.debtLTCG   < -EPSILON ? -values.debtLTCG   : 0)
+    (values.debtLTCG   < -EPSILON ? -values.debtLTCG   : 0) +
+    (values.foreignLTCG < -EPSILON ? -values.foreignLTCG : 0)
   const ownSTLoss =
     (values.equitySTCG < -EPSILON ? -values.equitySTCG : 0) +
-    (values.debtSTCG   < -EPSILON ? -values.debtSTCG   : 0)
+    (values.debtSTCG   < -EPSILON ? -values.debtSTCG   : 0) +
+    (values.foreignSTCG < -EPSILON ? -values.foreignSTCG : 0)
 
   function runPass(sources: Bucket[], targetsBase: Bucket[], from: (src: Bucket) => SetOffMove['from']): number {
     let absorbed = 0
@@ -145,8 +152,8 @@ export function applySetOff(
     return absorbed
   }
 
-  const ownLTAbsorbed = runPass((['debtLTCG', 'equityLTCG'] as Bucket[]), LT_TARGETS, src => src)
-  const ownSTAbsorbed = runPass((['equitySTCG', 'debtSTCG'] as Bucket[]), ST_TARGETS, src => src)
+  const ownLTAbsorbed = runPass((['debtLTCG', 'foreignLTCG', 'equityLTCG'] as Bucket[]), LT_TARGETS, src => src)
+  const ownSTAbsorbed = runPass((['equitySTCG', 'debtSTCG', 'foreignSTCG'] as Bucket[]), ST_TARGETS, src => src)
 
   const newCarryForward: CarryForwardAmounts = {
     longTerm:  Math.max(0, ownLTLoss - ownLTAbsorbed),
@@ -177,7 +184,7 @@ export interface TaxResult {
   total: number  // tax + cess, before TDS/advance-tax credits
 }
 
-const CAPITAL_GAIN_BUCKETS: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG']
+const CAPITAL_GAIN_BUCKETS: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG', 'foreignLTCG', 'foreignSTCG']
 
 /** Per-bucket taxable × rate, summed, plus 4% cess. A bucket that's still net
  * negative after set-off (a loss with nowhere left to go) contributes no tax

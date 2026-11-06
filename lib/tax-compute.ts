@@ -48,6 +48,7 @@ interface OpenLot {
 export const LTCG_DAYS_EQUITY = 365
 export const LTCG_DAYS_GOLD   = 1095
 export const LTCG_DAYS_DEBT   = 730  // 24 months — Budget 2024 unified non-equity threshold
+export const LTCG_DAYS_FOREIGN = 730 // 24 months — unlisted-in-India (foreign-listed) shares and ETFs
 // Finance Act 2023 s.50AA: debt MF units bought on/after this date get no LTCG
 // treatment at all — always taxed at slab, regardless of holding period.
 export const DEBT_SLAB_CUTOFF = '2023-04-01'
@@ -179,6 +180,29 @@ export function computeStockGains(
   return { realised, unrealised }
 }
 
+// Foreign-listed holdings (stocks.currency != INR): gains are computed in INR —
+// cost at each buy's stored rate, proceeds at the sell's stored rate — so the
+// price series is converted per trade before the shared FIFO runs. 24-month
+// long-term threshold; no grandfathering. Returns realised gains only.
+export function computeForeignGains(
+  txns:    Transaction[],
+  symbol:  string,
+  fyRange: { start: string; end: string },
+): RealisedGain[] {
+  const inr = txns.map(t => ({ ...t, price: t.price * t.fx_rate }))
+  const lots: OpenLot[] = []
+  const realised: RealisedGain[] = []
+  const classify = classifyByDays(LTCG_DAYS_FOREIGN)
+  for (const txn of sortTxns(inr)) {
+    if (txn.trade_type === 'buy') {
+      lots.push({ purchaseDate: txn.trade_date, qty: txn.quantity, costPerUnit: txn.price, fmvJan2018: null })
+    } else {
+      realised.push(...fifoConsume(lots, txn.trade_date, txn.quantity, txn.price, 'stock', symbol, fyRange, classify))
+    }
+  }
+  return realised
+}
+
 export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
   const map = new Map<string, T[]>()
   for (const item of items) {
@@ -291,14 +315,20 @@ export interface GatherBucketedGainsInputs {
   mfMap:    Map<string, MFTransaction[]>
   mfFunds:  MFund[]
   goldMap:  Map<string, SGBTransaction[]>   // keyed by gold_type: 'sgb' | 'etf' | 'physical'
+  foreignMap: Map<string, Transaction[]>    // foreign-listed stocks / ETFs, by symbol
   fyRange:  { start: string; end: string }
   asOf:     string
 }
 
-export function gatherBucketedGains(inputs: GatherBucketedGainsInputs): { equity: RealisedGain[]; debt: RealisedGain[] } {
-  const { stockMap, mfMap, mfFunds, goldMap, fyRange, asOf } = inputs
+export function gatherBucketedGains(inputs: GatherBucketedGainsInputs): { equity: RealisedGain[]; debt: RealisedGain[]; foreign: RealisedGain[] } {
+  const { stockMap, mfMap, mfFunds, goldMap, foreignMap, fyRange, asOf } = inputs
   const equity: RealisedGain[] = []
   const debt:   RealisedGain[] = []
+  const foreign: RealisedGain[] = []
+
+  for (const [symbol, txns] of foreignMap) {
+    foreign.push(...computeForeignGains(txns, symbol, fyRange))
+  }
 
   for (const [symbol, txns] of stockMap) {
     equity.push(...computeStockGains(txns, symbol, null, fyRange, asOf).realised)
@@ -317,5 +347,5 @@ export function gatherBucketedGains(inputs: GatherBucketedGainsInputs): { equity
     debt.push(...computeGoldGains(etfTxns, 'etf', null, fyRange, asOf, LTCG_DAYS_DEBT).realised)
   }
 
-  return { equity, debt }
+  return { equity, debt, foreign }
 }

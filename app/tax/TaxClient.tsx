@@ -24,6 +24,7 @@ interface Props {
   fiscalYears:    FiscalYear[]
   currentFY:      FiscalYear | null
   stockTxns:      Transaction[]
+  foreignTxns:    Transaction[]
   mfFunds:        MFund[]
   mfTxns:         MFTransaction[]
   mfNavs:         Record<string, number>
@@ -34,13 +35,14 @@ interface Props {
   carryForward:   CarryForwardDbRow[]
 }
 
-const BUCKET_ORDER: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG']
+const BUCKET_ORDER: Bucket[] = ['equityLTCG', 'equitySTCG', 'debtLTCG', 'debtSTCG', 'foreignLTCG', 'foreignSTCG']
 const BUCKET_LABEL: Record<Bucket, string> = {
   equityLTCG: 'Equity LTCG', equitySTCG: 'Equity STCG', debtLTCG: 'Debt LTCG', debtSTCG: 'Debt STCG',
+  foreignLTCG: 'Foreign LTCG', foreignSTCG: 'Foreign STCG',
 }
 
 export default function TaxClient({
-  fiscalYears, currentFY, stockTxns, mfFunds, mfTxns, mfNavs, cmps, sgbTxns, dividends, advanceTaxPaid, carryForward,
+  fiscalYears, currentFY, stockTxns, foreignTxns, mfFunds, mfTxns, mfNavs, cmps, sgbTxns, dividends, advanceTaxPaid, carryForward,
 }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
@@ -63,6 +65,7 @@ export default function TaxClient({
   }
 
   const stockMap = useMemo(() => groupBy(stockTxns, t => t.symbol),    [stockTxns])
+  const foreignMap = useMemo(() => groupBy(foreignTxns, t => t.symbol), [foreignTxns])
   const mfMap    = useMemo(() => groupBy(mfTxns,    t => t.fund_id),   [mfTxns])
   const goldMap  = useMemo(() => groupBy(sgbTxns,   t => t.gold_type), [sgbTxns])
 
@@ -79,7 +82,7 @@ export default function TaxClient({
     reconcileRef.current = true
 
     const plan = planCarryForwardReconciliation({
-      fiscalYears, existingRows: carryForwardLibRows, stockMap, mfMap, mfFunds, goldMap, asOfToday: todayISO(),
+      fiscalYears, existingRows: carryForwardLibRows, stockMap, mfMap, mfFunds, goldMap, foreignMap, asOfToday: todayISO(),
     })
     if (plan.decrements.length === 0 && plan.upserts.length === 0) return
 
@@ -117,16 +120,16 @@ export default function TaxClient({
   const fyRange = useMemo(() => selectedFY ? { start: selectedFY.start_date, end: selectedFY.end_date } : null, [selectedFY])
 
   const computed = useMemo(() => {
-    if (!fyRange) return { equity: [] as RealisedGain[], debt: [] as RealisedGain[], dividendIncome: 0 }
+    if (!fyRange) return { equity: [] as RealisedGain[], debt: [] as RealisedGain[], foreign: [] as RealisedGain[], dividendIncome: 0 }
     const asOf = todayISO()
-    const { equity, debt } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, fyRange, asOf })
+    const { equity, debt, foreign } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, foreignMap, fyRange, asOf })
     const dividendIncome = dividends
       .filter(d => d.ex_date >= fyRange.start && d.ex_date <= fyRange.end)
       .reduce((s, d) => s + d.amount, 0)
-    return { equity, debt, dividendIncome }
-  }, [fyRange, stockMap, mfMap, goldMap, mfFunds, dividends])
+    return { equity, debt, foreign, dividendIncome }
+  }, [fyRange, stockMap, mfMap, goldMap, foreignMap, mfFunds, dividends])
 
-  const raw = useMemo(() => bucketGains(computed.equity, computed.debt), [computed])
+  const raw = useMemo(() => bucketGains(computed.equity, computed.debt, computed.foreign), [computed])
 
   // Gold ETF's own LTCG/STCG, for the informational Breakdown group only —
   // it's already counted inside raw.debtLTCG/debtSTCG above (same bucket,
@@ -159,20 +162,22 @@ export default function TaxClient({
   const instalments = useMemo(() => {
     if (!selectedFY) return [] as InstalmentResult[]
     const milestones     = advanceTaxMilestones(selectedFY)
-    const liabilityAsOf  = buildLiabilityAsOf({ stockMap, mfMap, mfFunds, goldMap, dividends, fyStart: selectedFY.start_date, incomingCarryForward, slabRatePct })
+    const liabilityAsOf  = buildLiabilityAsOf({ stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, fyStart: selectedFY.start_date, incomingCarryForward, slabRatePct })
     return computeInstalments(milestones, liabilityAsOf, paid, todayISO())
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
+  }, [selectedFY, stockMap, mfMap, mfFunds, goldMap, foreignMap, dividends, incomingCarryForward, slabRatePct, paid.jun, paid.sep, paid.dec, paid.mar])
 
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
 
-  const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER.map(bucket => {
+  const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER
+    .filter(bucket => !bucket.startsWith('foreign') || raw[bucket] !== 0 || setOff.final[bucket] !== 0)
+    .map(bucket => {
     const setOffAmt = setOff.moves.filter(m => m.to === bucket).reduce((s, m) => s + m.amount, 0)
     const exemption = bucket === 'equityLTCG' ? setOff.exemptionApplied : 0
     const line      = taxResult.lines.find(l => l.bucket === bucket)
-    const rateLabel = bucket === 'equitySTCG' ? '20%' : bucket === 'debtSTCG' ? `${slabRatePct}% slab` : '12.5%'
+    const rateLabel = bucket === 'equitySTCG' ? '20%' : bucket === 'debtSTCG' || bucket === 'foreignSTCG' ? `${slabRatePct}% slab` : '12.5%'
     return {
       bucket, label: BUCKET_LABEL[bucket], rateLabel,
       rawGain: raw[bucket], exemption, setOff: setOffAmt,

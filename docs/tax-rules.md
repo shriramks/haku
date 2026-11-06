@@ -19,10 +19,16 @@ Finance Act 2023 split debt MF treatment by purchase date (effective April 1, 20
 - **SGB held to maturity:** fully exempt from capital gains tax.
 - **SGB/ETF sold before maturity:** normal gold LTCG rules apply.
 
+### Foreign-listed holdings (stocks / ETFs with a non-INR quote currency)
+- **LTCG threshold:** 730 days (24 months). Gains below that are short-term.
+- **LTCG:** 12.5%, **no** 1.25 L exemption. **STCG:** slab rate.
+- Gain is computed in INR: cost at the buy trade's stored `fx_rate`, proceeds at the sell trade's — so currency movement is part of the gain.
+- Own buckets (`foreignLTCG`, `foreignSTCG`). Harvesting does not cover them.
+
 ### Loss set-off rules
 Set-off follows the **term of the loss** (short-term vs long-term), not the asset class — this matches actual Indian tax law (s.70): equity vs debt only changes the *rate*, not who can absorb whose loss.
-- **Short-term losses** (equity STCG, debt STCG) can be set off against **any** of the four buckets — equity STCG, equity LTCG, debt STCG, or debt LTCG — highest-rate-first.
-- **Long-term losses** (equity LTCG, debt LTCG) can only be set off against the two LTCG buckets (equity or debt) — never against a short-term gain.
+- **Short-term losses** (equity STCG, debt STCG) can be set off against **any** of the four buckets — equity STCG, equity LTCG, debt STCG, or debt LTCG — highest-rate-first (ties: debt LTCG, foreign LTCG, equity LTCG).
+- **Long-term losses** (equity LTCG, debt LTCG) can only be set off against the two LTCG buckets (equity or debt) — never against a short-term gain. Foreign LTCG/STCG are two more buckets in the same model: foreign long-term is a long-term target and source, foreign short-term a short-term source and a target of any short-term loss. Carry-forward stays two types (short / long).
 - "Debt" bucket = debt MF **and** gold ETF sold before maturity combined (`gatherBucketedGains`) — so gold ETF fully participates in the above, including crossing into equity via the short-term leg.
 - **SGB held to maturity and physical gold are excluded from the bucketed model entirely** — no resolved bucket, no participation in set-off, reported separately. (SGB-to-maturity is tax-exempt anyway.)
 - Harvesting analysis therefore applies only to equity positions; debt, gold ETF, SGB, and physical gold are reported separately.

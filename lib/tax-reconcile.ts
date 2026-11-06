@@ -29,6 +29,7 @@ export interface ReconcileInputs {
   mfMap:        Map<string, MFTransaction[]>
   mfFunds:      MFund[]
   goldMap:      Map<string, SGBTransaction[]>
+  foreignMap:   Map<string, Transaction[]>
   asOfToday:    string
 }
 
@@ -61,7 +62,7 @@ export interface ReconcilePlan {
  * upsert just carries the already-net `remaining` instead.
  */
 export function planCarryForwardReconciliation(inputs: ReconcileInputs): ReconcilePlan {
-  const { fiscalYears, existingRows, stockMap, mfMap, mfFunds, goldMap, asOfToday } = inputs
+  const { fiscalYears, existingRows, stockMap, mfMap, mfFunds, goldMap, foreignMap, asOfToday } = inputs
 
   const closedFYs = fiscalYears
     .filter(fy => isFYClosed(fy, asOfToday))
@@ -79,8 +80,8 @@ export function planCarryForwardReconciliation(inputs: ReconcileInputs): Reconci
     const incoming  = sumCarryForward(priorRows)
 
     const fyRange       = { start: fy.start_date, end: fy.end_date }
-    const { equity, debt } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, fyRange, asOf: fy.end_date })
-    const raw            = bucketGains(equity, debt)
+    const { equity, debt, foreign } = gatherBucketedGains({ stockMap, mfMap, mfFunds, goldMap, foreignMap, fyRange, asOf: fy.end_date })
+    const raw            = bucketGains(equity, debt, foreign)
     const { newCarryForward, carryForwardUsed } = applySetOff(raw, incoming, RECONCILE_SLAB_RATE)
 
     for (const dec of consumeCarryForward(priorRows, carryForwardUsed)) {

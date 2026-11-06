@@ -14,7 +14,7 @@ function gain(gainType: GainType, amount: number): RealisedGain {
   }
 }
 
-const ZERO: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0 }
+const ZERO: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
 const NO_CF = { shortTerm: 0, longTerm: 0 }
 
 // ── bucketGains ───────────────────────────────────────────────────────────────
@@ -23,12 +23,12 @@ describe('bucketGains', () => {
   it('sums equity pool into equityLTCG/STCG and debt pool into debtLTCG/STCG', () => {
     const equity = [gain('LTCG', 100), gain('LTCG', 50), gain('STCG', -20)]
     const debt   = [gain('STCG', 30), gain('LTCG', 200)]
-    const totals = bucketGains(equity, debt)
-    expect(totals).toEqual({ equityLTCG: 150, equitySTCG: -20, debtLTCG: 200, debtSTCG: 30 })
+    const totals = bucketGains(equity, debt, [])
+    expect(totals).toEqual({ equityLTCG: 150, equitySTCG: -20, debtLTCG: 200, debtSTCG: 30, foreignLTCG: 0, foreignSTCG: 0 })
   })
 
   it('empty pools → all zero', () => {
-    expect(bucketGains([], [])).toEqual(ZERO)
+    expect(bucketGains([], [], [])).toEqual(ZERO)
   })
 })
 
@@ -58,7 +58,7 @@ describe('applySetOff — exemption', () => {
 
 describe('applySetOff — short-term loss waterfall', () => {
   it('ST loss consumes slab-rate debt STCG before the 12.5% tier', () => {
-    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -50_120, debtLTCG: 390_000, debtSTCG: 11_200 }
+    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -50_120, debtLTCG: 390_000, debtSTCG: 11_200, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 30)
     expect(r.final.debtSTCG).toBeCloseTo(0)
     expect(r.final.debtLTCG).toBeCloseTo(390_000 - (50_120 - 11_200))
@@ -66,7 +66,7 @@ describe('applySetOff — short-term loss waterfall', () => {
   })
 
   it('within the 12.5% tier, debt LTCG is consumed before equity LTCG', () => {
-    const raw: BucketTotals = { equityLTCG: 100_000, equitySTCG: -60_000, debtLTCG: 50_000, debtSTCG: 0 }
+    const raw: BucketTotals = { equityLTCG: 100_000, equitySTCG: -60_000, debtLTCG: 50_000, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 30)
     // exemption first: equityLTCG 100,000 -> 0 (fully exempt, no tax room needed there yet)
     // ST loss 60,000: nothing in debtSTCG, so it hits debtLTCG (50,000) first, then equityLTCG (0, already exempt to 0)
@@ -75,7 +75,7 @@ describe('applySetOff — short-term loss waterfall', () => {
   })
 
   it('a single loss can split across multiple buckets, highest-rate first', () => {
-    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -100_000, debtLTCG: 0, debtSTCG: 30_000 }
+    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -100_000, debtLTCG: 0, debtSTCG: 30_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 30)
     const toDebtSTCG = r.moves.find(m => m.from === 'equitySTCG' && m.to === 'debtSTCG')
     expect(toDebtSTCG?.amount).toBeCloseTo(30_000)
@@ -86,7 +86,7 @@ describe('applySetOff — short-term loss waterfall', () => {
   it('equity STCG (20%) is a valid ST-loss target when it is not itself the source', () => {
     // debt STCG loss at slab 10% (below 12.5% and 20%) — equity STCG (20%) should still be
     // eligible and, being the single highest rate here, absorb first.
-    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: 40_000, debtLTCG: 0, debtSTCG: -25_000 }
+    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: 40_000, debtLTCG: 0, debtSTCG: -25_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 10)
     expect(r.final.equitySTCG).toBeCloseTo(15_000)
     expect(r.moves).toEqual([{ from: 'debtSTCG', to: 'equitySTCG', amount: 25_000 }])
@@ -97,7 +97,7 @@ describe('applySetOff — short-term loss waterfall', () => {
 
 describe('applySetOff — long-term loss waterfall', () => {
   it('LT loss offsets debt LTCG but never touches ST buckets', () => {
-    const raw: BucketTotals = { equityLTCG: -40_000, equitySTCG: 20_000, debtLTCG: 100_000, debtSTCG: 20_000 }
+    const raw: BucketTotals = { equityLTCG: -40_000, equitySTCG: 20_000, debtLTCG: 100_000, debtSTCG: 20_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 30)
     expect(r.final.debtLTCG).toBeCloseTo(60_000)
     expect(r.final.equitySTCG).toBe(20_000)  // untouched — LT loss can't reach ST buckets
@@ -106,7 +106,7 @@ describe('applySetOff — long-term loss waterfall', () => {
   })
 
   it('LT loss exceeding all LT room carries forward, ignoring available ST room', () => {
-    const raw: BucketTotals = { equityLTCG: -200_000, equitySTCG: 50_000, debtLTCG: 30_000, debtSTCG: 0 }
+    const raw: BucketTotals = { equityLTCG: -200_000, equitySTCG: 50_000, debtLTCG: 30_000, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, NO_CF, 30)
     expect(r.final.debtLTCG).toBe(0)
     expect(r.final.equitySTCG).toBe(50_000)  // never touched by the LT loss
@@ -118,7 +118,7 @@ describe('applySetOff — long-term loss waterfall', () => {
 
 describe('applySetOff — incoming carryforward', () => {
   it('prior-year ST carryforward absorbs into this year’s remaining room after intra-year setoff', () => {
-    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 40_000 }
+    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 40_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, { shortTerm: 15_000, longTerm: 0 }, 30)
     expect(r.final.debtSTCG).toBeCloseTo(25_000)
     expect(r.carryForwardUsed.shortTerm).toBeCloseTo(15_000)
@@ -131,7 +131,7 @@ describe('applySetOff — incoming carryforward', () => {
   })
 
   it('this year’s own loss takes priority over incoming carryforward for the same room', () => {
-    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -10_000, debtLTCG: 0, debtSTCG: 10_000 }
+    const raw: BucketTotals = { equityLTCG: 0, equitySTCG: -10_000, debtLTCG: 0, debtSTCG: 10_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = applySetOff(raw, { shortTerm: 5_000, longTerm: 0 }, 30)
     expect(r.final.debtSTCG).toBe(0)               // fully consumed by this year's own loss
     expect(r.newCarryForward.shortTerm).toBe(0)     // own loss fully absorbed
@@ -143,7 +143,7 @@ describe('applySetOff — incoming carryforward', () => {
 
 describe('computeTax', () => {
   it('rates: equity LTCG/debt LTCG at 12.5%, equity STCG at 20%, debt STCG + dividends at slab', () => {
-    const final: BucketTotals = { equityLTCG: 10_000, equitySTCG: 10_000, debtLTCG: 10_000, debtSTCG: 10_000 }
+    const final: BucketTotals = { equityLTCG: 10_000, equitySTCG: 10_000, debtLTCG: 10_000, debtSTCG: 10_000, foreignLTCG: 0, foreignSTCG: 0 }
     const r = computeTax(final, 10_000, 30)
     const byBucket = Object.fromEntries(r.lines.map(l => [l.bucket, l]))
     expect(byBucket.equityLTCG.tax).toBeCloseTo(10_000 * RATE_EQUITY_LTCG)
@@ -154,19 +154,19 @@ describe('computeTax', () => {
   })
 
   it('a bucket left net negative after set-off contributes no tax line', () => {
-    const final: BucketTotals = { equityLTCG: 0, equitySTCG: -50_000, debtLTCG: 0, debtSTCG: 0 }
+    const final: BucketTotals = { equityLTCG: 0, equitySTCG: -50_000, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
     const r = computeTax(final, 0, 30)
     expect(r.lines.find(l => l.bucket === 'equitySTCG')).toBeUndefined()
   })
 
   it('a bucket reduced to exactly zero by set-off still shows a zero tax line', () => {
-    const final: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0 }
+    const final: BucketTotals = { equityLTCG: 0, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
     const r = computeTax(final, 0, 30)
     expect(r.lines.find(l => l.bucket === 'debtSTCG')?.tax).toBe(0)
   })
 
   it('total = sum of bucket tax + 4% cess', () => {
-    const final: BucketTotals = { equityLTCG: 100_000, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0 }
+    const final: BucketTotals = { equityLTCG: 100_000, equitySTCG: 0, debtLTCG: 0, debtSTCG: 0, foreignLTCG: 0, foreignSTCG: 0 }
     const r = computeTax(final, 0, 30)
     expect(r.tax).toBeCloseTo(100_000 * RATE_EQUITY_LTCG)
     expect(r.cess).toBeCloseTo(r.tax * CESS_RATE)

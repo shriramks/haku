@@ -263,7 +263,7 @@ lib/
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   instrument.ts                         Pure instrument helpers: `isNseExchange` (IND vs overseas row), `isValidYahooSymbol` (#154). Overseas instruments are registered from Plan via `lookupInstrument` / `registerInstrument` in `app/actions.ts`, not a code list
-  trade-fx.ts                           `tradeFxRate` (rate stored on a trade: 1 for INR, the supplied rate for USD, null = reject) `inrTransactions` (tax / dividends are INR-only until #161) (#153) and `inrPerUnit` (INR per unit of each instrument's quote currency, for currency-correct P&L) (#154)
+  trade-fx.ts                           `tradeFxRate` (rate stored on a trade: 1 for INR, the supplied rate for USD, null = reject) `inrTransactions` (equity tax pipeline, harvesting and dividends take INR trades only; foreign trades feed the Foreign tax buckets, #161) (#153) and `inrPerUnit` (INR per unit of each instrument's quote currency, for currency-correct P&L) (#154)
   fx.ts                                 USD->INR helpers: rateOnOrBefore, parseYahooFxHistory, USDINR_PRICE_KEY
   stock-prices.ts                       saved-price helpers: heldSymbols, resolveCmp, buildPriceUpdate — see "Price Fetch Flow"
   price-freshness.ts                    lastMarketClose, pricesAreStale, laggingDates, istDay — Prices-button status + per-row dates ("Price Fetch Flow")

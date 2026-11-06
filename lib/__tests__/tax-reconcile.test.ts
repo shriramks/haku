@@ -37,7 +37,7 @@ function baseInputs(fiscalYears: FiscalYear[], existingRows: CarryForwardRow[], 
   ]]])
   return {
     fiscalYears, existingRows,
-    stockMap, mfMap, mfFunds: [FUND], goldMap: new Map(), asOfToday,
+    stockMap, mfMap, mfFunds: [FUND], goldMap: new Map(), foreignMap: new Map(), asOfToday,
   }
 }
 
