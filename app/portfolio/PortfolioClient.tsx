@@ -148,13 +148,13 @@ export default function PortfolioClient({
 
       {/* Summary: 3-col grid — no justify-between stretch */}
       <div className="grid px-4"
-           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', paddingTop: 8, paddingBottom: 16 }}>
-        <div className="flex flex-col gap-2">
+           style={{ gridTemplateColumns: '1fr 1fr auto', gap: '0', paddingTop: 12, paddingBottom: 20 }}>
+        <div className="flex flex-col gap-3.5">
           <SCell label="Current Value" amount={summary.totalCurrent} />
           <SCell label="Gain" amount={summary.totalGain} signed />
           <SCell label="1D Gain" amount={summary.totalGain1d} signed />
         </div>
-        <div className="flex flex-col gap-2 pl-4" style={{ marginLeft: 8 }}>
+        <div className="flex flex-col gap-3.5 pl-4" style={{ marginLeft: 8 }}>
           <SCell label="Invested" amount={summary.totalInvested} />
           <SCell label="XIRR p.a." pct={summary.xirr !== null ? summary.xirr * 100 : null} signed />
           <SCell label="1D %" pct={summary.dayPct} signed />

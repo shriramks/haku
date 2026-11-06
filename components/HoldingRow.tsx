@@ -31,12 +31,11 @@ export function HoldingRow({ row, onClick }: { row: HoldingRowData; onClick: () 
   return (
     <button
       onClick={onClick}
-      className="grid w-full text-left tap-row px-4 list-row"
+      className="grid w-full text-left tap-row px-4 list-row-dense"
       style={{
         gridTemplateColumns: 'minmax(0,1fr) auto',
         columnGap: 12,
         alignItems: 'start',
-        minHeight: 64,
       }}>
       <div className="min-w-0">
         <p className="text-headline font-semibold line-clamp-2" style={{ color: 'var(--text-primary)' }}>

@@ -155,11 +155,11 @@ signal.deep  → color.deep
   Exception: modals/sheets use px-5 (20px) for the slightly more focused feel.
 - **Card internal padding is always 16px (p-4).**
 - **Every tappable list row uses the `.list-row` class (`globals.css`): 16px top/bottom padding, 56px minimum height.**
-  Stock rows (Plan/Allocation/Bands via `RowShell`), `HoldingRow`, Portfolio section headers and Report links all
+  Stock rows (Plan/Allocation/Bands via `RowShell`), Portfolio section headers and Report links all
   use it — never hand-code row padding. 44px (Apple HIG) is the hard floor for any tap target; 56px is our row choice.
 - **Gap between two blocks = bottom padding of the first + top padding of the next.** Never add a one-off margin on top.
-  Example (Portfolio): summary has `pb-16`, first section row has 16 top → 32px text-to-text; EPF row 16 bottom +
-  Reports label 16 top → the same 32px.
+  Example (Portfolio): the summary block is 12 top / 20 bottom with 14px between its three metric rows (label `subheadline` over
+  `title-1` number, 4px apart); first section row has 16 top → 36px text-to-text. EPF row 16 bottom + Reports label 16 top → 32px.
 - Rows with a progress bar (Allocation) keep the bar inside the row, 12px under the numbers.
 - Section labels (e.g. "Reports"): 16px above, 8px below.
 - Section divider labels (e.g. "Completed", "Bear") get `px-4 py-2` — they are structural,
@@ -254,7 +254,7 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 name (headline, semibold, max 2 lines)        value (headline, semibold)
 1D  +18.3 K  +0.3%                            P&L   +23.41 L
                                               XIRR  +10.9%
-Padding: px-4 + `.list-row` (min height 64 here for two-line content). No divider, no card, no chevron — the whole row taps.
+Padding: px-4 + `.list-row-dense` (`globals.css`: 12px top/bottom, min height 64 — three-line content, so it runs tighter than `.list-row`). No divider, no card, no chevron — the whole row taps.
 ```
 - Tags (`1D`, `P&L`, `XIRR`) are `subheadline` (12px) at `--text-2`; the figures beside them are `body` (13px), coloured by sign, and always carry +/− (`Num signed`).
 - A direct USD holding (#131) adds one more line under the name: `native` — `$110.42 · 62 units` (`subheadline`, `--text-2`, tabnum); all other figures are INR via `Num`. Other rows leave it out.

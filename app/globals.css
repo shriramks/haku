@@ -150,6 +150,12 @@ body {
   padding-bottom: 16px;
   min-height: 56px;
 }
+/* Dense variant for multi-line holding rows (Portfolio HoldingRow): 12px vertical padding. */
+.list-row-dense {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  min-height: 64px;
+}
 
 /* Label roles (docs/design.md §1) — the only place these recipes live. Both sit at the
    readable-text floor: 13px at --text-2. Spacing is set per site, not here. */
