@@ -7,7 +7,6 @@ import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
 import { ChevronRightIcon } from '@/components/icons'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
-import { isNseExchange } from '@/lib/instrument'
 import type { FiscalYear, StockAllocation, FYTxn, BuyBand } from '@/lib/types'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
@@ -40,10 +39,6 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
       allTimeHoldings, prices, inrRates,
     ),
     [allocations, transactions, bands, selectedFY, allTimeHoldings, prices, inrRates]
-  )
-  const overseas = useMemo(
-    () => new Set(allocations.filter(a => !isNseExchange(a.exchange)).map(a => a.symbol)),
-    [allocations]
   )
 
   async function switchFY(fy: FiscalYear) {
@@ -167,7 +162,7 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
           </div>
           {/* Flat allocation rows */}
           <div>
-            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} overseas={overseas.has(row.symbol)} traded={!!allTimeHoldings[row.symbol]} dim={row.remaining <= 0} />)}
+            {sortedRows.map(row => <AllocationRow key={row.symbol} row={row} fyLabel={selectedFY?.label ?? ''} dim={row.remaining <= 0} />)}
           </div>
 
           <div style={{ height: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }} />
@@ -179,21 +174,15 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
 import type { StockRow } from '@/lib/types'
 
-function AllocationRow({ row, fyLabel, overseas, traded, dim }: { row: StockRow; fyLabel: string; overseas: boolean; traded: boolean; dim?: boolean }) {
+function AllocationRow({ row, fyLabel, dim }: { row: StockRow; fyLabel: string; dim?: boolean }) {
   const isDone      = row.remaining <= 0
   // Invested % pairs with the currentCost amount below (and the bar fill);
   // Left % pairs with the remaining (budget − spent) amount. Different bases —
   // they need not sum to 100.
   const investedPct = row.budget > 0 ? Math.min(100, Math.round((row.currentCost / row.budget) * 100)) : 100
   const leftPct     = row.budget > 0 ? Math.max(0, Math.round((row.remaining / row.budget) * 100)) : 0
-  // Overseas rows open the holding page; before the first buy there is nothing to show, so the row is inert.
-  const rowTarget = !overseas
-    ? { href: `/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}` }
-    : traded
-      ? { href: `/portfolio/stock/${encodeURIComponent(row.symbol)}` }
-      : { onClick: () => {} }
   return (
-    <RowShell {...rowTarget} dim={dim}>
+    <RowShell href={`/stocks/${row.symbol}?fy=${encodeURIComponent(fyLabel)}`} dim={dim}>
       <div className="grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', alignItems: 'baseline' }}>
         {/* Col 1 — ticker + company name (truncated to one line) */}
         <div className="min-w-0 pr-1">

@@ -301,8 +301,8 @@ is the venue from the `stocks` master (`LSE`), not `NSE`.
   category (the Category picker is the same as for stocks; VUAA defaults to `S&P 500 Index`). The symbol must equal the Yahoo ticker's base (`VUAA` for `VUAA.L`) and must not already
   resolve as an NSE listing, since the master row is shared by every user. The % total, the 100% badge, the budget, Remove, and copying a plan into the next FY treat it
   like any row. Rename is not offered for an overseas row.
-- **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the holding
-  page (`/portfolio/stock/[symbol]`), and is inert until the first buy. Plan / Left / Invested totals include it.
+- **Allocation:** the same row as a stock (Left, Invested, progress bar) with no band or signal; it opens the stock
+  detail page (`/stocks/[symbol]`) like any row, with or without transactions. Plan / Left / Invested totals include it.
 - **Unrealised P&L** (`computeStockRows`): the native price is converted at today's USD->INR before it is compared with
   the INR average cost; with no rate saved the figure is absent, never mixed-currency.
 - **Spent** = INR cost of the FY's buys minus INR sell proceeds, from `amount` (INR at the trade-date rate); FY
