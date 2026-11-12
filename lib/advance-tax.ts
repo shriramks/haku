@@ -129,6 +129,8 @@ export interface InstalmentShare {
   allocated: number            // part of the total paid that lands on this quarter
   gap:       number            // slice - allocated; what this quarter is still short by
   status:    InstalmentStatus  // upcoming until the day after the due date, then paid or underpaid
+  payable:   number            // what to pay for this row: gap once past; for the NEXT upcoming row, its own remaining
+                               // slice + every earlier unpaid gap + all s.234C interest so far (what catches you up)
 }
 
 /**
@@ -146,7 +148,7 @@ export interface InstalmentShare {
  */
 export function allocatePayments(results: InstalmentResult[], totalPaid: number, asOfToday: string): InstalmentShare[] {
   let prevCum = 0
-  return results.map(r => {
+  const shares = results.map(r => {
     const cum       = Math.max(prevCum, r.target)
     const slice     = cum - prevCum
     const allocated = Math.min(slice, Math.max(0, totalPaid - prevCum))
@@ -154,27 +156,28 @@ export function allocatePayments(results: InstalmentResult[], totalPaid: number,
     const status: InstalmentStatus =
       asOfToday <= r.milestone.date ? 'upcoming' : gap < 0.5 ? 'paid' : 'underpaid'
     prevCum = cum
-    return { slice, allocated, gap, status }
+    return { slice, allocated, gap, status, payable: gap }
   })
+  const nextIdx = shares.findIndex(s => s.status === 'upcoming')
+  if (nextIdx >= 0) {
+    const carried  = shares.slice(0, nextIdx).reduce((sum, s) => sum + s.gap, 0)
+    const interest = results.reduce((sum, r) => sum + r.interest, 0)
+    shares[nextIdx].payable += carried + interest
+  }
+  return shares
 }
 
 export interface InstalmentSummary {
-  paid:      number         // total logged across all quarters
-  annual:    number         // full-year estimate (the Mar target)
-  remaining: number         // annual - paid, floored at 0
-  interest:  number         // s.234C interest across all past quarters
-  nextDue:   number | null  // still to pay to be caught up at the next upcoming due date; null once all have passed
+  paid:     number   // total logged across all quarters
+  annual:   number   // full-year estimate (the Mar target)
+  interest: number   // s.234C interest across all past quarters
 }
 
-export function summariseInstalments(results: InstalmentResult[], totalPaid: number, asOfToday: string): InstalmentSummary {
-  const annual = results.at(-1)?.target ?? 0
-  const next   = results.find(r => asOfToday <= r.milestone.date)
+export function summariseInstalments(results: InstalmentResult[], totalPaid: number): InstalmentSummary {
   return {
-    paid:      totalPaid,
-    annual,
-    remaining: Math.max(0, annual - totalPaid),
-    interest:  results.reduce((s, r) => s + r.interest, 0),
-    nextDue:   next ? Math.max(0, next.target - totalPaid) : null,
+    paid:     totalPaid,
+    annual:   results.at(-1)?.target ?? 0,
+    interest: results.reduce((s, r) => s + r.interest, 0),
   }
 }
 

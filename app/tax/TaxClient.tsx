@@ -178,7 +178,7 @@ export default function TaxClient({
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
   const shares         = useMemo(() => allocatePayments(instalments, advancePaidTotal, todayISO()), [instalments, advancePaidTotal])
-  const instalmentSum  = useMemo(() => summariseInstalments(instalments, advancePaidTotal, todayISO()), [instalments, advancePaidTotal])
+  const instalmentSum  = useMemo(() => summariseInstalments(instalments, advancePaidTotal), [instalments, advancePaidTotal])
 
   const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER
     .filter(bucket => !bucket.startsWith('foreign') || raw[bucket] !== 0 || setOff.final[bucket] !== 0)
@@ -358,8 +358,8 @@ export default function TaxClient({
 
       {selectedFY && !suppressInstalments && (
         <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}
-                 value={instalmentSum.nextDue !== null ? <Num amount={instalmentSum.nextDue} align /> : null}>
-          <InstalmentsBody results={instalments} shares={shares} summary={instalmentSum} onEdit={setEditingMilestone} />
+                 value={<><Num amount={instalmentSum.paid} /> of <Num amount={instalmentSum.annual} /></>}>
+          <InstalmentsBody results={instalments} shares={shares} interest={instalmentSum.interest} onEdit={setEditingMilestone} />
         </Section>
       )}
 

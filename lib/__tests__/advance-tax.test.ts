@@ -190,7 +190,7 @@ describe('allocatePayments / summariseInstalments', () => {
   const run = (paid: AdvanceTaxPaid, today: string) => {
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, today)
     const total   = paid.jun + paid.sep + paid.dec + paid.mar
-    return { results, total, shares: allocatePayments(results, total, today), sum: summariseInstalments(results, total, today) }
+    return { results, total, shares: allocatePayments(results, total, today), sum: summariseInstalments(results, total) }
   }
 
   it('payments fill quarters oldest-first, so a catch-up logged under sep marks jun paid too', () => {
@@ -222,19 +222,22 @@ describe('allocatePayments / summariseInstalments', () => {
     expect(allocatePayments(results, 0, '2026-04-01').every(s => s.slice >= 0)).toBe(true)
   })
 
-  it('summary: paid, annual, remaining, interest summed over past quarters, next-due to be caught up', () => {
+  it('summary: paid, annual and interest summed over past quarters', () => {
     const { sum } = run({ jun: 0, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
     expect(sum.paid).toBe(7_000)
     expect(sum.annual).toBe(40_000)
-    expect(sum.remaining).toBe(33_000)
     // jun: 750 short x 1% x 3 = 22.5; sep: 2,000 short x 1% x 3 = 60
     expect(sum.interest).toBeCloseTo(82.5)
-    expect(sum.nextDue).toBe(8_000)   // dec target 15,000 - 7,000 paid
   })
 
-  it('nextDue is null once every due date has passed', () => {
-    expect(run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2026-04-01').sum.nextDue).toBeNull()
+  it('the next upcoming row carries earlier unpaid gaps and all interest; later rows stay at their own slice', () => {
+    const { shares, sum } = run({ jun: 750, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
+    // dec own slice 6,000 + sep gap 1,250 + interest (sep: 1,250 short... see summary) — equals header
+    expect(shares[1].payable).toBe(1_250)                 // past row: its own gap
+    expect(shares[2].payable).toBeCloseTo(6_000 + 1_250 + sum.interest)
+    expect(shares[3].payable).toBe(25_000)                // mar: own slice only
   })
+
 })
 
 describe('shouldSuppressInstalments', () => {

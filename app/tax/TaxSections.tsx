@@ -1,12 +1,12 @@
 'use client'
-import type { InstalmentResult, InstalmentShare, InstalmentSummary } from '@/lib/advance-tax'
+import type { InstalmentResult, InstalmentShare } from '@/lib/advance-tax'
 import type { Bucket } from '@/lib/tax-liability'
 import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
 import { ChevronRightIcon, ShareIcon } from '@/components/icons'
-import { formatINRFine, todayISO } from '@/lib/formatter'
+import { formatINRFine } from '@/lib/formatter'
 import type { SurchargeBracket } from '@/lib/tax-liability'
 
 export type SectionKey = 'advance' | 'tax' | 'harvesting'
@@ -46,75 +46,56 @@ export function Section({
 }
 
 // ── Advance Tax — one row per due date ───────────────────────────────────────
-// A row per quarter, then a short summary list (Paid so far / Total for the
-// year / Interest when it applies / Remaining). Payments pool and fill quarters oldest-first
-// (`allocatePayments`, lib/advance-tax.ts), so a catch-up logged under Sep
-// still shows Jun as paid. A covered quarter collapses to a muted "Paid";
-// anything else shows what is still owed on it. No status colours.
+// Payments pool and fill quarters oldest-first (`allocatePayments`,
+// lib/advance-tax.ts), so a catch-up logged under Sep still shows Jun as paid.
+// No status colours: a covered quarter is muted, everything else full contrast.
 
 export function InstalmentsBody({
-  results, shares, summary, onEdit,
+  results, shares, interest, onEdit,
 }: {
-  results: InstalmentResult[]
-  shares:  InstalmentShare[]
-  summary: InstalmentSummary
-  onEdit:  (r: InstalmentResult) => void
+  results:  InstalmentResult[]
+  shares:   InstalmentShare[]
+  interest: number
+  onEdit:   (r: InstalmentResult) => void
 }) {
-  const lines: [string, number, boolean?][] = [['Paid so far', summary.paid], ['Total for the year', summary.annual]]
-  if (summary.interest > 0) lines.push(['Interest for late payment', summary.interest])
-  lines.push(['Remaining', summary.remaining, true])
+  const nextIdx = shares.findIndex(s => s.status === 'upcoming')
   return (
     <div>
       {results.map((r, i) => (
-        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
+        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)}
+                      interest={i === nextIdx ? interest : 0} />
       ))}
-      <div className="px-4 pt-2 pb-2">
-        {lines.map(([label, amount, bold]) => (
-          <div key={label} className="flex items-center justify-between" style={{ minHeight: 28 }}>
-            <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
-            <span className={`tabnum ${bold ? 'text-headline font-semibold' : 'text-body'}`}><Num amount={amount} align /></span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
 
-function daysUntil(date: string): number {
-  return Math.round((new Date(date).getTime() - new Date(todayISO()).getTime()) / 86_400_000)
+// Three fixed columns, same on every row: date | "due <amount>" | "<amount> paid".
+// For a past quarter, due is its own share; for upcoming ones it is what lands on
+// that date — for the NEXT one that includes earlier unpaid + interest (called out
+// as "+<interest> interest"). Paid is what the pooled payments put on that quarter.
+const ROW_GRID: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: '60px minmax(0,1fr) 112px', columnGap: 8, alignItems: 'baseline',
 }
 
-function MilestoneRow({ result, share, onTap }: {
-  result: InstalmentResult; share: InstalmentShare; onTap: () => void
+function MilestoneRow({ result, share, onTap, interest }: {
+  result: InstalmentResult; share: InstalmentShare; onTap: () => void; interest: number
 }) {
   const { milestone } = result
-  const { status, slice, allocated, gap } = share
-
-  if (status === 'paid') {
-    return (
-      <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row">
-        <span className="text-headline font-semibold" style={{ color: 'var(--text-2)' }}>{milestone.label}</span>
-        <span className="text-headline" style={{ color: 'var(--text-2)' }}>Paid</span>
-      </button>
-    )
-  }
-  if (status === 'underpaid') {
-    return (
-      <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row">
-        <span className="text-headline font-semibold">{milestone.label}</span>
-        <span className="text-headline font-bold tabnum">
-          <Num amount={gap} /> <span className="text-body font-semibold" style={{ color: 'var(--text-2)' }}>unpaid</span>
-        </span>
-      </button>
-    )
-  }
+  const { status, slice, allocated, payable } = share
+  const covered = status === 'paid'
+  const due     = status === 'upcoming' ? payable + allocated : slice
   return (
-    <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row-dense">
-      <span className="flex flex-col items-start gap-0.5">
-        <span className="text-headline font-semibold">{milestone.label}</span>
-        <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>Due in {daysUntil(milestone.date)} days</span>
+    <button onClick={onTap} className="w-full px-4 tap-row list-row text-left" style={ROW_GRID}>
+      <span className="text-headline font-semibold" style={{ color: covered ? 'var(--text-2)' : 'var(--text-primary)' }}>{milestone.label}</span>
+      <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>
+        due <Num amount={due} />{interest > 0 && <> +<Num amount={interest} /> interest</>}
       </span>
-      <span className="text-headline font-bold tabnum"><Num amount={slice - allocated} /></span>
+      <span className="flex items-baseline justify-end gap-1.5 tabnum">
+        <span className={`text-headline ${covered ? '' : 'font-bold'}`} style={{ width: 62, color: covered ? 'var(--text-2)' : 'var(--text-primary)' }}>
+          <Num amount={allocated} align />
+        </span>
+        <span className="text-body" style={{ width: 30, color: 'var(--text-2)' }}>paid</span>
+      </span>
     </button>
   )
 }
