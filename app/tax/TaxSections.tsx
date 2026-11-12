@@ -51,51 +51,53 @@ export function Section({
 // No status colours: a covered quarter is muted, everything else full contrast.
 
 export function InstalmentsBody({
-  results, shares, interest, onEdit,
+  results, shares, onEdit,
 }: {
-  results:  InstalmentResult[]
-  shares:   InstalmentShare[]
-  interest: number
-  onEdit:   (r: InstalmentResult) => void
+  results: InstalmentResult[]
+  shares:  InstalmentShare[]
+  onEdit:  (r: InstalmentResult) => void
 }) {
-  const nextIdx = shares.findIndex(s => s.status === 'upcoming')
   return (
     <div>
       {results.map((r, i) => (
-        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)}
-                      interest={i === nextIdx ? interest : 0} />
+        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
       ))}
     </div>
   )
 }
 
-// Three fixed columns, same on every row: date | "due <amount>" | "<amount> paid".
-// For a past quarter, due is its own share; for upcoming ones it is what lands on
-// that date — for the NEXT one that includes earlier unpaid + interest (called out
-// as "+<interest> interest"). Paid is what the pooled payments put on that quarter.
+// Four fixed columns, same on every row, no column heads (each cell carries its
+// own small word): date | due <this quarter's share> | paid <what was logged on
+// this date> | pay <what to pay now>. `pay` is empty once a past quarter is
+// covered; for an underpaid past quarter it is the gap; for the NEXT upcoming
+// quarter it is the amount that catches you up (own share + earlier unpaid +
+// interest); later quarters show their own remaining share. Past dates recede by
+// colour; `pay` stays bold wherever money is still owed. The date never wraps.
 const ROW_GRID: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: '60px minmax(0,1fr) 112px', columnGap: 8, alignItems: 'baseline',
+  display: 'grid', gridTemplateColumns: '48px 1fr 1fr 1fr', columnGap: 6, alignItems: 'baseline',
 }
 
-function MilestoneRow({ result, share, onTap, interest }: {
-  result: InstalmentResult; share: InstalmentShare; onTap: () => void; interest: number
+function Cell({ word, children, strong }: { word: string; children: React.ReactNode; strong?: boolean }) {
+  return (
+    <span className="tabnum text-right whitespace-nowrap">
+      <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>{word}</span>{' '}
+      <span className={strong ? 'text-headline font-bold' : 'text-body'}>{children}</span>
+    </span>
+  )
+}
+
+function MilestoneRow({ result, share, onTap }: {
+  result: InstalmentResult; share: InstalmentShare; onTap: () => void
 }) {
-  const { milestone } = result
-  const { status, slice, allocated, payable } = share
-  const covered = status === 'paid'
-  const due     = status === 'upcoming' ? payable + allocated : slice
+  const { milestone, ownPaid } = result
+  const { status, slice, payable } = share
   return (
     <button onClick={onTap} className="w-full px-4 tap-row list-row text-left" style={ROW_GRID}>
-      <span className="text-headline font-semibold" style={{ color: covered ? 'var(--text-2)' : 'var(--text-primary)' }}>{milestone.label}</span>
-      <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>
-        due <Num amount={due} />{interest > 0 && <> +<Num amount={interest} /> interest</>}
-      </span>
-      <span className="flex items-baseline justify-end gap-1.5 tabnum">
-        <span className={`text-headline ${covered ? '' : 'font-bold'}`} style={{ width: 62, color: covered ? 'var(--text-2)' : 'var(--text-primary)' }}>
-          <Num amount={allocated} align />
-        </span>
-        <span className="text-body" style={{ width: 30, color: 'var(--text-2)' }}>paid</span>
-      </span>
+      <span className="text-headline font-semibold whitespace-nowrap"
+            style={{ color: status === 'upcoming' ? 'var(--text-primary)' : 'var(--text-2)' }}>{milestone.label}</span>
+      <Cell word="due"><Num amount={slice} /></Cell>
+      <Cell word="paid"><Num amount={ownPaid} /></Cell>
+      {payable >= 0.5 ? <Cell word="pay" strong><Num amount={payable} /></Cell> : <span />}
     </button>
   )
 }

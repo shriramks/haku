@@ -359,7 +359,7 @@ export default function TaxClient({
       {selectedFY && !suppressInstalments && (
         <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}
                  value={<><Num amount={instalmentSum.paid} /> of <Num amount={instalmentSum.annual} /></>}>
-          <InstalmentsBody results={instalments} shares={shares} interest={instalmentSum.interest} onEdit={setEditingMilestone} />
+          <InstalmentsBody results={instalments} shares={shares} onEdit={setEditingMilestone} />
         </Section>
       )}
 
