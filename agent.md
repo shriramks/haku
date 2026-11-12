@@ -83,6 +83,8 @@ Stocks have buy bands, tranches, and an investability scorecard. MFs are portfol
 - **No helper text in the UI.** No hints, notes, explanations or disclaimers — labels, values and actions only (`docs/design.md`).
 - **New tax regime only.** The user files under the new regime; never add or suggest old-regime options (e.g. the 37% surcharge above 5 Cr, 80C/HRA deductions). Surcharge tops out at 25%.
 - **Mockups first for new UI.** Create a static HTML mockup in `mockups/` (gitignored) and get approval before writing component code. `mockups/` is gitignored — never commit files from it, and never put mocks in `public/` or any other folder. Open them with `open <absolute-path>` as a `file://` URL.
+- **Mockups use the app's real styles.** They use the actual spacing, type sizes and components from `app/globals.css` and `docs/design.md` — never made-up CSS.
+- **No number without a plain reading.** Before a UI change goes to the user, check that every figure on it can be explained in a sentence and that its sign and label make sense. This is a check for me, not a reason to add copy: the UI itself keeps as few sentences as possible (see "No helper text").
 - **`npm run build` before committing** non-trivial changes (`build` already runs `vitest run`).
 - **Schema changes:** an additive migration (new table or column; nothing the live app reads is removed) is handed over and run first, so code that reads it can ship. A destructive one (drop, rename, tighten) goes the other way: push code first, then hand over the SQL — the live app crashes on a dropped column until code lands.
 - **Commit directly to `main`.** Push straight to `main` — never create a feature branch or open a PR for ordinary work.

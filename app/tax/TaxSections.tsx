@@ -46,12 +46,11 @@ export function Section({
 }
 
 // ── Advance Tax — one row per due date ───────────────────────────────────────
-// Right side: what has landed on that quarter, then (when it's short) the
-// minus gap against that quarter's own share. Payments fill quarters
-// oldest-first (`allocatePayments`, lib/advance-tax.ts), so a catch-up logged
-// under Sep still shows Jun as paid. A covered past row recedes by label
-// colour only (never opacity); a row that still needs money stays at full
-// contrast. No status colours — words and weight carry the state.
+// Answer first: Paid / Total / Remaining (+ Interest when it applies), then a
+// row per quarter. Payments pool and fill quarters oldest-first
+// (`allocatePayments`, lib/advance-tax.ts), so a catch-up logged under Sep
+// still shows Jun as paid. A covered quarter collapses to a muted "Paid";
+// anything else shows what is still owed on it. No status colours.
 
 export function InstalmentsBody({
   results, shares, summary, onEdit,
@@ -61,16 +60,21 @@ export function InstalmentsBody({
   summary: InstalmentSummary
   onEdit:  (r: InstalmentResult) => void
 }) {
+  const cells: [string, number][] = [['Paid', summary.paid], ['Total', summary.annual], ['Remaining', summary.remaining]]
+  if (summary.interest > 0) cells.push(['Interest', summary.interest])
   return (
     <div>
+      <div className="grid gap-2 px-4 pb-3 pt-1" style={{ gridAutoFlow: 'column', gridAutoColumns: '1fr' }}>
+        {cells.map(([label, amount]) => (
+          <div key={label} className="flex flex-col gap-0.5">
+            <span className="label-field">{label}</span>
+            <span className="text-headline font-semibold tabnum"><Num amount={amount} /></span>
+          </div>
+        ))}
+      </div>
       {results.map((r, i) => (
         <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
       ))}
-      <div style={{ height: 8 }} />
-      <DetailRow label="Paid so far"><Num amount={summary.paid} align /></DetailRow>
-      <DetailRow label="Total for the year"><Num amount={summary.annual} align /></DetailRow>
-      {summary.interest > 0 && <DetailRow label="Interest for late payment"><Num amount={summary.interest} align /></DetailRow>}
-      <DetailRow label="Remaining" bold><Num amount={summary.remaining} align /></DetailRow>
     </div>
   )
 }
@@ -83,22 +87,33 @@ function MilestoneRow({ result, share, onTap }: {
   result: InstalmentResult; share: InstalmentShare; onTap: () => void
 }) {
   const { milestone } = result
-  const { status, allocated, slice, gap } = share
-  const done  = status === 'paid'
-  const label = status === 'paid' ? 'Paid' : status === 'underpaid' ? 'Underpaid' : `Due in ${daysUntil(milestone.date)} days`
-  const rowColor = done ? 'var(--text-2)' : 'var(--text-primary)'
-  return (
-    <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row" style={{ minHeight: 60 }}>
-      <span className="flex flex-col items-start gap-0.5">
-        <span className="text-body font-semibold" style={{ color: rowColor }}>{milestone.label}</span>
-        <span className="text-footnote" style={{ color: 'var(--text-2)' }}>{label}</span>
-      </span>
-      <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
-        <span className="text-headline font-bold tabnum" style={{ color: rowColor }}><Num amount={allocated} align /></span>
-        <span className="text-footnote tabnum" style={{ color: 'var(--text-2)' }}>
-          {status === 'underpaid' && <>−<Num amount={gap} /> </>}of <Num amount={slice} />
+  const { status, slice, allocated, gap } = share
+
+  if (status === 'paid') {
+    return (
+      <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row">
+        <span className="text-headline font-semibold" style={{ color: 'var(--text-2)' }}>{milestone.label}</span>
+        <span className="text-headline" style={{ color: 'var(--text-2)' }}>Paid</span>
+      </button>
+    )
+  }
+  if (status === 'underpaid') {
+    return (
+      <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row">
+        <span className="text-headline font-semibold">{milestone.label}</span>
+        <span className="text-headline font-bold tabnum">
+          <Num amount={gap} /> <span className="text-body font-semibold" style={{ color: 'var(--text-2)' }}>unpaid</span>
         </span>
+      </button>
+    )
+  }
+  return (
+    <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row list-row-dense">
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-headline font-semibold">{milestone.label}</span>
+        <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>Due in {daysUntil(milestone.date)} days</span>
       </span>
+      <span className="text-headline font-bold tabnum"><Num amount={slice - allocated} /></span>
     </button>
   )
 }
