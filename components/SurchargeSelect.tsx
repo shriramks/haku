@@ -17,7 +17,7 @@ interface Props {
 }
 
 /** Inline surcharge-bracket picker for the tax page — a native <select> like
- * SlabRateSelect. Never persisted: the caller owns `value` via local state. */
+ * SlabRateSelect. The caller owns `value` (the tax page persists it in localStorage). */
 export default function SurchargeSelect({ value, onChange }: Props) {
   return (
     <select

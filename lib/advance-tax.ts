@@ -122,6 +122,62 @@ export function computeInstalments(
   return results
 }
 
+export type InstalmentStatus = 'paid' | 'underpaid' | 'upcoming'
+
+export interface InstalmentShare {
+  slice:     number            // this quarter's own share of the year (cumulative target minus the previous one's)
+  allocated: number            // part of the total paid that lands on this quarter
+  gap:       number            // slice - allocated; what this quarter is still short by
+  status:    InstalmentStatus  // upcoming until the day after the due date, then paid or underpaid
+}
+
+/**
+ * What the Advance Tax rows display. A payment is not tied to the quarter it
+ * was logged under: total paid fills the quarters oldest-first, each up to its
+ * own slice. A past quarter is then either covered (`paid`) or not
+ * (`underpaid`) — there is no in-between once the due date has gone. Slices
+ * come from a running-max of the targets so a falling estimate (a loss booked
+ * later in the year) never produces a negative slice.
+ *
+ * `status` flips on the day AFTER the due date: `InstalmentResult.isPast` is
+ * inclusive of the due date because the s.234C maths needs that boundary, but
+ * calling a quarter underpaid while there is still the rest of its due date to
+ * pay would be premature.
+ */
+export function allocatePayments(results: InstalmentResult[], totalPaid: number, asOfToday: string): InstalmentShare[] {
+  let prevCum = 0
+  return results.map(r => {
+    const cum       = Math.max(prevCum, r.target)
+    const slice     = cum - prevCum
+    const allocated = Math.min(slice, Math.max(0, totalPaid - prevCum))
+    const gap       = slice - allocated
+    const status: InstalmentStatus =
+      asOfToday <= r.milestone.date ? 'upcoming' : gap < 0.5 ? 'paid' : 'underpaid'
+    prevCum = cum
+    return { slice, allocated, gap, status }
+  })
+}
+
+export interface InstalmentSummary {
+  paid:      number         // total logged across all quarters
+  annual:    number         // full-year estimate (the Mar target)
+  remaining: number         // annual - paid, floored at 0
+  interest:  number         // s.234C interest across all past quarters
+  nextDue:   number | null  // still to pay to be caught up at the next upcoming due date; null once all have passed
+}
+
+export function summariseInstalments(results: InstalmentResult[], totalPaid: number, asOfToday: string): InstalmentSummary {
+  const annual = results.at(-1)?.target ?? 0
+  const next   = results.find(r => asOfToday <= r.milestone.date)
+  return {
+    paid:      totalPaid,
+    annual,
+    remaining: Math.max(0, annual - totalPaid),
+    interest:  results.reduce((s, r) => s + r.interest, 0),
+    nextDue:   next ? Math.max(0, next.target - totalPaid) : null,
+  }
+}
+
 /** Advance tax reminders are noise below the s.208 threshold. */
 export function shouldSuppressInstalments(projectedAnnualLiability: number): boolean {
   return projectedAnnualLiability < SUPPRESS_BELOW

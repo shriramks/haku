@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf,
+  allocatePayments, summariseInstalments,
 } from '../advance-tax'
 import type { FiscalYear, Transaction, DividendTransaction } from '../types'
 import type { AdvanceTaxPaid } from '../advance-tax'
@@ -183,6 +184,58 @@ describe('computeInstalments', () => {
 })
 
 // ── shouldSuppressInstalments ───────────────────────────────────────────────────
+
+describe('allocatePayments / summariseInstalments', () => {
+  // targets 750 / 9,000 / 15,000 / 40,000 -> slices 750 / 8,250 / 6,000 / 25,000
+  const run = (paid: AdvanceTaxPaid, today: string) => {
+    const results = computeInstalments(MILESTONES, liabilityAsOf, paid, today)
+    const total   = paid.jun + paid.sep + paid.dec + paid.mar
+    return { results, total, shares: allocatePayments(results, total, today), sum: summariseInstalments(results, total, today) }
+  }
+
+  it('payments fill quarters oldest-first, so a catch-up logged under sep marks jun paid too', () => {
+    const { shares } = run({ jun: 0, sep: 9_000, dec: 0, mar: 0 }, '2025-11-12')
+    expect(shares.map(s => s.status)).toEqual(['paid', 'paid', 'upcoming', 'upcoming'])
+    expect(shares.map(s => s.allocated)).toEqual([750, 8_250, 0, 0])
+  })
+
+  it('a small underpayment is underpaid with the exact gap; later quarters are untouched', () => {
+    const { shares } = run({ jun: 750, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
+    expect(shares[1]).toMatchObject({ status: 'underpaid', allocated: 7_000, gap: 1_250, slice: 8_250 })
+    expect(shares[2].allocated).toBe(0)
+  })
+
+  it('nothing paid: every past quarter is underpaid for its whole slice', () => {
+    const { shares } = run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2025-11-12')
+    expect(shares.slice(0, 2).map(s => [s.status, s.gap])).toEqual([['underpaid', 750], ['underpaid', 8_250]])
+  })
+
+  it('a quarter is still upcoming on its due date, and underpaid only the day after', () => {
+    const paid = { jun: 0, sep: 0, dec: 0, mar: 0 }
+    expect(run(paid, '2025-06-15').shares[0].status).toBe('upcoming')
+    expect(run(paid, '2025-06-16').shares[0].status).toBe('underpaid')
+  })
+
+  it('a falling estimate never produces a negative slice', () => {
+    const falling = (d: string) => ({ '2025-06-15': 20_000, '2025-09-15': 10_000, '2025-12-15': 10_000, '2026-03-15': 10_000 } as Record<string, number>)[d] ?? 0
+    const results = computeInstalments(MILESTONES, falling, { jun: 0, sep: 0, dec: 0, mar: 0 }, '2026-04-01')
+    expect(allocatePayments(results, 0, '2026-04-01').every(s => s.slice >= 0)).toBe(true)
+  })
+
+  it('summary: paid, annual, remaining, interest summed over past quarters, next-due to be caught up', () => {
+    const { sum } = run({ jun: 0, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
+    expect(sum.paid).toBe(7_000)
+    expect(sum.annual).toBe(40_000)
+    expect(sum.remaining).toBe(33_000)
+    // jun: 750 short x 1% x 3 = 22.5; sep: 2,000 short x 1% x 3 = 60
+    expect(sum.interest).toBeCloseTo(82.5)
+    expect(sum.nextDue).toBe(8_000)   // dec target 15,000 - 7,000 paid
+  })
+
+  it('nextDue is null once every due date has passed', () => {
+    expect(run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2026-04-01').sum.nextDue).toBeNull()
+  })
+})
 
 describe('shouldSuppressInstalments', () => {
   it('suppresses below the s.208 10,000 threshold', () => {

@@ -7,16 +7,17 @@ import { gatherBucketedGains, computeStockGains, computeMFGains, computeGoldGain
 import type { RealisedGain, UnrealisedPosition } from '@/lib/tax-compute'
 import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward, SURCHARGE_RATE } from '@/lib/tax-liability'
 import type { CarryForwardRow, Bucket, SurchargeBracket } from '@/lib/tax-liability'
-import { advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
+import { advanceTaxMilestones, computeInstalments, allocatePayments, summariseInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
 import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
 import { todayISO, formatINRFine } from '@/lib/formatter'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
+import { usePersistedState } from '@/lib/use-persisted-state'
 import FYPicker from '@/components/FYPicker'
 import UserMenu from '@/components/UserMenu'
 import { Button } from '@/components/Button'
-import SlabRateSelect, { DEFAULT_SLAB_RATE } from '@/components/SlabRateSelect'
+import SlabRateSelect, { DEFAULT_SLAB_RATE, SLAB_RATES } from '@/components/SlabRateSelect'
 import SurchargeSelect, { DEFAULT_SURCHARGE_BRACKET } from '@/components/SurchargeSelect'
 import { Num } from '@/components/Num'
 import { LTCG_EXEMPTION } from '@/lib/tax-liability'
@@ -49,8 +50,10 @@ export default function TaxClient({
 }: Props) {
   const router = useRouter()
   const [selectedFY, setSelectedFY]   = useState<FiscalYear | null>(currentFY)
-  const [slabRatePct, setSlabRatePct] = useState(DEFAULT_SLAB_RATE)
-  const [surchargeBracket, setSurchargeBracket] = useState<SurchargeBracket>(DEFAULT_SURCHARGE_BRACKET)
+  const [slabRatePct, setSlabRatePct] = usePersistedState<number>('haku_tax_slab', DEFAULT_SLAB_RATE,
+    (v): v is number => typeof v === 'number' && SLAB_RATES.includes(v))
+  const [surchargeBracket, setSurchargeBracket] = usePersistedState<SurchargeBracket>('haku_tax_surcharge', DEFAULT_SURCHARGE_BRACKET,
+    (v): v is SurchargeBracket => v === 'NONE' || v === 'S10' || v === 'S15' || v === 'S25')
   const [expanded, setExpanded]       = useState<Set<SectionKey>>(new Set(['advance']))
 
   const [paidRows, setPaidRows] = useState<AdvanceTaxPaidRow[]>(advanceTaxPaid)
@@ -174,8 +177,8 @@ export default function TaxClient({
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
-  // Advance Tax header value: what's due at the next milestone that isn't yet past.
-  const nextDue = instalments.find(r => todayISO() <= r.milestone.date)
+  const shares         = useMemo(() => allocatePayments(instalments, advancePaidTotal, todayISO()), [instalments, advancePaidTotal])
+  const instalmentSum  = useMemo(() => summariseInstalments(instalments, advancePaidTotal, todayISO()), [instalments, advancePaidTotal])
 
   const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER
     .filter(bucket => !bucket.startsWith('foreign') || raw[bucket] !== 0 || setOff.final[bucket] !== 0)
@@ -355,8 +358,8 @@ export default function TaxClient({
 
       {selectedFY && !suppressInstalments && (
         <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}
-                 value={nextDue ? <Num amount={nextDue.payableNow} align /> : null}>
-          <InstalmentsBody results={instalments} onEdit={setEditingMilestone} />
+                 value={instalmentSum.nextDue !== null ? <Num amount={instalmentSum.nextDue} align /> : null}>
+          <InstalmentsBody results={instalments} shares={shares} summary={instalmentSum} onEdit={setEditingMilestone} />
         </Section>
       )}
 
@@ -448,7 +451,7 @@ function PaidAmountSheet({ result, onClose, onSave }: {
         </div>
 
         <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-body">Paid so far</p>
+          <p className="text-body">Paid</p>
           <input
             type="number" inputMode="decimal"
             value={value} onChange={e => setValue(e.target.value)}

@@ -1,11 +1,11 @@
 'use client'
-import type { InstalmentResult } from '@/lib/advance-tax'
+import type { InstalmentResult, InstalmentShare, InstalmentSummary } from '@/lib/advance-tax'
 import type { Bucket } from '@/lib/tax-liability'
 import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
 import { DetailRow, SectionLabel } from '@/components/detail-rows'
 import { ProgressBar } from '@/components/ProgressBar'
-import { ChevronRightIcon, CheckCircleIcon, XCircleIcon, ShareIcon } from '@/components/icons'
+import { ChevronRightIcon, ShareIcon } from '@/components/icons'
 import { formatINRFine, todayISO } from '@/lib/formatter'
 import type { SurchargeBracket } from '@/lib/tax-liability'
 
@@ -45,105 +45,60 @@ export function Section({
   )
 }
 
-// ── Advance Tax — plain list ─────────────────────────────────────────────────
+// ── Advance Tax — one row per due date ───────────────────────────────────────
+// Right side: what has landed on that quarter, then (when it's short) the
+// minus gap against that quarter's own share. Payments fill quarters
+// oldest-first (`allocatePayments`, lib/advance-tax.ts), so a catch-up logged
+// under Sep still shows Jun as paid. A covered past row recedes by label
+// colour only (never opacity); a row that still needs money stays at full
+// contrast. No status colours — words and weight carry the state.
 
 export function InstalmentsBody({
-  results, onEdit,
+  results, shares, summary, onEdit,
 }: {
   results: InstalmentResult[]
+  shares:  InstalmentShare[]
+  summary: InstalmentSummary
   onEdit:  (r: InstalmentResult) => void
 }) {
-  // The last milestone (Mar, 100% cumulative) *is* the full year's estimated
-  // tax — shown once at the end as "what I have to pay this year", not
-  // repeated per-row (each row already shows what's due at its own date).
-  const annualTarget = results.at(-1)?.target ?? 0
   return (
     <div>
       {results.map((r, i) => (
-        <MilestoneRow
-          key={r.milestone.key}
-          result={r}
-          priorInterest={i > 0 ? results[i - 1].interest : 0}
-          onTap={() => onEdit(r)}
-        />
+        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
       ))}
-      <DetailRow label="Total for the year" bold><Num amount={annualTarget} align /></DetailRow>
+      <div style={{ height: 8 }} />
+      <DetailRow label="Paid so far"><Num amount={summary.paid} align /></DetailRow>
+      <DetailRow label="Total for the year"><Num amount={summary.annual} align /></DetailRow>
+      {summary.interest > 0 && <DetailRow label="Interest for late payment"><Num amount={summary.interest} align /></DetailRow>}
+      <DetailRow label="Remaining" bold><Num amount={summary.remaining} align /></DetailRow>
     </div>
   )
 }
 
-// Headline is `payableNow` (lib/advance-tax.ts) — what's newly due AT this
-// milestone's own date: its own fresh s.211 slice (this milestone's target
-// minus the previous one's), net of whatever's been logged specifically
-// against this quarter, plus anything still outstanding — principal and
-// interest — from the *previous* milestone's own shortfall. Not the
-// cumulative-since-FY-start total: by Dec 15 you owe Dec's own slice, not
-// 75% of the whole year's estimated tax.
-function MilestoneRow({ result, priorInterest, onTap }: {
-  result: InstalmentResult; priorInterest: number; onTap: () => void
+function daysUntil(date: string): number {
+  return Math.round((new Date(date).getTime() - new Date(todayISO()).getTime()) / 86_400_000)
+}
+
+function MilestoneRow({ result, share, onTap }: {
+  result: InstalmentResult; share: InstalmentShare; onTap: () => void
 }) {
-  const { milestone, isPast, ownPaid, payableNow } = result
-  const settled = payableNow <= 0 && ownPaid > 0
-
-  // `isPast` (lib/advance-tax.ts) is `>=` the due date — inclusive of the
-  // due date itself, because that's also when s.234C interest/carry-forward
-  // maths have to start applying, and that boundary is shared, tested logic
-  // we don't want to touch here. But flagging a row "Missed" while its due
-  // date is still today is premature — there's the rest of the day left to
-  // pay. Use a stricter, display-only boundary instead: only the day AFTER
-  // the due date counts as past for this row's own missed/recede treatment.
-  const duePast = todayISO() > milestone.date
-  const missed  = duePast && !settled && payableNow > 0
-
-  // Once a milestone's own due date is behind us, its shortfall + interest
-  // has already rolled forward into whichever milestone is next (see
-  // `computeInstalments` in lib/advance-tax.ts) — so a past row is never
-  // something to separately act on again, paid or not. It recedes through its
-  // label colour only (never opacity — dimming is for allocation-done rows).
-  const labelColor = duePast ? 'var(--text-2)' : 'var(--text-primary)'
-
-  // Settled or missed — either way `payableNow` alone (a bare "0", or a
-  // stale non-zero amount that's already baked into a later row) doesn't say
-  // what happened. Lead with the state that matters instead: green check +
-  // "Paid" or red cross + "Missed", with the amount demoted to a muted
-  // reference line underneath.
-  if (settled || missed) {
-    const Icon       = settled ? CheckCircleIcon : XCircleIcon
-    const colorClass = settled ? 'text-positive'  : 'text-negative'
-    const word        = settled ? 'Paid'           : 'Missed'
-    const refAmount   = settled ? ownPaid          : payableNow
-    return (
-      <button
-        onClick={onTap}
-        className="flex items-center justify-between w-full px-4 tap-row"
-        style={{ minHeight: 56 }}>
-        <span className="text-body font-semibold" style={{ color: labelColor }}>{milestone.label}</span>
-        <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
-          <span className={`flex items-center gap-1.5 ${colorClass}`}>
-            <Icon className="w-[15px] h-[15px]" />
-            <span className="text-headline font-semibold">{word}</span>
-          </span>
-          <span className="text-subheadline tabnum" style={{ color: 'var(--text-2)' }}><Num amount={refAmount} /></span>
-        </span>
-      </button>
-    )
-  }
-
-  const parts: string[] = []
-  if (isPast || ownPaid > 0) parts.push(`Paid ${formatINRFine(ownPaid)}`)
-  if (priorInterest > 0) parts.push(`+${formatINRFine(priorInterest)} interest`)
-  const meta = parts.length > 0 ? parts.join(' · ') : null
-
+  const { milestone } = result
+  const { status, allocated, slice, gap } = share
+  const done  = status === 'paid'
+  const label = status === 'paid' ? 'Paid' : status === 'underpaid' ? 'Underpaid' : `Due in ${daysUntil(milestone.date)} days`
+  const rowColor = done ? 'var(--text-2)' : 'var(--text-primary)'
   return (
-    <button
-      onClick={onTap}
-      className="flex items-center justify-between w-full px-4 tap-row"
-      style={{ minHeight: meta ? 56 : 48 }}>
-      <div className="flex flex-col gap-0.5 items-start min-w-0">
-        <span className="text-body font-semibold" style={{ color: labelColor }}>{milestone.label}</span>
-        {meta && <span className="text-footnote" style={{ color: 'var(--text-2)' }}>{meta}</span>}
-      </div>
-      <span className="text-headline font-bold tabnum flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}><Num amount={payableNow} align /></span>
+    <button onClick={onTap} className="flex items-center justify-between w-full px-4 tap-row" style={{ minHeight: 60 }}>
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-body font-semibold" style={{ color: rowColor }}>{milestone.label}</span>
+        <span className="text-footnote" style={{ color: 'var(--text-2)' }}>{label}</span>
+      </span>
+      <span className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-3">
+        <span className="text-headline font-bold tabnum" style={{ color: rowColor }}><Num amount={allocated} align /></span>
+        <span className="text-footnote tabnum" style={{ color: 'var(--text-2)' }}>
+          {status === 'underpaid' && <>−<Num amount={gap} /> </>}of <Num amount={slice} />
+        </span>
+      </span>
     </button>
   )
 }

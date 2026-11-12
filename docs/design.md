@@ -245,9 +245,9 @@ Grid: minmax(0,1fr) 58px 78px 78px 1rem, gap-x-2. Padding: px-4, min height 52. 
 - The % column is 78px: sized for the old 17px headline overflowing at +48.2 % (now 15px, so this has more headroom than strictly needed, but still holds an XIRR above 100 %).
 
 ### Tax screen (`app/tax/`)
-- Slab rate and Surcharge are two 44px rows at the top (label `body` `--text-2`, native select `headline` accent), 12px above and below. They drive every figure on the page, so they sit above all sections.
+- Slab rate and Surcharge are two 44px rows at the top (label `body` `--text-2`, native select `headline` accent), 12px above and below. They drive every figure on the page, so they sit above all sections. Both are remembered per device in localStorage (`haku_tax_slab`, `haku_tax_surcharge`).
 - Sections (Advance Tax, Total Tax, Harvesting) use the same header as Portfolio: `.list-row` (56px), bold `headline` label, the section's hero value on the right (next due / Net payable / remaining exemption, `headline` semibold `--text-2`), right chevron that rotates down when open. No margin between headers.
-- Instalment rows: 48px single-line, 56px with a second line (Missed / Paid / interest). Past rows recede by label colour (`--text-2`), never by opacity. "Total for the year" is a `DetailRow`.
+- Instalment rows: 60px, two lines each, no status colours. Left: due date (`body` semibold) over a `footnote` status — **Paid**, **Underpaid**, or "Due in N days". Right: the amount that landed on that quarter (`headline` bold) over `footnote` "of <that quarter's share>", prefixed with a minus gap when underpaid ("−3 K of 36 K"). Payments fill quarters oldest-first, so a catch-up logged under Sep marks Jun paid. A paid row recedes by label/amount colour (`--text-2`), never opacity; underpaid and upcoming rows stay at full contrast. A quarter turns Underpaid the day after its due date. Below the rows: Paid so far, Total for the year, Interest for late payment (only when > 0), Remaining (bold) as `DetailRow`s. Section header value = what is still to pay to be caught up at the next due date.
 
 ### HoldingRow (Portfolio: Stocks incl. USD holdings, MF, Gold — `components/HoldingRow.tsx`)
 ```

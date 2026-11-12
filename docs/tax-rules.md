@@ -38,4 +38,5 @@ Set-off follows the **term of the loss** (short-term vs long-term), not the asse
 - **15% cap:** surcharge on equity LTCG/STCG, debt LTCG, foreign LTCG and dividends is `min(bracket, 15%)`. Slab-rate buckets (debt STCG, foreign STCG) take the full bracket rate. `surcharge = Σ line tax × (capped ? min(rate, 15%) : rate)`.
 - **Cess** is 4% of `tax + surcharge`. `total = tax + surcharge + cess`; net payable = total − dividend TDS − advance tax paid.
 - **Advance tax:** the 15/45/75/100% schedule applies to `total − dividend TDS`, so surcharge flows through `buildLiabilityAsOf` automatically.
+- **Advance tax display:** total paid is pooled and fills quarters oldest-first up to each quarter's slice (`allocatePayments`); a past quarter is Paid or Underpaid, nothing in between. Interest (s.234C) is still computed per logged-payment timing (`computeInstalments`) and shown as one summed line.
 - **Not handled:** marginal relief near 50 L / 1 Cr / 2 Cr (needs total income). Ignoring it overstates tax slightly — the safe side.

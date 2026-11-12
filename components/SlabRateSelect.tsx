@@ -9,8 +9,8 @@ interface Props {
 }
 
 /** Inline slab-rate picker for the tax page — a native <select> deliberately,
- * not the app's usual bottom-sheet picker. Never persisted: the caller owns
- * `value` via local state that resets to DEFAULT_SLAB_RATE on mount. */
+ * not the app's usual bottom-sheet picker. The caller owns `value` (the tax
+ * page persists it in localStorage). */
 export default function SlabRateSelect({ value, onChange }: Props) {
   return (
     <select
