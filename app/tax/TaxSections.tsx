@@ -68,11 +68,11 @@ export function InstalmentsBody({
 
 // Four fixed columns, same on every row, no column heads (each cell carries its
 // own small word): date | due <this quarter's share> | paid <what was logged on
-// this date> | pay <what to pay now>. `pay` is empty once a past quarter is
-// covered; for an underpaid past quarter it is the gap; for the NEXT upcoming
-// quarter it is the amount that catches you up (own share + earlier unpaid +
-// interest); later quarters show their own remaining share. Past dates recede by
-// colour; `pay` stays bold wherever money is still owed. The date never wraps.
+// this date> | pay <what to pay now>. A past row is faded whole (colour, never
+// opacity) and has no `pay`: nothing is paid on a date that has gone, and any
+// shortfall is already inside the NEXT upcoming quarter's `pay` (own share +
+// earlier unpaid + interest). Later upcoming quarters show their own remaining
+// share. The date never wraps.
 const ROW_GRID: React.CSSProperties = {
   display: 'grid', gridTemplateColumns: '48px 1fr 1fr 1fr', columnGap: 6, alignItems: 'baseline',
 }
@@ -91,13 +91,14 @@ function MilestoneRow({ result, share, onTap }: {
 }) {
   const { milestone, ownPaid } = result
   const { status, slice, payable } = share
+  const past = status !== 'upcoming'
   return (
-    <button onClick={onTap} className="w-full px-4 tap-row list-row text-left" style={ROW_GRID}>
-      <span className="text-headline font-semibold whitespace-nowrap"
-            style={{ color: status === 'upcoming' ? 'var(--text-primary)' : 'var(--text-2)' }}>{milestone.label}</span>
+    <button onClick={onTap} className="w-full px-4 tap-row list-row text-left"
+            style={{ ...ROW_GRID, color: past ? 'var(--text-2)' : 'var(--text-primary)' }}>
+      <span className="text-headline font-semibold whitespace-nowrap">{milestone.label}</span>
       <Cell word="due"><Num amount={slice} /></Cell>
       <Cell word="paid"><Num amount={ownPaid} /></Cell>
-      {payable >= 0.5 ? <Cell word="pay" strong><Num amount={payable} /></Cell> : <span />}
+      {!past && payable >= 0.5 ? <Cell word="pay" strong><Num amount={payable} /></Cell> : <span />}
     </button>
   )
 }
