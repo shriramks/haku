@@ -46,8 +46,8 @@ export function Section({
 }
 
 // ── Advance Tax — one row per due date ───────────────────────────────────────
-// Answer first: Paid / Total / Remaining (+ Interest when it applies), then a
-// row per quarter. Payments pool and fill quarters oldest-first
+// A row per quarter, then a short summary list (Paid so far / Total for the
+// year / Interest when it applies / Remaining). Payments pool and fill quarters oldest-first
 // (`allocatePayments`, lib/advance-tax.ts), so a catch-up logged under Sep
 // still shows Jun as paid. A covered quarter collapses to a muted "Paid";
 // anything else shows what is still owed on it. No status colours.
@@ -60,21 +60,22 @@ export function InstalmentsBody({
   summary: InstalmentSummary
   onEdit:  (r: InstalmentResult) => void
 }) {
-  const cells: [string, number][] = [['Paid', summary.paid], ['Total', summary.annual], ['Remaining', summary.remaining]]
-  if (summary.interest > 0) cells.push(['Interest', summary.interest])
+  const lines: [string, number, boolean?][] = [['Paid so far', summary.paid], ['Total for the year', summary.annual]]
+  if (summary.interest > 0) lines.push(['Interest for late payment', summary.interest])
+  lines.push(['Remaining', summary.remaining, true])
   return (
     <div>
-      <div className="grid gap-2 px-4 pb-3 pt-1" style={{ gridAutoFlow: 'column', gridAutoColumns: '1fr' }}>
-        {cells.map(([label, amount]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <span className="label-field">{label}</span>
-            <span className="text-headline font-semibold tabnum"><Num amount={amount} /></span>
-          </div>
-        ))}
-      </div>
       {results.map((r, i) => (
         <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
       ))}
+      <div className="px-4 pt-2 pb-2">
+        {lines.map(([label, amount, bold]) => (
+          <div key={label} className="flex items-center justify-between" style={{ minHeight: 28 }}>
+            <span className="text-body" style={{ color: 'var(--text-2)' }}>{label}</span>
+            <span className={`tabnum ${bold ? 'text-headline font-semibold' : 'text-body'}`}><Num amount={amount} align /></span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
