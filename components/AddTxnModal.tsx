@@ -11,7 +11,8 @@ import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/com
 import { Button } from '@/components/Button'
 import { ChipGroup } from '@/components/ChipGroup'
 import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction, getUsdInrOnDate, searchAmfiSchemes } from '@/app/portfolio/actions'
-import { MIN_QUERY_CHARS, searchTerms, schemeTypeLine, holdingName, type MfSchemeResult } from '@/lib/mf-schemes'
+import { MIN_QUERY_CHARS, searchTerms, schemeTypeLine, type MfSchemeResult } from '@/lib/mf-schemes'
+import { fundDisplayName } from '@/lib/fund-name'
 
 /** Accent-colours the typed text inside a fund name (first case-insensitive match; none if the terms are not contiguous). */
 function highlightMatch(name: string, query: string) {
@@ -494,7 +495,7 @@ export default function AddTxnModal({
                   <FieldLabel>Fund</FieldLabel>
                   {mfFund ? (
                     <div className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: 'var(--bg-tertiary)' }}>
-                        <p className="flex-1 text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{mfFund.name}</p>
+                        <p className="flex-1 text-body font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{fundDisplayName(mfFund.name)}</p>
                         <button type="button" onClick={() => setMFFund(null)}
                           className="text-subheadline flex-shrink-0" style={{ color: 'var(--text-faint)' }}>Change</button>
                       </div>
@@ -511,7 +512,7 @@ export default function AddTxnModal({
                         <div className="mt-1 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
                           {mfResults.map(s => (
                             <button key={s.code} type="button"
-                              onClick={() => { setMFFund({ code: s.code, name: holdingName(s.name), schemeType: s.type }); setMFQuery('') }}
+                              onClick={() => { setMFFund({ code: s.code, name: s.name, schemeType: s.type }); setMFQuery('') }}
                               className="block w-full px-3 py-2.5 text-left"
                               style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', minHeight: 52, borderTop: '1px solid var(--border-faint)' }}>
                               <p className="text-body font-semibold">{highlightMatch(s.name, mfQuery.trim())}</p>

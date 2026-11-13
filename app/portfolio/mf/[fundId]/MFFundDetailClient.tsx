@@ -8,6 +8,7 @@ import UserMenu from '@/components/UserMenu'
 import EmptyState from '@/components/EmptyState'
 import { Num } from '@/components/Num'
 import { computeMFHolding } from '@/lib/mf-compute'
+import { fundDisplayName } from '@/lib/fund-name'
 import { TxnRow, mfToDisplayTxn } from '@/components/EditableTxnRow'
 import type { MFund, MFTransaction } from '@/lib/portfolio-types'
 
@@ -68,7 +69,7 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
       {/* Fund title */}
       <div className="px-4" style={{ paddingTop: 18, paddingBottom: 4 }}>
         <p className="text-title-1 font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
-          {fund.scheme_name}
+          {fundDisplayName(fund.scheme_name)}
         </p>
         <p className="text-subheadline tabnum mt-1" style={{ color: 'var(--text-muted)' }}>
           {trimZero(holding?.units ?? 0, 3)} units
@@ -118,7 +119,7 @@ export default function MFFundDetailClient({ fund, transactions: initialTransact
             </div>
             {items.map(t => (
               <TxnRow key={t.id}
-                txn={mfToDisplayTxn(t, fund.scheme_name)}
+                txn={mfToDisplayTxn(t, fundDisplayName(fund.scheme_name))}
                 showAssetTag={false}
                 onDelete={deleteTxn}
                 onSavedStock={() => {}}

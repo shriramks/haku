@@ -9,6 +9,7 @@ import { formatUsd, trimZero } from './formatter'
 import { istDay, laggingDates, shortDate } from './price-freshness'
 import { returnMetric } from './holdings-sort'
 import { mfAssetClass } from './tax-compute'
+import { fundDisplayName } from './fund-name'
 import { computeRegionExposure, type DirectHoldingInput, type RegionExposure } from './exposure'
 import {
   computeEPFBalance, computePPFBalance, epfXirr, mfXirr, portfolioXirr, sgbXirr, stockXirr,
@@ -166,7 +167,7 @@ function computeMFHoldings(
       const holding = computeMFHolding(fund, txns, nav?.nav ?? null, nav?.prevNav ?? null)
       return holding ? [holding] : []
     })
-    .sort((a, b) => a.fund.scheme_name.localeCompare(b.fund.scheme_name))
+    .sort((a, b) => fundDisplayName(a.fund.scheme_name).localeCompare(fundDisplayName(b.fund.scheme_name)))
 }
 
 /** Percent gain over deposits, or null when nothing has been deposited. */
@@ -278,7 +279,7 @@ export function buildPortfolio(input: PortfolioInput): PortfolioData {
   const mfRows: HoldingRowData[] = mfHoldings.map(h => {
     const r = returnMetric(h.xirr, h.gain, h.invested)
     return {
-      key: h.fund.id, name: h.fund.scheme_name, href: `/portfolio/mf/${h.fund.id}`,
+      key: h.fund.id, name: fundDisplayName(h.fund.scheme_name), href: `/portfolio/mf/${h.fund.id}`,
       value: h.currentValue, pnl: h.gain, retPct: r.pct, retLabel: r.label,
       dayPct: h.gain1dPct, day: { amount: h.gain1d, pct: h.gain1dPct },
       assetClass: mfAssetClass(h.fund),

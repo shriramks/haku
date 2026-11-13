@@ -5,6 +5,7 @@
 import type { MFund, MFTransaction } from './portfolio-types'
 import type { Transaction } from './types'
 import { mfAssetClass } from './tax-compute'
+import { fundDisplayName } from './fund-name'
 import { mfXirr, stockXirr } from './xirr'
 
 export type Region = 'india' | 'us'
@@ -117,7 +118,7 @@ export function computeRegionExposure(
       .filter(h => mfRegion(h.fund) === 'us')
       .map(h => {
         const value = h.currentValue ?? h.invested
-        return { key: h.fund.id, href: `/portfolio/mf/${h.fund.id}`, name: h.fund.scheme_name, value,
+        return { key: h.fund.id, href: `/portfolio/mf/${h.fund.id}`, name: fundDisplayName(h.fund.scheme_name), value,
           pctOfTotal: pctOfTotal(value), xirr: groupXirr(value, [h]) }
       }),
     ...directUs.map(h => {

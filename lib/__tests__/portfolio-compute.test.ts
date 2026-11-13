@@ -127,7 +127,8 @@ describe('buildPortfolio — mutual funds', () => {
   const d = build(mfInput)
 
   it('rows are sorted by name and carry class, value and per-row NAV date', () => {
-    expect(d.mf.rows.map(r => r.name)).toEqual(['Alpha Flexi Cap Fund', 'Beta Liquid Fund'])
+    // Names go through fundDisplayName, so the fixtures' trailing "Fund" is not shown.
+    expect(d.mf.rows.map(r => r.name)).toEqual(['Alpha Flexi Cap', 'Beta Liquid'])
     expect(d.mf.rows.map(r => r.assetClass)).toEqual(['equity', 'debt'])
     expect(d.mf.rows[0].value).toBeCloseTo(6000)
     expect(d.mf.rows[0].day?.amount).toBeCloseTo(100)     // 100 units × (60 − 59)

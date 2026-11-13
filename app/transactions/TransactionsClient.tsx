@@ -8,6 +8,7 @@ import BottomSheet from '@/components/BottomSheet'
 import SheetHeader from '@/components/SheetHeader'
 import type { Transaction, FiscalYear } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
+import { fundDisplayName } from '@/lib/fund-name'
 import UserMenu from '@/components/UserMenu'
 import { FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
@@ -173,7 +174,7 @@ export default function TransactionsClient({
     const fundMap = new Map(mfFunds.map(f => [f.id, f]))
 
     const stocks = txns.map(stockToDisplayTxn)
-    const mfs    = mfTxns.map(t => mfToDisplayTxn(t, fundMap.get(t.fund_id)?.scheme_name ?? 'Unknown Fund'))
+    const mfs    = mfTxns.map(t => mfToDisplayTxn(t, fundDisplayName(fundMap.get(t.fund_id)?.scheme_name ?? 'Unknown Fund')))
     const gold   = sgbTxns.map(sgbToDisplayTxn)
     const ppf    = ppfTxns.map(ppfToDisplayTxn)
     const epf    = epfTxns.map(epfToDisplayTxn)
@@ -187,7 +188,8 @@ export default function TransactionsClient({
     Array.from(new Set(txns.map(t => t.symbol))).sort(), [txns])
 
   // ── Display title for a ?fund= view — resolved once mfFunds loads client-side ──
-  const filterFundName = filterFundId ? mfFunds.find(f => f.id === filterFundId)?.scheme_name : undefined
+  const filterFundSchemeName = filterFundId ? mfFunds.find(f => f.id === filterFundId)?.scheme_name : undefined
+  const filterFundName = filterFundSchemeName ? fundDisplayName(filterFundSchemeName) : undefined
 
   // ── Apply filters ──
   const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
