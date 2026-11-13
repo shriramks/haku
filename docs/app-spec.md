@@ -137,6 +137,8 @@ It is not in the bottom nav — it is always reached via tap on a stock row.
 
 **Financials Edit** is a sheet within Stock Detail — not a standalone screen.
 
+**Adding a mutual fund** (FAB → Mutual Fund): the Fund field searches every AMFI scheme by name — type 3+ characters, all words must match — with funds you already hold listed first. Each result shows the plan and a type line (`Debt · Liquid Fund`); picking one creates the holding on its first buy. A new fund appears in Portfolio → Mutual Funds as soon as it has units, filed under Debt or Equity by the same rule the Portfolio uses (liquid, overnight, arbitrage, debt, gilt and similar categories are Debt). Its NAV arrives with the next Prices tap. Detail: `docs/architecture.md` "MF Scheme Search".
+
 ---
 
 ## Daily Flow

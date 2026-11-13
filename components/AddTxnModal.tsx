@@ -10,7 +10,21 @@ import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import { SearchIcon, StockIcon, MFIcon, GoldIcon, PPFIcon, EPFIcon } from '@/components/icons'
 import { Button } from '@/components/Button'
 import { ChipGroup } from '@/components/ChipGroup'
-import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction, getUsdInrOnDate } from '@/app/portfolio/actions'
+import { upsertMFund, addMFTransaction, addGoldTransaction, addPPFTransaction, addEPFTransaction, getUsdInrOnDate, searchAmfiSchemes } from '@/app/portfolio/actions'
+import { MIN_QUERY_CHARS, searchTerms, schemeTypeLine, type MfSchemeResult } from '@/lib/mf-schemes'
+
+/** Accent-colours the typed text inside a fund name (first case-insensitive match; none if the terms are not contiguous). */
+function highlightMatch(name: string, query: string) {
+  const at = query ? name.toLowerCase().indexOf(query.toLowerCase()) : -1
+  if (at < 0) return name
+  return (
+    <>
+      {name.slice(0, at)}
+      <span style={{ color: 'var(--accent)' }}>{name.slice(at, at + query.length)}</span>
+      {name.slice(at + query.length)}
+    </>
+  )
+}
 
 type AssetType = 'stock' | 'mf' | 'gold' | 'ppf' | 'epf'
 type GoldType  = 'sgb' | 'etf' | 'physical'
@@ -78,6 +92,9 @@ export default function AddTxnModal({
   const [mfQuery, setMFQuery]           = useState('')
   const [activeFunds, setActiveFunds]   = useState<{ id: string; scheme_code: string; scheme_name: string; scheme_type: string }[]>([])
   const [mfFundsLoaded, setMFFundsLoaded] = useState(false)
+  const [mfRemote, setMFRemote]             = useState<MfSchemeResult[]>([])
+  const [mfSearching, setMFSearching]       = useState(false)
+  const [mfSearchFailed, setMFSearchFailed] = useState(false)
   const [mfUnits, setMFUnits]           = useState('')
   const [mfNav, setMFNav]               = useState('')
 
@@ -145,11 +162,36 @@ export default function AddTxnModal({
     loadFunds()
   }, [])
 
-  const mfResults = mfQuery.trim().length === 0
-    ? []
-    : activeFunds
-        .filter(f => f.scheme_name.toLowerCase().includes(mfQuery.trim().toLowerCase()))
-        .slice(0, 8)
+  // ── AMFI scheme search (debounced) — finds funds not yet held ──────────────
+  useEffect(() => {
+    if (mfQuery.trim().length < MIN_QUERY_CHARS) {
+      setMFRemote([]); setMFSearching(false); setMFSearchFailed(false)
+      return
+    }
+    let stale = false
+    setMFSearching(true)
+    const timer = setTimeout(async () => {
+      const res = await searchAmfiSchemes(mfQuery)
+      if (stale) return
+      setMFSearching(false)
+      if ('error' in res) { setMFRemote([]); setMFSearchFailed(true); return }
+      setMFSearchFailed(false)
+      setMFRemote(res.schemes)
+    }, 250)
+    return () => { stale = true; clearTimeout(timer) }
+  }, [mfQuery])
+
+  // Held funds first (all of them when nothing is typed), then AMFI matches not already held.
+  const mfTerms = searchTerms(mfQuery)
+  const heldMatches = activeFunds
+    .filter(f => mfTerms.every(t => f.scheme_name.toLowerCase().includes(t)))
+    .slice(0, 8)
+  const heldCodes = new Set(heldMatches.map(f => f.scheme_code))
+  const mfResults: MfSchemeResult[] = [
+    ...heldMatches.map(f => ({ code: f.scheme_code, name: f.scheme_name, type: f.scheme_type })),
+    ...mfRemote.filter(s => !heldCodes.has(s.code)),
+  ]
+  const mfSearchable = mfQuery.trim().length >= MIN_QUERY_CHARS
 
   // ── Derived amounts ────────────────────────────────────────────────────────
   const stockNative = (parseFloat(qty) || 0) * (parseFloat(price) || 0)
@@ -460,30 +502,28 @@ export default function AddTxnModal({
                     <>
                       <div className="relative">
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-faint)' }} />
-                        <input type="text" placeholder="Search current MF holdings…" value={mfQuery}
+                        <input type="text" placeholder="Search mutual funds…" value={mfQuery}
                           onChange={e => setMFQuery(e.target.value)}
                           className="w-full pl-9 pr-3 rounded-xl text-body outline-none"
                           style={{ height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
                       </div>
-                      {!mfFundsLoaded ? (
-                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>Loading holdings…</p>
-                      ) : activeFunds.length === 0 ? (
-                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>No non-zero mutual fund holdings found.</p>
-                      ) : mfQuery.trim().length > 0 && mfResults.length === 0 ? (
-                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>No matching current holdings.</p>
-                      ) : null}
-                      {mfResults.length > 0 && (
+                      {mfResults.length > 0 ? (
                         <div className="mt-1 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-                          {mfResults.map(f => (
-                            <button key={f.id} type="button"
-                              onClick={() => { setMFFund({ code: f.scheme_code, name: f.scheme_name, schemeType: f.scheme_type }); setMFQuery('') }}
-                              className="flex items-center w-full px-3 py-3 text-left text-subheadline"
-                              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-                              {f.scheme_name}
+                          {mfResults.map(s => (
+                            <button key={s.code} type="button"
+                              onClick={() => { setMFFund({ code: s.code, name: s.name, schemeType: s.type }); setMFQuery('') }}
+                              className="block w-full px-3 py-2.5 text-left"
+                              style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', minHeight: 52, borderTop: '1px solid var(--border-faint)' }}>
+                              <p className="text-body font-semibold">{highlightMatch(s.name, mfQuery.trim())}</p>
+                              <p className="text-footnote mt-0.5" style={{ color: 'var(--text-faint)' }}>{schemeTypeLine(s)}</p>
                             </button>
                           ))}
                         </div>
-                      )}
+                      ) : mfSearchable ? (
+                        <p className="text-subheadline mt-2 px-1" style={{ color: 'var(--text-faint)' }}>
+                          {mfSearching ? 'Searching…' : mfSearchFailed ? 'Search failed' : 'No matching funds'}
+                        </p>
+                      ) : null}
                     </>
                   )}
                 </div>

@@ -30,6 +30,7 @@
 | `stock_prices` | Last-fetched CMP + previous close per instrument, keyed by plain symbol (Yahoo symbol comes from `stocks`), plus gold (INR/gram) under the reserved key `_GOLD_INR_PER_GRAM` (public market data, not user-scoped; written only by the Portfolio Prices button's refresh route) — see "Price Fetch Flow" |
 | `fx_rates` | Daily USD->INR closes from Yahoo `USDINR=X` (public market data; written only by the Prices refresh route, which backfills on first run). A trade date with no row uses the previous trading day (`rateOnOrBefore` in `lib/fx.ts`). Today's rate sits in `stock_prices` under `_USDINR`; US quotes sit under the plain symbol like any other instrument (the `US:` namespace was retired in #152; `isValidStockSymbol` rejects a leading underscore so no symbol can collide with a reserved key) |
 | `mf_navs` | Latest + previous AMFI NAV per scheme code (`nav`, `prev_nav`, `nav_date`; public market data, not user-scoped; written only by `syncMfNav` from the Portfolio Prices button's refresh route) — see "MF NAV Fetch Flow" |
+| `mf_schemes` | AMFI scheme master (#177): `scheme_code` pk, `scheme_name` (composed `<name> - <plan> - <option>`, e.g. `Example Liquid Fund - Direct Plan - Growth`), `scheme_type` (AMFI's category header, e.g. `Debt Scheme - Liquid Fund`), `synced_at`. Shared reference data, service-role only (RLS on, no client policy); written and searched only server-side by `lib/mf-schemes.ts`. Uncached. Unlike `mf_navs` it holds every AMFI scheme (~14.5 k rows), not just held ones — see "MF Scheme Search" |
 
 `buy_bands` is no longer versioned by inserting new rows. There is one row per `(user_id, symbol)`, updated in place.
 
@@ -195,6 +196,17 @@ One source end to end: our own `mf_navs` table (`scheme_code` pk, `nav`, `prev_n
 **Call sites**, all server-side props, no client fetch: `app/portfolio/page.tsx` (current + previous NAV, for 1D gain), `app/portfolio/mf/[fundId]/page.tsx` (current + previous NAV, for the fund detail's 1D gain and "as of" date), `app/tax/page.tsx` (current NAV only, for Harvesting's unrealised-loss figure — no 1D gain shown there).
 
 ---
+## MF Scheme Search
+
+How a fund you have never held gets into `mf_funds` (progress log #177). The Add Transaction sheet's MF tab searches AMFI's scheme list instead of only your current holdings; picking a result calls the existing `upsertMFund`, so a first buy needs no other write path.
+
+- **Master** (`mf_schemes`, `lib/mf-schemes.ts`): one row per AMFI scheme code, parsed from the same `NAVAll.txt` feed as the NAV sync by `parseAmfiSchemes` (`lib/amfi.ts`). Unlike `parseAmfiNavHistory` it keeps the scheme name and the category header lines above each block, which give each row its `scheme_type`. NAVAll's name field carries neither plan nor option, so the stored name is composed (`name - plan - option`, a trailing "Option" dropped). One entry per code, first wins.
+- **Sync** (`syncMfSchemes`): upserts the whole list in chunks of 1 000. It runs from the first search when the table is empty or its newest `synced_at` is over 7 days old (`needsSchemeSync`) — no button and no schedule. A failed refresh of a non-empty table is logged and the stale list is searched; a failed first sync throws, since there is nothing to search. The fetch shares the NAV sync's guard: an HTTP 200 that parses to zero rows (AMFI's HTML form page) throws.
+- **Search** (`searchMfSchemes`, server action `searchAmfiSchemes` in `app/portfolio/actions.ts`): signed-in users only. The query is split into at most 5 lowercase terms with LIKE wildcards and PostgREST filter characters stripped; every term must appear in the name (`ilike`, backed by a `pg_trgm` index); top 20 by name. Under 3 characters returns nothing without touching AMFI or the table.
+- **UI** (`components/AddTxnModal.tsx`): 250 ms debounce, 3-character minimum, a stale-response guard so a slow earlier search cannot overwrite a newer one. Held funds are listed first (all of them when nothing is typed), then AMFI matches not already held. Each result shows the name and a type line from `schemeTypeLine` — `Debt · Liquid Fund` — whose class comes from `mfAssetClass`, so the Add list and the Portfolio always agree (arbitrage, liquid, overnight and the other debt keywords file under Debt).
+- **Not covered:** a fund AMFI no longer lists. Its existing `mf_funds` row keeps working; it just cannot be picked from search.
+
+---
 ## Price Fetch Flow
 
 Stock and gold prices change **only when the Portfolio Prices button or a Bands Refresh CMP is tapped** (progress log #120, #151). Everything else reads the last saved price from the `stock_prices` table (`symbol` pk, `cmp`, `prev_close`, `fetched_at`), so every screen and device agrees. MF NAVs ride the same tap into their own table, `mf_navs` — see "MF NAV Fetch Flow".
@@ -258,8 +270,9 @@ app/
     DividendsClient.tsx                 By Stock / Timeline segments, symbol filter, StockDividends sheet
 
 lib/
-  amfi.ts                                AMFI NAV history parsing + staleness guard — see "MF NAV Fetch Flow" above
+  amfi.ts                                AMFI NAV history + scheme-master parsing, staleness guard — see "MF NAV Fetch Flow" and "MF Scheme Search"
   mf-nav-sync.ts                        syncMfNav + latestNavRows: AMFI window → mf_navs — see "MF NAV Fetch Flow"
+  mf-schemes.ts                         AMFI scheme master: syncMfSchemes, searchMfSchemes, schemeTypeLine — see "MF Scheme Search"
   band-calculator.ts                    v9 band math
   snowball.ts                           Snowball signal model + shared display helpers (signalLabel, signalColor, signalStrategyWord)
   instrument.ts                         Pure instrument helpers: `isNseExchange` (IND vs overseas row), `isValidYahooSymbol` (#154). Overseas instruments are registered from Plan via `lookupInstrument` / `registerInstrument` in `app/actions.ts`, not a code list

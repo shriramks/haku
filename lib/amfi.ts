@@ -37,19 +37,68 @@ function formatDDMonYYYY(date: Date): string {
   return `${dd}-${MONTH_ABBR[date.getMonth()]}-${date.getFullYear()}`
 }
 
+export interface AmfiScheme {
+  schemeCode: string
+  /** "<scheme name> - <plan> - <option>", e.g. "Example Liquid Fund - Direct Plan - Growth". */
+  schemeName: string
+  /** AMFI's category header, e.g. "Debt Scheme - Liquid Fund"; '' when a row precedes any header. */
+  schemeType: string
+}
+
+/** "Open Ended Schemes(Debt Scheme - Liquid Fund)" -> "Debt Scheme - Liquid Fund". */
+function parseCategoryHeader(line: string): string | null {
+  const m = line.match(/Schemes?\s*\(\s*(.+?)\s*\)\s*$/)
+  return m ? m[1] : null
+}
+
+/** Display name for one AMFI row: the name field carries neither plan nor option. */
+function composeSchemeName(name: string, plan: string, option: string): string {
+  return [name, plan, option.replace(/\s+Option$/i, '')]
+    .map(s => s.trim())
+    .filter(s => s !== '' && s !== '-')
+    .join(' - ')
+}
+
 /**
- * Fetches `url` and parses it as AMFI NAV rows. AMFI sometimes answers HTTP 200 with
- * an HTML form page instead of a report, which parses to zero rows — that throws
- * rather than passing for "nothing new". No `next: revalidate`: syncMfNav is only ever
- * run by the Portfolio Prices button, which must get a fresh feed, not a cached one.
+ * Parses the scheme master out of NAVAll.txt — the same 8-field rows parseAmfiNavHistory
+ * reads, plus the category header lines it skips ("Open Ended Schemes(Debt Scheme - Liquid
+ * Fund)"), which give each following row its scheme_type. One entry per scheme code (a repeat
+ * keeps the first); rows with a non-numeric code or an empty name are skipped.
  */
-async function fetchAmfiRows(url: string, label: string): Promise<AmfiNavHistoryRow[]> {
+export function parseAmfiSchemes(text: string): AmfiScheme[] {
+  const byCode = new Map<string, AmfiScheme>()
+  let schemeType = ''
+  for (const line of text.split('\n')) {
+    const fields = line.split(';')
+    if (fields.length !== 8) {
+      const header = parseCategoryHeader(line)
+      if (header) schemeType = header
+      continue
+    }
+    const schemeCode = fields[0].trim()
+    if (!/^\d+$/.test(schemeCode) || byCode.has(schemeCode)) continue
+    const schemeName = composeSchemeName(fields[3], fields[4], fields[5])
+    if (!fields[3].trim()) continue
+    byCode.set(schemeCode, { schemeCode, schemeName, schemeType })
+  }
+  return [...byCode.values()]
+}
+
+/**
+ * Fetches `url` and parses it with `parse`. AMFI sometimes answers HTTP 200 with an HTML
+ * form page instead of a report, which parses to zero rows — that throws rather than
+ * passing for "nothing new". No `next: revalidate`: syncMfNav is only ever run by the
+ * Portfolio Prices button, which must get a fresh feed, not a cached one.
+ */
+async function fetchAmfi<T>(url: string, label: string, noun: string, parse: (text: string) => T[]): Promise<T[]> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`AMFI ${label} fetch failed: ${res.status}`)
-  const rows = parseAmfiNavHistory(await res.text())
-  if (rows.length === 0) throw new Error(`AMFI ${label} had no NAV rows`)
+  const rows = parse(await res.text())
+  if (rows.length === 0) throw new Error(`AMFI ${label} had no ${noun}`)
   return rows
 }
+
+const fetchAmfiRows = (url: string, label: string) => fetchAmfi(url, label, 'NAV rows', parseAmfiNavHistory)
 
 /**
  * Fetches AMFI's dated NAV history report for [fromDate, toDate] (inclusive,
@@ -68,6 +117,11 @@ export function fetchAmfiNavHistory(fromDate: Date, toDate: Date): Promise<AmfiN
  */
 export function fetchAmfiLatestNavs(): Promise<AmfiNavHistoryRow[]> {
   return fetchAmfiRows(AMFI_NAV_ALL_URL, 'latest NAV')
+}
+
+/** Fetches NAVAll.txt as the scheme master (code, composed name, category) — see parseAmfiSchemes. */
+export function fetchAmfiSchemes(): Promise<AmfiScheme[]> {
+  return fetchAmfi(AMFI_NAV_ALL_URL, 'scheme list', 'schemes', parseAmfiSchemes)
 }
 
 /**

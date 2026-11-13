@@ -4,6 +4,8 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getUserId, getMFFunds, getMFTransactions, getSGBTransactions, getPPFTransactions, getEPFTransactions, getFxRates } from '@/lib/data'
 import { rateOnOrBefore } from '@/lib/fx'
+import { createSupabaseServiceClient } from '@/lib/supabase-service'
+import { searchMfSchemes, type MfSchemeResult } from '@/lib/mf-schemes'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 
 /**
@@ -45,6 +47,18 @@ export async function upsertMFund(schemeCode: string, schemeName: string, scheme
   if (error) return { error: error.message }
   revalidateTag('mf_funds', {})
   return { fundId: data.id }
+}
+
+/** AMFI scheme search for the Add Transaction sheet's MF tab (lib/mf-schemes.ts). Signed-in users only. */
+export async function searchAmfiSchemes(query: string): Promise<{ schemes: MfSchemeResult[] } | { error: string }> {
+  const userId = await getUserId()
+  if (!userId) return { error: 'Not authenticated' }
+  try {
+    return { schemes: await searchMfSchemes(createSupabaseServiceClient(), query) }
+  } catch (err) {
+    console.error('searchAmfiSchemes failed', err)
+    return { error: 'Search failed' }
+  }
 }
 
 export async function addMFTransaction(
