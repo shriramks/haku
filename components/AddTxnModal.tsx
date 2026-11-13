@@ -181,9 +181,9 @@ export default function AddTxnModal({
     return () => { stale = true; clearTimeout(timer) }
   }, [mfQuery])
 
-  // Held funds first (all of them when nothing is typed), then AMFI matches not already held.
+  // Nothing is listed until something is typed. Then held funds first, then AMFI matches not already held.
   const mfTerms = searchTerms(mfQuery)
-  const heldMatches = activeFunds
+  const heldMatches = mfTerms.length === 0 ? [] : activeFunds
     .filter(f => mfTerms.every(t => f.scheme_name.toLowerCase().includes(t)))
     .slice(0, 8)
   const heldCodes = new Set(heldMatches.map(f => f.scheme_code))
