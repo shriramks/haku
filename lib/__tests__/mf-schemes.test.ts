@@ -11,7 +11,7 @@ vi.mock('../amfi', async importOriginal => ({
 
 import { parseAmfiSchemes } from '../amfi'
 import {
-  needsSchemeSync, searchTerms, schemeTypeLine, syncMfSchemes, searchMfSchemes, SEARCH_LIMIT, SCHEME_STALE_DAYS,
+  needsSchemeSync, searchTerms, schemeTypeLine, holdingName, syncMfSchemes, searchMfSchemes, SEARCH_LIMIT, SCHEME_STALE_DAYS,
 } from '../mf-schemes'
 
 // Trimmed from the real NAVAll.txt layout: category header, fund house, 8-field rows.
@@ -71,6 +71,17 @@ describe('searchTerms', () => {
   it('lowercases and splits on whitespace', () => expect(searchTerms('  Parag   PARIKH liq ')).toEqual(['parag', 'parikh', 'liq']))
   it('drops LIKE wildcards and filter-syntax characters', () => expect(searchTerms('a%b_c,d(e)*')).toEqual(['a', 'b', 'c', 'd', 'e']))
   it('caps the number of terms', () => expect(searchTerms('a b c d e f g h')).toHaveLength(5))
+})
+
+describe('holdingName', () => {
+  it('drops the Direct Plan - Growth suffix', () => {
+    expect(holdingName('Example Liquid Fund - Direct Plan - Growth')).toBe('Example Liquid Fund')
+  })
+  it('keeps the suffix for Regular or IDCW variants', () => {
+    expect(holdingName('Example Liquid Fund - Regular Plan - Growth')).toBe('Example Liquid Fund - Regular Plan - Growth')
+    expect(holdingName('Example Liquid Fund - Direct Plan - Monthly IDCW Payout')).toBe('Example Liquid Fund - Direct Plan - Monthly IDCW Payout')
+  })
+  it('leaves an already-short name alone', () => expect(holdingName('Example Flexi Cap Fund')).toBe('Example Flexi Cap Fund'))
 })
 
 describe('schemeTypeLine', () => {

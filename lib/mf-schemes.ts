@@ -54,6 +54,16 @@ export function schemeTypeLine(scheme: { name: string; type: string }): string {
   return category ? `${label} · ${category}` : label
 }
 
+/**
+ * The name a new holding is saved under: a Direct Plan - Growth scheme drops that suffix
+ * ("Example Liquid Fund - Direct Plan - Growth" -> "Example Liquid Fund"), matching how held funds
+ * are named across the app. Any other plan or option keeps its suffix so Regular and IDCW
+ * variants of one fund stay distinguishable.
+ */
+export function holdingName(schemeName: string): string {
+  return schemeName.replace(/\s+-\s+Direct Plan\s+-\s+Growth$/i, '')
+}
+
 /** Replaces the master with AMFI's current list. Throws on any failure; a failed sync leaves the table as it was. */
 export async function syncMfSchemes(service: SupabaseClient, now: Date = new Date()): Promise<void> {
   const schemes = await fetchAmfiSchemes()
