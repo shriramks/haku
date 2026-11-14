@@ -232,6 +232,8 @@ computing one as `100 − other`.
 2. Grouped by month
 3. Per-transaction: Symbol, qty × price, date, amount
 
+**Views (#176):** a `Log ⌄` / `Yearly ⌄` menu at the left of the control row (Filter and Import sit at the right; applied filters get their own line below). **Log** is the default: the month-grouped list above. **Yearly** is one row per Indian FY (Apr–Mar, by trade date), newest first: `+in` (green), `−out` (red), net (`in − out`, bold, primary colour; a net-selling year shows a minus). Tapping a year opens its Equity / Debt / Gold lines, which add up to the year. Classes follow the Portfolio pie: stocks and equity funds are Equity; debt funds, PPF and EPF are Debt; all gold is Gold. PPF/EPF interest rows count as neither in nor out. Yearly applies the Asset / Type / Stock filters, ignores the Date filter, and is not offered on a single-stock or single-fund view. Math: `lib/invested-by-year.ts`.
+
 **Note:** Transactions are NOT shown inline on Stock Detail. Users who want
 transaction history for a stock filter the Transactions tab.
 

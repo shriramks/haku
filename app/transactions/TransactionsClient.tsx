@@ -10,7 +10,9 @@ import type { Transaction, FiscalYear } from '@/lib/types'
 import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, EPFTransaction } from '@/lib/portfolio-types'
 import { fundDisplayName } from '@/lib/fund-name'
 import UserMenu from '@/components/UserMenu'
-import { FilterIcon, ChevronRightIcon, SearchIcon, CheckIcon } from '@/components/icons'
+import { FilterIcon, ChevronRightIcon, ChevronDownIcon, SearchIcon, CheckIcon } from '@/components/icons'
+import { mfAssetClass } from '@/lib/tax-compute'
+import { investedByYear, type YearClass } from '@/lib/invested-by-year'
 import { useKeyboardHeight } from '@/lib/useKeyboardHeight'
 import {
   TxnRow, ASSET_LABELS, type AssetType, type DisplayTxn,
@@ -50,6 +52,19 @@ function getRollingRange(key: string): { from: string; to: string } {
 }
 
 
+type TxnView = 'log' | 'yearly'
+
+const VIEW_LABELS: Record<TxnView, string> = { log: 'Log', yearly: 'Yearly' }
+
+const CLASS_ROWS: { key: YearClass; label: string; color: string }[] = [
+  { key: 'equity', label: 'Equity', color: 'var(--c-equity)' },
+  { key: 'debt',   label: 'Debt',   color: 'var(--c-debt)' },
+  { key: 'gold',   label: 'Gold',   color: 'var(--c-gold)' },
+]
+
+// In · Out · Net, shared by a year row and its Equity / Debt / Gold lines.
+const YEAR_GRID = 'minmax(0,1fr) 64px 64px 68px 1rem'
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TransactionsClient({
@@ -87,6 +102,11 @@ export default function TransactionsClient({
   const [portfolioLoaded,    setPortfolioLoaded]    = useState(false)
   const [allHistoryLoaded,   setAllHistoryLoaded]   = useState(initialAllHistoryLoaded)
   const [allHistoryLoading,  setAllHistoryLoading]  = useState(false)
+
+  // View: the month-grouped Log (default) or per-FY Yearly totals.
+  const [view,         setView]         = useState<TxnView>('log')
+  const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [openFy,       setOpenFy]       = useState<number | null>(null)
 
   // Filters
   const [typeFilter,   setTypeFilter]   = useState<'all' | 'buy' | 'sell'>('all')
@@ -133,8 +153,9 @@ export default function TransactionsClient({
   // transaction history on demand (hits the server-side cache — fast when warm).
   useEffect(() => {
     if (allHistoryLoaded || !initialFyId || !currentFY) return
-    const isCurrFY = !dateFilter ||
-      (dateFilter.from === currentFY.start_date && dateFilter.to === currentFY.end_date)
+    // Yearly spans every FY, so it needs the full history whatever the date filter says.
+    const isCurrFY = view === 'log' && (!dateFilter ||
+      (dateFilter.from === currentFY.start_date && dateFilter.to === currentFY.end_date))
     if (isCurrFY) return
     setAllHistoryLoading(true)
     loadAllStockTransactions().then(allTxns => {
@@ -142,7 +163,7 @@ export default function TransactionsClient({
       setAllHistoryLoaded(true)
       setAllHistoryLoading(false)
     })
-  }, [dateFilter, allHistoryLoaded, initialFyId, currentFY])
+  }, [dateFilter, view, allHistoryLoaded, initialFyId, currentFY])
 
   // Clear symbol filter when switching away from stocks
   useEffect(() => {
@@ -193,19 +214,36 @@ export default function TransactionsClient({
 
   // ── Apply filters ──
   const isDefaultDate = dateFilter?.from === defaultDateFilter?.from && dateFilter?.to === defaultDateFilter?.to
-  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || !isDefaultDate || assetFilter.size > 0
+  const isYearly = view === 'yearly' && !filterSymbol && !filterFundId
+  const hasFilters = typeFilter !== 'all' || symbolFilter !== 'all' || (!isYearly && !isDefaultDate) || assetFilter.size > 0
 
-  const displayed = useMemo(() => allDisplayTxns
+  // Every filter except date: Yearly applies these and ignores the date range.
+  const matching = useMemo(() => allDisplayTxns
     .filter(t => !filterSymbol || (t.asset === 'stock' && t.name === filterSymbol))
     .filter(t => !filterFundId || (t.asset === 'mf' && t.rawMF?.fund_id === filterFundId))
     .filter(t => assetFilter.size === 0 || assetFilter.has(t.asset))
     .filter(t => typeFilter === 'all' || (typeFilter === 'buy' ? t.direction === 'in' : t.direction === 'out'))
-    .filter(t => symbolFilter === 'all' || (t.asset === 'stock' && t.name === symbolFilter))
-    .filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
-    [allDisplayTxns, filterSymbol, filterFundId, assetFilter, typeFilter, symbolFilter, dateFilter]
+    .filter(t => symbolFilter === 'all' || (t.asset === 'stock' && t.name === symbolFilter)),
+    [allDisplayTxns, filterSymbol, filterFundId, assetFilter, typeFilter, symbolFilter]
+  )
+
+  const displayed = useMemo(
+    () => matching.filter(t => !dateFilter || (t.trade_date >= dateFilter.from && t.trade_date <= dateFilter.to)),
+    [matching, dateFilter]
   )
 
   const grouped = useMemo(() => groupByMonth(displayed), [displayed])
+
+  const yearly = useMemo(() => {
+    const classOfFund = new Map(mfFunds.map(f => [f.id, mfAssetClass(f)]))
+    return investedByYear(
+      matching.map(t => ({ asset: t.asset, trade_date: t.trade_date, direction: t.direction, amount: t.amount, fundId: t.rawMF?.fund_id })),
+      id => classOfFund.get(id) ?? 'equity',
+    )
+  }, [matching, mfFunds])
+
+  // Yearly sums every FY and the portfolio tables (MF/Gold/PPF/EPF) — wait for both.
+  const yearlyLoading = isYearly && (!allHistoryLoaded || !portfolioLoaded)
 
   // Show asset tag in rows only when multiple asset types are visible
   const showAssetTag = assetFilter.size !== 1 && !filterSymbol && !filterFundId
@@ -218,8 +256,13 @@ export default function TransactionsClient({
     activeTags.push({ key: 'type',   label: typeFilter === 'buy' ? 'Buys' : 'Sells',       clear: () => setTypeFilter('all') })
   if (!filterSymbol && symbolFilter !== 'all')
     activeTags.push({ key: 'symbol', label: symbolFilter,                                   clear: () => setSymbolFilter('all') })
-  if (dateFilter && !isDefaultDate)
+  if (!isYearly && dateFilter && !isDefaultDate)
     activeTags.push({ key: 'date',   label: dateFilter.label,                               clear: () => setDateFilter(defaultDateFilter) })
+
+  // The row's Filter control names what is applied: up to two filters by name, else a count.
+  const filterSummary = activeTags.length === 0 ? 'Filter'
+    : activeTags.length <= 2 ? activeTags.map(t => t.label).join(', ')
+    : `${activeTags.length} filters`
 
   // ── Filter sheet ──
   const filterSheet = filterOpen && mounted && createPortal(
@@ -286,8 +329,8 @@ export default function TransactionsClient({
         </button>
       )}
 
-      {/* Date */}
-      <button
+      {/* Date — Yearly spans every FY, so it has no date range */}
+      {!isYearly && <button
         onClick={() => setDateSheetOpen(true)}
         className="w-full flex items-center justify-between px-5"
         style={{ minHeight: 52 }}>
@@ -297,7 +340,7 @@ export default function TransactionsClient({
           {dateFilter?.label ?? 'Any time'}
           <ChevronRightIcon className="w-4 h-4 opacity-40" />
         </span>
-      </button>
+      </button>}
     </BottomSheet>,
     document.body
   )
@@ -373,49 +416,78 @@ export default function TransactionsClient({
           <UserMenu />
         </div>
 
-        {/* Filter chips */}
-        <div className="flex items-center gap-2 px-4 pt-2 pb-3 overflow-x-auto"
-             style={{ scrollbarWidth: 'none' }}>
-          <a
-            href="/import"
-            className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
-            style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)', textDecoration: 'none' }}>
-            <ImportIcon className="w-3.5 h-3.5" />
-            Import
-          </a>
-
-          <button
-            onClick={() => setFilterOpen(true)}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
-            style={hasFilters
-              ? { background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }
-              : { background: 'var(--bg-tertiary)', color: 'var(--text-2)', border: '1px solid var(--border)' }}>
-            <FilterIcon className="w-3.5 h-3.5" />
-            Filter
-          </button>
-
-          {activeTags.length > 0 && (
-            <div className="w-px self-stretch my-1.5 flex-shrink-0" style={{ background: 'var(--border)' }} />
+        {/* View · Filter · Import */}
+        <div className="relative flex items-center justify-between gap-3 px-4">
+          {filterSymbol || filterFundId ? <span /> : (
+            <button
+              onClick={() => setViewMenuOpen(o => !o)}
+              aria-haspopup="menu" aria-expanded={viewMenuOpen}
+              className="flex items-center gap-1 text-headline font-semibold"
+              style={{ minHeight: 44, color: 'var(--accent)' }}>
+              {VIEW_LABELS[view]}
+              <ChevronDownIcon className="w-3.5 h-3.5" />
+            </button>
           )}
 
-          {activeTags.map(tag => (
-            <div key={tag.key}
-              className="flex items-center gap-1.5 px-3 h-9 rounded-full flex-shrink-0 text-subheadline font-medium"
-              style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(10,132,255,0.25)' }}>
-              {tag.label}
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="flex items-center min-w-0">
               <button
-                onClick={tag.clear}
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold leading-none"
-                style={{ background: 'rgba(10,132,255,0.2)', color: 'var(--accent)' }}>
-                ×
+                onClick={() => setFilterOpen(true)}
+                className="flex items-center gap-1.5 text-body font-medium min-w-0"
+                style={{ minHeight: 44, color: 'var(--accent)' }}>
+                <FilterIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{filterSummary}</span>
               </button>
+              {activeTags.length > 0 && (
+                <button
+                  onClick={resetFilters}
+                  aria-label="Clear filters"
+                  className="flex items-center justify-center flex-shrink-0 text-headline font-semibold"
+                  style={{ width: 44, height: 44, marginLeft: -6, color: 'var(--accent)' }}>
+                  ×
+                </button>
+              )}
             </div>
-          ))}
+            <a
+              href="/import"
+              className="flex items-center gap-1.5 text-body font-medium flex-shrink-0"
+              style={{ minHeight: 44, color: 'var(--accent)', textDecoration: 'none' }}>
+              <ImportIcon className="w-4 h-4" />
+              Import
+            </a>
+          </div>
+
+          {viewMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setViewMenuOpen(false)} />
+              <div role="menu" className="absolute z-20 overflow-hidden rounded-xl"
+                   style={{
+                     left: 16, top: 44, width: 190,
+                     background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                     boxShadow: '0 10px 30px color-mix(in srgb, black 28%, transparent)',
+                   }}>
+                {(['log', 'yearly'] as const).map(v => (
+                  <button key={v} role="menuitem"
+                          onClick={() => { setView(v); setViewMenuOpen(false) }}
+                          className="flex w-full items-center justify-between px-4 text-body text-left"
+                          style={{
+                            minHeight: 44,
+                            color: v === view ? 'var(--accent)' : 'var(--text-primary)',
+                            fontWeight: v === view ? 600 : 400,
+                          }}>
+                    {VIEW_LABELS[v]}
+                    {v === view && <CheckIcon className="w-4 h-4" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+
       </div>
 
       {/* ── Txn list ── */}
-      {allHistoryLoading ? (
+      {allHistoryLoading || yearlyLoading ? (
         <div className="flex flex-col items-center justify-center gap-2"
              style={{
                color: 'var(--text-muted)',
@@ -425,23 +497,48 @@ export default function TransactionsClient({
                style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
           <p className="text-body mt-1">Loading transactions…</p>
         </div>
+      ) : isYearly ? (
+        yearly.length === 0 ? <EmptyState hasFilters={hasFilters} /> : (
+          <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
+            {yearly.map(y => {
+              const open = openFy === y.fyEnd
+              return (
+                <div key={y.fyEnd}>
+                  <button
+                    onClick={() => setOpenFy(open ? null : y.fyEnd)}
+                    aria-expanded={open}
+                    className="list-row w-full text-left"
+                    style={{ display: 'grid', gridTemplateColumns: YEAR_GRID, columnGap: 8, alignItems: 'baseline', padding: '16px 16px' }}>
+                    <span className="text-headline font-semibold">{y.label}</span>
+                    <YearFigure kind="in" amount={y.in} />
+                    <YearFigure kind="out" amount={y.out} />
+                    <span className="tabnum text-headline font-semibold text-right"><Num amount={y.net} signed={y.net < 0} /></span>
+                    <ChevronRightIcon className="w-4 h-4 self-center" style={{ color: 'var(--text-faint)', transform: open ? 'rotate(90deg)' : undefined }} />
+                  </button>
+                  {open && (
+                    <div className="px-4 pb-2">
+                      {CLASS_ROWS.filter(c => y.byClass[c.key].in > 0 || y.byClass[c.key].out > 0).map(c => (
+                        <div key={c.key}
+                             style={{ display: 'grid', gridTemplateColumns: YEAR_GRID, columnGap: 8, alignItems: 'center', minHeight: 44 }}>
+                          <span className="flex items-center gap-2 text-body">
+                            <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+                            {c.label}
+                          </span>
+                          <YearFigure kind="in" amount={y.byClass[c.key].in} />
+                          <YearFigure kind="out" amount={y.byClass[c.key].out} />
+                          <span className="tabnum text-headline font-semibold text-right"><Num amount={y.byClass[c.key].net} signed={y.byClass[c.key].net < 0} /></span>
+                          <span />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
       ) : displayed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
-             style={{
-               color: 'var(--text-muted)',
-               minHeight: 'calc(100dvh - var(--nav-h, 64px) - var(--safe-bottom, 0px) - 100px)',
-             }}>
-          <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          <p className="text-headline font-medium">
-            {hasFilters ? 'No matching transactions' : 'No transactions yet'}
-          </p>
-          <p className="text-body">
-            {hasFilters ? 'Try adjusting your filters' : 'Tap + to log your first trade'}
-          </p>
-        </div>
+        <EmptyState hasFilters={hasFilters} />
       ) : (
         <div className="pt-1 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
           {grouped.map(({ month, items, investedTotal, withdrawnTotal }) => (
@@ -488,6 +585,37 @@ export default function TransactionsClient({
       {stockSheet}
       {dateSheet}
     </div>
+  )
+}
+
+function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 text-center px-6"
+         style={{
+           color: 'var(--text-muted)',
+           minHeight: 'calc(100dvh - var(--nav-h, 64px) - var(--safe-bottom, 0px) - 100px)',
+         }}>
+      <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+        <path strokeLinecap="round" strokeLinejoin="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+      <p className="text-headline font-medium">
+        {hasFilters ? 'No matching transactions' : 'No transactions yet'}
+      </p>
+      <p className="text-body">
+        {hasFilters ? 'Try adjusting your filters' : 'Tap + to log your first trade'}
+      </p>
+    </div>
+  )
+}
+
+/** One In or Out figure: +green / −red, a dash when there is none. */
+function YearFigure({ kind, amount }: { kind: 'in' | 'out'; amount: number }) {
+  if (amount === 0) return <span className="tabnum text-body text-right" style={{ color: 'var(--text-2)' }}>—</span>
+  return (
+    <span className={`tabnum text-body text-right ${kind === 'in' ? 'text-positive' : 'text-negative'}`}>
+      <Num amount={kind === 'in' ? amount : -amount} signed />
+    </span>
   )
 }
 
