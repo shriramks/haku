@@ -160,17 +160,22 @@ Open app
 ## Screen-by-Screen IA
 
 ### 1. Allocation Screen
-**Purpose:** Daily overview — allocation status for all stocks.
+**Purpose:** Daily overview — allocation status across the plan, by sleeve.
 
 **Priority order:**
 1. FY selector (which year am I viewing)
-2. FY summary strip — Total FY Allocation, Total Invested (currentCost), Remaining (FY)
-3. Per-stock list rows — each row shows:
-   - Primary: Stock symbol
-   - Trailing hero (bold): Invested (currentCost) — matches bar fill visually
-   - Trailing secondary (muted): Remaining (FY)
-   - Bar fill: currentCost as % of FY budget (green)
-4. Completed / exited stocks — collapsed by default
+2. FY summary strip — **Plan** (the sum of the rows' budgets, not the FY pool), **Left**, **Invested**, with a bar. Tapping Plan opens the Plan screen.
+3. One **section per sleeve that has rows** (Equity, Debt, Gold order; a sleeve with no rows has no section here). The section header is the strip one step down — the sleeve's own Left and Invested, summed over its rows — and collapses its rows; open/closed is remembered per device (`haku_alloc_<sleeve>`).
+4. **Rows** under their header (alphabetical): each shows
+   - Primary: the name (stock symbol, or PPF)
+   - Left (muted): Remaining (FY) + its %
+   - Invested (hero, bold): Invested (currentCost) + its % — matches the bar
+   - Bar fill: currentCost as % of the row's budget (green)
+   A row with nothing left reads **Complete**, dimmed. There is no separate completed group. Rows have no caret; a stock row opens its Stock Detail, the PPF row opens Portfolio.
+
+**Pinning:** the page header always sticks. Once the full strip has scrolled away, a trimmed strip (Plan | Left | Invested + bar, no "Edit plan", no %) joins it, and the current section's header pins beneath both, so the totals and the sleeve you are in stay in view. Collapsing sections does not unpin the strip.
+
+**PPF row:** Plan = its % of the Debt sleeve; Invested and Left come from the FY's PPF deposits (no sells, so Invested = deposited). Stock rows are unchanged: a stock's budget is its % of the Equity sleeve.
 
 **Invested / Left semantics (strip and rows):** Invested amount **and** its %
 derive from `currentCost`; Left amount **and** its % derive from
@@ -178,7 +183,7 @@ derive from `currentCost`; Left amount **and** its % derive from
 above), so the two percentages need not sum to 100 — never force them to by
 computing one as `100 − other`.
 
-**What is NOT here:** Band bars, tranche details, CMP, P&L.
+**What is NOT here:** Band bars, tranche details, CMP, P&L. Free (unallocated) money in a sleeve or the pool — that is on the Plan screen.
 
 ---
 

@@ -111,14 +111,17 @@ export const getTransactions = cachedUserScoped(
  * The PPF row's figure (deposits dated in the FY) sits under `PPF_SYMBOL`, so a row of any kind reads `spent[symbol]`.
  */
 export async function getFYSpent(fyId: string): Promise<Record<string, number>> {
-  const [txns, fiscalYears, ppf] = await Promise.all([getTransactions(fyId), getFiscalYears(), getPPFTransactions()])
+  const [txns, deposited] = await Promise.all([getTransactions(fyId), getFYPPFDeposits(fyId)])
   const spent = spentBySymbol(txns)
-  const fy = fiscalYears.find(f => f.id === fyId)
-  if (fy) {
-    const deposited = ppfDeposited(ppf, fy.start_date, fy.end_date)
-    if (deposited > 0) spent[PPF_SYMBOL] = deposited
-  }
+  if (deposited > 0) spent[PPF_SYMBOL] = deposited
   return spent
+}
+
+/** PPF deposits dated inside a FY — what the plan's PPF row has invested. 0 for an unknown FY. */
+export async function getFYPPFDeposits(fyId: string): Promise<number> {
+  const [fiscalYears, ppf] = await Promise.all([getFiscalYears(), getPPFTransactions()])
+  const fy = fiscalYears.find(f => f.id === fyId)
+  return fy ? ppfDeposited(ppf, fy.start_date, fy.end_date) : 0
 }
 
 export const getTransactionsBySymbol = cachedUserScoped(

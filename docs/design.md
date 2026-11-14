@@ -345,6 +345,16 @@ Name (title-1, bold)  [N% free | N% · over badge]          N% (headline, semibo
 - Badge: `N% free` (warning) when the rows leave part of the sleeve unassigned, `N% · over` (negative) when they overshoot, nothing at exactly 100% or for a 0% sleeve.
 - State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
 
+### AllocationSection (Allocation: `app/allocation/AllocationSection.tsx`)
+```
+Header : Name (title-1 bold)   Left (title-1 bold) N%   Invested (title-1 bold) N%  caret
+Row    : Name (headline semibold)   Left (headline, --text-2) N%   Invested (headline semibold) N%   [slot]   + 6px bar
+```
+- The header is the strip one step down: same label-over-number family at the strip's own size, summed over its rows, so the screen reads strip -> section -> row with each level a visible size step (19px header, 15px row). It is one tap target (min 44px, padding 16 above / 2 below like a `SectionLabel`) that collapses the rows.
+- Rows are not indented — grouping comes from the header and the gap above each header. They use `.list-row`, the 12px gap above the bar, and the 6px bar. Rows have **no caret**; the empty 16px slot keeps their Invested aligned with the header's. The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms); a caret on this screen always means collapse.
+- Both the section header and the trimmed strip sit on `--bg-nav` with blur (the same material as every sticky page header), so rows scroll under them. The header pins at `top: var(--alloc-pin)` — the height of the page header plus the trimmed strip when it is showing.
+- Spec change (#180): Allocation rows used title-2 numbers over a bold symbol; they are now headline numbers over a semibold symbol (`RowSymbol semibold`), one step below the section header. Plan and Bands rows are unchanged.
+
 ### BottomSheet
 ```
 Background: --bg-secondary
@@ -391,7 +401,7 @@ should never be more important than a headline-sized one on the same screen.
 | Screen type | Primary info pattern | Secondary info pattern | Layout component |
 |-------------|---------------------|----------------------|-----------------|
 | Overview list (Buy Bands) | headline symbol + signal | body/subheadline allocation | ListRow |
-| Overview list (Allocation) | headline symbol; Left + Invested both title-2 (bigger than symbol — they're the row's hero numbers), weight/colour tell them apart; pct inline after the amount (footnote) | label-field column heads | ListRow |
+| Overview list (Allocation) | Section header (title-1 bold: name, Left, Invested) over rows: headline semibold name; Left + Invested at headline (15px, one step below the header's), weight/colour tell them apart; pct inline after the amount (footnote); thin 6px bar | label-field column heads | ListRow under a pinned section header |
 | Detail drill-down (Stock Detail) | Band bar + signal badge | Label:value groups | DetailRow |
 | Summary strip (FY totals) | display/title-1 number | subheadline label below | MetricCard |
 | Edit/input (Financials sheet) | body labels + headline inputs | footnote hints | BottomSheet |

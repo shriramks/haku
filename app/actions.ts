@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getLatestSnapshot } from '@/lib/data'
+import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getFYPPFDeposits, getLatestSnapshot } from '@/lib/data'
 import { fyIdForDate, fiscalQuarterLabel } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
@@ -158,16 +158,18 @@ export async function loadAllStockTransactions(): Promise<Transaction[]> {
   return getTransactions()
 }
 
-/** Fetches allocations + transactions for a FY — used by DashboardClient switchFY */
+/** Fetches allocations + transactions (and the PPF row's deposits) for a FY — used by DashboardClient switchFY */
 export async function getFYData(fyId: string): Promise<{
   allocations: StockAllocation[]
   transactions: FYTxn[]
+  ppfInvested: number
 }> {
-  const [allocations, transactions] = await Promise.all([
+  const [allocations, transactions, ppfInvested] = await Promise.all([
     getPlanAllocations(fyId),
     getTransactions(fyId),
+    getFYPPFDeposits(fyId),
   ])
-  return { allocations, transactions }
+  return { allocations, transactions, ppfInvested }
 }
 
 /** Batch-upserts dividend rows (keyed on user_id + symbol + ex_date) */

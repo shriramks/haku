@@ -4,10 +4,10 @@ import type { ReactNode } from 'react'
 // The stock ticker text role, shared by every "stock overview" list row
 // (Plan, Allocation, Bands). Centralized so a future type-scale pass only
 // has to change one file — see docs/design.md §1 and agent.md's row history.
-export function RowSymbol({ symbol, className }: { symbol: string; className?: string }) {
+export function RowSymbol({ symbol, semibold, className }: { symbol: string; /** One step lighter than bold — a row that sits under a section header (Allocation, #180). */ semibold?: boolean; className?: string }) {
   return (
     <p
-      className={`text-headline font-bold truncate${className ? ` ${className}` : ''}`}
+      className={`text-headline ${semibold ? 'font-semibold' : 'font-bold'} truncate${className ? ` ${className}` : ''}`}
       style={{ color: 'var(--text-primary)' }}
     >
       {symbol}
