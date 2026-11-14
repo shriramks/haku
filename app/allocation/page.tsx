@@ -1,4 +1,4 @@
-import { getFiscalYears, getPlanAllocations, getTransactions, getBuyBands, getCurrentFY, getStockPrices, getInrPerUnit, getFYPPFDeposits } from '@/lib/data'
+import { getFiscalYears, getPlanAllocations, getTransactions, getBuyBands, getCurrentFY, getStockPrices, getInrPerUnit, getFYPPFDeposits, getFYFundInvested, getFundIdsByScheme } from '@/lib/data'
 import { computeAllTimeHoldings } from '@/lib/compute'
 import { heldSymbols } from '@/lib/stock-prices'
 import DashboardClient from './DashboardClient'
@@ -20,13 +20,15 @@ export default async function DashboardPage({
 
   const currentFY = getCurrentFY(fiscalYears, fyParam)
 
-  const [allocations, transactions, ppfInvested] = currentFY
+  const [allocations, transactions, ppfInvested, fundInvested] = currentFY
     ? await Promise.all([
         getPlanAllocations(currentFY.id),
         getTransactions(currentFY.id),
         getFYPPFDeposits(currentFY.id),
+        getFYFundInvested(currentFY.id),
       ])
-    : [[], [], 0]
+    : [[], [], 0, {}]
+  const fundIds = await getFundIdsByScheme()
 
   // Per-symbol all-time aggregates only — the full history stays server-side
   const allTimeHoldings = computeAllTimeHoldings(allTransactions)
@@ -43,6 +45,8 @@ export default async function DashboardPage({
         initialAllocations={allocations}
         initialTransactions={transactions}
         initialPPFInvested={ppfInvested}
+        initialFundInvested={fundInvested}
+        fundIds={fundIds}
         allTimeHoldings={allTimeHoldings}
         bands={bands}
         prices={prices}

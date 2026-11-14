@@ -4,7 +4,7 @@
 // Uncached on purpose: a sync must be visible to the very next search.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAmfiSchemes } from './amfi'
-import { mfAssetClass } from './tax-compute'
+import { DEBT_FUND_KEYWORDS, mfAssetClass } from './tax-compute'
 
 export interface MfSchemeResult {
   code: string
@@ -85,7 +85,13 @@ async function latestSyncedAt(service: SupabaseClient): Promise<string | null> {
  * empty or stale; a failed sync of a stale (non-empty) master is swallowed so search keeps working
  * on the old list, while a failed first sync throws since there is nothing to search.
  */
-export async function searchMfSchemes(service: SupabaseClient, query: string, now: Date = new Date()): Promise<MfSchemeResult[]> {
+export async function searchMfSchemes(
+  service: SupabaseClient,
+  query: string,
+  now: Date = new Date(),
+  /** Only funds the Portfolio files under Debt (arbitrage included) — the plan's Debt sleeve. Filtered before the limit. */
+  debtOnly = false,
+): Promise<MfSchemeResult[]> {
   const terms = searchTerms(query)
   if (terms.join(' ').length < MIN_QUERY_CHARS) return []
 
@@ -101,6 +107,7 @@ export async function searchMfSchemes(service: SupabaseClient, query: string, no
 
   let q = service.from('mf_schemes').select('scheme_code, scheme_name, scheme_type')
   for (const t of terms) q = q.ilike('scheme_name', `%${t}%`)
+  if (debtOnly) q = q.or(DEBT_FUND_KEYWORDS.flatMap(k => [`scheme_type.ilike.%${k}%`, `scheme_name.ilike.%${k}%`]).join(','))
   const { data, error } = await q.order('scheme_name').limit(SEARCH_LIMIT)
   if (error) throw new Error(error.message)
   return ((data ?? []) as { scheme_code: string; scheme_name: string; scheme_type: string }[])

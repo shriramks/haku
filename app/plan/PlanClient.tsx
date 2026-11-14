@@ -13,6 +13,9 @@ import { SleeveSection, PLAN_COLS } from './SleeveSection'
 import { PlanRow, RemainderRow } from './PlanRow'
 import { SplitSheet } from './SplitSheet'
 import { PlanFigures } from './PlanFigures'
+import { FundPicker } from './FundPicker'
+import { fundDisplayName } from '@/lib/fund-name'
+import type { MfSchemeResult } from '@/lib/mf-schemes'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
@@ -290,6 +293,25 @@ function PlanTab({
     return null
   }
 
+  /** A debt / arbitrage fund row: symbol is the AMFI scheme code, a share of the Debt sleeve. Returns an error message, or null once added. */
+  async function addFund(scheme: MfSchemeResult, pct: number): Promise<string | null> {
+    if (!selectedFY) return null
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return null
+    const { data, error } = await sb.from('stock_allocations').insert({
+      fy_id: selectedFY.id, user_id: user.id,
+      symbol: scheme.code, exchange: 'AMFI', kind: 'mf',
+      allocation_pct: pct, category: '',
+    }).select().single()
+    if (error || !data) return error?.message ?? 'Could not add the fund'
+    await revalidateAllocations()
+    const row: StockAllocation = { ...data, allocation_pct: Number(data.allocation_pct), name: fundDisplayName(scheme.name) }
+    onAllocationsChange([...allocations, row].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    setShowAdd(false)
+    return null
+  }
+
   async function renameAllocSymbol(alloc: StockAllocation, newSymbol: string) {
     const sb = getSupabaseBrowser()
     await sb.from('stock_allocations').update({ symbol: newSymbol }).eq('id', alloc.id)
@@ -482,6 +504,7 @@ function PlanTab({
       {showAdd && selectedFY && (
         <AddToPlanSheet
           hasPPF={hasPPF}
+          fundCodes={new Set(allocations.filter(a => a.kind === 'mf').map(a => a.symbol))}
           equityTotal={rowsTotal('equity')}
           equityAmount={sleeveAmount('equity')}
           debtTotal={rowsTotal('debt')}
@@ -490,6 +513,7 @@ function PlanTab({
           onClose={() => setShowAdd(false)}
           onAddStock={addStock}
           onAddPPF={addPPF}
+          onAddFund={addFund}
         />
       )}
 
@@ -678,8 +702,8 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
       <SheetHeader
         title={
           <div>
-            <p>{alloc.symbol}</p>
-            {(alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))) && (
+            <p>{alloc.kind === 'mf' ? (alloc.name ?? alloc.symbol) : alloc.symbol}</p>
+            {alloc.kind !== 'mf' && (alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))) && (
               <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))}</p>
             )}
           </div>
@@ -785,6 +809,28 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
 
 type AddType = 'equity' | 'debt'
 
+/** Under Debt: what is added, a PPF row or a fund. Same segmented control as Type. */
+function InstrumentControl({ value, onChange }: { value: 'ppf' | 'fund'; onChange: (i: 'ppf' | 'fund') => void }) {
+  return (
+    <div className="flex items-center justify-between px-5 py-4">
+      <p className="text-body" style={{ color: 'var(--text-2)' }}>Instrument</p>
+      <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
+        {(['ppf', 'fund'] as const).map(i => (
+          <button key={i} onClick={() => onChange(i)}
+            className="text-body font-semibold rounded-xl px-4"
+            style={{
+              minHeight: 36,
+              background: value === i ? 'var(--bg-secondary)' : 'transparent',
+              color: value === i ? 'var(--text-primary)' : 'var(--text-2)',
+            }}>
+            {i === 'ppf' ? 'PPF' : 'Fund'}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** The Type control, same segmented control as Market. */
 function TypeControl({ options, value, onChange }: {
   options: AddType[]
@@ -816,8 +862,10 @@ function TypeControl({ options, value, onChange }: {
  * sheet changes: it is one component with one shell, so switching Type does not re-open (re-slide) the sheet.
  * A type with nothing left to add is not offered.
  */
-function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmount, spent, onClose, onAddStock, onAddPPF }: {
+function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTotal, debtAmount, spent, onClose, onAddStock, onAddPPF, onAddFund }: {
   hasPPF: boolean
+  /** AMFI scheme codes already in this FY's plan. */
+  fundCodes: Set<string>
   /** Sum of the Equity rows' % (of the sleeve), and the sleeve's amount. */
   equityTotal: number
   equityAmount: number
@@ -829,8 +877,9 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
   /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
   onAddStock: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
   onAddPPF: (pct: number) => Promise<string | null>
+  onAddFund: (scheme: MfSchemeResult, pct: number) => Promise<string | null>
 }) {
-  const types: AddType[] = hasPPF ? ['equity'] : ['equity', 'debt']
+  const types: AddType[] = ['equity', 'debt']
   const [type, setType]         = useState<AddType>('equity')
   const [switched, setSwitched] = useState(false)   // the symbol field only grabs focus when the sheet opens, not on a Type switch
   const isDebt = type === 'debt'
@@ -844,7 +893,10 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
   const [lookup, setLookup]     = useState<
     { status: 'idle' } | { status: 'loading' } | { status: 'ok'; instrument: InstrumentLookup } | { status: 'error'; error: string }
   >({ status: 'idle' })
-  // Debt: the PPF row
+  // Debt: the PPF row, or a fund (PPF is offered only while there is no PPF row)
+  const [instrument, setInstrument] = useState<'ppf' | 'fund'>(hasPPF ? 'fund' : 'ppf')
+  const [fund, setFund]         = useState<MfSchemeResult | null>(null)
+  const isFund = isDebt && (hasPPF || instrument === 'fund')
   const debtMax = round1(Math.min(100, Math.max(0, 100 - debtTotal)))
   const [ppfPct, setPPFPct]     = useState(Math.min(10, debtMax))
 
@@ -878,15 +930,17 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
   const setValue  = isDebt ? setPPFPct : setPct
   const step      = pctStep(sliderMax)
   const budget    = rowBudget(value, isDebt ? debtAmount : equityAmount)
-  const invested  = isDebt ? (spent[PPF_SYMBOL] ?? 0) : (spent[shownSymbol] ?? 0)
+  const invested  = isFund ? (fund ? spent[fund.code] ?? 0 : 0) : isDebt ? (spent[PPF_SYMBOL] ?? 0) : (spent[shownSymbol] ?? 0)
   const nowTotal  = round1((isDebt ? debtTotal : equityTotal) + value)
-  const canAdd    = isDebt ? value > 0 : (!!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok'))
+  const canAdd    = isFund ? (!!fund && value > 0) : isDebt ? value > 0 : (!!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok'))
 
   async function handleAdd() {
     if (!canAdd) return
     setSaving(true)
     setAddError(null)
-    const error = isDebt
+    const error = isFund
+      ? await onAddFund(fund!, ppfPct)
+      : isDebt
       ? await onAddPPF(ppfPct)
       : await onAddStock(shownSymbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
     if (error) setAddError(error)
@@ -904,7 +958,7 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline text-center">{isDebt ? 'PPF' : (shownSymbol || 'Add Stock')}</p>
+          <p className="font-semibold text-headline text-center">{isFund ? (fund ? fundDisplayName(fund.name) : 'Add Fund') : isDebt ? 'PPF' : (shownSymbol || 'Add Stock')}</p>
           <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!canAdd} style={{ minHeight: 44 }}>
             Add
           </Button>
@@ -913,6 +967,22 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
         {types.length > 1 && (
           <TypeControl options={types} value={type} onChange={t => { setType(t); setSwitched(true); setAddError(null) }} />
         )}
+
+        {isDebt && !hasPPF && (
+          <InstrumentControl value={instrument} onChange={i => { setInstrument(i); setAddError(null) }} />
+        )}
+
+        {isFund && (fund ? (
+          <div className="flex items-center justify-between gap-3 px-5 py-4">
+            <p className="text-body" style={{ color: 'var(--text-2)' }}>Fund</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <p className="text-body font-semibold truncate">{fundDisplayName(fund.name)}</p>
+              <button type="button" onClick={() => setFund(null)} className="text-subheadline flex-shrink-0 text-accent" style={{ minHeight: 44 }}>Change</button>
+            </div>
+          </div>
+        ) : (
+          <FundPicker inPlan={fundCodes} onPick={s => { setFund(s); setAddError(null) }} />
+        ))}
 
         {!isDebt && (
           <>
@@ -993,7 +1063,7 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
         )}
 
         {/* % stepper + slider + figures */}
-        <div className="px-5 pt-5 pb-2 text-center">
+        {(!isFund || fund) && <div className="px-5 pt-5 pb-2 text-center">
           <Stepper value={value} min={0.1} max={sliderMax} step={step} onChange={setValue} suffix="%" />
           <div className="mt-4 px-1">
             <input
@@ -1008,13 +1078,13 @@ function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmou
               <span>{trimPct(sliderMax)}% max</span>
             </div>
           </div>
-        </div>
-        <PlanFigures rows={[
+        </div>}
+        {(!isFund || fund) && <PlanFigures rows={[
           { label: 'Planned',   now: { amount: budget } },
           { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      now: { amount: budget - invested }, tone: true },
           { label: isDebt ? 'Debt total' : 'Equity total', now: { pct: nowTotal }, gap: true, tone: true },
-        ]} />
+        ]} />}
 
         {/* Category picker (a stock has one; PPF does not) */}
         {!isDebt && <div className="flex items-center justify-between px-5 py-4">

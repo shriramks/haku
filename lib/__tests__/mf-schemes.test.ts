@@ -93,6 +93,7 @@ describe('schemeTypeLine', () => {
 /** Minimal chainable fake of the supabase calls lib/mf-schemes makes. */
 function fakeService(opts: { synced: string | null; results?: unknown[]; upsertError?: string }) {
   const upserts: unknown[][] = []
+  const ors: string[] = []
   const ilikes: [string, string][] = []
   let limit = 0
   const service = {
@@ -107,6 +108,7 @@ function fakeService(opts: { synced: string | null; results?: unknown[]; upsertE
         }
         const q = {
           ilike: (col: string, v: string) => { ilikes.push([col, v]); return q },
+          or: (f: string) => { ors.push(f); return q },
           order: () => q,
           limit: async (n: number) => { limit = n; return { data: opts.results ?? [], error: null } },
         }
@@ -118,7 +120,7 @@ function fakeService(opts: { synced: string | null; results?: unknown[]; upsertE
       },
     }),
   } as unknown as SupabaseClient
-  return { service, upserts, ilikes, getLimit: () => limit }
+  return { service, upserts, ilikes, ors, getLimit: () => limit }
 }
 
 const now = new Date('2026-11-13T10:00:00Z')
@@ -140,6 +142,19 @@ describe('syncMfSchemes', () => {
   it('throws on a database error', async () => {
     fetchAmfiSchemes.mockResolvedValue([{ schemeCode: '1', schemeName: 'F', schemeType: '' }])
     await expect(syncMfSchemes(fakeService({ synced: null, upsertError: 'boom' }).service, now)).rejects.toThrow('boom')
+  })
+})
+
+describe('searchMfSchemes debtOnly', () => {
+  it('filters to debt keywords (arbitrage included) before the limit; off by default', async () => {
+    const on = fakeService({ synced: fresh })
+    await searchMfSchemes(on.service, 'example', now, true)
+    expect(on.ors).toHaveLength(1)
+    expect(on.ors[0]).toContain('scheme_type.ilike.%arbitrage%')
+    expect(on.ors[0]).toContain('scheme_name.ilike.%liquid%')
+    const off = fakeService({ synced: fresh })
+    await searchMfSchemes(off.service, 'example', now)
+    expect(off.ors).toHaveLength(0)
   })
 })
 

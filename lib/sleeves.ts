@@ -1,5 +1,5 @@
 import type { AllocationKind, FiscalYear } from './types'
-import type { PPFTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, PPFTransaction } from './portfolio-types'
 
 // Plan sleeves (#180): an FY's pool is split into Equity / Debt / Gold by %, and each plan row
 // takes a % of its own sleeve. Every budget figure in the app comes from the functions here, so the
@@ -73,9 +73,31 @@ export function ppfDeposited(
     .reduce((s, t) => s + t.amount, 0)
 }
 
-/** A closed FY's carryover: its pool minus everything deployed — net stock spend and PPF deposits. Negative when over-invested. */
-export function fyCarryover(pool: number, stockNetDeployed: number, ppfDeposits: number): number {
-  return pool - stockNetDeployed - ppfDeposits
+/**
+ * What each debt-fund plan row has invested in a FY, by AMFI scheme code: net buys minus redemptions dated in
+ * [start, end] (inclusive), floored at 0 — the same rule as a stock's `spent`. Only funds with FY activity appear.
+ */
+export function fundInvestedByScheme(
+  funds: Pick<MFund, 'id' | 'scheme_code'>[],
+  txns: Pick<MFTransaction, 'fund_id' | 'trade_date' | 'trade_type' | 'amount'>[],
+  start: string,
+  end: string,
+): Record<string, number> {
+  const codeOf = new Map(funds.map(f => [f.id, f.scheme_code]))
+  const net: Record<string, number> = {}
+  for (const t of txns) {
+    const code = codeOf.get(t.fund_id)
+    if (!code || t.trade_date < start || t.trade_date > end) continue
+    net[code] = (net[code] ?? 0) + (t.trade_type === 'buy' ? t.amount : -t.amount)
+  }
+  const out: Record<string, number> = {}
+  for (const code of Object.keys(net)) out[code] = Math.max(0, net[code])
+  return out
+}
+
+/** A closed FY's carryover: its pool minus everything deployed — net stock spend, PPF deposits and net fund buys. Negative when over-invested. */
+export function fyCarryover(pool: number, stockNetDeployed: number, ppfDeposits: number, fundNetDeployed = 0): number {
+  return pool - stockNetDeployed - ppfDeposits - fundNetDeployed
 }
 
 /** What is left over (or overshot) when shares add up to something other than 100 — shown as a line, never hidden. */

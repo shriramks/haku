@@ -350,6 +350,9 @@ Remainder: Unassigned (body, --text-2)   N%      amount        — or "Over" in 
 - The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers). It is the **only** caret on the screen, so a caret always means collapse.
 - State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
 
+### Add to Plan: fund picker (`app/plan/FundPicker.tsx`, `FundResult.tsx`)
+- Under Debt, an **Instrument** PPF | Fund segmented control (same as Type / Market) sits under Type; it is absent once the PPF row exists. Fund shows the Add Transaction sheet's search field and result rows (semibold AMFI name, `schemeTypeLine` footnote), capped at 40vh and scrolling inside. A fund already in the plan is `--text-muted` with "In plan" on the right and is disabled. After a pick the picker becomes a Fund row with a Change link, then the shared % control and figures. A fund row's sheet title is its short name.
+
 ### Plan figure (Plan: top of the screen)
 A full-width row (min 56px): "Plan" label over the amount (title-1 bold) on the left, an accent "Edit budget" with a caret on the right edge. The whole row is the tap target — never a small button around the text.
 

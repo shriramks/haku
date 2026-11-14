@@ -84,6 +84,29 @@ export function ppfLine(alloc: Pick<StockAllocation, 'allocation_pct'>, fy: Para
 }
 
 /**
+ * A debt / arbitrage fund row: its budget is its % of the Debt sleeve, invested is the FY's net MF buys (floored
+ * at 0, see `fundInvestedByScheme`). It opens the fund's Portfolio page, or Portfolio itself while the fund has
+ * no holding record yet (planned, nothing bought).
+ */
+export function fundLine(
+  alloc: Pick<StockAllocation, 'symbol' | 'allocation_pct' | 'name'>,
+  fy: Parameters<typeof sleeveBudget>[0],
+  invested: number,
+  fundId: string | null,
+): AllocationLine {
+  const budget = rowBudget(alloc.allocation_pct, sleeveBudget(fy, 'debt'))
+  return {
+    key: alloc.symbol,
+    name: alloc.name ?? alloc.symbol,
+    href: fundId ? `/portfolio/mf/${fundId}` : '/portfolio',
+    budget,
+    spent: invested,
+    remaining: budget - invested,
+    currentCost: invested,
+  }
+}
+
+/**
  * The sections of the list: one per sleeve that has rows (Equity, Debt, Gold order), each with its rows
  * by name. A sleeve with no rows has no section here — it is only a header on the Plan screen.
  */

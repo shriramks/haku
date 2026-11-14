@@ -167,13 +167,15 @@ Open app
 2. FY summary strip — **Plan** (the sum of the rows' budgets, not the FY pool), **Left**, **Invested**, with a bar. Tapping Plan opens the Plan screen.
 3. One **section per sleeve that has rows** (Equity, Debt, Gold order; a sleeve with no rows has no section here). The section header is the strip one step down — the sleeve's own Left and Invested, summed over its rows — and collapses its rows; open/closed is remembered per device (`haku_alloc_<sleeve>`).
 4. **Rows** under their header (alphabetical): each shows
-   - Primary: the name (stock symbol, or PPF)
+   - Primary: the name (stock symbol, PPF, or a fund's short name)
    - Left (muted): Remaining (FY) + its %
    - Invested (hero, bold): Invested (currentCost) + its % — matches the bar
    - Bar fill: currentCost as % of the row's budget (green)
-   A row with nothing left reads **Complete**, dimmed. There is no separate completed group. Rows have no caret; a stock row opens its Stock Detail, the PPF row opens Portfolio.
+   A row with nothing left reads **Complete**, dimmed. There is no separate completed group. Rows have no caret; a stock row opens its Stock Detail, the PPF row opens Portfolio, a fund row opens that fund's Portfolio page (Portfolio itself while the fund has no holding yet).
 
 **Pinning:** the page header always sticks. Once the full strip has scrolled away, a trimmed strip (Plan | Left | Invested + bar, no "Edit plan", no %) joins it, and the current section's header pins beneath both, so the totals and the sleeve you are in stay in view. Collapsing sections does not unpin the strip.
+
+**Fund rows (#181):** a row of kind `mf` in the Debt sleeve; its `symbol` is the AMFI scheme code and its name is the fund's short name (`fundDisplayName`). Plan = its % of the Debt sleeve; Invested and Left come from the FY's net MF buys (buys minus redemptions dated in the FY, floored at 0 — the stock rule), so Invested = Spent.
 
 **PPF row:** Plan = its % of the Debt sleeve; Invested and Left come from the FY's PPF deposits (no sells, so Invested = deposited). Stock rows are unchanged: a stock's budget is its % of the Equity sleeve.
 
@@ -257,7 +259,7 @@ transaction history for a stock filter the Transactions tab.
 
 **Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header, and tapping it edits the split like any other). The **Plan** figure at the top is one full-width row (an "Edit budget" cue on its right edge) that opens the budget sheet. Tapping any sleeve header opens the **Split** sheet: Equity, Debt and Gold steppers (1 point per tap, or type a value) with each amount, and the Plan total. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
 
-**Add to Plan:** one row at the bottom opens the Add sheet — one sheet, so switching Type changes only its body and the sheet does not re-open. Its **Type** control is Equity | Debt; a type with nothing left to add is not offered (Debt once the PPF row exists; with only Equity left there is no control). Equity adds a stock (symbol, Market, %, category — unchanged). Debt adds **PPF**: just its % of the Debt sleeve. PPF is one row per FY (symbol `PPF`); it edits and removes like any row, without Category or Rename. Gold and fund rows arrive with #182 / #181.
+**Add to Plan:** one row at the bottom opens the Add sheet — one sheet, so switching Type changes only its body and the sheet does not re-open. Its **Type** control is Equity | Debt; both types are always offered. Equity adds a stock (symbol, Market, %, category — unchanged). Debt has an **Instrument** control, PPF | Fund (PPF is offered only while the FY has no PPF row). PPF is just its % of the Debt sleeve, one row per FY (symbol `PPF`). Fund opens a search of AMFI schemes limited to debt and arbitrage funds (arbitrage is Debt in the plan only; the Portfolio pie keeps `mfAssetClass`); a fund already in the plan shows dimmed with "In plan" and cannot be picked; once picked the same % control and figures follow, with a Change link. Funds edit and remove like any row, without Category or Rename. Gold rows arrive with #182.
 
 **Edit / Add sheets (#165):**
 - The % moves in **0.1** steps (stepper and slider) when the range is 25 or less, and in **1** steps when it is wider (`pctStep` in `lib/sleeves.ts` — a 0–100 slider in 0.1 steps is 1,000 positions and jumps under the finger); any value can be typed to the 0.1. Stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
@@ -337,7 +339,8 @@ The FY pool (budget + carryover) is split into three **sleeves** by %: Equity, D
 - **Sleeves may total under 100.** The rest of the pool is unassigned. A sleeve may be 0% (Gold usually is).
 - **Row kinds.** `stock` rows are Equity, `ppf` and `mf` rows are Debt. Features that only make sense for a stock (bands, tranches, price refresh, Stock Detail, investability) read stock rows only.
 - **PPF invested** = deposits in `ppf_transactions` dated inside the FY. Interest and withdrawals are not invested money.
-- **Carryover** = pool - (net stock spend + PPF deposits). A PPF deposit reduces carryover exactly as a stock buy does.
+- **Fund invested** = net buys minus redemptions in `mf_transactions` dated inside the FY, per scheme, floored at 0.
+- **Carryover** = pool - (net stock spend + PPF deposits + net fund buys). A PPF deposit or fund buy reduces carryover exactly as a stock buy does.
 - **Allocation counts allocated money only:** its Plan figure is the sum of the rows' budgets, not the pool (unchanged from before sleeves).
 
 ---

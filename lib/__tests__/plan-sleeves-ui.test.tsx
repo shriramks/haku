@@ -5,6 +5,7 @@ import { SleeveSection, PLAN_COLS } from '../../app/plan/SleeveSection'
 import { PlanRow, RemainderRow } from '../../app/plan/PlanRow'
 import { SplitSheet } from '../../app/plan/SplitSheet'
 import { PlanFigures } from '../../app/plan/PlanFigures'
+import { FundResult } from '../../app/plan/FundResult'
 import { remainderLine } from '../sleeves'
 import type { FiscalYear, StockAllocation } from '../types'
 
@@ -145,5 +146,26 @@ describe('PlanFigures tone', () => {
     const ok = renderToString(<PlanFigures rows={[{ label: 'Equity total', now: { pct: 100 }, tone: true }]} />)
     expect(over).toContain('c-negative')
     expect(ok).not.toContain('c-negative')
+  })
+})
+
+describe('fund rows', () => {
+  const FUND: StockAllocation = { id: 'f', fy_id: 'fy', symbol: '100001', exchange: 'AMFI', kind: 'mf', allocation_pct: 20, category: '', name: 'Example Liquid' }
+  it('a fund row shows its name, not the scheme code', () => {
+    const html = renderToString(<PlanRow alloc={FUND} budget={100_000} onEdit={noop} />)
+    expect(html).toContain('Example Liquid')
+    expect(html).not.toContain('100001')
+  })
+  const scheme = { code: '100001', name: 'Example Liquid Fund - Direct Plan - Growth', type: 'Debt Scheme - Liquid Fund' }
+  it('a search result shows the class line and can be picked', () => {
+    const html = renderToString(<FundResult scheme={scheme} inPlan={false} onPick={noop} />)
+    expect(html).toContain('Debt · Liquid Fund')
+    expect(html).not.toContain('In plan')
+    expect(html).not.toContain('disabled')
+  })
+  it('a fund already in the plan is marked and cannot be tapped', () => {
+    const html = renderToString(<FundResult scheme={scheme} inPlan onPick={noop} />)
+    expect(html).toContain('In plan')
+    expect(html).toContain('disabled')
   })
 })

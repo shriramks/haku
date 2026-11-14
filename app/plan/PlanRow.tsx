@@ -16,7 +16,7 @@ export function PlanRow({ alloc, budget, onEdit }: {
   return (
     <RowShell onClick={onEdit}>
       <div className="grid" style={{ gridTemplateColumns: PLAN_COLS, alignItems: 'center' }}>
-        <div className="min-w-0 pr-1"><RowSymbol symbol={alloc.symbol} /></div>
+        <div className="min-w-0 pr-1"><RowSymbol symbol={alloc.kind === 'mf' ? (alloc.name ?? alloc.symbol) : alloc.symbol} /></div>
         <span className="text-center text-headline font-semibold tabnum text-accent">{trimPct(alloc.allocation_pct)}%</span>
         {/* No caret: the slot keeps amounts on the same line as the section header's. */}
         <span className="flex items-center justify-end gap-1">

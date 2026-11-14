@@ -50,11 +50,11 @@ export async function upsertMFund(schemeCode: string, schemeName: string, scheme
 }
 
 /** AMFI scheme search for the Add Transaction sheet's MF tab (lib/mf-schemes.ts). Signed-in users only. */
-export async function searchAmfiSchemes(query: string): Promise<{ schemes: MfSchemeResult[] } | { error: string }> {
+export async function searchAmfiSchemes(query: string, debtOnly = false): Promise<{ schemes: MfSchemeResult[] } | { error: string }> {
   const userId = await getUserId()
   if (!userId) return { error: 'Not authenticated' }
   try {
-    return { schemes: await searchMfSchemes(createSupabaseServiceClient(), query) }
+    return { schemes: await searchMfSchemes(createSupabaseServiceClient(), query, new Date(), debtOnly) }
   } catch (err) {
     console.error('searchAmfiSchemes failed', err)
     return { error: 'Search failed' }

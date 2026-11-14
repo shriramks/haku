@@ -9,7 +9,8 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 import { getStocks } from './stock-master'
 import { spentBySymbol } from './compute'
-import { ppfDeposited, PPF_SYMBOL } from './sleeves'
+import { ppfDeposited, fundInvestedByScheme, PPF_SYMBOL } from './sleeves'
+import { fundDisplayName } from './fund-name'
 import { inrPerUnit } from './trade-fx'
 
 // cache()         — deduplicates within a single request (per-render)
@@ -104,8 +105,26 @@ export const getPlanRows = userScoped(
 /** A FY's plan rows with display names from the `stocks` master — the Plan and Allocation screens' list. */
 export async function getPlanAllocations(fyId: string): Promise<StockAllocation[]> {
   const allocations = await getPlanRows(fyId)
-  const stocks = await getStocks(allocations.map(a => a.symbol))
-  return allocations.map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), name: stocks[a.symbol]?.name || undefined }))
+  const stockSymbols = allocations.filter(a => a.kind === 'stock').map(a => a.symbol)
+  const fundCodes = allocations.filter(a => a.kind === 'mf').map(a => a.symbol)
+  const [stocks, fundNames] = await Promise.all([getStocks(stockSymbols), getSchemeNames(fundCodes)])
+  return allocations.map(a => ({
+    ...a,
+    allocation_pct: Number(a.allocation_pct),
+    name: (a.kind === 'mf' ? fundNames[a.symbol] : stocks[a.symbol]?.name) || undefined,
+  }))
+}
+
+/** Display names (`fundDisplayName`) of AMFI schemes by code, from the `mf_schemes` master. A code it lacks is absent. */
+export async function getSchemeNames(codes: string[]): Promise<Record<string, string>> {
+  if (codes.length === 0) return {}
+  const { data } = await createSupabaseServiceClient()
+    .from('mf_schemes')
+    .select('scheme_code, scheme_name')
+    .in('scheme_code', codes)
+  const out: Record<string, string> = {}
+  for (const r of (data ?? []) as { scheme_code: string; scheme_name: string }[]) out[r.scheme_code] = fundDisplayName(r.scheme_name)
+  return out
 }
 
 export const getTransactions = cachedUserScoped(
@@ -130,10 +149,22 @@ export const getTransactions = cachedUserScoped(
  * The PPF row's figure (deposits dated in the FY) sits under `PPF_SYMBOL`, so a row of any kind reads `spent[symbol]`.
  */
 export async function getFYSpent(fyId: string): Promise<Record<string, number>> {
-  const [txns, deposited] = await Promise.all([getTransactions(fyId), getFYPPFDeposits(fyId)])
+  const [txns, deposited, funds] = await Promise.all([getTransactions(fyId), getFYPPFDeposits(fyId), getFYFundInvested(fyId)])
   const spent = spentBySymbol(txns)
   if (deposited > 0) spent[PPF_SYMBOL] = deposited
-  return spent
+  return { ...spent, ...funds }
+}
+
+/** Net MF buys per AMFI scheme code dated inside a FY — what the plan's fund rows have invested. {} for an unknown FY. */
+export async function getFYFundInvested(fyId: string): Promise<Record<string, number>> {
+  const [fiscalYears, funds, txns] = await Promise.all([getFiscalYears(), getMFFunds(), getMFTransactions()])
+  const fy = fiscalYears.find(f => f.id === fyId)
+  return fy ? fundInvestedByScheme(funds, txns, fy.start_date, fy.end_date) : {}
+}
+
+/** Holding id per AMFI scheme code, for the fund rows that already have a holding (their link target). */
+export async function getFundIdsByScheme(): Promise<Record<string, string>> {
+  return Object.fromEntries((await getMFFunds()).map(f => [f.scheme_code, f.id]))
 }
 
 /** PPF deposits dated inside a FY — what the plan's PPF row has invested. 0 for an unknown FY. */

@@ -4,12 +4,12 @@ import type { MFund, MFTransaction, SGBTransaction } from './portfolio-types'
 export type AssetType = 'stock' | 'mf' | 'gold'
 export type GainType  = 'STCG'  | 'LTCG'
 
+/** Words that make a fund Debt: found in its AMFI category or name. Shared with the plan's fund search. */
+export const DEBT_FUND_KEYWORDS = ['debt', 'liquid', 'fixed', 'bond', 'overnight', 'duration', 'arbitrage', 'gilt', 'money market', 'treasury'] as const
+
 export function mfAssetClass(fund: { scheme_type: string; scheme_name: string }): 'equity' | 'debt' {
   const t = `${fund.scheme_type} ${fund.scheme_name}`.toLowerCase()
-  if (t.includes('debt') || t.includes('liquid') || t.includes('fixed') || t.includes('bond') ||
-      t.includes('overnight') || t.includes('duration') || t.includes('arbitrage') ||
-      t.includes('gilt') || t.includes('money market') || t.includes('treasury')) return 'debt'
-  return 'equity'
+  return DEBT_FUND_KEYWORDS.some(k => t.includes(k)) ? 'debt' : 'equity'
 }
 
 export interface RealisedGain {

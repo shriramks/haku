@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  fyPool, sleevePct, sleeveBudget, rowBudget, allocSleeve, stockAllocations, ppfDeposited, fyCarryover,
+  fyPool, sleevePct, sleeveBudget, rowBudget, allocSleeve, stockAllocations, ppfDeposited, fyCarryover, fundInvestedByScheme,
   SLEEVES, pctStep,
 } from '../sleeves'
 import type { AllocationKind } from '../types'
@@ -127,4 +127,27 @@ describe('pctStep', () => {
   it('a full-range slider has at most about 100 positions', () => {
     expect(100 / pctStep(100)).toBeLessThanOrEqual(100)
   })
+})
+
+describe('fundInvestedByScheme', () => {
+  const funds = [{ id: 'f1', scheme_code: '100' }, { id: 'f2', scheme_code: '200' }]
+  const t = (fund_id: string, trade_date: string, trade_type: 'buy' | 'sell', amount: number) => ({ fund_id, trade_date, trade_type, amount })
+  it('is net buys minus redemptions dated in the FY, by scheme code', () => {
+    const out = fundInvestedByScheme(funds, [
+      t('f1', '2026-04-01', 'buy', 50_000), t('f1', '2027-03-31', 'buy', 30_000), t('f1', '2026-09-01', 'sell', 20_000),
+      t('f2', '2026-05-01', 'buy', 10_000),
+    ], '2026-04-01', '2027-03-31')
+    expect(out).toEqual({ '100': 60_000, '200': 10_000 })
+  })
+  it('ignores other FYs and unknown funds', () => {
+    expect(fundInvestedByScheme(funds, [t('f1', '2026-03-31', 'buy', 5), t('zz', '2026-06-01', 'buy', 5)], '2026-04-01', '2027-03-31')).toEqual({})
+  })
+  it('floors a net redemption at 0', () => {
+    expect(fundInvestedByScheme(funds, [t('f1', '2026-06-01', 'sell', 9_000)], '2026-04-01', '2027-03-31')).toEqual({ '100': 0 })
+  })
+})
+
+describe('fyCarryover with fund rows', () => {
+  it('subtracts net fund buys as well', () => expect(fyCarryover(2_000_000, 900_000, 100_000, 250_000)).toBe(750_000))
+  it('is unchanged without funds', () => expect(fyCarryover(2_000_000, 900_000, 100_000)).toBe(1_000_000))
 })

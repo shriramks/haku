@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { allocationSections, ppfLine, stockLine, stripTotals, totalsOf, type AllocationLine } from '../allocation-sections'
+import { allocationSections, fundLine, ppfLine, stockLine, stripTotals, totalsOf, type AllocationLine } from '../allocation-sections'
 import type { StockRow } from '../types'
 
 const FY = { total_budget_inr: 1_800_000, unallocated_carryover_inr: 200_000, equity_pct: 75, debt_pct: 25, gold_pct: 0 }
@@ -88,5 +88,20 @@ describe('allocationSections', () => {
     expect(strip.budget).toBe(975_000)
     expect(strip.invested).toBe(615_000)
     expect(strip.remaining).toBe(360_000)
+  })
+})
+
+describe('fundLine', () => {
+  const alloc = { symbol: '100', allocation_pct: 40, name: 'Example Liquid' }
+  it('budgets at its % of Debt and counts invested as spent and deployed', () => {
+    const l = fundLine(alloc, FY, 100_000, 'abc')
+    expect(l.budget).toBeCloseTo(200_000, 6)   // 40% of 25% of 20 L
+    expect(l).toMatchObject({ key: '100', name: 'Example Liquid', href: '/portfolio/mf/abc', spent: 100_000, currentCost: 100_000 })
+    expect(l.remaining).toBeCloseTo(100_000, 6)
+  })
+  it('opens Portfolio while the fund has no holding yet, and falls back to the code for a name', () => {
+    const l = fundLine({ symbol: '100', allocation_pct: 40 }, FY, 0, null)
+    expect(l.href).toBe('/portfolio')
+    expect(l.name).toBe('100')
   })
 })

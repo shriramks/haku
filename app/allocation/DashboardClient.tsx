@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
 import { sleeveBudget, stockAllocations } from '@/lib/sleeves'
-import { allocationSections, ppfLine, stockLine, stripTotals } from '@/lib/allocation-sections'
+import { allocationSections, fundLine, ppfLine, stockLine, stripTotals } from '@/lib/allocation-sections'
 import type { StockPriceInfo } from '@/lib/stock-prices'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
@@ -22,6 +22,10 @@ interface Props {
   initialTransactions: FYTxn[]
   /** PPF deposits dated in the initial FY — what the PPF plan row has invested. */
   initialPPFInvested: number
+  /** FY net MF buys by AMFI scheme code — the fund rows' Invested. */
+  initialFundInvested: Record<string, number>
+  /** Holding id by scheme code; a fund row with none opens Portfolio. */
+  fundIds: Record<string, string>
   allTimeHoldings: Record<string, AllTimeHolding>
   bands: BuyBand[]
   /** Saved stock_prices by symbol — resolveCmp prefers these over the band snapshot. */
@@ -30,11 +34,12 @@ interface Props {
   inrRates: Record<string, number | null>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPPFInvested, allTimeHoldings, bands, prices, inrRates }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPPFInvested, initialFundInvested, fundIds, allTimeHoldings, bands, prices, inrRates }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
   const [ppfInvested, setPPFInvested]   = useState(initialPPFInvested)
+  const [fundInvested, setFundInvested] = useState(initialFundInvested)
   const [loading, setLoading]           = useState(false)
 
   // The plan's tree: stock rows (Equity) and the PPF row (Debt), each at its sleeve's budget.
@@ -48,19 +53,24 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
     const ppf = allocations.find(a => a.kind === 'ppf')
     return allocationSections(
       stockRows.map(r => stockLine(r, fyLabel)),
-      ppf ? [ppfLine(ppf, selectedFY, ppfInvested)] : [],
+      [
+        ...(ppf ? [ppfLine(ppf, selectedFY, ppfInvested)] : []),
+        ...allocations.filter(a => a.kind === 'mf')
+          .map(a => fundLine(a, selectedFY, fundInvested[a.symbol] ?? 0, fundIds[a.symbol] ?? null)),
+      ],
     )
-  }, [allocations, transactions, bands, selectedFY, ppfInvested, allTimeHoldings, prices, inrRates])
+  }, [allocations, transactions, bands, selectedFY, ppfInvested, fundInvested, fundIds, allTimeHoldings, prices, inrRates])
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
     window.history.replaceState(null, '', `/allocation?fy=${encodeURIComponent(fy.label)}`)
 
-    const { allocations: alloc, transactions: txns, ppfInvested: ppf } = await getFYData(fy.id)
+    const { allocations: alloc, transactions: txns, ppfInvested: ppf, fundInvested: funds } = await getFYData(fy.id)
     setAllocations(alloc)
     setTransactions(txns)
     setPPFInvested(ppf)
+    setFundInvested(funds)
     setLoading(false)
   }
 
