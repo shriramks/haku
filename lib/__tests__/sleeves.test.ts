@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  fyPool, sleevePct, sleeveBudget, rowBudget, allocSleeve, stockAllocations, ppfDeposited, fyCarryover, fundInvestedByScheme,
+  fyPool, sleevePct, sleeveBudget, rowBudget, allocSleeve, stockAllocations, ppfDeposited, fyCarryover, fundInvestedByScheme, goldInvestedByInstrument,
   SLEEVES, pctStep,
 } from '../sleeves'
 import type { AllocationKind } from '../types'
@@ -80,9 +80,10 @@ describe('allocSleeve / stockAllocations', () => {
     expect(allocSleeve('stock')).toBe('equity')
     expect(allocSleeve('ppf')).toBe('debt')
     expect(allocSleeve('mf')).toBe('debt')
+    expect(allocSleeve('gold')).toBe('gold')
   })
   it('keeps only stock rows', () => {
-    const rows = (['stock', 'ppf', 'stock', 'mf'] as AllocationKind[]).map((kind, i) => ({ kind, id: i }))
+    const rows = (['stock', 'ppf', 'stock', 'mf', 'gold'] as AllocationKind[]).map((kind, i) => ({ kind, id: i }))
     expect(stockAllocations(rows).map(r => r.id)).toEqual([0, 2])
   })
 })
@@ -150,4 +151,29 @@ describe('fundInvestedByScheme', () => {
 describe('fyCarryover with fund rows', () => {
   it('subtracts net fund buys as well', () => expect(fyCarryover(2_000_000, 900_000, 100_000, 250_000)).toBe(750_000))
   it('is unchanged without funds', () => expect(fyCarryover(2_000_000, 900_000, 100_000)).toBe(1_000_000))
+})
+
+describe('goldInvestedByInstrument', () => {
+  const t = (gold_type: 'sgb' | 'etf' | 'physical', trade_date: string, trade_type: 'buy' | 'sell', amount: number) => ({ gold_type, trade_date, trade_type, amount })
+  it('is net buys minus sells dated in the FY, by row symbol', () => {
+    const out = goldInvestedByInstrument([
+      t('sgb', '2026-04-01', 'buy', 50_000), t('sgb', '2027-03-31', 'buy', 30_000), t('sgb', '2026-09-01', 'sell', 20_000),
+      t('etf', '2026-05-01', 'buy', 10_000),
+    ], '2026-04-01', '2027-03-31')
+    expect(out).toEqual({ SGB: 60_000, ETF: 10_000 })
+  })
+  it('leaves physical gold out: it is not planned', () => {
+    expect(goldInvestedByInstrument([t('physical', '2026-06-01', 'buy', 90_000)], '2026-04-01', '2027-03-31')).toEqual({})
+  })
+  it('ignores other FYs', () => {
+    expect(goldInvestedByInstrument([t('sgb', '2026-03-31', 'buy', 5), t('etf', '2027-04-01', 'buy', 5)], '2026-04-01', '2027-03-31')).toEqual({})
+  })
+  it('floors a net sale at 0', () => {
+    expect(goldInvestedByInstrument([t('etf', '2026-06-01', 'sell', 9_000)], '2026-04-01', '2027-03-31')).toEqual({ ETF: 0 })
+  })
+})
+
+describe('fyCarryover with gold rows', () => {
+  it('subtracts net gold buys as well', () => expect(fyCarryover(2_000_000, 900_000, 100_000, 250_000, 150_000)).toBe(600_000))
+  it('is unchanged without gold', () => expect(fyCarryover(2_000_000, 900_000, 100_000, 250_000)).toBe(750_000))
 })

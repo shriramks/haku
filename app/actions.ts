@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createSupabaseServiceClient } from '@/lib/supabase-service'
-import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getFYPPFDeposits, getFYFundInvested, getLatestSnapshot } from '@/lib/data'
+import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getFYPPFDeposits, getFYFundInvested, getFYGoldInvested, getLatestSnapshot } from '@/lib/data'
 import { fyIdForDate, fiscalQuarterLabel } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
@@ -131,7 +131,7 @@ export async function checkFYHasTxns(fyId: string): Promise<boolean> {
 /**
  * Computes carryover from a previous FY: pool (budget + its own carryover) minus everything
  * deployed — net stock spend (all buys minus all sell proceeds; every instrument's `amount` is INR),
- * PPF deposits and net fund buys dated in that FY. Can be negative if over-invested.
+ * PPF deposits, net fund buys and net gold buys dated in that FY. Can be negative if over-invested.
  */
 export async function getPrevFYCarryover(
   prevFY: Pick<FiscalYear, 'id' | 'start_date' | 'end_date'>,
@@ -140,18 +140,20 @@ export async function getPrevFYCarryover(
   const userId = await getUserId()
   if (!userId) return 0
   const sb = createSupabaseServiceClient()
-  const [{ data: txns }, { data: ppf }, funds] = await Promise.all([
+  const [{ data: txns }, { data: ppf }, funds, gold] = await Promise.all([
     sb.from('transactions').select('trade_type, amount').eq('user_id', userId).eq('fy_id', prevFY.id),
     sb.from('ppf_transactions').select('trade_date, trade_type, amount')
       .eq('user_id', userId).eq('trade_type', 'deposit')
       .gte('trade_date', prevFY.start_date).lte('trade_date', prevFY.end_date),
     getFYFundInvested(prevFY.id),
+    getFYGoldInvested(prevFY.id),
   ])
   return fyCarryover(
     prevFYPool,
     netDeployed((txns ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[]),
     ppfDeposited((ppf ?? []) as Parameters<typeof ppfDeposited>[0], prevFY.start_date, prevFY.end_date),
     Object.values(funds).reduce((sum, v) => sum + v, 0),
+    Object.values(gold).reduce((sum, v) => sum + v, 0),
   )
 }
 
@@ -166,14 +168,16 @@ export async function getFYData(fyId: string): Promise<{
   transactions: FYTxn[]
   ppfInvested: number
   fundInvested: Record<string, number>
+  goldInvested: Record<string, number>
 }> {
-  const [allocations, transactions, ppfInvested, fundInvested] = await Promise.all([
+  const [allocations, transactions, ppfInvested, fundInvested, goldInvested] = await Promise.all([
     getPlanAllocations(fyId),
     getTransactions(fyId),
     getFYPPFDeposits(fyId),
     getFYFundInvested(fyId),
+    getFYGoldInvested(fyId),
   ])
-  return { allocations, transactions, ppfInvested, fundInvested }
+  return { allocations, transactions, ppfInvested, fundInvested, goldInvested }
 }
 
 /** Batch-upserts dividend rows (keyed on user_id + symbol + ex_date) */

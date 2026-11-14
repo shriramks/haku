@@ -353,6 +353,7 @@ Remainder: Unassigned (body, --text-2)   N%      amount        — or "Over" in 
 
 ### Add to Plan: fund picker (`app/plan/FundPicker.tsx`, `FundResult.tsx`)
 - Under Debt, an **Instrument** PPF | Fund segmented control (same as Type / Market) sits under Type; it is absent once the PPF row exists. Fund shows the Add Transaction sheet's search field and result rows (semibold AMFI name, `schemeTypeLine` footnote), capped at 40vh and scrolling inside. A fund already in the plan is `--text-muted` with "In plan" on the right and is disabled. After a pick the picker becomes a Fund row with a Change link, then the shared % control and figures. A fund row's sheet title is its short name.
+- Under Gold, the same Instrument control reads SGB | ETF and lists only the instruments not yet in the plan (absent when one is left). No search; the sheet goes straight to the shared % control and figures. A gold row's sheet title is SGB or ETF.
 
 ### Plan figure (Plan: top of the screen)
 One line, full width (min 56px), a grid `auto 1fr auto`: "Plan" (title-1 bold), `base + carryover N` in body `--text-2` (blank with no carryover; truncates), and the pool amount (title-1 bold, accent). The accent amount is the tap cue; there is no chevron, because the row opens a sheet and a chevron means pushing a screen (Apple HIG, Lists and tables). The whole row is the tap target — never a small button around the text. The Plan sheet is `app/plan/PlanSheet.tsx`.

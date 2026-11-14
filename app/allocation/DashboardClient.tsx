@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
 import { sleeveBudget, stockAllocations } from '@/lib/sleeves'
-import { allocationSections, fundLine, ppfLine, stockLine, stripTotals } from '@/lib/allocation-sections'
+import { allocationSections, fundLine, goldLine, ppfLine, stockLine, stripTotals } from '@/lib/allocation-sections'
 import type { StockPriceInfo } from '@/lib/stock-prices'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
@@ -24,6 +24,8 @@ interface Props {
   initialPPFInvested: number
   /** FY net MF buys by AMFI scheme code — the fund rows' Invested. */
   initialFundInvested: Record<string, number>
+  /** FY net SGB / gold-ETF buys by row symbol — the gold rows' Invested. */
+  initialGoldInvested: Record<string, number>
   /** Holding id by scheme code; a fund row with none opens Portfolio. */
   fundIds: Record<string, string>
   allTimeHoldings: Record<string, AllTimeHolding>
@@ -34,15 +36,16 @@ interface Props {
   inrRates: Record<string, number | null>
 }
 
-export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPPFInvested, initialFundInvested, fundIds, allTimeHoldings, bands, prices, inrRates }: Props) {
+export default function DashboardClient({ fiscalYears, initialFY, initialAllocations, initialTransactions, initialPPFInvested, initialFundInvested, initialGoldInvested, fundIds, allTimeHoldings, bands, prices, inrRates }: Props) {
   const [selectedFY, setSelectedFY]     = useState(initialFY)
   const [allocations, setAllocations]   = useState(initialAllocations)
   const [transactions, setTransactions] = useState<FYTxn[]>(initialTransactions)
   const [ppfInvested, setPPFInvested]   = useState(initialPPFInvested)
   const [fundInvested, setFundInvested] = useState(initialFundInvested)
+  const [goldInvested, setGoldInvested] = useState(initialGoldInvested)
   const [loading, setLoading]           = useState(false)
 
-  // The plan's tree: stock rows (Equity) and the PPF row (Debt), each at its sleeve's budget.
+  // The plan's tree: stock rows (Equity), the PPF and fund rows (Debt), the SGB / ETF rows (Gold), each at its sleeve's budget.
   const sections = useMemo(() => {
     const stockRows = computeStockRows(
       stockAllocations(allocations), transactions, bands,
@@ -58,19 +61,21 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
         ...allocations.filter(a => a.kind === 'mf')
           .map(a => fundLine(a, selectedFY, fundInvested[a.symbol] ?? 0, fundIds[a.symbol] ?? null)),
       ],
+      allocations.filter(a => a.kind === 'gold').map(a => goldLine(a, selectedFY, goldInvested[a.symbol] ?? 0)),
     )
-  }, [allocations, transactions, bands, selectedFY, ppfInvested, fundInvested, fundIds, allTimeHoldings, prices, inrRates])
+  }, [allocations, transactions, bands, selectedFY, ppfInvested, fundInvested, goldInvested, fundIds, allTimeHoldings, prices, inrRates])
 
   async function switchFY(fy: FiscalYear) {
     setSelectedFY(fy)
     setLoading(true)
     window.history.replaceState(null, '', `/allocation?fy=${encodeURIComponent(fy.label)}`)
 
-    const { allocations: alloc, transactions: txns, ppfInvested: ppf, fundInvested: funds } = await getFYData(fy.id)
+    const { allocations: alloc, transactions: txns, ppfInvested: ppf, fundInvested: funds, goldInvested: gold } = await getFYData(fy.id)
     setAllocations(alloc)
     setTransactions(txns)
     setPPFInvested(ppf)
     setFundInvested(funds)
+    setGoldInvested(gold)
     setLoading(false)
   }
 

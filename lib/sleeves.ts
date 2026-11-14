@@ -1,5 +1,5 @@
 import type { AllocationKind, FiscalYear } from './types'
-import type { MFund, MFTransaction, PPFTransaction } from './portfolio-types'
+import type { MFund, MFTransaction, PPFTransaction, SGBTransaction } from './portfolio-types'
 
 // Plan sleeves (#180): an FY's pool is split into Equity / Debt / Gold by %, and each plan row
 // takes a % of its own sleeve. Every budget figure in the app comes from the functions here, so the
@@ -20,6 +20,13 @@ export type Sleeve = 'equity' | 'debt' | 'gold'
 export const SLEEVES: readonly Sleeve[] = ['equity', 'debt', 'gold']
 /** The PPF plan row's symbol — it is the one PPF row of an FY, keyed like a stock symbol. */
 export const PPF_SYMBOL = 'PPF'
+
+/** The gold instruments a plan row can be: Sovereign Gold Bonds and gold ETFs. Physical gold is not planned. */
+export const GOLD_INSTRUMENTS = ['sgb', 'etf'] as const
+export type GoldInstrument = typeof GOLD_INSTRUMENTS[number]
+/** A gold row's `symbol` — also the key of its figure in `spent`. */
+export const GOLD_SYMBOL: Record<GoldInstrument, string> = { sgb: 'SGB', etf: 'ETF' }
+export const GOLD_LABEL: Record<GoldInstrument, string> = { sgb: 'Sovereign Gold Bond', etf: 'Gold ETF' }
 export const SLEEVE_LABEL: Record<Sleeve, string> = { equity: 'Equity', debt: 'Debt', gold: 'Gold' }
 
 type PoolFields = Pick<FiscalYear, 'total_budget_inr' | 'unallocated_carryover_inr'>
@@ -54,7 +61,7 @@ export function rowBudget(allocationPct: number, sleeveAmount: number): number {
 
 /** Which sleeve a plan row belongs to. */
 export function allocSleeve(kind: AllocationKind): Sleeve {
-  return kind === 'stock' ? 'equity' : 'debt'
+  return kind === 'stock' ? 'equity' : kind === 'gold' ? 'gold' : 'debt'
 }
 
 /** Only the stock rows — Bands, price refresh, tranches and Stock Detail are stock features. */
@@ -95,9 +102,31 @@ export function fundInvestedByScheme(
   return out
 }
 
-/** A closed FY's carryover: its pool minus everything deployed — net stock spend, PPF deposits and net fund buys. Negative when over-invested. */
-export function fyCarryover(pool: number, stockNetDeployed: number, ppfDeposits: number, fundNetDeployed = 0): number {
-  return pool - stockNetDeployed - ppfDeposits - fundNetDeployed
+/**
+ * What each gold plan row has invested in a FY, keyed by its row symbol (`GOLD_SYMBOL`): net buys minus sells dated
+ * in [start, end] (inclusive), floored at 0 — the same rule as a stock's `spent`. Physical gold is not planned, so
+ * it is left out. Only instruments with FY activity appear.
+ */
+export function goldInvestedByInstrument(
+  txns: Pick<SGBTransaction, 'trade_date' | 'trade_type' | 'amount' | 'gold_type'>[],
+  start: string,
+  end: string,
+): Record<string, number> {
+  const net: Record<string, number> = {}
+  for (const t of txns) {
+    if (t.gold_type !== 'sgb' && t.gold_type !== 'etf') continue
+    if (t.trade_date < start || t.trade_date > end) continue
+    const key = GOLD_SYMBOL[t.gold_type]
+    net[key] = (net[key] ?? 0) + (t.trade_type === 'buy' ? t.amount : -t.amount)
+  }
+  const out: Record<string, number> = {}
+  for (const key of Object.keys(net)) out[key] = Math.max(0, net[key])
+  return out
+}
+
+/** A closed FY's carryover: its pool minus everything deployed — net stock spend, PPF deposits, net fund buys and net gold buys. Negative when over-invested. */
+export function fyCarryover(pool: number, stockNetDeployed: number, ppfDeposits: number, fundNetDeployed = 0, goldNetDeployed = 0): number {
+  return pool - stockNetDeployed - ppfDeposits - fundNetDeployed - goldNetDeployed
 }
 
 /** What is left over (or overshot) when shares add up to something other than 100 — shown as a line, never hidden. */

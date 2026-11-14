@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
-import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, remainderLine, type Sleeve } from '@/lib/sleeves'
+import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, GOLD_INSTRUMENTS, GOLD_SYMBOL, GOLD_LABEL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, remainderLine, type Sleeve, type GoldInstrument } from '@/lib/sleeves'
 import { SleeveSection, PLAN_COLS } from './SleeveSection'
 import { PlanRow, RemainderRow } from './PlanRow'
 import { PlanSheet, type PlanSave } from './PlanSheet'
@@ -301,6 +301,25 @@ function PlanTab({
     return null
   }
 
+  /** A gold row: symbol is `SGB` or `ETF`, a share of the Gold sleeve. Returns an error message, or null once added. */
+  async function addGold(instrument: GoldInstrument, pct: number): Promise<string | null> {
+    if (!selectedFY) return null
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return null
+    const { data, error } = await sb.from('stock_allocations').insert({
+      fy_id: selectedFY.id, user_id: user.id,
+      symbol: GOLD_SYMBOL[instrument], exchange: 'GOLD', kind: 'gold',
+      allocation_pct: pct, category: '',
+    }).select().single()
+    if (error || !data) return error?.message ?? 'Could not add gold'
+    await revalidateAllocations()
+    const row: StockAllocation = { ...data, allocation_pct: Number(data.allocation_pct) }
+    onAllocationsChange([...allocations, row].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    setShowAdd(false)
+    return null
+  }
+
   async function renameAllocSymbol(alloc: StockAllocation, newSymbol: string) {
     const sb = getSupabaseBrowser()
     await sb.from('stock_allocations').update({ symbol: newSymbol }).eq('id', alloc.id)
@@ -491,11 +510,15 @@ function PlanTab({
           equityAmount={sleeveAmount('equity')}
           debtTotal={rowsTotal('debt')}
           debtAmount={sleeveAmount('debt')}
+          goldSymbols={new Set(allocations.filter(a => a.kind === 'gold').map(a => a.symbol))}
+          goldTotal={rowsTotal('gold')}
+          goldAmount={sleeveAmount('gold')}
           spent={spent}
           onClose={() => setShowAdd(false)}
           onAddStock={addStock}
           onAddPPF={addPPF}
           onAddFund={addFund}
+          onAddGold={addGold}
         />
       )}
 
@@ -579,14 +602,18 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
     setRenaming(false)
   }
 
+  const subtitle = alloc.kind === 'ppf' ? 'Public Provident Fund'
+    : alloc.kind === 'gold' ? GOLD_LABEL[GOLD_INSTRUMENTS.find(i => GOLD_SYMBOL[i] === alloc.symbol) ?? 'sgb']
+    : (alloc.name ?? getStockName(alloc.symbol))
+
   return (
     <BottomSheet onClose={onClose}>
       <SheetHeader
         title={
           <div>
             <p>{alloc.kind === 'mf' ? (alloc.name ?? alloc.symbol) : alloc.symbol}</p>
-            {alloc.kind !== 'mf' && (alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))) && (
-              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))}</p>
+            {alloc.kind !== 'mf' && subtitle && (
+              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
             )}
           </div>
         }
@@ -687,25 +714,29 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
   )
 }
 
-// ── Add to Plan (one sheet; Type: Equity | Debt) ──────────────────────────────
+// ── Add to Plan (one sheet; Type: Equity | Debt | Gold) ──────────────────────────────
 
-type AddType = 'equity' | 'debt'
+type AddType = Sleeve
 
-/** Under Debt: what is added, a PPF row or a fund. Same segmented control as Type. */
-function InstrumentControl({ value, onChange }: { value: 'ppf' | 'fund'; onChange: (i: 'ppf' | 'fund') => void }) {
+/** Under Debt and Gold: what is added (PPF | Fund, SGB | ETF). Same segmented control as Type. */
+function InstrumentControl<T extends string>({ options, value, onChange }: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (i: T) => void
+}) {
   return (
     <div className="flex items-center justify-between px-5 py-4">
       <p className="text-body" style={{ color: 'var(--text-2)' }}>Instrument</p>
       <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
-        {(['ppf', 'fund'] as const).map(i => (
-          <button key={i} onClick={() => onChange(i)}
+        {options.map(o => (
+          <button key={o.value} onClick={() => onChange(o.value)}
             className="text-body font-semibold rounded-xl px-4"
             style={{
               minHeight: 36,
-              background: value === i ? 'var(--bg-secondary)' : 'transparent',
-              color: value === i ? 'var(--text-primary)' : 'var(--text-2)',
+              background: value === o.value ? 'var(--bg-secondary)' : 'transparent',
+              color: value === o.value ? 'var(--text-primary)' : 'var(--text-2)',
             }}>
-            {i === 'ppf' ? 'PPF' : 'Fund'}
+            {o.label}
           </button>
         ))}
       </div>
@@ -744,7 +775,7 @@ function TypeControl({ options, value, onChange }: {
  * sheet changes: it is one component with one shell, so switching Type does not re-open (re-slide) the sheet.
  * A type with nothing left to add is not offered.
  */
-function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTotal, debtAmount, spent, onClose, onAddStock, onAddPPF, onAddFund }: {
+function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTotal, debtAmount, goldSymbols, goldTotal, goldAmount, spent, onClose, onAddStock, onAddPPF, onAddFund, onAddGold }: {
   hasPPF: boolean
   /** AMFI scheme codes already in this FY's plan. */
   fundCodes: Set<string>
@@ -754,17 +785,24 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
   /** The same for Debt. */
   debtTotal: number
   debtAmount: number
+  /** Gold rows already in this FY's plan (`GOLD_SYMBOL`), and the Gold sleeve's total % and amount. */
+  goldSymbols: Set<string>
+  goldTotal: number
+  goldAmount: number
   spent: Record<string, number>
   onClose: () => void
   /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
   onAddStock: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
   onAddPPF: (pct: number) => Promise<string | null>
   onAddFund: (scheme: MfSchemeResult, pct: number) => Promise<string | null>
+  onAddGold: (instrument: GoldInstrument, pct: number) => Promise<string | null>
 }) {
-  const types: AddType[] = ['equity', 'debt']
+  const goldFree = GOLD_INSTRUMENTS.filter(i => !goldSymbols.has(GOLD_SYMBOL[i]))
+  const types: AddType[] = goldFree.length > 0 ? ['equity', 'debt', 'gold'] : ['equity', 'debt']
   const [type, setType]         = useState<AddType>('equity')
   const [switched, setSwitched] = useState(false)   // the symbol field only grabs focus when the sheet opens, not on a Type switch
   const isDebt = type === 'debt'
+  const isGold = type === 'gold'
 
   // Equity: a stock
   const [symbol, setSymbol]     = useState('')
@@ -781,6 +819,10 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
   const isFund = isDebt && (hasPPF || instrument === 'fund')
   const debtMax = round1(Math.min(100, Math.max(0, 100 - debtTotal)))
   const [ppfPct, setPPFPct]     = useState(Math.min(10, debtMax))
+  // Gold: an SGB or an ETF row, whichever is not in the plan yet
+  const [goldInstrument, setGoldInstrument] = useState<GoldInstrument>(goldFree[0] ?? 'sgb')
+  const goldMax = round1(Math.min(100, Math.max(0, 100 - goldTotal)))
+  const [goldPct, setGoldPct]   = useState(Math.min(10, goldMax))
 
   const [saving, setSaving]     = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
@@ -789,7 +831,7 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
 
   // Quote-checks the typed Yahoo symbol once typing pauses; a stale answer is dropped.
   useEffect(() => {
-    if (isDebt || !overseas) return
+    if (type !== 'equity' || !overseas) return
     const ys = yahoo.trim()
     if (!ys) { setLookup({ status: 'idle' }); return }
     setLookup({ status: 'loading' })
@@ -800,27 +842,31 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
       setLookup(r.instrument ? { status: 'ok', instrument: r.instrument } : { status: 'error', error: r.error ?? 'No quote found' })
     }, 600)
     return () => { stale = true; clearTimeout(timer) }
-  }, [isDebt, overseas, yahoo])
+  }, [type, overseas, yahoo])
 
   // An overseas symbol is the Yahoo ticker's base (VUAA.L -> VUAA), so it is typed once.
   const shownSymbol = overseas ? yahoo.trim().toUpperCase().split('.')[0] : symbol
   const equityMax = round1(Math.min(100, 100 - equityTotal))
 
   // The % control (stepper + slider) and its figures are shared; they read whichever type is showing.
-  const sliderMax = isDebt ? debtMax : equityMax
-  const value     = isDebt ? ppfPct : pct
-  const setValue  = isDebt ? setPPFPct : setPct
+  const sliderMax = isGold ? goldMax : isDebt ? debtMax : equityMax
+  const value     = isGold ? goldPct : isDebt ? ppfPct : pct
+  const setValue  = isGold ? setGoldPct : isDebt ? setPPFPct : setPct
   const step      = pctStep(sliderMax)
-  const budget    = rowBudget(value, isDebt ? debtAmount : equityAmount)
-  const invested  = isFund ? (fund ? spent[fund.code] ?? 0 : 0) : isDebt ? (spent[PPF_SYMBOL] ?? 0) : (spent[shownSymbol] ?? 0)
-  const nowTotal  = round1((isDebt ? debtTotal : equityTotal) + value)
-  const canAdd    = isFund ? (!!fund && value > 0) : isDebt ? value > 0 : (!!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok'))
+  const budget    = rowBudget(value, isGold ? goldAmount : isDebt ? debtAmount : equityAmount)
+  const invested  = isGold ? (spent[GOLD_SYMBOL[goldInstrument]] ?? 0)
+    : isFund ? (fund ? spent[fund.code] ?? 0 : 0) : isDebt ? (spent[PPF_SYMBOL] ?? 0) : (spent[shownSymbol] ?? 0)
+  const nowTotal  = round1((isGold ? goldTotal : isDebt ? debtTotal : equityTotal) + value)
+  const canAdd    = isGold ? value > 0
+    : isFund ? (!!fund && value > 0) : isDebt ? value > 0 : (!!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok'))
 
   async function handleAdd() {
     if (!canAdd) return
     setSaving(true)
     setAddError(null)
-    const error = isFund
+    const error = isGold
+      ? await onAddGold(goldInstrument, goldPct)
+      : isFund
       ? await onAddFund(fund!, ppfPct)
       : isDebt
       ? await onAddPPF(ppfPct)
@@ -840,7 +886,7 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-2 pb-4">
           <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline text-center">{isFund ? (fund ? fundDisplayName(fund.name) : 'Add Fund') : isDebt ? 'PPF' : (shownSymbol || 'Add Stock')}</p>
+          <p className="font-semibold text-headline text-center">{isGold ? GOLD_SYMBOL[goldInstrument] : isFund ? (fund ? fundDisplayName(fund.name) : 'Add Fund') : isDebt ? 'PPF' : (shownSymbol || 'Add Stock')}</p>
           <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!canAdd} style={{ minHeight: 44 }}>
             Add
           </Button>
@@ -851,7 +897,15 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
         )}
 
         {isDebt && !hasPPF && (
-          <InstrumentControl value={instrument} onChange={i => { setInstrument(i); setAddError(null) }} />
+          <InstrumentControl
+            options={[{ value: 'ppf', label: 'PPF' }, { value: 'fund', label: 'Fund' }]}
+            value={instrument} onChange={i => { setInstrument(i); setAddError(null) }} />
+        )}
+
+        {isGold && goldFree.length > 1 && (
+          <InstrumentControl
+            options={goldFree.map(i => ({ value: i, label: GOLD_SYMBOL[i] }))}
+            value={goldInstrument} onChange={i => { setGoldInstrument(i); setAddError(null) }} />
         )}
 
         {isFund && (fund ? (
@@ -866,7 +920,7 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
           <FundPicker inPlan={fundCodes} onPick={s => { setFund(s); setAddError(null) }} />
         ))}
 
-        {!isDebt && (
+        {type === 'equity' && (
           <>
             {/* Symbol input (IND only: an overseas symbol comes from its Yahoo ticker) */}
             {!overseas && <div className="flex items-center justify-between px-5 py-4">
@@ -965,11 +1019,11 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
           { label: 'Planned',   now: { amount: budget } },
           { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      now: { amount: budget - invested }, tone: true },
-          { label: isDebt ? 'Debt total' : 'Equity total', now: { pct: nowTotal }, gap: true, tone: true },
+          { label: `${SLEEVE_LABEL[type]} total`, now: { pct: nowTotal }, gap: true, tone: true },
         ]} />}
 
         {/* Category picker (a stock has one; PPF does not) */}
-        {!isDebt && <div className="flex items-center justify-between px-5 py-4">
+        {type === 'equity' && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
           <select
             value={category}

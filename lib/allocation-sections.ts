@@ -107,6 +107,23 @@ export function fundLine(
 }
 
 /**
+ * A gold row (SGB or gold ETF): its budget is its % of the Gold sleeve, invested is the FY's net buys of that
+ * instrument (floored at 0, see `goldInvestedByInstrument`). It opens Portfolio, where gold lives.
+ */
+export function goldLine(alloc: Pick<StockAllocation, 'symbol' | 'allocation_pct'>, fy: Parameters<typeof sleeveBudget>[0], invested: number): AllocationLine {
+  const budget = rowBudget(alloc.allocation_pct, sleeveBudget(fy, 'gold'))
+  return {
+    key: alloc.symbol,
+    name: alloc.symbol,
+    href: '/portfolio',
+    budget,
+    spent: invested,
+    remaining: budget - invested,
+    currentCost: invested,
+  }
+}
+
+/**
  * The sections of the list: one per sleeve that has rows (Equity, Debt, Gold order), each with its rows
  * by name. A sleeve with no rows has no section here — it is only a header on the Plan screen.
  */

@@ -9,7 +9,7 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 import { getStocks } from './stock-master'
 import { spentBySymbol } from './compute'
-import { ppfDeposited, fundInvestedByScheme, PPF_SYMBOL } from './sleeves'
+import { ppfDeposited, fundInvestedByScheme, goldInvestedByInstrument, PPF_SYMBOL } from './sleeves'
 import { fundDisplayName } from './fund-name'
 import { inrPerUnit } from './trade-fx'
 
@@ -149,10 +149,17 @@ export const getTransactions = cachedUserScoped(
  * The PPF row's figure (deposits dated in the FY) sits under `PPF_SYMBOL`, so a row of any kind reads `spent[symbol]`.
  */
 export async function getFYSpent(fyId: string): Promise<Record<string, number>> {
-  const [txns, deposited, funds] = await Promise.all([getTransactions(fyId), getFYPPFDeposits(fyId), getFYFundInvested(fyId)])
+  const [txns, deposited, funds, gold] = await Promise.all([getTransactions(fyId), getFYPPFDeposits(fyId), getFYFundInvested(fyId), getFYGoldInvested(fyId)])
   const spent = spentBySymbol(txns)
   if (deposited > 0) spent[PPF_SYMBOL] = deposited
-  return { ...spent, ...funds }
+  return { ...spent, ...funds, ...gold }
+}
+
+/** Net SGB / gold-ETF buys per row symbol (`GOLD_SYMBOL`) dated inside a FY — what the plan's gold rows have invested. {} for an unknown FY. */
+export async function getFYGoldInvested(fyId: string): Promise<Record<string, number>> {
+  const [fiscalYears, txns] = await Promise.all([getFiscalYears(), getSGBTransactions()])
+  const fy = fiscalYears.find(f => f.id === fyId)
+  return fy ? goldInvestedByInstrument(txns, fy.start_date, fy.end_date) : {}
 }
 
 /** Net MF buys per AMFI scheme code dated inside a FY — what the plan's fund rows have invested. {} for an unknown FY. */

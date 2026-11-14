@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS stock_allocations (
     symbol               TEXT NOT NULL,
     exchange             TEXT NOT NULL DEFAULT 'NSE',
     -- What the row is (#180): 'stock' (every Equity row), 'ppf' (the PPF row, symbol 'PPF'), 'mf' (a fund row, #181).
-    kind                 TEXT NOT NULL DEFAULT 'stock' CONSTRAINT stock_allocations_kind_chk CHECK (kind IN ('stock', 'ppf', 'mf')),
+    kind                 TEXT NOT NULL DEFAULT 'stock' CONSTRAINT stock_allocations_kind_chk CHECK (kind IN ('stock', 'ppf', 'mf', 'gold')),
     -- % of the row's sleeve, not of the whole pool.
     allocation_pct       NUMERIC(5,2) NOT NULL DEFAULT 0,
     category             TEXT NOT NULL,

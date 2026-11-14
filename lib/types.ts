@@ -17,7 +17,7 @@ export interface FiscalYear {
 }
 
 /** What a plan row is: `stock` is every Equity row, `ppf` the single PPF row (Debt), `mf` a fund row (#181). */
-export type AllocationKind = 'stock' | 'ppf' | 'mf'
+export type AllocationKind = 'stock' | 'ppf' | 'mf' | 'gold'
 
 export interface StockAllocation {
   id: string

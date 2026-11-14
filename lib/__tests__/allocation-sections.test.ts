@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { allocationSections, fundLine, ppfLine, stockLine, stripTotals, totalsOf, type AllocationLine } from '../allocation-sections'
+import { allocationSections, fundLine, goldLine, ppfLine, stockLine, stripTotals, totalsOf, type AllocationLine } from '../allocation-sections'
 import type { StockRow } from '../types'
 
 const FY = { total_budget_inr: 1_800_000, unallocated_carryover_inr: 200_000, equity_pct: 75, debt_pct: 25, gold_pct: 0 }
@@ -103,5 +103,19 @@ describe('fundLine', () => {
     const l = fundLine({ symbol: '100', allocation_pct: 40 }, FY, 0, null)
     expect(l.href).toBe('/portfolio')
     expect(l.name).toBe('100')
+  })
+})
+
+describe('goldLine', () => {
+  const FYG = { ...FY, equity_pct: 70, debt_pct: 20, gold_pct: 10 }
+  it('budgets at its % of Gold and counts invested as spent and deployed', () => {
+    const l = goldLine({ symbol: 'SGB', allocation_pct: 60 }, FYG, 50_000)
+    expect(l.budget).toBeCloseTo(120_000, 6)   // 60% of 10% of 20 L
+    expect(l).toMatchObject({ key: 'SGB', name: 'SGB', href: '/portfolio', spent: 50_000, currentCost: 50_000 })
+    expect(l.remaining).toBeCloseTo(70_000, 6)
+  })
+  it('builds a Gold section after Debt', () => {
+    const s = allocationSections([], [fundLine({ symbol: '1', allocation_pct: 10 }, FYG, 0, null)], [goldLine({ symbol: 'ETF', allocation_pct: 40 }, FYG, 0)])
+    expect(s.map(x => x.sleeve)).toEqual(['debt', 'gold'])
   })
 })

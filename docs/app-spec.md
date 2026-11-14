@@ -171,11 +171,13 @@ Open app
    - Left (muted): Remaining (FY) + its %
    - Invested (hero, bold): Invested (currentCost) + its % — matches the bar
    - Bar fill: currentCost as % of the row's budget (green)
-   A row with nothing left reads **Complete**, dimmed. There is no separate completed group. Rows have no caret; a stock row opens its Stock Detail, the PPF row opens Portfolio, a fund row opens that fund's Portfolio page (Portfolio itself while the fund has no holding yet).
+   A row with nothing left reads **Complete**, dimmed. There is no separate completed group. Rows have no caret; a stock row opens its Stock Detail, the PPF row opens Portfolio, a fund row opens that fund's Portfolio page (Portfolio itself while the fund has no holding yet), a gold row opens Portfolio.
 
 **Pinning:** the page header always sticks. Once the full strip has scrolled away, a trimmed strip (Plan | Left | Invested + bar, no "Edit plan", no %) joins it, and the current section's header pins beneath both, so the totals and the sleeve you are in stay in view. Collapsing sections does not unpin the strip.
 
 **Fund rows (#181):** a row of kind `mf` in the Debt sleeve; its `symbol` is the AMFI scheme code and its name is the fund's short name (`fundDisplayName`). Plan = its % of the Debt sleeve; Invested and Left come from the FY's net MF buys (buys minus redemptions dated in the FY, floored at 0 — the stock rule), so Invested = Spent.
+
+**Gold rows (#182):** a row of kind `gold` in the Gold sleeve; its `symbol` is `SGB` or `ETF` (one row each per FY; physical gold is not planned). Plan = its % of the Gold sleeve; Invested and Left come from the FY's net buys of that gold type in `sgb_transactions` (buys minus sells dated in the FY, floored at 0 — the stock rule), so Invested = Spent. Physical gold buys are in neither Invested nor carryover.
 
 **PPF row:** Plan = its % of the Debt sleeve; Invested and Left come from the FY's PPF deposits (no sells, so Invested = deposited). Stock rows are unchanged: a stock's budget is its % of the Equity sleeve.
 
@@ -259,7 +261,7 @@ transaction history for a stock filter the Transactions tab.
 
 **Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header and does nothing when tapped). The **Plan** line at the top is one full-width tap target that opens the **Plan sheet**, the one place the pool is edited: the FY budget, the read-only carryover from the prior FY, the Equity / Debt / Gold split (steppers of 1 point, or type a value, each with its amount at the live budget + carryover), the Plan total, and Delete / Clear Plan. One Save writes the budget and the split together. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
 
-**Add to Plan:** one row at the bottom opens the Add sheet — one sheet, so switching Type changes only its body and the sheet does not re-open. Its **Type** control is Equity | Debt; both types are always offered. Equity adds a stock (symbol, Market, %, category — unchanged). Debt has an **Instrument** control, PPF | Fund (PPF is offered only while the FY has no PPF row). PPF is just its % of the Debt sleeve, one row per FY (symbol `PPF`). Fund opens a search of AMFI schemes limited to debt and arbitrage funds (arbitrage is Debt in the plan only; the Portfolio pie keeps `mfAssetClass`); a fund already in the plan shows dimmed with "In plan" and cannot be picked; once picked the same % control and figures follow, with a Change link. Funds edit and remove like any row, without Category or Rename. Gold rows arrive with #182.
+**Add to Plan:** one row at the bottom opens the Add sheet — one sheet, so switching Type changes only its body and the sheet does not re-open. Its **Type** control is Equity | Debt | Gold; Equity and Debt are always offered, Gold only while an SGB or ETF row is still missing. Equity adds a stock (symbol, Market, %, category — unchanged). Debt has an **Instrument** control, PPF | Fund (PPF is offered only while the FY has no PPF row). PPF is just its % of the Debt sleeve, one row per FY (symbol `PPF`). Fund opens a search of AMFI schemes limited to debt and arbitrage funds (arbitrage is Debt in the plan only; the Portfolio pie keeps `mfAssetClass`); a fund already in the plan shows dimmed with "In plan" and cannot be picked; once picked the same % control and figures follow, with a Change link. Funds edit and remove like any row, without Category or Rename. Gold has an **Instrument** control, SGB | ETF, listing only the instruments not yet in the plan (absent when one is left); then the same % control and figures. Gold rows edit and remove like a fund row, without Category or Rename.
 
 **Edit / Add sheets (#165):**
 - The stepper's − / + always move **0.1**. The slider moves in 0.1 steps when the range is 25 or less, and in **1** steps when it is wider (`pctStep` in `lib/sleeves.ts` — a 0–100 slider in 0.1 steps is 1,000 positions and jumps under the finger); any value can be typed to the 0.1. Stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
@@ -337,10 +339,10 @@ The FY pool (budget + carryover) is split into three **sleeves** by %: Equity, D
 
 - **No split set = all Equity.** Every stock budget is then exactly `row % x pool`, as before sleeves. A missing value (an FY cached before the columns existed) reads as the default.
 - **Sleeves may total under 100.** The rest of the pool is unassigned. A sleeve may be 0% (Gold usually is).
-- **Row kinds.** `stock` rows are Equity, `ppf` and `mf` rows are Debt. Features that only make sense for a stock (bands, tranches, price refresh, Stock Detail, investability) read stock rows only.
+- **Row kinds.** `stock` rows are Equity, `ppf` and `mf` rows are Debt, `gold` rows are Gold. Features that only make sense for a stock (bands, tranches, price refresh, Stock Detail, investability) read stock rows only.
 - **PPF invested** = deposits in `ppf_transactions` dated inside the FY. Interest and withdrawals are not invested money.
 - **Fund invested** = net buys minus redemptions in `mf_transactions` dated inside the FY, per scheme, floored at 0.
-- **Carryover** = pool - (net stock spend + PPF deposits + net fund buys). A PPF deposit or fund buy reduces carryover exactly as a stock buy does.
+- **Carryover** = pool - (net stock spend + PPF deposits + net fund buys + net SGB / gold-ETF buys). A PPF deposit, fund buy or gold buy reduces carryover exactly as a stock buy does.
 - **Allocation counts allocated money only:** its Plan figure is the sum of the rows' budgets, not the pool (unchanged from before sleeves).
 
 ---
