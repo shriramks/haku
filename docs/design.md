@@ -336,15 +336,18 @@ Alignment: context-dependent
 - Rows of label (body, `--text-2`) + right-aligned `Num align` columns, 84px each: **Was** (`--text-muted`) and **Now** (`--text-primary`), with `.label-field` column heads. A value that cannot change in the sheet (Invested, Plan total) leaves Was empty. Plan total starts its own group after a small gap. Add has the Now column only, no heads.
 - Left is `--c-positive` / `--c-negative` by sign; no ₹ anywhere, no line under the hero %.
 
-### SleeveSection (Plan: `app/plan/SleeveSection.tsx`)
+### SleeveSection (Plan: `app/plan/SleeveSection.tsx`, `PlanRow.tsx`)
 ```
-[ Name (title-1, bold)  [N% free | N% · over]            N% (headline, semibold, accent)  amount (headline, semibold) ]  [caret]
-   one button: edits the split                                                                                          one button: collapses
+Heads   :                                  Share      Amount          (label-field)
+Header  : Name (title-1 bold)         N% (title-1 bold, accent)   amount (title-1 bold)  [caret]
+Row     : Name (headline bold)        N% (headline semibold, accent)   amount (headline, --text-2)  [slot]
+Remainder: Unassigned (body, --text-2)   N%      amount        — or "Over" in --c-negative with signed values
 ```
-- Two buttons, each min 44px: the whole header (name, badge, %, amount) opens the Split sheet — a header must do what a row does when tapped, which is edit — and only the caret collapses. A sleeve with no rows has no caret, and its header still edits.
-- The caret button's 44px hit area overhangs into the page margin; its layout footprint is 32px, the room a row leaves after its amount (12px gap + 16px slot + 4px), so header and row amounts end on the same line.
-- Rows sit directly under the header, unindented, at the app's own row spacing. The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers); it is the **only** caret on the screen, so a caret always means collapse.
-- Badge: `N% free` (warning) when the rows leave part of the sleeve unassigned (also `100% free` for a sleeve with money and no rows), `N% · over` (negative) when they overshoot, nothing at exactly 100% or for a 0% sleeve.
+- **One grid for every line:** `PLAN_COLS = 1.4fr 1fr 1.2fr`, the Allocation screen's columns — name left, share centred, amount right. The columns spread across the width (the middle is not left empty) and shares and amounts line up from the heads down through every row. A share is always its share of its parent.
+- **One line per row.** No company-name subtitle, no per-row carryover split; a row that needs a second line has too many facts. The blue share is what you set; the muted amount is the result.
+- **Header = two buttons, each min 44px:** the header (name, share, amount) opens the Split sheet — it must do what a row does when tapped, which is edit — and only the caret collapses. A sleeve with no rows has no caret and its header still edits. The caret's hit area is centred on the 16px slot rows leave after their amount, so header and row amounts end on one line.
+- **Free money is a line, not a badge** (a badge has no room next to a 19px name in a 130px column, and cannot show an amount): `Unassigned N%  amount` after a sleeve's rows, `Over −N%  −amount` in red, and the same for the pool after the sleeves. Nothing at exactly 100.
+- The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers). It is the **only** caret on the screen, so a caret always means collapse.
 - State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
 
 ### Plan figure (Plan: top of the screen)

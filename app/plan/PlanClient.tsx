@@ -7,9 +7,10 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
-import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, type Sleeve } from '@/lib/sleeves'
+import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, remainderLine, type Sleeve } from '@/lib/sleeves'
 import { ChevronRightIcon } from '@/components/icons'
-import { SleeveSection } from './SleeveSection'
+import { SleeveSection, PLAN_COLS } from './SleeveSection'
+import { PlanRow, RemainderRow } from './PlanRow'
 import { SplitSheet } from './SplitSheet'
 import { PlanFigures } from './PlanFigures'
 import UserMenu from '@/components/UserMenu'
@@ -379,17 +380,23 @@ function PlanTab({
             </div>
           ) : (
             <div>
+              {/* Column heads — the same grid as every line below */}
+              <div className="grid px-4 pt-3" style={{ gridTemplateColumns: PLAN_COLS }}>
+                <span />
+                <span className="label-field text-center">Share</span>
+                <span className="label-field text-right" style={{ paddingRight: 20 }}>Amount</span>
+              </div>
               {SLEEVES.map(sleeve => {
                 const rows = rowsOf(sleeve)
                 const amount = sleeveAmount(sleeve)
                 const pct = sleevePct(selectedFY, sleeve)
+                const remainder = pct > 0 ? remainderLine(rowsTotal(sleeve), amount) : null
                 return (
                   <SleeveSection
                     key={sleeve}
                     sleeve={sleeve}
                     pct={pct}
                     amount={amount}
-                    rowsTotal={rowsTotal(sleeve)}
                     hasRows={rows.length > 0}
                     onEditSplit={() => setShowSplitSheet(true)}>
                     {rows.map(alloc => (
@@ -397,14 +404,17 @@ function PlanTab({
                         key={alloc.id}
                         alloc={alloc}
                         budget={rowBudget(alloc.allocation_pct, amount)}
-                        carryoverShare={unallocCarryover !== 0 ? rowBudget(alloc.allocation_pct, (pct / 100) * unallocCarryover) : undefined}
-                        prevFYLabel={prevFY?.label}
                         onEdit={() => setEditingAlloc(alloc)}
                       />
                     ))}
+                    {remainder && <RemainderRow line={remainder} />}
                   </SleeveSection>
                 )
               })}
+              {(() => {
+                const poolRemainder = remainderLine(SLEEVES.reduce((sum, sl) => sum + sleevePct(selectedFY, sl), 0), effectiveBudget)
+                return poolRemainder ? <div className="pt-2"><RemainderRow line={poolRemainder} /></div> : null
+              })()}
 
               {/* Add row */}
               {!confirmClear && (
@@ -518,42 +528,6 @@ function PlanTab({
         />
       )}
     </div>
-  )
-}
-
-// ── Stock allocation row ──────────────────────────────────────────────────────
-
-function PlanRow({ alloc, budget, carryoverShare, prevFYLabel, onEdit }: {
-  alloc: StockAllocation
-  budget: number
-  carryoverShare?: number
-  prevFYLabel?: string
-  onEdit: () => void
-}) {
-  const baseBudget = carryoverShare != null ? budget - carryoverShare : budget
-  const name = alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))
-  return (
-    <RowShell onClick={onEdit}>
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <RowSymbol symbol={alloc.symbol} />
-          {name && <p className="text-footnote mt-0.5" style={{ color: 'var(--text-muted)' }}>{name}</p>}
-        </div>
-        <div className="text-right">
-          <p className="text-headline font-semibold tabnum text-accent">{trimPct(alloc.allocation_pct)}%</p>
-          <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {carryoverShare != null ? <><Num amount={baseBudget} /> base</> : <Num amount={budget} />}
-          </p>
-          {carryoverShare != null && prevFYLabel && (
-            <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
-              <Num amount={carryoverShare} signed /> from {prevFYLabel}
-            </p>
-          )}
-        </div>
-        {/* No caret: the row taps (Portfolio's holding rows do the same); the slot keeps amounts aligned with the section header */}
-        <span className="w-4 h-4 flex-shrink-0 ml-1" />
-      </div>
-    </RowShell>
   )
 }
 

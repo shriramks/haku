@@ -249,9 +249,11 @@ transaction history for a stock filter the Transactions tab.
 
 **Priority order:**
 1. FY selector + **Plan** (the pool: FY budget + carryover; carryover footnote under it)
-2. **Sleeves** — Equity, Debt, Gold — each a collapsible section: name, "N% free" / "N% · over" badge, its % of the pool (blue), its amount, caret. **Tapping the header (name, badge, %, amount) edits the split; only the caret collapses**
-3. **Rows** inside each sleeve: the instrument, its % of the sleeve (blue) and amount. No caret on a row — the row taps (Portfolio's convention); the caret is only on a section header, where it means collapse
+2. **Sleeves** — Equity, Debt, Gold — each a collapsible section: its name, its share of the pool (blue) and its amount. Tapping the header edits the split; only the caret collapses
+3. **Rows** inside each sleeve, one line each: name, its share of the sleeve (blue) and its amount (muted). No company name and no per-row carryover split (carryover is stated once, under Plan). No caret on a row — the row taps (Portfolio's convention); the caret is only on a section header, where it means collapse
 4. Investability gates (per stock)
+
+**One grid:** every line — column heads, sleeve headers, rows, unassigned lines — uses the same columns as Allocation: name | share (centred) | amount (right), heads "Share" and "Amount". A share is always its share of its parent (a sleeve of the pool, a row of its sleeve), so shares and amounts line up all the way down. **Free money is a line, not a badge:** after a sleeve's rows, "Unassigned N%  amount" (muted) when they fall short of the sleeve, or "Over −N%  −amount" (red) when they overshoot; after the three sleeves, the same line for the pool. Nothing is shown at exactly 100.
 
 **Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header, and tapping it edits the split like any other). The **Plan** figure at the top is one full-width row (an "Edit budget" cue on its right edge) that opens the budget sheet. Tapping any sleeve header opens the **Split** sheet: Equity, Debt and Gold steppers (1 point per tap, or type a value) with each amount, and the Plan total. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
 

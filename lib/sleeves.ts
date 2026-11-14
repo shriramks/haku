@@ -77,3 +77,22 @@ export function ppfDeposited(
 export function fyCarryover(pool: number, stockNetDeployed: number, ppfDeposits: number): number {
   return pool - stockNetDeployed - ppfDeposits
 }
+
+/** What is left over (or overshot) when shares add up to something other than 100 — shown as a line, never hidden. */
+export interface Remainder {
+  kind: 'unassigned' | 'over'
+  /** Signed: positive when part is unassigned, negative by how much the shares overshoot. */
+  pct: number
+  /** Signed the same way: `pct` of `base`. */
+  amount: number
+}
+
+/**
+ * The remainder of a set of shares of `base` (a sleeve's amount, or the pool): 100 - total. Null when they add up
+ * to exactly 100. Used under a sleeve's rows and under the sleeves themselves.
+ */
+export function remainderLine(totalPct: number, base: number): Remainder | null {
+  const free = round1(100 - totalPct)
+  if (free === 0) return null
+  return { kind: free > 0 ? 'unassigned' : 'over', pct: free, amount: rowBudget(free, base) }
+}

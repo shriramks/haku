@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import React from 'react'
 import { renderToString } from 'react-dom/server'
-import { SleeveSection, sleeveBadge } from '../../app/plan/SleeveSection'
+import { SleeveSection, PLAN_COLS } from '../../app/plan/SleeveSection'
+import { PlanRow, RemainderRow } from '../../app/plan/PlanRow'
 import { SplitSheet } from '../../app/plan/SplitSheet'
 import { PlanFigures } from '../../app/plan/PlanFigures'
-import type { FiscalYear } from '../types'
+import { remainderLine } from '../sleeves'
+import type { FiscalYear, StockAllocation } from '../types'
 
 const FY: FiscalYear = {
   id: 'fy', label: 'FY27', start_date: '2026-04-01', end_date: '2027-03-31',
@@ -12,75 +14,100 @@ const FY: FiscalYear = {
   equity_pct: 75, debt_pct: 25, gold_pct: 0,
 }
 const noop = () => {}
+const ALLOC: StockAllocation = { id: 'a', fy_id: 'fy', symbol: 'NIFTYBEES', exchange: 'NSE', kind: 'stock', allocation_pct: 40, category: 'x', name: 'Nippon India ETF Nifty 50' }
 
-describe('sleeveBadge', () => {
-  it('says how much of the sleeve its rows leave free', () => {
-    expect(sleeveBadge(75, 90)).toEqual({ label: '10% free', tone: 'free' })
-    expect(sleeveBadge(25, 28)).toEqual({ label: '72% free', tone: 'free' })
+describe('remainderLine', () => {
+  it('is null when the shares add up to exactly 100', () => expect(remainderLine(100, 1_500_000)).toBeNull())
+  it('is the unassigned share and its amount when they fall short', () => {
+    expect(remainderLine(90, 1_500_000)).toEqual({ kind: 'unassigned', pct: 10, amount: 150_000 })
+    expect(remainderLine(28, 500_000)?.pct).toBe(72)
   })
-  it('says by how much the rows overshoot the sleeve', () => {
-    expect(sleeveBadge(75, 120)).toEqual({ label: '120% · over', tone: 'over' })
+  it('is a negative remainder, in red terms, when they overshoot', () => {
+    expect(remainderLine(120, 1_500_000)).toEqual({ kind: 'over', pct: -20, amount: -300_000 })
   })
-  it('is absent when the rows fill the sleeve exactly', () => expect(sleeveBadge(75, 100)).toBeNull())
-  it('is absent for a sleeve with no money', () => {
-    expect(sleeveBadge(0, 0)).toBeNull()
-    expect(sleeveBadge(0, 40)).toBeNull()
+  it('keeps fractional shares exact', () => expect(remainderLine(99.9, 1_000_000)?.pct).toBe(0.1))
+  it('works on the pool too: sleeves that split 95 leave 5 unassigned', () => {
+    expect(remainderLine(95, 2_000_000)).toEqual({ kind: 'unassigned', pct: 5, amount: 100_000 })
   })
-  it('reads 100% free for a sleeve that has money but no rows yet', () => {
-    expect(sleeveBadge(25, 0)).toEqual({ label: '100% free', tone: 'free' })
-  })
-  it('keeps fractional free amounts exact', () => expect(sleeveBadge(50, 99.9)?.label).toBe('0.1% free'))
 })
 
 describe('SleeveSection', () => {
   const render = (props: Partial<React.ComponentProps<typeof SleeveSection>> = {}) => renderToString(
-    <SleeveSection sleeve="equity" pct={75} amount={1_500_000} rowsTotal={90} hasRows onEditSplit={noop} {...props}>
+    <SleeveSection sleeve="equity" pct={75} amount={1_500_000} hasRows onEditSplit={noop} {...props}>
       <i>ROW-CONTENT</i>
     </SleeveSection>)
 
-  it('shows the sleeve name, its % and amount, and its rows (open by default)', () => {
+  it('shows the sleeve name, its share and amount, and its rows (open by default)', () => {
     const html = render()
     expect(html).toContain('Equity')
     expect(html).toContain('75<!-- -->%')
     expect(html).toContain('15<span class="num-u">L</span>')
     expect(html).toContain('ROW-CONTENT')
   })
-  it('shows the free badge', () => expect(render()).toContain('10% free'))
-  it('has a caret when it has rows, and none when it has none', () => {
-    expect(render()).toContain('<svg')
-    expect(render({ hasRows: false })).not.toContain('<svg')
+  it('uses the Plan grid: name | share | amount, the same columns as Allocation', () => {
+    expect(PLAN_COLS).toBe('1.4fr 1fr 1.2fr')
+    expect(render()).toContain('grid-template-columns:1.4fr 1fr 1.2fr')
   })
-  it('tapping the header edits the split: name, badge, % and amount are all inside ONE button', () => {
-    const html = render()
-    const first = html.match(/<button[^>]*>([\s\S]*?)<\/button>/)![1]
+  it('tapping the header edits the split: name, share and amount are all inside ONE button', () => {
+    const first = render().match(/<button[^>]*>([\s\S]*?)<\/button>/)![1]
     expect(first).toContain('Equity')
-    expect(first).toContain('10% free')
     expect(first).toContain('75<!-- -->%')
     expect(first).toContain('15<span class="num-u">L</span>')
   })
-  it('only the caret collapses, in its own button with a label', () => {
+  it('only the caret collapses, in its own labelled 44px button', () => {
     const html = render()
     const buttons = html.match(/<button[\s\S]*?<\/button>/g)!
     expect(buttons).toHaveLength(2)
     expect(buttons[1]).toContain('aria-label="Collapse Equity"')
     expect(buttons[1]).toContain('<svg')
-    expect(buttons[1]).not.toContain('Equity</span>')   // the caret button carries no name: it only collapses
-  })
-  it('the caret button is a 44px hit area', () => {
-    expect(render()).toMatch(/aria-label="Collapse Equity"[^>]*style="[^"]*width:44px;height:44px/)
+    expect(buttons[1]).not.toContain('Equity</span>')
+    expect(html).toMatch(/aria-label="Collapse Equity"[^>]*style="[^"]*width:44px;height:44px/)
   })
   it('a sleeve with no rows has no collapse button — the whole header just edits', () => {
-    const html = render({ hasRows: false, sleeve: 'gold', pct: 0, amount: 0, rowsTotal: 0 })
+    const html = render({ hasRows: false, sleeve: 'gold', pct: 0, amount: 0 })
     expect(html.match(/<button/g)).toHaveLength(1)
     expect(html).not.toContain('aria-label')
   })
-  it('reads over when the rows exceed the sleeve', () => {
-    const html = render({ rowsTotal: 120 })
-    expect(html).toContain('120% · over')
-    expect(html).toContain('text-negative')
+  it('there is no badge any more: free money is a line under the rows', () => {
+    expect(render()).not.toContain('free')
   })
-  it('an empty Debt sleeve with money reads 100% free', () => {
-    expect(render({ sleeve: 'debt', pct: 25, amount: 500_000, rowsTotal: 0, hasRows: false })).toContain('100% free')
+})
+
+describe('PlanRow', () => {
+  const render = () => renderToString(<PlanRow alloc={ALLOC} budget={600_000} onEdit={noop} />)
+  it('is one line: the name, its share (blue) and its amount, on the Plan grid', () => {
+    const html = render()
+    expect(html).toContain('NIFTYBEES')
+    expect(html).toContain('40<!-- -->%')
+    expect(html).toContain('6<span class="num-u">L</span>')
+    expect(html).toContain('grid-template-columns:1.4fr 1fr 1.2fr')
+  })
+  it('has no second line: no company name, no carryover split', () => {
+    const html = render()
+    expect(html).not.toContain('Nippon')
+    expect(html).not.toContain('base')
+  })
+  it('has no caret (a caret on this screen means collapse), but keeps the slot so amounts align with the header', () => {
+    const html = render()
+    expect(html).not.toContain('<svg')
+    expect(html).toContain('w-4 h-4 flex-shrink-0')
+  })
+})
+
+describe('RemainderRow', () => {
+  it('Unassigned reads muted, with its share and amount on the grid', () => {
+    const html = renderToString(<RemainderRow line={{ kind: 'unassigned', pct: 10, amount: 150_000 }} />)
+    expect(html).toContain('Unassigned')
+    expect(html).toContain('10<span class="num-u">%</span>')
+    expect(html).toContain('1.5<span class="num-u">L</span>')
+    expect(html).not.toContain('c-negative')
+  })
+  it('Over reads red and signed', () => {
+    const html = renderToString(<RemainderRow line={{ kind: 'over', pct: -20, amount: -300_000 }} />)
+    expect(html).toContain('Over')
+    expect(html).toContain('c-negative')
+    expect(html).toContain('<span class="num-sgn">−</span>20<span class="num-u">%</span>')
+    expect(html).toContain('<span class="num-sgn">−</span>3<span class="num-u">L</span>')
   })
 })
 
