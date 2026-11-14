@@ -52,7 +52,7 @@ export function SplitSheet({ fy, pool, onClose, onSave }: {
                   value={vals[sl]}
                   onChange={e => set(sl, parseFloat(e.target.value) || 0)}
                   className="text-title-1 font-bold tabnum text-right outline-none bg-transparent"
-                  style={{ width: 52, color: 'var(--text-primary)' }}
+                  style={{ width: `${String(vals[sl]).length + 0.4}ch`, minWidth: '1.4ch', color: 'var(--text-primary)' }}
                 />
                 <span className="text-title-1 font-bold">%</span>
               </div>

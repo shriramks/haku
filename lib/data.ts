@@ -69,7 +69,26 @@ export const getFiscalYears = cachedUserScoped(
   }
 )
 
+/**
+ * A FY's STOCK allocations, largest first. Stock features (Bands, Stock Detail, tranches, prices) read this, so a
+ * PPF or fund row can never reach them; the screens that show every row ask for `getPlanRows` explicitly.
+ */
 export const getAllocations = userScoped(
+  [],
+  async (userId: string, fyId: string): Promise<StockAllocation[]> => {
+    const { data } = await createSupabaseServiceClient()
+      .from('stock_allocations')
+      .select('id, fy_id, symbol, exchange, kind, allocation_pct, category')
+      .eq('user_id', userId)
+      .eq('fy_id', fyId)
+      .eq('kind', 'stock')
+      .order('allocation_pct', { ascending: false })
+    return data ?? []
+  }
+)
+
+/** Every plan row of a FY (stocks, PPF, …), largest first — what the Plan and Allocation screens list. */
+export const getPlanRows = userScoped(
   [],
   async (userId: string, fyId: string): Promise<StockAllocation[]> => {
     const { data } = await createSupabaseServiceClient()
@@ -82,9 +101,9 @@ export const getAllocations = userScoped(
   }
 )
 
-/** A FY's plan rows, largest first, with display names from the `stocks` master — the Plan screen's list. */
+/** A FY's plan rows with display names from the `stocks` master — the Plan and Allocation screens' list. */
 export async function getPlanAllocations(fyId: string): Promise<StockAllocation[]> {
-  const allocations = await getAllocations(fyId)
+  const allocations = await getPlanRows(fyId)
   const stocks = await getStocks(allocations.map(a => a.symbol))
   return allocations.map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), name: stocks[a.symbol]?.name || undefined }))
 }

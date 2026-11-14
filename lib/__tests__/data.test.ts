@@ -41,7 +41,7 @@ vi.mock('../supabase-service', () => ({
 import { createSupabaseServiceClient } from '../supabase-service'
 import { createSupabaseServerClient } from '../supabase-server'
 import {
-  getAllocations, getTransactions, getTransactionsBySymbol,
+  getAllocations, getPlanRows, getTransactions, getTransactionsBySymbol,
   getSymbolAllocations, getBuyBands, getBuyTranches, getMFNavs, getStockPrices,
   getFiscalYears, getAIKeyStatus, getInvestabilityForSymbol,
 } from '../data'
@@ -83,6 +83,21 @@ describe('data.ts — user_id isolation', () => {
   it('getAllocations filters by user_id', async () => {
     await getAllocations('fy-1')
     assertUserIdFilter()
+  })
+
+  it('getPlanRows filters by user_id', async () => {
+    await getPlanRows('fy-1')
+    assertUserIdFilter()
+  })
+
+  it('getAllocations is stock rows only, so a PPF or fund row can never reach a stock feature', async () => {
+    await getAllocations('fy-1')
+    expect((queryMock._eqCalls as [string, string][])).toContainEqual(['kind', 'stock'])
+  })
+
+  it('getPlanRows is every row: it does not narrow by kind', async () => {
+    await getPlanRows('fy-1')
+    expect((queryMock._eqCalls as [string, string][]).some(([col]) => col === 'kind')).toBe(false)
   })
 
   it('getTransactions filters by user_id', async () => {

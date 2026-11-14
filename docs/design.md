@@ -369,7 +369,7 @@ Handle: 4×36px rounded-full --bg-tertiary, centered, mt-2 mb-4
 
 - Sheet slide-up: 320ms, `cubic-bezier(0.32, 0.72, 0, 1)` — already in globals.css
 - Tap feedback: `--tap-active` background on active — already in globals.css
-- No other animations. Financial data does not benefit from decorative motion.
+- No other animations. Financial data does not benefit from decorative motion. The one exception is the section caret (Portfolio, Plan and Allocation headers), which rotates 90° over 150ms — the caret only, never the content's height.
 
 ---
 

@@ -1,5 +1,5 @@
 import { getFiscalYears, getAllocations, getTransactions, getBuyBands, getCurrentFY, getInvestability, getStockPrices, getInrPerUnit } from '@/lib/data'
-import { sleeveBudget, stockAllocations } from '@/lib/sleeves'
+import { sleeveBudget } from '@/lib/sleeves'
 import { computeStockRows } from '@/lib/compute'
 import { getStocks } from '@/lib/stock-master'
 import BandsClient from './BandsClient'
@@ -18,14 +18,13 @@ export default async function BandsPage({
   ])
   const fy = getCurrentFY(fiscalYears, fyParam) ?? fiscalYears[fiscalYears.length - 1]
 
-  const [allAllocations, transactions] = fy
+  const [allocations, transactions] = fy
     ? await Promise.all([
         getAllocations(fy.id),
         getTransactions(fy.id),
       ])
     : [[], []]
 
-  const allocations = stockAllocations(allAllocations)
   const symbols = allocations.map((a: { symbol: string }) => a.symbol)
   const [investabilities, prices, inrRates] = await Promise.all([getInvestability(symbols), getStockPrices(symbols), getInrPerUnit(symbols)])
 

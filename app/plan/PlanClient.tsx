@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
-import { formatINRFull, formatUsd, trimPct } from '@/lib/formatter'
+import { formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, type Sleeve } from '@/lib/sleeves'
+import { ChevronRightIcon } from '@/components/icons'
 import { SleeveSection } from './SleeveSection'
 import { SplitSheet } from './SplitSheet'
 import { PlanFigures } from './PlanFigures'
@@ -357,6 +358,10 @@ function PlanTab({
               className="flex flex-col tap-row text-left" style={{ minHeight: 44, justifyContent: 'center' }}>
               <p className="label-field">Plan</p>
               <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}><Num amount={effectiveBudget} /></p>
+              <span className="flex items-center gap-0.5" style={{ marginTop: 3 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)' }}>Edit budget</span>
+                <ChevronRightIcon className="w-2.5 h-2.5" style={{ color: 'var(--accent)' }} />
+              </span>
             </button>
             {unallocCarryover !== 0 && prevFY && (
               <p className="text-footnote tabnum pb-2" style={{ color: 'var(--text-faint)' }}>
@@ -534,7 +539,7 @@ function PlanRow({ alloc, budget, carryoverShare, prevFYLabel, onEdit }: {
         <div className="text-right">
           <p className="text-headline font-semibold tabnum text-accent">{trimPct(alloc.allocation_pct)}%</p>
           <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {carryoverShare != null ? `${formatINRFull(baseBudget)} base` : formatINRFull(budget)}
+            {carryoverShare != null ? <><Num amount={baseBudget} /> base</> : <Num amount={budget} />}
           </p>
           {carryoverShare != null && prevFYLabel && (
             <p className="text-footnote tabnum mt-0.5" style={{ color: 'var(--text-faint)' }}>
