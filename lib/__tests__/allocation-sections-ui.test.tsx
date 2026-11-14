@@ -51,6 +51,15 @@ describe('AllocationSection', () => {
     expect(html).toContain('3.9<span class="num-u">L</span>')    // invested 390 000
     expect(html).toContain('ROWS')
   })
+  it('the header % are whole numbers, like the rows (a decimal fills the Left column and touches Invested)', () => {
+    const [big] = allocationSections([{ key: 'A', name: 'A', href: '', budget: 8_431_000, spent: 8_043_000, remaining: 388_000, currentCost: 8_043_000 }], [])
+    const html = renderToString(<AllocationSection section={big}><i>ROWS</i></AllocationSection>)
+    expect(big.pctLeft).toBeCloseTo(4.6, 1)
+    expect(html).toContain('5<span class="num-u">%</span>')     // 4.6 -> 5
+    expect(html).toContain('95<span class="num-u">%</span>')    // 95.4 -> 95
+    expect(html).not.toContain('4.6')
+    expect(html).not.toContain('95.4')
+  })
   it('has the collapse caret, pointing down when open', () => {
     const html = render()
     expect(html).toContain('<svg')

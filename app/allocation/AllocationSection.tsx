@@ -13,6 +13,8 @@ export const ALLOCATION_COLS = '1.4fr 1fr 1.2fr'
 
 /**
  * A sleeve's section: a header (the strip, one step down: its Left and Invested) that collapses its rows.
+ * The header's % are whole numbers, like the rows': at 19px bold a one-decimal % ("3.88 L 4.6%") fills the Left column
+ * and touches the Invested one.
  * The header pins under the page header and the strip while its rows scroll (`--alloc-pin` is their height).
  */
 export function AllocationSection({ section, children }: { section: AllocationSectionData; children: ReactNode }) {
@@ -29,12 +31,12 @@ export function AllocationSection({ section, children }: { section: AllocationSe
           <span className="text-title-1 font-bold truncate" style={{ color: 'var(--text-primary)' }}>{SLEEVE_LABEL[section.sleeve]}</span>
           <p className="text-center text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
             <Num amount={Math.max(0, section.remaining)} />
-            <span className="text-footnote ml-2 font-normal" style={{ color: 'var(--text-muted)' }}><Num pct={section.pctLeft} /></span>
+            <span className="text-footnote ml-2 font-normal" style={{ color: 'var(--text-muted)' }}><Num pct={Math.round(section.pctLeft)} /></span>
           </p>
           <div className="flex items-center justify-end gap-1">
             <p className="text-right text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>
               <Num amount={section.invested} />
-              <span className="text-footnote ml-2 font-normal" style={{ color: 'var(--text-muted)' }}><Num pct={section.pctInvested} /></span>
+              <span className="text-footnote ml-2 font-normal" style={{ color: 'var(--text-muted)' }}><Num pct={Math.round(section.pctInvested)} /></span>
             </p>
             <ChevronRightIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
           </div>
