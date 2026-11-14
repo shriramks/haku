@@ -8,10 +8,9 @@ import { formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
 import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, remainderLine, type Sleeve } from '@/lib/sleeves'
-import { ChevronRightIcon } from '@/components/icons'
 import { SleeveSection, PLAN_COLS } from './SleeveSection'
 import { PlanRow, RemainderRow } from './PlanRow'
-import { SplitSheet } from './SplitSheet'
+import { PlanSheet, type PlanSave } from './PlanSheet'
 import { PlanFigures } from './PlanFigures'
 import { FundPicker } from './FundPicker'
 import { fundDisplayName } from '@/lib/fund-name'
@@ -174,8 +173,7 @@ function PlanTab({
   onFYChange: (patch: Partial<FiscalYear>) => void
   onDeleteFY: () => void
 }) {
-  const [showBudgetSheet, setShowBudgetSheet] = useState(false)
-  const [showSplitSheet, setShowSplitSheet] = useState(false)
+  const [showPlanSheet, setShowPlanSheet] = useState(false)
   const [editingAlloc, setEditingAlloc] = useState<StockAllocation | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -208,23 +206,14 @@ function PlanTab({
     })
   }, [prevFY?.id, selectedFY?.id])
 
-  async function saveBudget(budget: number) {
-    if (!selectedFY) return
-    await getSupabaseBrowser().from('fiscal_years')
-      .update({ total_budget_inr: budget })
-      .eq('id', selectedFY.id)
-    onFYChange({ total_budget_inr: budget })
-    setShowBudgetSheet(false)
-  }
-
   /** Returns an error message to show in the sheet, or null once saved. */
-  async function saveSplit(split: { equity_pct: number; debt_pct: number; gold_pct: number }): Promise<string | null> {
+  async function savePlan(patch: PlanSave): Promise<string | null> {
     if (!selectedFY) return null
-    const { error } = await getSupabaseBrowser().from('fiscal_years').update(split).eq('id', selectedFY.id)
+    const { error } = await getSupabaseBrowser().from('fiscal_years').update(patch).eq('id', selectedFY.id)
     if (error) return error.message
     await revalidateFiscalYears()
-    onFYChange(split)
-    setShowSplitSheet(false)
+    onFYChange(patch)
+    setShowPlanSheet(false)
     return null
   }
 
@@ -375,25 +364,19 @@ function PlanTab({
 
       {selectedFY ? (
         <>
-          {/* Plan strip: the pool */}
+          {/* Plan line: the pool in one line. The middle says what it is made of; the accent amount is the tap cue
+              (no chevron: it opens a sheet, and a chevron means pushing a screen). */}
           <div className="pt-2">
-            {/* The whole row opens the budget; the cue sits on its right edge, as on any tappable row. */}
-            <button onClick={() => setShowBudgetSheet(true)}
-              className="w-full flex items-center justify-between px-4 tap-row text-left" style={{ minHeight: 56 }}>
-              <div>
-                <p className="label-field">Plan</p>
-                <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}><Num amount={effectiveBudget} /></p>
-              </div>
-              <span className="flex items-center gap-0.5">
-                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)' }}>Edit budget</span>
-                <ChevronRightIcon className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+            <button onClick={() => setShowPlanSheet(true)}
+              className="w-full grid items-center px-4 tap-row text-left" style={{ gridTemplateColumns: 'auto 1fr auto', columnGap: 12, minHeight: 56 }}>
+              <span className="text-title-1 font-bold">Plan</span>
+              <span className="text-body tabnum truncate" style={{ color: 'var(--text-2)' }}>
+                {unallocCarryover !== 0 && prevFY && (
+                  <><Num amount={totalBudget} /> {unallocCarryover < 0 ? '−' : '+'} carryover <Num amount={Math.abs(unallocCarryover)} /></>
+                )}
               </span>
+              <span className="text-title-1 font-bold tabnum text-accent"><Num amount={effectiveBudget} /></span>
             </button>
-            {unallocCarryover !== 0 && prevFY && (
-              <p className="text-footnote tabnum px-4 pb-2" style={{ color: 'var(--text-faint)' }}>
-                <Num amount={totalBudget} /> base + <Num amount={unallocCarryover} signed /> carryover from {prevFY.label}
-              </p>
-            )}
           </div>
 
           {loading ? (
@@ -419,8 +402,7 @@ function PlanTab({
                     sleeve={sleeve}
                     pct={pct}
                     amount={amount}
-                    hasRows={rows.length > 0}
-                    onEditSplit={() => setShowSplitSheet(true)}>
+                    hasRows={rows.length > 0}>
                     {rows.map(alloc => (
                       <PlanRow
                         key={alloc.id}
@@ -517,23 +499,14 @@ function PlanTab({
         />
       )}
 
-      {showSplitSheet && selectedFY && (
-        <SplitSheet
+      {showPlanSheet && selectedFY && (
+        <PlanSheet
           fy={selectedFY}
-          pool={effectiveBudget}
-          onClose={() => setShowSplitSheet(false)}
-          onSave={saveSplit}
-        />
-      )}
-
-      {showBudgetSheet && selectedFY && (
-        <BudgetSheet
-          selectedFY={selectedFY}
           fyHasTxns={fyHasTxns}
           prevFYLabel={prevFY?.label}
-          onClose={() => setShowBudgetSheet(false)}
-          onSave={saveBudget}
-          onDeleteFY={() => { setShowBudgetSheet(false); onDeleteFY() }}
+          onClose={() => setShowPlanSheet(false)}
+          onSave={savePlan}
+          onDeleteFY={() => { setShowPlanSheet(false); onDeleteFY() }}
         />
       )}
 
@@ -552,97 +525,6 @@ function PlanTab({
         />
       )}
     </div>
-  )
-}
-
-// ── Budget edit sheet ─────────────────────────────────────────────────────────
-
-function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDeleteFY }: {
-  selectedFY: FiscalYear
-  fyHasTxns: boolean
-  prevFYLabel?: string
-  onClose: () => void
-  onSave: (budget: number) => Promise<void>
-  onDeleteFY: () => void
-}) {
-  const [budgetInput, setBudgetInput] = useState(String(selectedFY.total_budget_inr))
-  const [saving, setSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const kh = useKeyboardHeight()
-
-  async function handleSave() {
-    const budget = parseFloat(budgetInput)
-    if (!budget || budget <= 0) return
-    setSaving(true)
-    await onSave(budget)
-    await revalidateFiscalYears()
-    setSaving(false)
-  }
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
-           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        <div className="flex items-center justify-between px-5 pt-2 pb-4">
-          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <p className="font-semibold text-headline">{selectedFY.label} Budget</p>
-          <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>
-            Save
-          </Button>
-        </div>
-
-        {/* FY Budget field */}
-        <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-body">FY Budget</p>
-          <input
-            type="number" inputMode="decimal"
-            value={budgetInput} onChange={e => setBudgetInput(e.target.value)}
-            className="text-headline font-semibold tabnum text-right outline-none rounded-xl px-3 py-1.5 w-36"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
-            autoFocus
-          />
-        </div>
-
-        {/* Carryover context — read-only */}
-        {(() => {
-          const carryover = selectedFY.unallocated_carryover_inr ?? 0
-          const fyBudget = parseFloat(budgetInput) || selectedFY.total_budget_inr
-          if (carryover <= 0 || !prevFYLabel) return null
-          return (
-            <div className="flex items-center justify-between px-5" style={{ minHeight: 36 }}>
-              <p className="text-subheadline tabnum" style={{ color: 'var(--text-muted)' }}>
-                + <Num amount={carryover} /> carryover from {prevFYLabel}
-              </p>
-              <p className="text-subheadline font-semibold tabnum" style={{ color: 'var(--text-primary)' }}>
-                = <Num amount={fyBudget + carryover} />
-              </p>
-            </div>
-          )
-        })()}
-
-        {/* Delete plan */}
-        <div className="px-5 pt-2">
-          {confirmDelete ? (
-            <ConfirmButtons
-              message={fyHasTxns ? 'Clear allocations?' : 'Delete this plan?'}
-              cancelLabel="No" confirmLabel={fyHasTxns ? 'Clear' : 'Delete'}
-              onCancel={() => setConfirmDelete(false)} onConfirm={onDeleteFY}
-              variant="negative"
-            />
-          ) : (
-            <button onClick={() => setConfirmDelete(true)}
-              className="w-full py-3 rounded-xl text-body font-medium text-negative"
-              style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.18)' }}>
-              {fyHasTxns ? 'Clear Plan' : 'Delete Plan'}
-            </button>
-          )}
-        </div>
-      </div>
-    </>
   )
 }
 

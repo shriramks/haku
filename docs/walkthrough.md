@@ -218,7 +218,7 @@ Once logged, the **Allocation** screen updates the Deployed and Remaining number
 ### Editing allocations
 
 From the **Plan** tab:
-- **Edit budget** — tap Edit next to the budget figure
+- **Edit budget or split** — tap the Plan line at the top (budget, Equity / Debt / Gold split and Delete Plan are all in that sheet)
 - **Change allocation %** — tap a stock row to open its edit sheet; use the slider or +/– buttons
 - **Change category** — in the stock edit sheet, tap the Category dropdown
 - **Remove a stock** — in the stock edit sheet, tap **Remove from Plan** (transactions are kept)

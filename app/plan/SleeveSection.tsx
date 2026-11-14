@@ -13,44 +13,46 @@ import { SLEEVE_LABEL, type Sleeve } from '@/lib/sleeves'
  */
 export const PLAN_COLS = '1.4fr 1fr 1.2fr'
 
-/** A sleeve of the plan: a header that opens the split, with a caret that collapses its rows. */
-export function SleeveSection({ sleeve, pct, amount, hasRows, onEditSplit, children }: {
+/**
+ * A sleeve of the plan: one header that collapses its rows (the whole header is the target, caret rotating as a
+ * disclosure triangle does). The split is edited in the Plan sheet, not here, so the share is plain text. A sleeve
+ * with no rows has nothing to open and is not a button.
+ */
+export function SleeveSection({ sleeve, pct, amount, hasRows, children }: {
   sleeve: Sleeve
   /** The sleeve's % of the pool. */
   pct: number
   amount: number
   hasRows: boolean
-  /** Opens the Split sheet — tapping the header edits the sleeve %, set there for all three sleeves together. */
-  onEditSplit: () => void
   children: ReactNode
 }) {
   // Remembered per device, like the Tax sections.
   const [state, setState] = usePersistedState<string>(`haku_plan_${sleeve}`, 'open', (v): v is string => v === 'open' || v === 'closed')
   const open = state === 'open'
-  const toggle = () => { if (hasRows) setState(open ? 'closed' : 'open') }
+
+  const cells = (
+    <>
+      <span className="text-title-1 font-bold truncate" style={{ color: 'var(--text-primary)' }}>{SLEEVE_LABEL[sleeve]}</span>
+      <span className="text-center text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}>{trimPct(pct)}%</span>
+      <span className="flex items-center justify-end gap-1">
+        <span className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amount} /></span>
+        {hasRows
+          ? <ChevronRightIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
+          : <span className="w-4 h-4 flex-shrink-0" />}
+      </span>
+    </>
+  )
+  const grid = { gridTemplateColumns: PLAN_COLS, alignItems: 'center', minHeight: 44 } as const
 
   return (
     <div>
-      <div className="relative" style={{ paddingTop: 6 }}>
-        {/* Name, share and amount are one tap target: edit the split. The slot at the right is where the caret sits. */}
-        <button onClick={onEditSplit} className="grid w-full px-4 text-left"
-                style={{ gridTemplateColumns: PLAN_COLS, alignItems: 'center', minHeight: 44 }}>
-          <span className="text-title-1 font-bold truncate" style={{ color: 'var(--text-primary)' }}>{SLEEVE_LABEL[sleeve]}</span>
-          <span className="text-center text-title-1 font-bold tabnum text-accent">{trimPct(pct)}%</span>
-          <span className="flex items-center justify-end gap-1">
-            <span className="text-title-1 font-bold tabnum" style={{ color: 'var(--text-primary)' }}><Num amount={amount} /></span>
-            <span className="w-4 h-4 flex-shrink-0" />
-          </span>
-        </button>
-        {/* Only the caret collapses: a 44px hit area centred on the slot (24px in from the edge). */}
-        {hasRows && (
-          <button
-            onClick={toggle}
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${SLEEVE_LABEL[sleeve]}`}
-            className="absolute flex items-center justify-center"
-            style={{ right: 2, top: 6, width: 44, height: 44 }}>
-            <ChevronRightIcon className={`w-4 h-4 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
-          </button>
+      <div style={{ paddingTop: 6 }}>
+        {hasRows ? (
+          <button onClick={() => setState(open ? 'closed' : 'open')} aria-expanded={open}
+                  aria-label={`${SLEEVE_LABEL[sleeve]}, ${open ? 'collapse' : 'expand'}`}
+                  className="grid w-full px-4 text-left" style={grid}>{cells}</button>
+        ) : (
+          <div className="grid w-full px-4" style={grid}>{cells}</div>
         )}
       </div>
       {open && children}

@@ -339,13 +339,13 @@ Alignment: context-dependent
 ### SleeveSection (Plan: `app/plan/SleeveSection.tsx`, `PlanRow.tsx`)
 ```
 Heads   :                                  Share      Amount          (label-field)
-Header  : Name (title-1 bold)         N% (title-1 bold, accent)   amount (title-1 bold)  [caret]
+Header  : Name (title-1 bold)         N% (title-1 bold)   amount (title-1 bold)  [caret]
 Row     : Name (headline bold)        N% (headline semibold, accent)   amount (headline, --text-2)  [slot]
 Remainder: Unassigned (body, --text-2)   N%      amount        — or "Over" in --c-negative with signed values
 ```
 - **One grid for every line:** `PLAN_COLS = 1.4fr 1fr 1.2fr`, the Allocation screen's columns — name left, share centred, amount right. The columns spread across the width (the middle is not left empty) and shares and amounts line up from the heads down through every row. A share is always its share of its parent.
 - **One line per row.** No company-name subtitle, no per-row carryover split; a row that needs a second line has too many facts. The blue share is what you set; the muted amount is the result.
-- **Header = two buttons, each min 44px:** the header (name, share, amount) opens the Split sheet — it must do what a row does when tapped, which is edit — and only the caret collapses. A sleeve with no rows has no caret and its header still edits. The caret's hit area is centred on the 16px slot rows leave after their amount, so header and row amounts end on one line.
+- **Header = one button, min 44px:** the whole header (name, share, amount, caret) collapses and expands, as Allocation's section headers do (`aria-expanded`). The share is plain text, not accent: the split is edited in the Plan sheet, and accent means tappable. A sleeve with no rows is not a button (nothing to open) and shows no caret. The caret sits in the 16px slot rows leave after their amount, so header and row amounts end on one line.
 - **Free money is a line, not a badge** (a badge has no room next to a 19px name in a 130px column, and cannot show an amount): `Unassigned N%  amount` after a sleeve's rows, `Over −N%  −amount` in red, and the same for the pool after the sleeves. Nothing at exactly 100.
 - The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers). It is the **only** caret on the screen, so a caret always means collapse.
 - State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
@@ -354,7 +354,7 @@ Remainder: Unassigned (body, --text-2)   N%      amount        — or "Over" in 
 - Under Debt, an **Instrument** PPF | Fund segmented control (same as Type / Market) sits under Type; it is absent once the PPF row exists. Fund shows the Add Transaction sheet's search field and result rows (semibold AMFI name, `schemeTypeLine` footnote), capped at 40vh and scrolling inside. A fund already in the plan is `--text-muted` with "In plan" on the right and is disabled. After a pick the picker becomes a Fund row with a Change link, then the shared % control and figures. A fund row's sheet title is its short name.
 
 ### Plan figure (Plan: top of the screen)
-A full-width row (min 56px): "Plan" label over the amount (title-1 bold) on the left, an accent "Edit budget" with a caret on the right edge. The whole row is the tap target — never a small button around the text.
+One line, full width (min 56px), a grid `auto 1fr auto`: "Plan" (title-1 bold), `base + carryover N` in body `--text-2` (blank with no carryover; truncates), and the pool amount (title-1 bold, accent). The accent amount is the tap cue; there is no chevron, because the row opens a sheet and a chevron means pushing a screen (Apple HIG, Lists and tables). The whole row is the tap target — never a small button around the text. The Plan sheet is `app/plan/PlanSheet.tsx`.
 
 ### BottomSheet
 ```

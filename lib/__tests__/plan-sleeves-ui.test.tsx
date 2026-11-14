@@ -3,7 +3,7 @@ import React from 'react'
 import { renderToString } from 'react-dom/server'
 import { SleeveSection, PLAN_COLS } from '../../app/plan/SleeveSection'
 import { PlanRow, RemainderRow } from '../../app/plan/PlanRow'
-import { SplitSheet } from '../../app/plan/SplitSheet'
+import { PlanSheet } from '../../app/plan/PlanSheet'
 import { PlanFigures } from '../../app/plan/PlanFigures'
 import { FundResult } from '../../app/plan/FundResult'
 import { remainderLine } from '../sleeves'
@@ -34,7 +34,7 @@ describe('remainderLine', () => {
 
 describe('SleeveSection', () => {
   const render = (props: Partial<React.ComponentProps<typeof SleeveSection>> = {}) => renderToString(
-    <SleeveSection sleeve="equity" pct={75} amount={1_500_000} hasRows onEditSplit={noop} {...props}>
+    <SleeveSection sleeve="equity" pct={75} amount={1_500_000} hasRows {...props}>
       <i>ROW-CONTENT</i>
     </SleeveSection>)
 
@@ -49,25 +49,24 @@ describe('SleeveSection', () => {
     expect(PLAN_COLS).toBe('1.4fr 1fr 1.2fr')
     expect(render()).toContain('grid-template-columns:1.4fr 1fr 1.2fr')
   })
-  it('tapping the header edits the split: name, share and amount are all inside ONE button', () => {
-    const first = render().match(/<button[^>]*>([\s\S]*?)<\/button>/)![1]
-    expect(first).toContain('Equity')
-    expect(first).toContain('75<!-- -->%')
-    expect(first).toContain('15<span class="num-u">L</span>')
-  })
-  it('only the caret collapses, in its own labelled 44px button', () => {
+  it('the whole header is ONE button that collapses: name, share and amount are inside it', () => {
     const html = render()
     const buttons = html.match(/<button[\s\S]*?<\/button>/g)!
-    expect(buttons).toHaveLength(2)
-    expect(buttons[1]).toContain('aria-label="Collapse Equity"')
-    expect(buttons[1]).toContain('<svg')
-    expect(buttons[1]).not.toContain('Equity</span>')
-    expect(html).toMatch(/aria-label="Collapse Equity"[^>]*style="[^"]*width:44px;height:44px/)
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toContain('Equity')
+    expect(buttons[0]).toContain('75<!-- -->%')
+    expect(buttons[0]).toContain('15<span class="num-u">L</span>')
+    expect(buttons[0]).toContain('aria-expanded="true"')
+    expect(buttons[0]).toContain('aria-label="Equity, collapse"')
+    expect(buttons[0]).toContain('min-height:44px')
   })
-  it('a sleeve with no rows has no collapse button — the whole header just edits', () => {
+  it('the share is plain text, not the accent colour: it is not tappable here', () => {
+    expect(render().match(/<button[\s\S]*?<\/button>/)![0]).not.toContain('text-accent')
+  })
+  it('a sleeve with no rows is not a button: it has nothing to open', () => {
     const html = render({ hasRows: false, sleeve: 'gold', pct: 0, amount: 0 })
-    expect(html.match(/<button/g)).toHaveLength(1)
-    expect(html).not.toContain('aria-label')
+    expect(html).not.toContain('<button')
+    expect(html).toContain('Gold')
   })
   it('there is no badge any more: free money is a line under the rows', () => {
     expect(render()).not.toContain('free')
@@ -112,8 +111,8 @@ describe('RemainderRow', () => {
   })
 })
 
-describe('SplitSheet', () => {
-  const render = (fy: FiscalYear) => renderToString(<SplitSheet fy={fy} pool={2_000_000} onClose={noop} onSave={async () => null} />)
+describe('PlanSheet', () => {
+  const render = (fy: FiscalYear, prev: string | undefined = 'FY26') => renderToString(<PlanSheet fy={fy} fyHasTxns={false} prevFYLabel={prev} onClose={noop} onSave={async () => null} onDeleteFY={noop} />)
 
   it('shows all three sleeves with their % and amounts', () => {
     const html = render(FY)
@@ -121,7 +120,7 @@ describe('SplitSheet', () => {
     expect(html).toContain('value="75"')
     expect(html).toContain('value="25"')
     expect(html).toContain('value="0"')
-    expect(html).toContain('15<span class="num-u">L</span>')   // 75% of a 20 L pool
+    expect(html).toContain('15<span class="num-u">L</span>')   // 75% of a 20 L pool (18 L budget + 2 L carryover)
     expect(html).toContain('5<span class="num-u">L</span>')    // 25%
   })
   it('totals the split', () => expect(render(FY)).toMatch(/Plan total[\s\S]*?>100<[\s\S]*?%/))
@@ -137,6 +136,21 @@ describe('SplitSheet', () => {
   it('an FY with no split set opens as all Equity', () => {
     const html = render({ ...FY, equity_pct: undefined as unknown as number, debt_pct: undefined as unknown as number, gold_pct: undefined as unknown as number })
     expect(html).toContain('value="100"')
+  })
+})
+
+describe('PlanSheet budget', () => {
+  const render = (fy: FiscalYear, prev?: string) => renderToString(<PlanSheet fy={fy} fyHasTxns={false} prevFYLabel={prev} onClose={noop} onSave={async () => null} onDeleteFY={noop} />)
+  it('edits the budget and shows carryover as read-only context', () => {
+    const html = render(FY, 'FY26')
+    expect(html).toContain('value="1800000"')
+    expect(html).toMatch(/Carryover from (<!-- -->)?FY26/)
+  })
+  it('shows no carryover line when there is none', () => {
+    expect(render({ ...FY, unallocated_carryover_inr: 0 }, 'FY26')).not.toContain('Carryover from')
+  })
+  it('keeps the delete / clear action', () => {
+    expect(render(FY, 'FY26')).toContain('Delete Plan')
   })
 })
 
