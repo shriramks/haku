@@ -1,5 +1,6 @@
 'use client'
 
+import { pieLabelPlacement } from '@/lib/pie-label'
 import React, { useState, useMemo, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -380,14 +381,6 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
     return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 ${pct > 50 ? 1 : 0} 1 ${ex} ${ey} Z`
   }
 
-  function sliceCentroid(startPct: number, pct: number): [number, number] {
-    const midAngle = ((startPct + pct / 2) / 100) * 360 - 90
-    const rad = midAngle * Math.PI / 180
-    const cr = r * 0.58
-    return [cx + cr * Math.cos(rad), cy + cr * Math.sin(rad)]
-  }
-
-  const LETTERS = ['E', 'D', 'G']
   let offset = 0
   const slices = [
     { pct: equity, color: 'var(--c-equity)', darkLabel: false },
@@ -395,9 +388,10 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
     { pct: gold,   color: 'var(--c-gold)',   darkLabel: true  },
   ].map((s, i) => {
     const d        = arcPath(offset, s.pct)
-    const centroid = s.pct >= 10 ? sliceCentroid(offset, s.pct) : null
+    // The label is drawn only where its whole text fits inside this slice (lib/pie-label.ts).
+    const label = pieLabelPlacement({ cx, cy, r }, offset, s.pct, `${Math.round(s.pct)}%`)
     offset += s.pct
-    return { ...s, d, centroid, letter: LETTERS[i], key: i }
+    return { ...s, d, label, key: i }
   })
 
   return (
@@ -409,14 +403,14 @@ function FilledPieChart({ equity, debt, gold }: { equity: number; debt: number; 
               ? <path key={s.key} d={s.d} fill={s.color} stroke="var(--bg-primary)" strokeWidth="1.5" />
               : null)
         }
-        {total > 0 && slices.map(s => s.centroid && (
+        {total > 0 && slices.map(s => s.label && (
           <text
             key={`lbl-${s.key}`}
-            x={s.centroid[0].toFixed(2)}
-            y={s.centroid[1].toFixed(2)}
+            x={s.label.x.toFixed(2)}
+            y={s.label.y.toFixed(2)}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize="9"
+            fontSize={s.label.fontSize}
             fontWeight="700"
             fill={s.darkLabel ? 'rgba(0,0,0,0.68)' : 'rgba(255,255,255,0.90)'}
             style={{ fontFamily: 'system-ui, -apple-system' }}

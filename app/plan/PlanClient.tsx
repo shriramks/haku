@@ -368,7 +368,7 @@ function PlanTab({
               (no chevron: it opens a sheet, and a chevron means pushing a screen). */}
           <div className="pt-2">
             <button onClick={() => setShowPlanSheet(true)}
-              className="w-full grid items-center px-4 tap-row text-left" style={{ gridTemplateColumns: 'auto 1fr auto', columnGap: 12, minHeight: 56 }}>
+              className="w-full grid px-4 tap-row text-left" style={{ gridTemplateColumns: 'auto 1fr auto', columnGap: 12, minHeight: 56, alignItems: 'baseline', alignContent: 'center' }}>
               <span className="text-title-1 font-bold">Plan</span>
               <span className="text-body tabnum truncate" style={{ color: 'var(--text-2)' }}>
                 {unallocCarryover !== 0 && prevFY && (
