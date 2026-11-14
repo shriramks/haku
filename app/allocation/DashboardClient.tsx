@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { computeStockRows, type AllTimeHolding } from '@/lib/compute'
+import { sleeveBudget, stockAllocations } from '@/lib/sleeves'
 import type { StockPriceInfo } from '@/lib/stock-prices'
 import { getFYData } from '@/app/actions'
 import { Num } from '@/components/Num'
@@ -34,8 +35,8 @@ export default function DashboardClient({ fiscalYears, initialFY, initialAllocat
 
   const rows = useMemo(() =>
     computeStockRows(
-      allocations, transactions, bands,
-      (selectedFY?.total_budget_inr ?? 0) + (selectedFY?.unallocated_carryover_inr ?? 0),
+      stockAllocations(allocations), transactions, bands,
+      sleeveBudget(selectedFY, 'equity'),
       allTimeHoldings, prices, inrRates,
     ),
     [allocations, transactions, bands, selectedFY, allTimeHoldings, prices, inrRates]

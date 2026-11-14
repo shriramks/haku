@@ -9,15 +9,26 @@ export interface FiscalYear {
   total_budget_inr: number
   unallocated_carryover_inr: number | null
   deploy_capital_inr: number | null
+  /** Sleeve split of the pool, in % (#180). An FY with no split set is all Equity (100 / 0 / 0). */
+  equity_pct: number
+  debt_pct: number
+  gold_pct: number
   created_at?: string
 }
+
+/** What a plan row is: `stock` is every Equity row, `ppf` the single PPF row (Debt), `mf` a fund row (#181). */
+export type AllocationKind = 'stock' | 'ppf' | 'mf'
 
 export interface StockAllocation {
   id: string
   fy_id: string
   user_id?: string
+  /** The instrument key: a stock symbol, or `PPF` for the PPF row. */
   symbol: string
   exchange: string
+  /** `stock` for every row until #180 adds the others; readers that need stocks filter on it. */
+  kind: AllocationKind
+  /** % of the row's sleeve (not of the whole pool) — see lib/sleeves.ts `rowBudget`. */
   allocation_pct: number
   /** Empty for an overseas instrument until it has a category (#160). */
   category: string

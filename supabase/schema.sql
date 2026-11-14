@@ -21,7 +21,13 @@ CREATE TABLE IF NOT EXISTS fiscal_years (
     total_budget_inr NUMERIC(14,2) NOT NULL DEFAULT 0,
     unallocated_carryover_inr NUMERIC(14,2) DEFAULT 0,
     deploy_capital_inr NUMERIC(14,2) DEFAULT 0,
+    -- Sleeve split of the pool, in % (#180). The defaults make an FY "all Equity".
+    equity_pct       NUMERIC(5,2) NOT NULL DEFAULT 100,
+    debt_pct         NUMERIC(5,2) NOT NULL DEFAULT 0,
+    gold_pct         NUMERIC(5,2) NOT NULL DEFAULT 0,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT fiscal_years_sleeve_pct_chk CHECK (equity_pct >= 0 AND debt_pct >= 0 AND gold_pct >= 0
+        AND equity_pct + debt_pct + gold_pct <= 100),
     UNIQUE (user_id, label)
 );
 
@@ -32,6 +38,9 @@ CREATE TABLE IF NOT EXISTS stock_allocations (
     user_id              UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     symbol               TEXT NOT NULL,
     exchange             TEXT NOT NULL DEFAULT 'NSE',
+    -- What the row is (#180): 'stock' (every Equity row), 'ppf' (the PPF row, symbol 'PPF'), 'mf' (a fund row, #181).
+    kind                 TEXT NOT NULL DEFAULT 'stock' CONSTRAINT stock_allocations_kind_chk CHECK (kind IN ('stock', 'ppf', 'mf')),
+    -- % of the row's sleeve, not of the whole pool.
     allocation_pct       NUMERIC(5,2) NOT NULL DEFAULT 0,
     category             TEXT NOT NULL,
     two_weak_quarters    BOOLEAN NOT NULL DEFAULT false,

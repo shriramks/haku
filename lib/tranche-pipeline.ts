@@ -5,6 +5,7 @@
 // identically for both entry points; never re-implement a subset at a call site.
 
 import { revalidateTag } from 'next/cache'
+import { rowBudget, sleeveBudget } from './sleeves'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   computeTranchePrices, computeTrancheAmounts, stagedDeepCmp, snapPrice, snapUnit,
@@ -90,7 +91,7 @@ export async function generateTranchesForSymbol(
 
   // Compute remaining budget for this stock in this FY
   const [{ data: fy }, { data: fyAlloc }, { data: txns }] = await Promise.all([
-    supabase.from('fiscal_years').select('total_budget_inr, unallocated_carryover_inr').eq('id', fyId).single(),
+    supabase.from('fiscal_years').select('total_budget_inr, unallocated_carryover_inr, equity_pct, debt_pct, gold_pct').eq('id', fyId).single(),
     supabase.from('stock_allocations')
       .select('allocation_pct')
       .eq('user_id', userId).eq('fy_id', fyId).eq('symbol', upperSymbol)
@@ -106,7 +107,7 @@ export async function generateTranchesForSymbol(
     remaining = Math.max(0, remainingInr)
   } else {
     const allocBudget = (fyAlloc && fy)
-      ? (fyAlloc.allocation_pct / 100) * (fy.total_budget_inr + (fy.unallocated_carryover_inr ?? 0))
+      ? rowBudget(fyAlloc.allocation_pct, sleeveBudget(fy, 'equity'))
       : 0
     const netSpent = (txns ?? []).reduce(
       (s: number, t: { trade_type: string; amount: number }) =>

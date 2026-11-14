@@ -3,6 +3,7 @@ import {
   getCurrentFY, getAIKeyStatus, getTransactionsBySymbol, getInvestabilityForSymbol,
   getLatestSnapshots, getStockPrices, getInrPerUnit,
 } from './data'
+import { sleeveBudget, stockAllocations } from './sleeves'
 import { getStocks } from './stock-master'
 import { computeStockRows, seqCost } from './compute'
 import type { FiscalYear, StockAllocation, BuyBand, BuyTranche, StockRow, Investability, Transaction, BuyBandSnapshot } from './types'
@@ -72,13 +73,13 @@ export async function fetchStockDetailProps(
         getInrPerUnit([symbol]),
       ])
 
-  const totalBudget = (fy?.total_budget_inr ?? 0) + (fy?.unallocated_carryover_inr ?? 0)
-  const rows = computeStockRows(allocations, transactions, bands, totalBudget, undefined, prices, inrRates)
+  const stockAllocs = stockAllocations(allocations as StockAllocation[])
+  const rows = computeStockRows(stockAllocs, transactions, bands, sleeveBudget(fy, 'equity'), undefined, prices, inrRates)
   const fyRow = rows.find(r => r.symbol === symbol) ?? null
   const allTimePosition = seqCost(symbolTxns as Parameters<typeof seqCost>[0])
 
   const band       = bands.find(b => b.symbol === symbol) ?? null
-  const allocation = (allocations as StockAllocation[]).find(a => a.symbol === symbol) ?? null
+  const allocation = stockAllocs.find(a => a.symbol === symbol) ?? null
   const stockTranches = (tranches as BuyTranche[])
     .filter(t => t.symbol === symbol)
     .sort((a, b) => b.price - a.price)

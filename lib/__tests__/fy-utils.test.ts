@@ -43,7 +43,7 @@ describe('fiscalQuarterLabel', () => {
 describe('isFYClosed', () => {
   const FY: FiscalYear = {
     id: 'fy1', label: 'FY25-26', start_date: '2025-04-01', end_date: '2026-03-31',
-    total_budget_inr: 0, unallocated_carryover_inr: null, deploy_capital_inr: null,
+    total_budget_inr: 0, unallocated_carryover_inr: null, deploy_capital_inr: null, equity_pct: 100, debt_pct: 0, gold_pct: 0,
   }
 
   it('open while asOfDate is on or before end_date', () => {

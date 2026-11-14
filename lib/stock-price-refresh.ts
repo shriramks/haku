@@ -18,8 +18,10 @@ export async function refreshStockPrices(symbols: string[]): Promise<RefreshedSt
   if (requested.length === 0) return { prices: {}, week52: {} }
 
   const service = createSupabaseServiceClient()
-  const ownedIn = (table: 'transactions' | 'buy_bands' | 'stock_allocations') =>
-    service.from(table).select('symbol').eq('user_id', userId).in('symbol', requested)
+  const ownedIn = (table: 'transactions' | 'buy_bands' | 'stock_allocations') => {
+    const q = service.from(table).select('symbol').eq('user_id', userId).in('symbol', requested)
+    return table === 'stock_allocations' ? q.eq('kind', 'stock') : q   // a PPF / fund plan row is not a priceable stock
+  }
   const results = await Promise.all([ownedIn('transactions'), ownedIn('buy_bands'), ownedIn('stock_allocations')])
   if (results.some(r => r.error)) return null
   const owned = new Set(results.flatMap(r => (r.data ?? []).map(row => row.symbol as string)))

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUserId, getTransactions, getBuyBands, getFiscalYears, getPlanAllocations, getMFFunds, getMFTransactions, getMFNavs, getStockPrices, getGoldPrice, getSGBTransactions, getPPFTransactions, getPPFOverride, getEPFTransactions, getUsdInrRate } from '@/lib/data'
+import { stockAllocations } from '@/lib/sleeves'
 import { getStocks } from '@/lib/stock-master'
 import { getCurrentFY } from '@/lib/fy-utils'
 import { filterActiveMfFunds } from '@/lib/mf-compute'
@@ -60,7 +61,7 @@ export default async function PortfolioPage() {
   // so pass just those, for held symbols within the current FY's allocation list (every held
   // symbol when the FY has none). bandCmps is the band-snapshot fallback for resolveCmp.
   const heldSet = new Set(held)
-  const inFY = new Set(currentFYAllocations.map(a => a.symbol))
+  const inFY = new Set(stockAllocations(currentFYAllocations).map(a => a.symbol))
   const inScope = (symbol: string) => heldSet.has(symbol) && (inFY.size === 0 || inFY.has(symbol))
   const stockTxns: StockTxn[] = allTransactions
     .filter(t => inScope(t.symbol))

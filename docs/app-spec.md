@@ -316,6 +316,21 @@ is the venue from the `stocks` master (`LSE`), not `NSE`.
 
 ---
 
+### Plan sleeves (#180)
+
+The FY pool (budget + carryover) is split into three **sleeves** by %: Equity, Debt, Gold (`fiscal_years.equity_pct` / `debt_pct` / `gold_pct`, default 100 / 0 / 0). A plan row takes a % of **its own sleeve**, so:
+
+`row budget = row % x sleeve % x pool` — one definition, `rowBudget` / `sleeveBudget` in `lib/sleeves.ts`, used by Allocation, Bands, Stock Detail and tranche generation.
+
+- **No split set = all Equity.** Every stock budget is then exactly `row % x pool`, as before sleeves. A missing value (an FY cached before the columns existed) reads as the default.
+- **Sleeves may total under 100.** The rest of the pool is unassigned. A sleeve may be 0% (Gold usually is).
+- **Row kinds.** `stock` rows are Equity, `ppf` and `mf` rows are Debt. Features that only make sense for a stock (bands, tranches, price refresh, Stock Detail, investability) read stock rows only.
+- **PPF invested** = deposits in `ppf_transactions` dated inside the FY. Interest and withdrawals are not invested money.
+- **Carryover** = pool - (net stock spend + PPF deposits). A PPF deposit reduces carryover exactly as a stock buy does.
+- **Allocation counts allocated money only:** its Plan figure is the sum of the rows' budgets, not the pool (unchanged from before sleeves).
+
+---
+
 ## Information That Appears on Multiple Screens
 
 Some information is shown in more than one place. This is intentional but

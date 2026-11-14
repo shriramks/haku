@@ -49,11 +49,12 @@ describe('POST /api/settings/gemini-key — risk_free flow', () => {
             select: vi.fn(() => ({
               eq: vi.fn().mockResolvedValue({
                 data: [
-                  { symbol: 'CAMS', category: 'Cap-Light Infra' },
-                  { symbol: 'NIFTYBEES', category: 'Nifty 50 Index' },
-                  { symbol: 'ITC', category: 'Tobacco Corp' },
-                  { symbol: 'JUNIORBEES', category: 'Nifty Next 50 Index' },
-                  { symbol: 'CAMS', category: 'Cap-Light Infra' },
+                  { symbol: 'CAMS', category: 'Cap-Light Infra', kind: 'stock' },
+                  { symbol: 'NIFTYBEES', category: 'Nifty 50 Index', kind: 'stock' },
+                  { symbol: 'ITC', category: 'Tobacco Corp', kind: 'stock' },
+                  { symbol: 'JUNIORBEES', category: 'Nifty Next 50 Index', kind: 'stock' },
+                  { symbol: 'CAMS', category: 'Cap-Light Infra', kind: 'stock' },
+                  { symbol: 'PPF', category: '', kind: 'ppf' },
                 ],
                 error: null,
               }),

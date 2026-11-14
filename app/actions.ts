@@ -5,6 +5,7 @@ import { getUserId, getPlanAllocations, getTransactions, getFYSpent, getLatestSn
 import { fyIdForDate, fiscalQuarterLabel } from '@/lib/fy-utils'
 import { refreshStockPrices as refreshStockPricesImpl, type RefreshedStockPrices } from '@/lib/stock-price-refresh'
 import { netDeployed } from '@/lib/compute'
+import { fyCarryover, ppfDeposited } from '@/lib/sleeves'
 import { ensureStocks, getStocks, type Stock } from '@/lib/stock-master'
 import { fetchYahooInstrument, yahooListingExists } from '@/lib/market-data'
 import { isValidYahooSymbol } from '@/lib/instrument'
@@ -12,7 +13,7 @@ import { tradeFxRate } from '@/lib/trade-fx'
 import { isValidStockSymbol } from '@/lib/stock-master'
 import { deriveBandInputs, isIndexCategory } from '@/lib/band-calculator'
 import { buildFinancialsEditFields, type FinancialsEdit } from '@/lib/band-generate'
-import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot, BuyBand } from '@/lib/types'
+import type { StockAllocation, Transaction, FYTxn, DividendTransaction, BuyBandSnapshot, BuyBand, FiscalYear } from '@/lib/types'
 
 export async function revalidateFiscalYears() {
   revalidateTag('fiscal_years', {})
@@ -128,18 +129,28 @@ export async function checkFYHasTxns(fyId: string): Promise<boolean> {
 }
 
 /**
- * Computes carryover from a previous FY: pool (budget + its own carryover) minus
- * net deployed (all buys minus all sell proceeds; every instrument's `amount` is INR). Can be negative if over-invested.
+ * Computes carryover from a previous FY: pool (budget + its own carryover) minus everything
+ * deployed — net stock spend (all buys minus all sell proceeds; every instrument's `amount` is INR)
+ * and PPF deposits dated in that FY. Can be negative if over-invested.
  */
-export async function getPrevFYCarryover(prevFYId: string, prevFYPool: number): Promise<number> {
+export async function getPrevFYCarryover(
+  prevFY: Pick<FiscalYear, 'id' | 'start_date' | 'end_date'>,
+  prevFYPool: number,
+): Promise<number> {
   const userId = await getUserId()
   if (!userId) return 0
-  const { data } = await createSupabaseServiceClient()
-    .from('transactions')
-    .select('trade_type, amount')
-    .eq('user_id', userId)
-    .eq('fy_id', prevFYId)
-  return prevFYPool - netDeployed((data ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[])
+  const sb = createSupabaseServiceClient()
+  const [{ data: txns }, { data: ppf }] = await Promise.all([
+    sb.from('transactions').select('trade_type, amount').eq('user_id', userId).eq('fy_id', prevFY.id),
+    sb.from('ppf_transactions').select('trade_date, trade_type, amount')
+      .eq('user_id', userId).eq('trade_type', 'deposit')
+      .gte('trade_date', prevFY.start_date).lte('trade_date', prevFY.end_date),
+  ])
+  return fyCarryover(
+    prevFYPool,
+    netDeployed((txns ?? []) as Pick<FYTxn, 'trade_type' | 'amount'>[]),
+    ppfDeposited((ppf ?? []) as Parameters<typeof ppfDeposited>[0], prevFY.start_date, prevFY.end_date),
+  )
 }
 
 /** Fetches all stock transactions (all FYs) — used by TransactionsClient to expand history beyond the initial current-FY slice. Hits the unstable_cache so it's fast when warm. */
@@ -432,7 +443,7 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
   const sb = createSupabaseServiceClient()
   const { data: source } = await sb
     .from('stock_allocations')
-    .select('symbol, exchange, allocation_pct, category')
+    .select('symbol, exchange, kind, allocation_pct, category')
     .eq('user_id', userId)
     .eq('fy_id', fromFyId)
   if (!source?.length) return []
@@ -440,7 +451,7 @@ export async function copyAllocations(fromFyId: string, toFyId: string): Promise
     .from('stock_allocations')
     .insert(source.map(a => ({
       fy_id: toFyId, user_id: userId,
-      symbol: a.symbol, exchange: a.exchange,
+      symbol: a.symbol, exchange: a.exchange, kind: a.kind,
       allocation_pct: a.allocation_pct, category: a.category,
     })))
     .select()

@@ -17,8 +17,8 @@
 
 | Table | Purpose |
 |---|---|
-| `fiscal_years` | FY plans and budgets |
-| `stock_allocations` | FY-scoped stock list with allocation % and category |
+| `fiscal_years` | FY plans and budgets; `equity_pct` / `debt_pct` / `gold_pct` split the pool into sleeves (default 100 / 0 / 0, #180) |
+| `stock_allocations` | FY-scoped plan rows: `kind` is `stock` (every Equity row), `ppf` (the PPF row, symbol `PPF`) or `mf` (#181); `allocation_pct` is % of the row's sleeve; stock-only readers (Bands, price refresh, Stock Detail, tranches) use `stockAllocations()` from `lib/sleeves.ts` |
 | `transactions` | Real buy/sell log for every instrument, NSE or USD; source of truth for deployment. `price` is in the instrument's own currency (`stocks.currency`), `fx_rate` is INR per unit of it on `trade_date` (1 for INR; the server forces 1 for INR instruments and rejects a USD trade without a rate), generated `amount` = `quantity × price × fx_rate` is always INR, so FY spent, carryover, cost basis and XIRR need no per-currency branch (#153). `quantity` is `numeric(16,6)` for fractional units |
 | `buy_bands` | Stored valuation inputs (eps, pat_now, pat_3yr_ago, roce_3yr_avg, mcap, op_profit_cr, revenue_cr, index_level, index_pe), generated bands, CMP, 52-week range, risk multiplier |
 | `buy_tranches` | FY-scoped planned buy levels |

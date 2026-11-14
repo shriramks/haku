@@ -8,7 +8,7 @@ const FY26 = 'fy26-id'
 function mkAlloc(symbol: string, pct: number, fyId = FY25): StockAllocation {
   return {
     id: `alloc-${symbol}`, fy_id: fyId, user_id: 'u1',
-    symbol, exchange: 'NSE',
+    symbol, exchange: 'NSE', kind: 'stock',
     allocation_pct: pct, category: 'large',
   }
 }

@@ -6,7 +6,7 @@ import type { MFund, MFTransaction } from '../portfolio-types'
 import type { CarryForwardRow } from '../tax-liability'
 
 function fy(label: string, start: string, end: string): FiscalYear {
-  return { id: `fy-${label}`, label, start_date: start, end_date: end, total_budget_inr: 0, unallocated_carryover_inr: null, deploy_capital_inr: null }
+  return { id: `fy-${label}`, label, start_date: start, end_date: end, total_budget_inr: 0, unallocated_carryover_inr: null, deploy_capital_inr: null, equity_pct: 100, debt_pct: 0, gold_pct: 0 }
 }
 
 function stockTxn(tradeDate: string, tradeType: 'buy' | 'sell', qty: number, price: number): Transaction {

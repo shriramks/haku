@@ -112,7 +112,7 @@ function mkFY(label: string, start: string, end: string): FiscalYear {
     start_date: start, end_date: end,
     total_budget_inr: 1_000_000,
     unallocated_carryover_inr: null,
-    deploy_capital_inr: null,
+    deploy_capital_inr: null, equity_pct: 100, debt_pct: 0, gold_pct: 0,
   }
 }
 
@@ -266,7 +266,7 @@ describe('data.ts — cached fetcher specs', () => {
     { key: ['dividend_transactions'], revalidate: 300, tags: ['dividend_transactions'] },
     { key: ['dividend_transactions_all'], revalidate: 300, tags: ['dividend_transactions'] },
     { key: ['epf_transactions', 'wage_month'], revalidate: 3600, tags: ['epf_transactions'] },
-    { key: ['fiscal_years'], revalidate: 3600, tags: ['fiscal_years'] },
+    { key: ['fiscal_years', 'sleeves'], revalidate: 3600, tags: ['fiscal_years'] },
     { key: ['mf_funds'], revalidate: 3600, tags: ['mf_funds'] },
     { key: ['mf_transactions'], revalidate: 3600, tags: ['mf_transactions'] },
     { key: ['ppf_balance_override'], revalidate: 3600, tags: ['ppf_balance_override'] },

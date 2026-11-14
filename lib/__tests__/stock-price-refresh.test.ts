@@ -17,17 +17,24 @@ import { refreshStockPrices } from '../stock-price-refresh'
 
 function setup(ownedByTable: Record<string, string[]> = {}, upsertError: { message: string } | null = null) {
   const upsert = vi.fn().mockResolvedValue({ error: upsertError })
+  const kindFilters: string[] = []   // tables whose query was narrowed with .eq('kind', 'stock')
   createSupabaseServiceClient.mockReturnValue({
     from: vi.fn((table: string) => ({
       upsert,
       select: () => ({
         eq: () => ({
-          in: () => Promise.resolve({ data: (ownedByTable[table] ?? []).map(symbol => ({ symbol })), error: null }),
+          in: () => {
+            const result = { data: (ownedByTable[table] ?? []).map(symbol => ({ symbol })), error: null }
+            // awaitable as is, and also chainable with one more .eq (the plan table's kind filter)
+            return Object.assign(Promise.resolve(result), {
+              eq: (col: string, val: string) => { if (col === 'kind' && val === 'stock') kindFilters.push(table); return Promise.resolve(result) },
+            })
+          },
         }),
       }),
     })),
   })
-  return { upsert }
+  return { upsert, kindFilters }
 }
 
 describe('refreshStockPrices', () => {
@@ -63,6 +70,12 @@ describe('refreshStockPrices', () => {
     await refreshStockPrices(['TCS', 'EVIL'])
     expect(ensureStocks).toHaveBeenCalledWith(['TCS'], {}, 'user-1')
     expect(fetchCmpBatch).toHaveBeenCalledWith([{ symbol: 'TCS', yahooSymbol: 'TCS.NS' }])
+  })
+
+  it('counts only stock plan rows as owned: a PPF or fund row is never priced', async () => {
+    const { kindFilters } = setup({ stock_allocations: ['TCS'] })
+    await refreshStockPrices(['TCS'])
+    expect(kindFilters).toEqual(['stock_allocations'])
   })
 
   it('fetches nothing when no requested symbol is owned', async () => {

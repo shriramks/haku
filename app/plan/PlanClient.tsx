@@ -189,7 +189,7 @@ function PlanTab({
     if (new Date(prevFY.end_date) >= new Date()) return
     if (selectedFY.unallocated_carryover_inr !== null) return // already set
     const prevFYPool = (prevFY.total_budget_inr ?? 0) + (prevFY.unallocated_carryover_inr ?? 0)
-    getPrevFYCarryover(prevFY.id, prevFYPool).then(carryover => {
+    getPrevFYCarryover(prevFY, prevFYPool).then(carryover => {
       getSupabaseBrowser().from('fiscal_years')
         .update({ unallocated_carryover_inr: carryover })
         .eq('id', selectedFY.id)

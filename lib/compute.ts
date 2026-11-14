@@ -1,4 +1,5 @@
 import { resolveCmp, type StockPriceInfo } from './resolve-cmp'
+import { rowBudget } from './sleeves'
 import type { StockAllocation, Transaction, FYTxn, BuyBand, StockRow, FiscalYear } from './types'
 
 /** Net deployed = buys minus sell proceeds; the one definition behind FY carryover. `amount` is INR for every instrument. */
@@ -87,11 +88,16 @@ export function spentBySymbol(txns: Pick<FYTxn, 'symbol' | 'trade_type' | 'amoun
   return out
 }
 
+/**
+ * One row per stock allocation. `sleeveBudget` is the amount the rows' % apply to: the FY's Equity
+ * sleeve (`sleeveBudget(fy, 'equity')` in lib/sleeves.ts) — the whole pool when no sleeves are set.
+ * Pass stock rows only (`stockAllocations`); a PPF or fund row is not a stock.
+ */
 export function computeStockRows(
   allocations: StockAllocation[],
   transactions: FYTxn[],
   bands: BuyBand[],
-  totalBudget: number,
+  sleeveBudget: number,
   allTimeHoldings?: Record<string, AllTimeHolding>,
   prices: Record<string, StockPriceInfo> = {},
   /** INR per unit of a foreign instrument's quote currency (`inrPerUnit`); a symbol not listed is INR. */
@@ -110,7 +116,7 @@ export function computeStockRows(
     const avgCost = totalBought > 0 ? totalBuyValue / totalBought : 0
     const spent   = spentOf(txns)
 
-    const budget    = (alloc.allocation_pct / 100) * totalBudget
+    const budget    = rowBudget(alloc.allocation_pct, sleeveBudget)
     const remaining = budget - spent
 
     // FY position at cost — sequential average-cost on FY-filtered txns.

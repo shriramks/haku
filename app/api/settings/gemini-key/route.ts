@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
     if (riskFreeChanged) {
       const { data: allocations } = await supabase
         .from('stock_allocations')
-        .select('symbol, category')
+        .select('symbol, category, kind')
         .eq('user_id', user.id)
 
       const nonIndexSymbols = Array.from(new Set(
         (allocations ?? [])
-          .filter((row: { category: string }) => !isIndexCategory(row.category))
+          .filter((row: { category: string; kind: string }) => row.kind === 'stock' && !isIndexCategory(row.category))
           .map((row: { symbol: string }) => row.symbol)
       ))
 

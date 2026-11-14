@@ -55,15 +55,16 @@ function cachedUserScoped<A extends unknown[], R>(spec: CacheSpec, fallback: R, 
 }
 
 export const getFiscalYears = cachedUserScoped(
-  { key: ['fiscal_years'], tags: ['fiscal_years'], revalidate: 3600 },
+  { key: ['fiscal_years', 'sleeves'], tags: ['fiscal_years'], revalidate: 3600 },
   [],
   async (userId: string): Promise<FiscalYear[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('fiscal_years')
-      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr')
+      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr, equity_pct, debt_pct, gold_pct')
       .eq('user_id', userId)
       .order('start_date', { ascending: true })
-    return data ?? []
+    // numeric(5,2) can arrive as a string; the sleeve %s are numbers everywhere downstream
+    return (data ?? []).map(fy => ({ ...fy, equity_pct: Number(fy.equity_pct), debt_pct: Number(fy.debt_pct), gold_pct: Number(fy.gold_pct) }))
   }
 )
 
@@ -72,7 +73,7 @@ export const getAllocations = userScoped(
   async (userId: string, fyId: string): Promise<StockAllocation[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('stock_allocations')
-      .select('id, fy_id, symbol, exchange, allocation_pct, category')
+      .select('id, fy_id, symbol, exchange, kind, allocation_pct, category')
       .eq('user_id', userId)
       .eq('fy_id', fyId)
       .order('allocation_pct', { ascending: false })
@@ -128,7 +129,7 @@ export const getSymbolAllocations = userScoped(
   async (userId: string, symbol: string): Promise<StockAllocation[]> => {
     const { data } = await createSupabaseServiceClient()
       .from('stock_allocations')
-      .select('id, fy_id, symbol, exchange, allocation_pct, category')
+      .select('id, fy_id, symbol, exchange, kind, allocation_pct, category')
       .eq('user_id', userId)
       .eq('symbol', symbol)
       .order('fy_id', { ascending: true })
