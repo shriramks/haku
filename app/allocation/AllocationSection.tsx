@@ -19,7 +19,7 @@ export const ALLOCATION_COLS = '1.4fr 1fr 1.2fr'
  */
 export function AllocationSection({ section, children }: { section: AllocationSectionData; children: ReactNode }) {
   // Remembered per device, like the Plan sections.
-  const [state, setState] = usePersistedState<string>(`haku_alloc_${section.sleeve}`, 'open', (v): v is string => v === 'open' || v === 'closed')
+  const [state, setState] = usePersistedState<string>(`haku_alloc_${section.sleeve}`, section.sleeve === 'equity' ? 'open' : 'closed', (v): v is string => v === 'open' || v === 'closed')
   const open = state === 'open'
   return (
     <div>

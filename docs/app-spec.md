@@ -165,7 +165,7 @@ Open app
 **Priority order:**
 1. FY selector (which year am I viewing)
 2. FY summary strip — **Plan** (the sum of the rows' budgets, not the FY pool), **Left**, **Invested**, with a bar. Tapping Plan opens the Plan screen.
-3. One **section per sleeve that has rows** (Equity, Debt, Gold order; a sleeve with no rows has no section here). The section header is the strip one step down — the sleeve's own Left and Invested, summed over its rows — and collapses its rows; open/closed is remembered per device (`haku_alloc_<sleeve>`).
+3. One **section per sleeve that has rows** (Equity, Debt, Gold order; a sleeve with no rows has no section here). The section header is the strip one step down — the sleeve's own Left and Invested, summed over its rows — and collapses its rows; open/closed is remembered per device (`haku_alloc_<sleeve>`); with nothing remembered, Equity is open and Debt and Gold are closed.
 4. **Rows** under their header (alphabetical): each shows
    - Primary: the name (stock symbol, PPF, or a fund's short name)
    - Left (muted): Remaining (FY) + its %

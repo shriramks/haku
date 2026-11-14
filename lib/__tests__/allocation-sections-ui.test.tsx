@@ -65,6 +65,13 @@ describe('AllocationSection', () => {
     expect(html).toContain('<svg')
     expect(html).toContain('rotate-90')
   })
+  it('Debt and Gold start closed: their rows are not rendered', () => {
+    const [debt] = allocationSections([], [{ key: 'PPF', name: 'PPF', href: '', budget: 100, spent: 0, remaining: 100, currentCost: 0 }])
+    const html = renderToString(<AllocationSection section={debt}><i>ROWS</i></AllocationSection>)
+    expect(html).toContain('Debt')
+    expect(html).not.toContain('ROWS')
+    expect(html).not.toContain('rotate-90')
+  })
   it('pins under the page header and the strip', () => {
     const html = render()
     expect(html).toContain('sticky')
