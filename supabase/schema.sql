@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS fiscal_years (
     debt_pct         NUMERIC(5,2) NOT NULL DEFAULT 0,
     gold_pct         NUMERIC(5,2) NOT NULL DEFAULT 0,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fiscal_years_sleeve_pct_chk CHECK (equity_pct >= 0 AND debt_pct >= 0 AND gold_pct >= 0
-        AND equity_pct + debt_pct + gold_pct <= 100),
+    -- A split over 100% is allowed (the Plan shows it as "over"); only negatives are rejected.
+    CONSTRAINT fiscal_years_sleeve_pct_nonneg_chk CHECK (equity_pct >= 0 AND debt_pct >= 0 AND gold_pct >= 0),
     UNIQUE (user_id, label)
 );
 

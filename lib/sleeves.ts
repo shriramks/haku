@@ -5,8 +5,13 @@ import type { PPFTransaction } from './portfolio-types'
 // takes a % of its own sleeve. Every budget figure in the app comes from the functions here, so the
 // formula lives in one place (Allocation, Bands, Stock Detail, tranches, Plan).
 
+/** Plan % move in 0.1 steps; rounding keeps float sums exact. */
+export const round1 = (n: number) => Math.round(n * 10) / 10
+
 export type Sleeve = 'equity' | 'debt' | 'gold'
 export const SLEEVES: readonly Sleeve[] = ['equity', 'debt', 'gold']
+/** The PPF plan row's symbol — it is the one PPF row of an FY, keyed like a stock symbol. */
+export const PPF_SYMBOL = 'PPF'
 export const SLEEVE_LABEL: Record<Sleeve, string> = { equity: 'Equity', debt: 'Debt', gold: 'Gold' }
 
 type PoolFields = Pick<FiscalYear, 'total_budget_inr' | 'unallocated_carryover_inr'>

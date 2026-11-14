@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 
 import { useRouter } from 'next/navigation'
@@ -7,6 +7,10 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatINRFull, formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
+import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, type Sleeve } from '@/lib/sleeves'
+import { SleeveSection } from './SleeveSection'
+import { SplitSheet } from './SplitSheet'
+import { PlanFigures } from './PlanFigures'
 import UserMenu from '@/components/UserMenu'
 import FYPicker from '@/components/FYPicker'
 import { getStockName } from '@/lib/stock-names'
@@ -21,9 +25,6 @@ import { Stepper } from '@/components/Stepper'
 import { ConfirmButtons } from '@/components/ConfirmButtons'
 import { LabeledInput } from '@/components/LabeledInput'
 import { RowShell, RowSymbol } from '@/components/StockListRow'
-
-/** Allocations move in 0.1% steps; rounding keeps float sums exact. */
-const round1 = (n: number) => Math.round(n * 10) / 10
 
 interface Props {
   fiscalYears: FiscalYear[]
@@ -84,7 +85,6 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
     setLoading(false)
   }
 
-  const totalPct = useMemo(() => round1(allocations.reduce((s, a) => s + a.allocation_pct, 0)), [allocations])
   const totalBudget = selectedFY?.total_budget_inr ?? 0
 
   return (
@@ -126,15 +126,14 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
         selectedFY={selectedFY}
         allocations={allocations}
         loading={loading}
-        totalPct={totalPct}
         totalBudget={totalBudget}
         spent={spent}
         fyHasTxns={fyHasTxns}
         onSwitchFY={switchFY}
         onAllocationsChange={setAllocations}
         onNewPlan={() => setShowNewPlan(true)}
-        onFYBudgetChange={(budget) => {
-          if (selectedFY) setSelectedFY({ ...selectedFY, total_budget_inr: budget })
+        onFYChange={(patch) => {
+          if (selectedFY) setSelectedFY({ ...selectedFY, ...patch })
         }}
         onDeleteFY={deleteFY}
       />
@@ -154,26 +153,26 @@ export default function PlanClient({ fiscalYears, initialFY, initialAllocations,
 // ── Plan Tab ──────────────────────────────────────────────────────────────────
 
 function PlanTab({
-  fiscalYears, selectedFY, allocations, loading, totalPct, totalBudget, spent, fyHasTxns,
-  onSwitchFY, onAllocationsChange, onNewPlan, onFYBudgetChange, onDeleteFY,
+  fiscalYears, selectedFY, allocations, loading, totalBudget, spent, fyHasTxns,
+  onSwitchFY, onAllocationsChange, onNewPlan, onFYChange, onDeleteFY,
 }: {
   fiscalYears: FiscalYear[]
   selectedFY: FiscalYear | null
   allocations: StockAllocation[]
   loading: boolean
-  totalPct: number
   totalBudget: number
   spent: Record<string, number>
   fyHasTxns: boolean
   onSwitchFY: (fy: FiscalYear) => void
   onAllocationsChange: (allocs: StockAllocation[]) => void
   onNewPlan: () => void
-  onFYBudgetChange: (budget: number) => void
+  onFYChange: (patch: Partial<FiscalYear>) => void
   onDeleteFY: () => void
 }) {
   const [showBudgetSheet, setShowBudgetSheet] = useState(false)
+  const [showSplitSheet, setShowSplitSheet] = useState(false)
   const [editingAlloc, setEditingAlloc] = useState<StockAllocation | null>(null)
-  const [showAddStock, setShowAddStock] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [copying, setCopying] = useState(false)
   const sortedFYs = [...fiscalYears].sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
@@ -182,6 +181,14 @@ function PlanTab({
 
   const unallocCarryover = selectedFY?.unallocated_carryover_inr ?? 0
   const effectiveBudget = totalBudget + unallocCarryover
+
+  // A sleeve's rows, largest first; a row's % is of its sleeve (lib/sleeves.ts).
+  const rowsOf = (sleeve: Sleeve) => allocations
+    .filter(a => allocSleeve(a.kind) === sleeve)
+    .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
+  const rowsTotal = (sleeve: Sleeve) => round1(rowsOf(sleeve).reduce((s, a) => s + a.allocation_pct, 0))
+  const sleeveAmount = (sleeve: Sleeve) => sleeveBudget(selectedFY, sleeve)
+  const hasPPF = allocations.some(a => a.kind === 'ppf')
 
   // Auto-apply prev FY carryover once the prev FY has ended, if not yet set
   useEffect(() => {
@@ -201,8 +208,19 @@ function PlanTab({
     await getSupabaseBrowser().from('fiscal_years')
       .update({ total_budget_inr: budget })
       .eq('id', selectedFY.id)
-    onFYBudgetChange(budget)
+    onFYChange({ total_budget_inr: budget })
     setShowBudgetSheet(false)
+  }
+
+  /** Returns an error message to show in the sheet, or null once saved. */
+  async function saveSplit(split: { equity_pct: number; debt_pct: number; gold_pct: number }): Promise<string | null> {
+    if (!selectedFY) return null
+    const { error } = await getSupabaseBrowser().from('fiscal_years').update(split).eq('id', selectedFY.id)
+    if (error) return error.message
+    await revalidateFiscalYears()
+    onFYChange(split)
+    setShowSplitSheet(false)
+    return null
   }
 
   async function updateAllocPct(alloc: StockAllocation, pct: number) {
@@ -241,14 +259,32 @@ function PlanTab({
     }
     const { data, error } = await sb.from('stock_allocations').insert({
       fy_id: selectedFY.id, user_id: user.id,
-      symbol: sym, exchange,
+      symbol: sym, exchange, kind: 'stock',
       allocation_pct: pct, category,
     }).select().single()
     if (error || !data) return error?.message ?? 'Could not add the stock'
     await revalidateAllocations()
     const row: StockAllocation = { ...data, name }
     onAllocationsChange([...allocations, row].sort((a, b) => b.allocation_pct - a.allocation_pct))
-    setShowAddStock(false)
+    setShowAdd(false)
+    return null
+  }
+
+  /** The PPF row: one per FY, symbol `PPF`, a share of the Debt sleeve. Returns an error message, or null once added. */
+  async function addPPF(pct: number): Promise<string | null> {
+    if (!selectedFY) return null
+    const sb = getSupabaseBrowser()
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return null
+    const { data, error } = await sb.from('stock_allocations').insert({
+      fy_id: selectedFY.id, user_id: user.id,
+      symbol: PPF_SYMBOL, exchange: 'PPF', kind: 'ppf',
+      allocation_pct: pct, category: '',
+    }).select().single()
+    if (error || !data) return error?.message ?? 'Could not add PPF'
+    await revalidateAllocations()
+    onAllocationsChange([...allocations, data as StockAllocation])
+    setShowAdd(false)
     return null
   }
 
@@ -278,95 +314,100 @@ function PlanTab({
   async function copyFromPrevFY() {
     if (!selectedFY || !prevFY) return
     setCopying(true)
-    const newAllocs = await copyAllocations(prevFY.id, selectedFY.id)
-    if (newAllocs.length) onAllocationsChange([...newAllocs].sort((a, b) => b.allocation_pct - a.allocation_pct))
+    const copied = await copyAllocations(prevFY.id, selectedFY.id)
+    if (copied.rows.length) {
+      onAllocationsChange(copied.rows)
+      onFYChange({ equity_pct: copied.equity_pct, debt_pct: copied.debt_pct, gold_pct: copied.gold_pct })
+    }
     setCopying(false)
   }
+
+  /** The text Export Plan shares: each sleeve, then its rows. */
+  function planText(): string {
+    const l = (n: number) => `${(n / 100000).toFixed(1)}L`
+    const lines: string[] = []
+    for (const sleeve of SLEEVES) {
+      const rows = rowsOf(sleeve)
+      const pct = sleevePct(selectedFY, sleeve)
+      if (!rows.length && pct === 0) continue
+      lines.push(`${SLEEVE_LABEL[sleeve].toUpperCase().padEnd(10)} ${String(pct).padStart(3)}%   ${l(sleeveAmount(sleeve))}`)
+      for (const a of rows) {
+        lines.push(`  ${a.symbol.padEnd(8)} ${String(a.allocation_pct).padStart(3)}%   ${l(rowBudget(a.allocation_pct, sleeveAmount(sleeve)))}`)
+      }
+    }
+    return [
+      `${selectedFY?.label ?? 'Portfolio'}`,
+      '─'.repeat(28),
+      ...lines,
+      '─'.repeat(28),
+      `${'Plan'.padEnd(10)}      ${l(effectiveBudget)}`,
+    ].join('\n')
+  }
+
+  const editingSleeve = editingAlloc ? allocSleeve(editingAlloc.kind) : 'equity'
 
   return (
     <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 88px)' }}>
 
       {selectedFY ? (
         <>
-          {/* Budget strip */}
-          <div>
+          {/* Plan strip: the pool */}
+          <div className="px-4 pt-4">
             <button onClick={() => setShowBudgetSheet(true)}
-              className="w-full flex items-center justify-between px-4 py-3.5 tap-row">
-              <span className="text-headline" style={{ color: 'var(--text-2)' }}>Plan</span>
-              <div className="flex items-center px-3 py-1.5 rounded-xl"
-                   style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                <span className="text-title-2 font-bold tabnum"><Num amount={effectiveBudget} /></span>
-              </div>
+              className="flex flex-col tap-row text-left" style={{ minHeight: 44, justifyContent: 'center' }}>
+              <p className="label-field">Plan</p>
+              <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}><Num amount={effectiveBudget} /></p>
             </button>
             {unallocCarryover !== 0 && prevFY && (
-              <p className="text-footnote tabnum px-4 pb-2 text-right" style={{ color: 'var(--text-faint)' }}>
+              <p className="text-footnote tabnum pb-2" style={{ color: 'var(--text-faint)' }}>
                 <Num amount={totalBudget} /> base + <Num amount={unallocCarryover} signed /> carryover from {prevFY.label}
               </p>
             )}
           </div>
 
-
-          {/* Stock list */}
           {loading ? (
             <div className="flex justify-center py-12">
               <LoadingSpinner />
             </div>
           ) : (
             <div>
-              {/* Section header */}
-              <div className="flex items-center justify-between px-4 pt-5 pb-2">
-                <p className="label-section">
-                  Target Allocations
-                </p>
-                {allocations.length > 0 && (() => {
-                  const over = totalPct > 100
-                  const exact = totalPct === 100
-                  const bg = over
-                    ? 'rgba(255,59,48,0.12)'
-                    : exact
-                    ? 'rgba(48,209,88,0.12)'
-                    : 'rgba(255,149,0,0.12)'
-                  const colorClass = over ? 'text-negative' : exact ? 'text-positive' : 'text-warning'
-                  const label = exact
-                    ? '100%'
-                    : over
-                    ? `${trimPct(totalPct)}% · over`
-                    : `${trimPct(totalPct)}% · ${trimPct(round1(100 - totalPct))}% free`
-                  return (
-                    <span
-                      className={`text-footnote font-bold tabnum ${colorClass}`}
-                      style={{ background: bg, borderRadius: 20, padding: '2px 8px' }}>
-                      {label}
-                    </span>
-                  )
-                })()}
-              </div>
+              {SLEEVES.map(sleeve => {
+                const rows = rowsOf(sleeve)
+                const amount = sleeveAmount(sleeve)
+                const pct = sleevePct(selectedFY, sleeve)
+                return (
+                  <SleeveSection
+                    key={sleeve}
+                    sleeve={sleeve}
+                    pct={pct}
+                    amount={amount}
+                    rowsTotal={rowsTotal(sleeve)}
+                    hasRows={rows.length > 0}
+                    onEditSplit={() => setShowSplitSheet(true)}>
+                    {rows.map(alloc => (
+                      <PlanRow
+                        key={alloc.id}
+                        alloc={alloc}
+                        budget={rowBudget(alloc.allocation_pct, amount)}
+                        carryoverShare={unallocCarryover !== 0 ? rowBudget(alloc.allocation_pct, (pct / 100) * unallocCarryover) : undefined}
+                        prevFYLabel={prevFY?.label}
+                        onEdit={() => setEditingAlloc(alloc)}
+                      />
+                    ))}
+                  </SleeveSection>
+                )
+              })}
 
-              <div>
-                {[...allocations]
-                  .sort((a, b) => b.allocation_pct - a.allocation_pct || a.symbol.localeCompare(b.symbol))
-                  .map(alloc => (
-                  <StockAllocRow
-                    key={alloc.id}
-                    alloc={alloc}
-                    totalBudget={effectiveBudget}
-                    carryoverShare={unallocCarryover !== 0 ? (alloc.allocation_pct / 100) * unallocCarryover : undefined}
-                    prevFYLabel={prevFY?.label}
-                    onEdit={() => setEditingAlloc(alloc)}
-                  />
-                ))}
-              </div>
-
-              {/* Add Stock row */}
+              {/* Add row */}
               {!confirmClear && (
-                <button onClick={() => setShowAddStock(true)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 tap-row">
+                <button onClick={() => setShowAdd(true)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 tap-row mt-5">
                   <div className="w-6 h-6 rounded-full bg-positive flex items-center justify-center flex-shrink-0">
                     <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                       <path d="M12 4v16m8-8H4"/>
                     </svg>
                   </div>
-                  <span className="text-body text-accent">Add Stock</span>
+                  <span className="text-body text-accent">Add to Plan</span>
                 </button>
               )}
 
@@ -375,19 +416,7 @@ function PlanTab({
                 <div className="mt-8">
                   <button
                     onClick={async () => {
-                      const sorted = [...allocations].sort((a, b) => b.allocation_pct - a.allocation_pct)
-                      const lines = sorted.map(a => {
-                        const budget = (a.allocation_pct / 100) * effectiveBudget
-                        return `${a.symbol.padEnd(10)} ${String(a.allocation_pct).padStart(3)}%   ${(budget / 100000).toFixed(1)}L`
-                      })
-                      const total = allocations.reduce((s, a) => s + a.allocation_pct, 0)
-                      const text = [
-                        `${selectedFY?.label ?? 'Portfolio'}`,
-                        '─'.repeat(28),
-                        ...lines,
-                        '─'.repeat(28),
-                        `${'Total'.padEnd(10)} ${String(total.toFixed(0)).padStart(3)}%   ${(effectiveBudget / 100000).toFixed(1)}L`,
-                      ].join('\n')
+                      const text = planText()
                       if (navigator.share) {
                         await navigator.share({ title: `${selectedFY?.label ?? 'Portfolio'} Allocation`, text })
                       } else {
@@ -413,19 +442,12 @@ function PlanTab({
                 </div>
               )}
 
-              {allocations.length === 0 && !showAddStock && (
+              {allocations.length === 0 && !showAdd && prevFY && (
                 <div className="px-4 pt-4 space-y-2">
-                  {prevFY && (
-                    <button onClick={copyFromPrevFY} disabled={copying}
-                      className="w-full py-3 rounded-2xl text-body font-semibold disabled:opacity-40"
-                      style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                      {copying ? 'Copying…' : `Copy stocks from ${prevFY.label}`}
-                    </button>
-                  )}
-                  <button onClick={() => setShowAddStock(true)}
-                    className="w-full py-3 rounded-2xl text-body font-medium text-accent"
-                    style={{ border: '1px solid rgba(10,132,255,0.3)', background: 'transparent' }}>
-                    Add Stock
+                  <button onClick={copyFromPrevFY} disabled={copying}
+                    className="w-full py-3 rounded-2xl text-body font-semibold disabled:opacity-40"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {copying ? 'Copying…' : `Copy plan from ${prevFY.label}`}
                   </button>
                 </div>
               )}
@@ -439,13 +461,26 @@ function PlanTab({
         </div>
       )}
 
-      {showAddStock && selectedFY && (
-        <AddStockSheet
-          totalPct={totalPct}
-          totalBudget={effectiveBudget}
+      {showAdd && selectedFY && (
+        <AddToPlanSheet
+          hasPPF={hasPPF}
+          equityTotal={rowsTotal('equity')}
+          equityAmount={sleeveAmount('equity')}
+          debtTotal={rowsTotal('debt')}
+          debtAmount={sleeveAmount('debt')}
           spent={spent}
-          onClose={() => setShowAddStock(false)}
-          onAdd={addStock}
+          onClose={() => setShowAdd(false)}
+          onAddStock={addStock}
+          onAddPPF={addPPF}
+        />
+      )}
+
+      {showSplitSheet && selectedFY && (
+        <SplitSheet
+          fy={selectedFY}
+          pool={effectiveBudget}
+          onClose={() => setShowSplitSheet(false)}
+          onSave={saveSplit}
         />
       )}
 
@@ -463,8 +498,9 @@ function PlanTab({
       {editingAlloc && (
         <StockEditSheet
           alloc={editingAlloc}
-          totalBudget={effectiveBudget}
-          totalPct={totalPct}
+          sleeve={editingSleeve}
+          totalBudget={sleeveAmount(editingSleeve)}
+          totalPct={rowsTotal(editingSleeve)}
           invested={spent[editingAlloc.symbol] ?? 0}
           onClose={() => setEditingAlloc(null)}
           onSave={async (pct) => { await updateAllocPct(editingAlloc, pct); setEditingAlloc(null) }}
@@ -479,16 +515,15 @@ function PlanTab({
 
 // ── Stock allocation row ──────────────────────────────────────────────────────
 
-function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit }: {
+function PlanRow({ alloc, budget, carryoverShare, prevFYLabel, onEdit }: {
   alloc: StockAllocation
-  totalBudget: number
+  budget: number
   carryoverShare?: number
   prevFYLabel?: string
   onEdit: () => void
 }) {
-  const budget = (alloc.allocation_pct / 100) * totalBudget
   const baseBudget = carryoverShare != null ? budget - carryoverShare : budget
-  const name = alloc.name ?? getStockName(alloc.symbol)
+  const name = alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))
   return (
     <RowShell onClick={onEdit}>
       <div className="flex items-center gap-3">
@@ -507,7 +542,8 @@ function StockAllocRow({ alloc, totalBudget, carryoverShare, prevFYLabel, onEdit
             </p>
           )}
         </div>
-        <ChevronIcon className="w-4 h-4 flex-shrink-0 ml-1" style={{ color: 'var(--text-faint)' }} />
+        {/* No caret: the row taps (Portfolio's holding rows do the same); the slot keeps amounts aligned with the section header */}
+        <span className="w-4 h-4 flex-shrink-0 ml-1" />
       </div>
     </RowShell>
   )
@@ -604,47 +640,12 @@ function BudgetSheet({ selectedFY, fyHasTxns, prevFYLabel, onClose, onSave, onDe
   )
 }
 
-// ── Plan figures (shared by the edit and add sheets) ─────────────────────────
-
-type Fig = { amount: number } | { pct: number }
-
-/** Planned / Invested / Left / Plan total. `withWas` adds the before column (edit only; a row without `was` leaves it empty). `tone` colours an amount by sign; `gap` starts a new group. */
-function PlanFigures({ rows, withWas }: {
-  withWas?: boolean
-  rows: { label: string; was?: Fig; now: Fig; tone?: boolean; gap?: boolean }[]
-}) {
-  const cell = (f: Fig, color: string) => (
-    <span className="text-body tabnum" style={{ color }}>
-      {'amount' in f ? <Num amount={f.amount} align /> : <Num pct={f.pct} align />}
-    </span>
-  )
-  const tone = (f: Fig) => 'amount' in f ? (f.amount < 0 ? 'var(--c-negative)' : 'var(--c-positive)') : 'var(--text-primary)'
-  return (
-    <div className="px-5 pt-2 pb-2 grid items-baseline gap-y-2.5 gap-x-4"
-         style={{ gridTemplateColumns: withWas ? '1fr 84px 84px' : '1fr 84px' }}>
-      {withWas && (
-        <>
-          <span />
-          <span className="label-field text-right">Was</span>
-          <span className="label-field text-right">Now</span>
-        </>
-      )}
-      {rows.map(r => (
-        <div key={r.label} className="contents">
-          {r.gap && <span style={{ gridColumn: '1 / -1', height: 6 }} />}
-          <span className="text-body" style={{ color: 'var(--text-2)' }}>{r.label}</span>
-          {withWas && (r.was ? cell(r.was, 'var(--text-muted)') : <span />)}
-          {cell(r.now, r.tone ? tone(r.now) : 'var(--text-primary)')}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ── Stock edit sheet ──────────────────────────────────────────────────────────
 
-function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSave, onCategoryChange, onRemove, onRename }: {
+function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClose, onSave, onCategoryChange, onRemove, onRename }: {
   alloc: StockAllocation
+  /** The sleeve the row sits in: its amount is `totalBudget`, and `totalPct` is the sum of its rows' %. */
+  sleeve: Sleeve
   totalBudget: number
   totalPct: number
   /** Net invested in this stock this FY (`spent`). */
@@ -696,8 +697,8 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
         title={
           <div>
             <p>{alloc.symbol}</p>
-            {(alloc.name ?? getStockName(alloc.symbol)) && (
-              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{alloc.name ?? getStockName(alloc.symbol)}</p>
+            {(alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))) && (
+              <p className="text-footnote" style={{ color: 'var(--text-muted)' }}>{alloc.kind === 'ppf' ? 'Public Provident Fund' : (alloc.name ?? getStockName(alloc.symbol))}</p>
             )}
           </div>
         }
@@ -726,11 +727,11 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
           { label: 'Planned',   was: { amount: wasBudget }, now: { amount: nowBudget } },
           { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      was: { amount: wasBudget - invested }, now: { amount: nowBudget - invested }, tone: true },
-          { label: 'Plan total', now: { pct: nowPlanPct }, gap: true },
+          { label: `${SLEEVE_LABEL[sleeve]} total`, now: { pct: nowPlanPct }, gap: true, tone: true },
         ]} />
 
-        {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4">
+        {/* Category picker (stocks only) */}
+        {alloc.kind === 'stock' && <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Category</p>
           <select
             value={alloc.category}
@@ -739,10 +740,10 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
             style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
             {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
+        </div>}
 
         {/* Rename Ticker */}
-        {!isNseExchange(alloc.exchange) ? null : renaming ? (
+        {alloc.kind !== 'stock' || !isNseExchange(alloc.exchange) ? null : renaming ? (
           <div className="flex items-center justify-between px-5 py-4">
             <p className="text-body" style={{ color: 'var(--text-2)' }}>New Ticker</p>
             <div className="flex items-center gap-2">
@@ -800,7 +801,9 @@ function StockEditSheet({ alloc, totalBudget, totalPct, invested, onClose, onSav
 
 // ── Add stock sheet ───────────────────────────────────────────────────────────
 
-function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
+function AddStockSheet({ typeControl, totalPct, totalBudget, spent, onClose, onAdd }: {
+  /** The Add sheet's Type control (Equity | Debt), when there is more than one type to add. */
+  typeControl?: React.ReactNode
   totalPct: number
   totalBudget: number
   spent: Record<string, number>
@@ -875,6 +878,8 @@ function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
             Add
           </Button>
         </div>
+
+        {typeControl}
 
         {/* Symbol input (IND only: an overseas symbol comes from its Yahoo ticker) */}
         {!overseas && <div className="flex items-center justify-between px-5 py-4">
@@ -972,7 +977,7 @@ function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
           { label: 'Planned',   now: { amount: budget } },
           { label: 'Invested',  now: { amount: invested } },
           { label: 'Left',      now: { amount: budget - invested }, tone: true },
-          { label: 'Plan total', now: { pct: nowPlanPct }, gap: true },
+          { label: 'Equity total', now: { pct: nowPlanPct }, gap: true, tone: true },
         ]} />
 
         {/* Category picker */}
@@ -988,6 +993,117 @@ function AddStockSheet({ totalPct, totalBudget, spent, onClose, onAdd }: {
         </div>
       </div>
     </>
+  )
+}
+
+// ── Add to Plan (Type: Equity | Debt) ─────────────────────────────────────────
+
+type AddType = 'equity' | 'debt'
+
+/** The Type control, same segmented control as Market. */
+function TypeControl({ options, value, onChange }: {
+  options: AddType[]
+  value: AddType
+  onChange: (t: AddType) => void
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-4">
+      <p className="text-body" style={{ color: 'var(--text-2)' }}>Type</p>
+      <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
+        {options.map(t => (
+          <button key={t} onClick={() => onChange(t)}
+            className="text-body font-semibold rounded-xl px-4"
+            style={{
+              minHeight: 36,
+              background: value === t ? 'var(--bg-secondary)' : 'transparent',
+              color: value === t ? 'var(--text-primary)' : 'var(--text-2)',
+            }}>
+            {SLEEVE_LABEL[t]}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** One Add entry point: Equity adds a stock, Debt adds PPF. A type with nothing left to add is not offered. */
+function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmount, spent, onClose, onAddStock, onAddPPF }: {
+  hasPPF: boolean
+  equityTotal: number
+  equityAmount: number
+  debtTotal: number
+  debtAmount: number
+  spent: Record<string, number>
+  onClose: () => void
+  onAddStock: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
+  onAddPPF: (pct: number) => Promise<string | null>
+}) {
+  const types: AddType[] = hasPPF ? ['equity'] : ['equity', 'debt']
+  const [type, setType] = useState<AddType>('equity')
+  const control = types.length > 1 ? <TypeControl options={types} value={type} onChange={setType} /> : undefined
+
+  return type === 'debt' && !hasPPF
+    ? <AddPPFSheet typeControl={control} debtTotal={debtTotal} debtAmount={debtAmount} invested={spent[PPF_SYMBOL] ?? 0} onClose={onClose} onAdd={onAddPPF} />
+    : <AddStockSheet typeControl={control} totalPct={equityTotal} totalBudget={equityAmount} spent={spent} onClose={onClose} onAdd={onAddStock} />
+}
+
+function AddPPFSheet({ typeControl, debtTotal, debtAmount, invested, onClose, onAdd }: {
+  typeControl?: React.ReactNode
+  /** Sum of the Debt rows' % (of the sleeve). */
+  debtTotal: number
+  debtAmount: number
+  /** PPF deposits dated in this FY. */
+  invested: number
+  onClose: () => void
+  onAdd: (pct: number) => Promise<string | null>
+}) {
+  const sliderMax = round1(Math.min(100, Math.max(0, 100 - debtTotal)))
+  const [pct, setPct] = useState(sliderMax)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const budget = rowBudget(pct, debtAmount)
+
+  async function handleAdd() {
+    if (pct <= 0) return
+    setSaving(true)
+    setError(null)
+    const err = await onAdd(pct)
+    if (err) setError(err)
+    setSaving(false)
+  }
+
+  return (
+    <BottomSheet onClose={onClose}>
+      <SheetHeader
+        title="PPF"
+        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
+        right={<Button variant="secondary" onClick={handleAdd} loading={saving} style={{ minHeight: 44 }}>Add</Button>}
+      />
+      {typeControl}
+      <div className="px-5 pt-5 pb-2 text-center">
+        <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
+        <div className="mt-4 px-1">
+          <input
+            type="range" min={0} max={sliderMax} step={0.1}
+            value={pct}
+            onChange={e => setPct(parseFloat(e.target.value))}
+            className="w-full accent-accent"
+            style={{ height: 4 }}
+          />
+          <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
+            <span>0%</span>
+            <span>{trimPct(sliderMax)}% max</span>
+          </div>
+        </div>
+      </div>
+      <PlanFigures rows={[
+        { label: 'Planned',    now: { amount: budget } },
+        { label: 'Invested',   now: { amount: invested } },
+        { label: 'Left',       now: { amount: budget - invested }, tone: true },
+        { label: 'Debt total', now: { pct: round1(debtTotal + pct) }, gap: true, tone: true },
+      ]} />
+      {error && <div className="px-5 py-3"><p className="text-body text-negative">{error}</p></div>}
+    </BottomSheet>
   )
 }
 
@@ -1030,7 +1146,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (!prior) return
 
     const sb = getSupabaseBrowser()
-    sb.from('stock_allocations').select('id, fy_id, symbol, exchange, allocation_pct, category').eq('fy_id', prior.id)
+    sb.from('stock_allocations').select('id, fy_id, symbol, exchange, kind, allocation_pct, category').eq('fy_id', prior.id)
       .then(({ data }) => { if (data?.length) setSourceAllocs(data) })
   }, [selectedYear, existingFYs])
 
@@ -1049,7 +1165,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
 
     // Live check — cached props may be stale if a previous session created this FY
     const { data: alreadyExists } = await sb.from('fiscal_years')
-      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr')
+      .select('id, label, start_date, end_date, total_budget_inr, unallocated_carryover_inr, deploy_capital_inr, equity_pct, debt_pct, gold_pct')
       .eq('user_id', user.id).eq('label', label).maybeSingle()
     if (alreadyExists) {
       setCreating(false)
@@ -1065,6 +1181,10 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
       end_date: dates.end,
       total_budget_inr: parseFloat(budget),
       unallocated_carryover_inr: null,
+      // The split travels with the copied rows; a plan started empty is all Equity (the column defaults).
+      ...(copyStocks && sourceAllocs.length > 0 && sourceFY
+        ? { equity_pct: sourceFY.equity_pct, debt_pct: sourceFY.debt_pct, gold_pct: sourceFY.gold_pct }
+        : {}),
     }).select().single()
 
     if (fyErr || !fy) { setError(fyErr?.message ?? 'Failed to create plan'); setCreating(false); return }
@@ -1072,7 +1192,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     if (copyStocks && sourceAllocs.length > 0) {
       await sb.from('stock_allocations').insert(sourceAllocs.map(a => ({
         fy_id: fy.id, user_id: user.id,
-        symbol: a.symbol, exchange: a.exchange,
+        symbol: a.symbol, exchange: a.exchange, kind: a.kind,
         allocation_pct: a.allocation_pct, category: a.category,
       })))
     }
@@ -1134,7 +1254,7 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
                 onChange={e => setCopyStocks(e.target.checked)}
                 className="w-5 h-5 rounded accent-accent" />
               <div>
-                <p className="text-body">Copy {sourceAllocs.length} stocks from {sourceFY?.label}</p>
+                <p className="text-body">Copy {sourceAllocs.length} rows from {sourceFY?.label}</p>
                 <p className="text-subheadline" style={{ color: 'var(--text-muted)' }}>
                   Allocation %s and categories are copied
                 </p>
@@ -1145,14 +1265,3 @@ function NewPlanSheet({ existingFYs, onClose, onCreate }: {
     </BottomSheet>
   )
 }
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-function ChevronIcon({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  )
-}
-

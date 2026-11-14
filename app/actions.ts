@@ -436,26 +436,49 @@ async function addToCarryover(
   return { error: error?.message ?? null }
 }
 
-/** Copies allocations from one FY into another — used by copyFromPrevFY */
-export async function copyAllocations(fromFyId: string, toFyId: string): Promise<StockAllocation[]> {
+/** Copies a plan from one FY into another (used by Copy plan): its rows, and its sleeve split. */
+export async function copyAllocations(fromFyId: string, toFyId: string): Promise<{
+  rows: StockAllocation[]
+  equity_pct: number
+  debt_pct: number
+  gold_pct: number
+}> {
+  const none = { rows: [], equity_pct: 100, debt_pct: 0, gold_pct: 0 }
   const userId = await getUserId()
-  if (!userId) return []
+  if (!userId) return none
   const sb = createSupabaseServiceClient()
-  const { data: source } = await sb
-    .from('stock_allocations')
-    .select('symbol, exchange, kind, allocation_pct, category')
-    .eq('user_id', userId)
-    .eq('fy_id', fromFyId)
-  if (!source?.length) return []
-  const { data: inserted } = await sb
-    .from('stock_allocations')
-    .insert(source.map(a => ({
-      fy_id: toFyId, user_id: userId,
-      symbol: a.symbol, exchange: a.exchange, kind: a.kind,
-      allocation_pct: a.allocation_pct, category: a.category,
-    })))
-    .select()
+  const [{ data: source }, { data: fromFY }] = await Promise.all([
+    sb.from('stock_allocations')
+      .select('symbol, exchange, kind, allocation_pct, category')
+      .eq('user_id', userId)
+      .eq('fy_id', fromFyId),
+    sb.from('fiscal_years')
+      .select('equity_pct, debt_pct, gold_pct')
+      .eq('user_id', userId)
+      .eq('id', fromFyId)
+      .single(),
+  ])
+  if (!source?.length) return none
+  const split = {
+    equity_pct: Number(fromFY?.equity_pct ?? 100),
+    debt_pct: Number(fromFY?.debt_pct ?? 0),
+    gold_pct: Number(fromFY?.gold_pct ?? 0),
+  }
+  const [{ data: inserted }] = await Promise.all([
+    sb.from('stock_allocations')
+      .insert(source.map(a => ({
+        fy_id: toFyId, user_id: userId,
+        symbol: a.symbol, exchange: a.exchange, kind: a.kind,
+        allocation_pct: a.allocation_pct, category: a.category,
+      })))
+      .select(),
+    sb.from('fiscal_years').update(split).eq('user_id', userId).eq('id', toFyId),
+  ])
+  revalidateTag('fiscal_years', {})
   revalidatePath('/', 'layout')
-  const stocks = await getStocks((inserted ?? []).map(a => a.symbol))
-  return (inserted ?? []).map(a => ({ ...a, name: stocks[a.symbol]?.name || undefined }))
+  const stocks = await getStocks((inserted ?? []).filter(a => a.kind === 'stock').map(a => a.symbol))
+  const rows = (inserted ?? [])
+    .map(a => ({ ...a, allocation_pct: Number(a.allocation_pct), name: stocks[a.symbol]?.name || undefined }))
+    .sort((x, y) => y.allocation_pct - x.allocation_pct)
+  return { rows, ...split }
 }

@@ -9,6 +9,7 @@ import type { MFund, MFTransaction, SGBTransaction, PPFTransaction, PPFBalanceOv
 import { USDINR_PRICE_KEY, type FxRate } from './fx'
 import { getStocks } from './stock-master'
 import { spentBySymbol } from './compute'
+import { ppfDeposited, PPF_SYMBOL } from './sleeves'
 import { inrPerUnit } from './trade-fx'
 
 // cache()         — deduplicates within a single request (per-render)
@@ -105,9 +106,19 @@ export const getTransactions = cachedUserScoped(
   }
 )
 
-/** Net invested per symbol in a FY (`spent`), from the cached FY transactions — the Plan sheets' Invested / Left. */
+/**
+ * Net invested per symbol in a FY (`spent`), from the cached FY transactions — the Plan sheets' Invested / Left.
+ * The PPF row's figure (deposits dated in the FY) sits under `PPF_SYMBOL`, so a row of any kind reads `spent[symbol]`.
+ */
 export async function getFYSpent(fyId: string): Promise<Record<string, number>> {
-  return spentBySymbol(await getTransactions(fyId))
+  const [txns, fiscalYears, ppf] = await Promise.all([getTransactions(fyId), getFiscalYears(), getPPFTransactions()])
+  const spent = spentBySymbol(txns)
+  const fy = fiscalYears.find(f => f.id === fyId)
+  if (fy) {
+    const deposited = ppfDeposited(ppf, fy.start_date, fy.end_date)
+    if (deposited > 0) spent[PPF_SYMBOL] = deposited
+  }
+  return spent
 }
 
 export const getTransactionsBySymbol = cachedUserScoped(

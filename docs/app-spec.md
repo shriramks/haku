@@ -240,17 +240,21 @@ transaction history for a stock filter the Transactions tab.
 ---
 
 ### 5. Plan Screen
-**Purpose:** FY setup — set allocation percentages, review carryover.
+**Purpose:** FY setup — set the pool, split it into sleeves, set each row's share, review carryover.
 
 **Priority order:**
-1. FY selector + total FY corpus
-2. Per-stock allocation % and absolute amount
-3. Carryover from previous FY
+1. FY selector + **Plan** (the pool: FY budget + carryover; carryover footnote under it)
+2. **Sleeves** — Equity, Debt, Gold — each a collapsible section: name, "N% free" / "N% · over" badge, its % of the pool (blue), its amount, caret
+3. **Rows** inside each sleeve: the instrument, its % of the sleeve (blue) and amount. No caret on a row — the row taps (Portfolio's convention); the caret is only on a section header, where it means collapse
 4. Investability gates (per stock)
+
+**Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header). Tapping the blue % on any header opens the **Split** sheet: Equity, Debt and Gold steppers (1 point per tap, or type a value) with each amount, and the Plan total. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
+
+**Add to Plan:** one row at the bottom opens the Add sheet. Its **Type** control is Equity | Debt; a type with nothing left to add is not offered (Debt once the PPF row exists; with only Equity left there is no control). Equity adds a stock (symbol, Market, %, category — unchanged). Debt adds **PPF**: just its % of the Debt sleeve. PPF is one row per FY (symbol `PPF`); it edits and removes like any row, without Category or Rename. Gold and fund rows arrive with #182 / #181.
 
 **Edit / Add sheets (#165):**
 - The % moves in **0.1** steps (stepper and slider); stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
-- Under the %, a figures table: **Planned** (% of the Plan pool incl. carryover), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation), **Left** (Planned − Invested, red when negative), then **Plan total** (% of the plan allocated across all stocks, counting this stock at its new %). Edit has **Was** and **Now** columns for Planned and Left; Invested and Plan total show the current value only. Add has Now only.
+- Under the %, a figures table: **Planned** (the row's % of its sleeve amount), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation; for PPF, the FY's deposits), **Left** (Planned − Invested, red when negative), then **<Sleeve> total** — Equity total / Debt total — (% of the sleeve allocated across its rows, counting this row at its new %; red over 100). Edit has **Was** and **Now** columns for Planned and Left; Invested and Plan total show the current value only. Add has Now only.
 - Cutting a stock below what is invested is allowed; Left goes negative. Changing a % does not regenerate tranches — that stays manual.
 
 ---

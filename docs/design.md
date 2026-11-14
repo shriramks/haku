@@ -336,6 +336,15 @@ Alignment: context-dependent
 - Rows of label (body, `--text-2`) + right-aligned `Num align` columns, 84px each: **Was** (`--text-muted`) and **Now** (`--text-primary`), with `.label-field` column heads. A value that cannot change in the sheet (Invested, Plan total) leaves Was empty. Plan total starts its own group after a small gap. Add has the Now column only, no heads.
 - Left is `--c-positive` / `--c-negative` by sign; no ₹ anywhere, no line under the hero %.
 
+### SleeveSection (Plan: `app/plan/SleeveSection.tsx`)
+```
+Name (title-1, bold)  [N% free | N% · over badge]          N% (headline, semibold, accent)  amount (headline, semibold)  caret
+```
+- Header height is the 44px tap floor: three separate buttons — name + badge and amount + caret both collapse the section; the blue % opens the Split sheet. Its rows sit directly under it, unindented, at the app's own row spacing, so a section reads as: bold header, then its rows.
+- The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers). It is the **only** caret on the screen: rows have none, so a caret always means collapse. A sleeve with no rows shows no caret.
+- Badge: `N% free` (warning) when the rows leave part of the sleeve unassigned, `N% · over` (negative) when they overshoot, nothing at exactly 100% or for a 0% sleeve.
+- State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
+
 ### BottomSheet
 ```
 Background: --bg-secondary
