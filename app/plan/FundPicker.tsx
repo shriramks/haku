@@ -32,7 +32,7 @@ export function FundPicker({ inPlan, onPick }: { inPlan: Set<string>; onPick: (s
   }, [query, searchable])
 
   return (
-    <div className="px-5 pb-3">
+    <div className="px-5 pb-3" style={{ minHeight: 'min(500px, 55vh)' }}>
       <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-faint)' }} />
         <input type="text" placeholder="Search debt and arbitrage funds…" value={query} onChange={e => setQuery(e.target.value)}
@@ -40,7 +40,7 @@ export function FundPicker({ inPlan, onPick }: { inPlan: Set<string>; onPick: (s
           style={{ height: 44, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }} />
       </div>
       {results.length > 0 ? (
-        <div className="mt-1 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)', maxHeight: '40vh', overflowY: 'auto' }}>
+        <div className="mt-1 rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)', maxHeight: '45vh', overflowY: 'auto' }}>
           {results.map(s => <FundResult key={s.code} scheme={s} inPlan={inPlan.has(s.code)} onPick={onPick} />)}
         </div>
       ) : searchable ? (

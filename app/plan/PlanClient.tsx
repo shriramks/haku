@@ -714,7 +714,7 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
 
         {/* % stepper → slider → figures */}
         <div className="px-5 pt-5 pb-2 text-center">
-          <Stepper value={pct} min={0.1} max={sliderMax} step={pctStep(sliderMax)} onChange={setPct} suffix="%" />
+          <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
           <div className="mt-4 px-1">
             <input
               type="range" min={0} max={sliderMax} step={pctStep(sliderMax)}
@@ -1064,7 +1064,7 @@ function AddToPlanSheet({ hasPPF, fundCodes, equityTotal, equityAmount, debtTota
 
         {/* % stepper + slider + figures */}
         {(!isFund || fund) && <div className="px-5 pt-5 pb-2 text-center">
-          <Stepper value={value} min={0.1} max={sliderMax} step={step} onChange={setValue} suffix="%" />
+          <Stepper value={value} min={0.1} max={sliderMax} step={0.1} onChange={setValue} suffix="%" />
           <div className="mt-4 px-1">
             <input
               type="range" min={0} max={sliderMax} step={step}
