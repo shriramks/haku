@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   fyPool, sleevePct, sleeveBudget, rowBudget, allocSleeve, stockAllocations, ppfDeposited, fyCarryover,
-  SLEEVES,
+  SLEEVES, pctStep,
 } from '../sleeves'
 import type { AllocationKind } from '../types'
 
@@ -112,5 +112,19 @@ describe('fyCarryover', () => {
   it('is negative when over-invested', () => expect(fyCarryover(100, 80, 50)).toBe(-30))
   it('is unchanged from the old stock-only figure when there are no PPF deposits', () => {
     expect(fyCarryover(2_000_000, 1_200_000, 0)).toBe(2_000_000 - 1_200_000)
+  })
+})
+
+describe('pctStep', () => {
+  it('is 0.1 on a short range, where fine control is wanted', () => {
+    expect(pctStep(10)).toBe(0.1)
+    expect(pctStep(25)).toBe(0.1)
+  })
+  it('is 1 on a wide range, where 0.1 steps would be 1,000 slider positions', () => {
+    expect(pctStep(26)).toBe(1)
+    expect(pctStep(100)).toBe(1)
+  })
+  it('a full-range slider has at most about 100 positions', () => {
+    expect(100 / pctStep(100)).toBeLessThanOrEqual(100)
   })
 })

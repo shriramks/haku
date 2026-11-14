@@ -8,6 +8,14 @@ import type { PPFTransaction } from './portfolio-types'
 /** Plan % move in 0.1 steps; rounding keeps float sums exact. */
 export const round1 = (n: number) => Math.round(n * 10) / 10
 
+/**
+ * Slider / stepper granularity for a % control: 0.1 on a short range, 1 on a wide one — a 0-100 slider in 0.1
+ * steps is 1,000 positions across ~350px and jumps under the finger. A value can still be typed to the 0.1.
+ */
+export function pctStep(max: number): number {
+  return max > 25 ? 1 : 0.1
+}
+
 export type Sleeve = 'equity' | 'debt' | 'gold'
 export const SLEEVES: readonly Sleeve[] = ['equity', 'debt', 'gold']
 /** The PPF plan row's symbol — it is the one PPF row of an FY, keyed like a stock symbol. */

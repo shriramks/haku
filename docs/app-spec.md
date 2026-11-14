@@ -249,16 +249,16 @@ transaction history for a stock filter the Transactions tab.
 
 **Priority order:**
 1. FY selector + **Plan** (the pool: FY budget + carryover; carryover footnote under it)
-2. **Sleeves** — Equity, Debt, Gold — each a collapsible section: name, "N% free" / "N% · over" badge, its % of the pool (blue), its amount, caret
+2. **Sleeves** — Equity, Debt, Gold — each a collapsible section: name, "N% free" / "N% · over" badge, its % of the pool (blue), its amount, caret. **Tapping the header (name, badge, %, amount) edits the split; only the caret collapses**
 3. **Rows** inside each sleeve: the instrument, its % of the sleeve (blue) and amount. No caret on a row — the row taps (Portfolio's convention); the caret is only on a section header, where it means collapse
 4. Investability gates (per stock)
 
-**Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header). Tapping the blue % on any header opens the **Split** sheet: Equity, Debt and Gold steppers (1 point per tap, or type a value) with each amount, and the Plan total. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
+**Sleeves (#180):** the three sleeves are always listed (a sleeve at 0% with no rows is just a header, and tapping it edits the split like any other). The **Plan** figure at the top is one full-width row (an "Edit budget" cue on its right edge) that opens the budget sheet. Tapping any sleeve header opens the **Split** sheet: Equity, Debt and Gold steppers (1 point per tap, or type a value) with each amount, and the Plan total. Nothing is blocked — a total over 100 shows red and saves. Section open/closed is remembered per device (`haku_plan_<sleeve>`). The model, defaults and formula are in "Plan sleeves (#180)" above.
 
-**Add to Plan:** one row at the bottom opens the Add sheet. Its **Type** control is Equity | Debt; a type with nothing left to add is not offered (Debt once the PPF row exists; with only Equity left there is no control). Equity adds a stock (symbol, Market, %, category — unchanged). Debt adds **PPF**: just its % of the Debt sleeve. PPF is one row per FY (symbol `PPF`); it edits and removes like any row, without Category or Rename. Gold and fund rows arrive with #182 / #181.
+**Add to Plan:** one row at the bottom opens the Add sheet — one sheet, so switching Type changes only its body and the sheet does not re-open. Its **Type** control is Equity | Debt; a type with nothing left to add is not offered (Debt once the PPF row exists; with only Equity left there is no control). Equity adds a stock (symbol, Market, %, category — unchanged). Debt adds **PPF**: just its % of the Debt sleeve. PPF is one row per FY (symbol `PPF`); it edits and removes like any row, without Category or Rename. Gold and fund rows arrive with #182 / #181.
 
 **Edit / Add sheets (#165):**
-- The % moves in **0.1** steps (stepper and slider); stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
+- The % moves in **0.1** steps (stepper and slider) when the range is 25 or less, and in **1** steps when it is wider (`pctStep` in `lib/sleeves.ts` — a 0–100 slider in 0.1 steps is 1,000 positions and jumps under the finger); any value can be typed to the 0.1. Stored as `NUMERIC(5,2)`, shown with at most one decimal, totals rounded to 0.1 so they add up exactly.
 - Under the %, a figures table: **Planned** (the row's % of its sleeve amount), **Invested** (the FY `spent`, net buys floored at 0, same as Allocation; for PPF, the FY's deposits), **Left** (Planned − Invested, red when negative), then **<Sleeve> total** — Equity total / Debt total — (% of the sleeve allocated across its rows, counting this row at its new %; red over 100). Edit has **Was** and **Now** columns for Planned and Left; Invested and Plan total show the current value only. Add has Now only.
 - Cutting a stock below what is invested is allowed; Left goes negative. Changing a % does not regenerate tranches — that stays manual.
 

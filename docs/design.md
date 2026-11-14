@@ -338,22 +338,17 @@ Alignment: context-dependent
 
 ### SleeveSection (Plan: `app/plan/SleeveSection.tsx`)
 ```
-Name (title-1, bold)  [N% free | N% · over badge]          N% (headline, semibold, accent)  amount (headline, semibold)  caret
+[ Name (title-1, bold)  [N% free | N% · over]            N% (headline, semibold, accent)  amount (headline, semibold) ]  [caret]
+   one button: edits the split                                                                                          one button: collapses
 ```
-- Header height is the 44px tap floor: three separate buttons — name + badge and amount + caret both collapse the section; the blue % opens the Split sheet. Its rows sit directly under it, unindented, at the app's own row spacing, so a section reads as: bold header, then its rows.
-- The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers). It is the **only** caret on the screen: rows have none, so a caret always means collapse. A sleeve with no rows shows no caret.
-- Badge: `N% free` (warning) when the rows leave part of the sleeve unassigned, `N% · over` (negative) when they overshoot, nothing at exactly 100% or for a 0% sleeve.
+- Two buttons, each min 44px: the whole header (name, badge, %, amount) opens the Split sheet — a header must do what a row does when tapped, which is edit — and only the caret collapses. A sleeve with no rows has no caret, and its header still edits.
+- The caret button's 44px hit area overhangs into the page margin; its layout footprint is 32px, the room a row leaves after its amount (12px gap + 16px slot + 4px), so header and row amounts end on the same line.
+- Rows sit directly under the header, unindented, at the app's own row spacing. The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms, as Portfolio's section headers); it is the **only** caret on the screen, so a caret always means collapse.
+- Badge: `N% free` (warning) when the rows leave part of the sleeve unassigned (also `100% free` for a sleeve with money and no rows), `N% · over` (negative) when they overshoot, nothing at exactly 100% or for a 0% sleeve.
 - State is remembered per device in localStorage (`haku_plan_equity` / `_debt` / `_gold`).
 
-### AllocationSection (Allocation: `app/allocation/AllocationSection.tsx`)
-```
-Header : Name (title-1 bold)   Left (title-1 bold) N%   Invested (title-1 bold) N%  caret
-Row    : Name (headline semibold)   Left (headline, --text-2) N%   Invested (headline semibold) N%   [slot]   + 6px bar
-```
-- The header is the strip one step down: same label-over-number family at the strip's own size, summed over its rows, so the screen reads strip -> section -> row with each level a visible size step (19px header, 15px row). It is one tap target (min 44px, padding 16 above / 2 below like a `SectionLabel`) that collapses the rows.
-- Rows are not indented — grouping comes from the header and the gap above each header. They use `.list-row`, the 12px gap above the bar, and the 6px bar. Rows have **no caret**; the empty 16px slot keeps their Invested aligned with the header's. The caret is `ChevronRightIcon`, `--text-muted`, rotating 90° when open (150ms); a caret on this screen always means collapse.
-- Both the section header and the trimmed strip sit on `--bg-nav` with blur (the same material as every sticky page header), so rows scroll under them. The header pins at `top: var(--alloc-pin)` — the height of the page header plus the trimmed strip when it is showing.
-- Spec change (#180): Allocation rows used title-2 numbers over a bold symbol; they are now headline numbers over a semibold symbol (`RowSymbol semibold`), one step below the section header. Plan and Bands rows are unchanged.
+### Plan figure (Plan: top of the screen)
+A full-width row (min 56px): "Plan" label over the amount (title-1 bold) on the left, an accent "Edit budget" with a caret on the right edge. The whole row is the tap target — never a small button around the text.
 
 ### BottomSheet
 ```

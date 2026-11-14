@@ -22,7 +22,7 @@ const BADGE_STYLE = {
   over: { cls: 'text-negative', bg: 'rgba(255,59,48,0.12)' },
 } as const
 
-/** A sleeve of the plan: a header (name, free badge, its % and amount) that collapses its rows. */
+/** A sleeve of the plan: a header (name, free badge, its % and amount) that opens the split; its caret collapses the rows. */
 export function SleeveSection({ sleeve, pct, amount, rowsTotal, hasRows, onEditSplit, children }: {
   sleeve: Sleeve
   /** The sleeve's % of the pool. */
@@ -31,7 +31,7 @@ export function SleeveSection({ sleeve, pct, amount, rowsTotal, hasRows, onEditS
   /** Sum of its rows' % (of the sleeve). */
   rowsTotal: number
   hasRows: boolean
-  /** Opens the Split sheet — the sleeve % is set there, for all three sleeves together. */
+  /** Opens the Split sheet — tapping the header edits the sleeve %, set there for all three sleeves together. */
   onEditSplit: () => void
   children: ReactNode
 }) {
@@ -44,8 +44,9 @@ export function SleeveSection({ sleeve, pct, amount, rowsTotal, hasRows, onEditS
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-4" style={{ paddingTop: 6 }}>
-        <button onClick={toggle} className="flex items-center gap-2 text-left" style={{ minHeight: 44 }}>
+      <div className="flex items-center px-4" style={{ paddingTop: 6 }}>
+        {/* Name, badge, % and amount are one tap target: edit the split. */}
+        <button onClick={onEditSplit} className="flex flex-1 min-w-0 items-center gap-2 text-left" style={{ minHeight: 44 }}>
           <span className="text-title-1 font-bold" style={{ color: 'var(--text-primary)' }}>{SLEEVE_LABEL[sleeve]}</span>
           {badge && style && (
             <span className={`text-footnote font-bold tabnum ${style.cls}`}
@@ -53,18 +54,23 @@ export function SleeveSection({ sleeve, pct, amount, rowsTotal, hasRows, onEditS
               {badge.label}
             </span>
           )}
+          <span className="flex-1" />
+          <span className="text-headline font-semibold tabnum text-accent text-right" style={{ minWidth: 44 }}>{trimPct(pct)}%</span>
+          <span className="text-headline font-semibold tabnum text-right" style={{ minWidth: 48, color: 'var(--text-primary)' }}><Num amount={amount} /></span>
         </button>
-        <span className="flex-1" />
-        <button onClick={onEditSplit} className="text-headline font-semibold tabnum text-accent text-right"
-                style={{ minHeight: 44, minWidth: 44 }}>
-          {trimPct(pct)}%
-        </button>
-        <button onClick={toggle} className="flex items-center justify-end gap-2" style={{ minHeight: 44 }}>
-          <span className="text-headline font-semibold tabnum text-right" style={{ minWidth: 48 }}><Num amount={amount} /></span>
-          {hasRows
-            ? <ChevronRightIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
-            : <span className="w-4 h-4 flex-shrink-0" />}
-        </button>
+        {/* Only the caret collapses. Its 44px hit area overhangs into the page margin, so its layout footprint is
+            32px — the same room a row leaves after its amount (12px gap + 16px slot + 4px), which keeps the amounts aligned. */}
+        {hasRows ? (
+          <button
+            onClick={toggle}
+            aria-label={`${open ? 'Collapse' : 'Expand'} ${SLEEVE_LABEL[sleeve]}`}
+            className="flex items-center justify-center flex-shrink-0"
+            style={{ width: 44, height: 44, marginLeft: 2, marginRight: -14 }}>
+            <ChevronRightIcon className={`w-4 h-4 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--text-muted)' }} />
+          </button>
+        ) : (
+          <span className="flex-shrink-0" style={{ width: 32 }} />
+        )}
       </div>
       {open && children}
     </div>

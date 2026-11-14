@@ -50,9 +50,29 @@ describe('SleeveSection', () => {
     expect(render()).toContain('<svg')
     expect(render({ hasRows: false })).not.toContain('<svg')
   })
-  it('the % is its own button, apart from the collapse button', () => {
+  it('tapping the header edits the split: name, badge, % and amount are all inside ONE button', () => {
     const html = render()
-    expect(html).toMatch(/<button[^>]*text-accent[^>]*>75<!-- -->%<\/button>/)
+    const first = html.match(/<button[^>]*>([\s\S]*?)<\/button>/)![1]
+    expect(first).toContain('Equity')
+    expect(first).toContain('10% free')
+    expect(first).toContain('75<!-- -->%')
+    expect(first).toContain('15<span class="num-u">L</span>')
+  })
+  it('only the caret collapses, in its own button with a label', () => {
+    const html = render()
+    const buttons = html.match(/<button[\s\S]*?<\/button>/g)!
+    expect(buttons).toHaveLength(2)
+    expect(buttons[1]).toContain('aria-label="Collapse Equity"')
+    expect(buttons[1]).toContain('<svg')
+    expect(buttons[1]).not.toContain('Equity</span>')   // the caret button carries no name: it only collapses
+  })
+  it('the caret button is a 44px hit area', () => {
+    expect(render()).toMatch(/aria-label="Collapse Equity"[^>]*style="[^"]*width:44px;height:44px/)
+  })
+  it('a sleeve with no rows has no collapse button — the whole header just edits', () => {
+    const html = render({ hasRows: false, sleeve: 'gold', pct: 0, amount: 0, rowsTotal: 0 })
+    expect(html.match(/<button/g)).toHaveLength(1)
+    expect(html).not.toContain('aria-label')
   })
   it('reads over when the rows exceed the sleeve', () => {
     const html = render({ rowsTotal: 120 })

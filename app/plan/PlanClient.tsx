@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser'
 import { formatUsd, trimPct } from '@/lib/formatter'
 import { Num } from '@/components/Num'
 import { DEFAULT_CATEGORY, ALL_CATEGORIES, type FiscalYear, type StockAllocation, type StockCategory } from '@/lib/types'
-import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, type Sleeve } from '@/lib/sleeves'
+import { SLEEVES, SLEEVE_LABEL, PPF_SYMBOL, allocSleeve, sleevePct, sleeveBudget, rowBudget, round1, pctStep, type Sleeve } from '@/lib/sleeves'
 import { ChevronRightIcon } from '@/components/icons'
 import { SleeveSection } from './SleeveSection'
 import { SplitSheet } from './SplitSheet'
@@ -353,18 +353,21 @@ function PlanTab({
       {selectedFY ? (
         <>
           {/* Plan strip: the pool */}
-          <div className="px-4 pt-4">
+          <div className="pt-2">
+            {/* The whole row opens the budget; the cue sits on its right edge, as on any tappable row. */}
             <button onClick={() => setShowBudgetSheet(true)}
-              className="flex flex-col tap-row text-left" style={{ minHeight: 44, justifyContent: 'center' }}>
-              <p className="label-field">Plan</p>
-              <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}><Num amount={effectiveBudget} /></p>
-              <span className="flex items-center gap-0.5" style={{ marginTop: 3 }}>
+              className="w-full flex items-center justify-between px-4 tap-row text-left" style={{ minHeight: 56 }}>
+              <div>
+                <p className="label-field">Plan</p>
+                <p className="text-title-1 font-bold tabnum" style={{ marginTop: 2 }}><Num amount={effectiveBudget} /></p>
+              </div>
+              <span className="flex items-center gap-0.5">
                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)' }}>Edit budget</span>
-                <ChevronRightIcon className="w-2.5 h-2.5" style={{ color: 'var(--accent)' }} />
+                <ChevronRightIcon className="w-3 h-3" style={{ color: 'var(--accent)' }} />
               </span>
             </button>
             {unallocCarryover !== 0 && prevFY && (
-              <p className="text-footnote tabnum pb-2" style={{ color: 'var(--text-faint)' }}>
+              <p className="text-footnote tabnum px-4 pb-2" style={{ color: 'var(--text-faint)' }}>
                 <Num amount={totalBudget} /> base + <Num amount={unallocCarryover} signed /> carryover from {prevFY.label}
               </p>
             )}
@@ -713,10 +716,10 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
 
         {/* % stepper → slider → figures */}
         <div className="px-5 pt-5 pb-2 text-center">
-          <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
+          <Stepper value={pct} min={0.1} max={sliderMax} step={pctStep(sliderMax)} onChange={setPct} suffix="%" />
           <div className="mt-4 px-1">
             <input
-              type="range" min={0} max={sliderMax} step={0.1}
+              type="range" min={0} max={sliderMax} step={pctStep(sliderMax)}
               value={pct}
               onChange={e => setPct(parseFloat(e.target.value))}
               className="w-full accent-accent"
@@ -804,204 +807,7 @@ function StockEditSheet({ alloc, sleeve, totalBudget, totalPct, invested, onClos
   )
 }
 
-// ── Add stock sheet ───────────────────────────────────────────────────────────
-
-function AddStockSheet({ typeControl, totalPct, totalBudget, spent, onClose, onAdd }: {
-  /** The Add sheet's Type control (Equity | Debt), when there is more than one type to add. */
-  typeControl?: React.ReactNode
-  totalPct: number
-  totalBudget: number
-  spent: Record<string, number>
-  onClose: () => void
-  /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
-  onAdd: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
-}) {
-  const [symbol, setSymbol]     = useState('')
-  const [pct, setPct]           = useState(10)
-  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
-  const [saving, setSaving]     = useState(false)
-  const [market, setMarket]     = useState<'IND' | 'Other'>('IND')
-  const [yahoo, setYahoo]       = useState('')
-  const [addError, setAddError] = useState<string | null>(null)
-  const [lookup, setLookup]     = useState<
-    { status: 'idle' } | { status: 'loading' } | { status: 'ok'; instrument: InstrumentLookup } | { status: 'error'; error: string }
-  >({ status: 'idle' })
-  const kh = useKeyboardHeight()
-  const overseas = market === 'Other'
-
-  // Quote-checks the typed Yahoo symbol once typing pauses; a stale answer is dropped.
-  useEffect(() => {
-    if (!overseas) return
-    const ys = yahoo.trim()
-    if (!ys) { setLookup({ status: 'idle' }); return }
-    setLookup({ status: 'loading' })
-    let stale = false
-    const timer = setTimeout(async () => {
-      const r = await lookupInstrument(ys)
-      if (stale) return
-      setLookup(r.instrument ? { status: 'ok', instrument: r.instrument } : { status: 'error', error: r.error ?? 'No quote found' })
-    }, 600)
-    return () => { stale = true; clearTimeout(timer) }
-  }, [overseas, yahoo])
-
-  // An overseas symbol is the Yahoo ticker's base (VUAA.L -> VUAA), so it is typed once.
-  const shownSymbol = overseas ? yahoo.trim().toUpperCase().split('.')[0] : symbol
-  const canAdd = !!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok')
-
-  const sliderMax   = round1(Math.min(100, 100 - totalPct))
-  const budget      = (pct / 100) * totalBudget
-  const invested    = spent[shownSymbol] ?? 0
-  const nowPlanPct  = round1(totalPct + pct)
-
-  async function handleAdd() {
-    if (!canAdd) return
-    setSaving(true)
-    setAddError(null)
-    const error = await onAdd(shownSymbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
-    if (error) setAddError(error)
-    setSaving(false)
-  }
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
-           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
-        </div>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-2 pb-4">
-          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
-          <div>
-            {shownSymbol
-              ? <p className="font-semibold text-headline text-center">{shownSymbol}</p>
-              : <p className="font-semibold text-headline text-center">Add Stock</p>
-            }
-          </div>
-          <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!canAdd} style={{ minHeight: 44 }}>
-            Add
-          </Button>
-        </div>
-
-        {typeControl}
-
-        {/* Symbol input (IND only: an overseas symbol comes from its Yahoo ticker) */}
-        {!overseas && <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-body" style={{ color: 'var(--text-2)' }}>Symbol</p>
-          <input
-            placeholder="INFY"
-            value={symbol}
-            onChange={e => {
-              const s = e.target.value.toUpperCase()
-              setSymbol(s)
-              if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
-            }}
-            className="text-body font-semibold text-right outline-none uppercase placeholder:font-normal placeholder:normal-case bg-transparent"
-            style={{ color: 'var(--text-primary)', width: 120 }}
-            autoFocus
-          />
-        </div>}
-
-        {/* Market: an Indian listing is resolved automatically; anything else needs its Yahoo symbol */}
-        <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-body" style={{ color: 'var(--text-2)' }}>Market</p>
-          <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
-            {(['IND', 'Other'] as const).map(m => (
-              <button key={m} onClick={() => { setMarket(m); setAddError(null) }}
-                className="text-body font-semibold rounded-xl px-4"
-                style={{
-                  minHeight: 36,
-                  background: market === m ? 'var(--bg-secondary)' : 'transparent',
-                  color: market === m ? 'var(--text-primary)' : 'var(--text-2)',
-                }}>
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {overseas && (
-          <>
-            <div className="flex items-center justify-between px-5 py-4">
-              <p className="text-body" style={{ color: 'var(--text-2)' }}>Yahoo symbol</p>
-              <input
-                placeholder="VUAA.L"
-                value={yahoo}
-                onChange={e => {
-                  const y = e.target.value.toUpperCase()
-                  setYahoo(y)
-                  setAddError(null)
-                  const base = y.split('.')[0]
-                  if (DEFAULT_CATEGORY[base]) setCategory(DEFAULT_CATEGORY[base])
-                }}
-                className={`text-body font-semibold text-right outline-none uppercase placeholder:font-normal bg-transparent${lookup.status === 'error' ? ' text-negative' : ''}`}
-                style={{ color: lookup.status === 'error' ? undefined : 'var(--text-primary)', width: 140 }}
-              />
-            </div>
-            {lookup.status === 'loading' && (
-              <div className="px-5 py-3"><p className="text-body" style={{ color: 'var(--text-2)' }}>Checking</p></div>
-            )}
-            {lookup.status === 'error' && (
-              <div className="px-5 py-3"><p className="text-body text-negative">{lookup.error}</p></div>
-            )}
-            {lookup.status === 'ok' && (
-              <div className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <p className="text-headline font-semibold truncate">{lookup.instrument.name || lookup.instrument.yahooSymbol}</p>
-                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.exchange}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-headline font-semibold tabnum">{formatUsd(lookup.instrument.price)}</p>
-                  <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.currency}</p>
-                </div>
-              </div>
-            )}
-            {addError && <div className="px-5 py-3"><p className="text-body text-negative">{addError}</p></div>}
-          </>
-        )}
-
-        {/* % stepper + slider + figures */}
-        <div className="px-5 pt-5 pb-2 text-center">
-          <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
-          <div className="mt-4 px-1">
-            <input
-              type="range" min={0} max={sliderMax} step={0.1}
-              value={pct}
-              onChange={e => setPct(parseFloat(e.target.value))}
-              className="w-full accent-accent"
-              style={{ height: 4 }}
-            />
-            <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
-              <span>0%</span>
-              <span>{trimPct(sliderMax)}% max</span>
-            </div>
-          </div>
-        </div>
-        <PlanFigures rows={[
-          { label: 'Planned',   now: { amount: budget } },
-          { label: 'Invested',  now: { amount: invested } },
-          { label: 'Left',      now: { amount: budget - invested }, tone: true },
-          { label: 'Equity total', now: { pct: nowPlanPct }, gap: true, tone: true },
-        ]} />
-
-        {/* Category picker */}
-        <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value as StockCategory)}
-            className="text-body outline-none text-right"
-            style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
-            {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-      </div>
-    </>
-  )
-}
-
-// ── Add to Plan (Type: Equity | Debt) ─────────────────────────────────────────
+// ── Add to Plan (one sheet; Type: Equity | Debt) ──────────────────────────────
 
 type AddType = 'equity' | 'debt'
 
@@ -1031,84 +837,226 @@ function TypeControl({ options, value, onChange }: {
   )
 }
 
-/** One Add entry point: Equity adds a stock, Debt adds PPF. A type with nothing left to add is not offered. */
+/**
+ * The one Add entry point. Type picks what is added — Equity a stock, Debt the PPF row — and only the body of the
+ * sheet changes: it is one component with one shell, so switching Type does not re-open (re-slide) the sheet.
+ * A type with nothing left to add is not offered.
+ */
 function AddToPlanSheet({ hasPPF, equityTotal, equityAmount, debtTotal, debtAmount, spent, onClose, onAddStock, onAddPPF }: {
   hasPPF: boolean
+  /** Sum of the Equity rows' % (of the sleeve), and the sleeve's amount. */
   equityTotal: number
   equityAmount: number
+  /** The same for Debt. */
   debtTotal: number
   debtAmount: number
   spent: Record<string, number>
   onClose: () => void
+  /** Resolves to an error message to show here, or null once added. `yahooSymbol` is set for an overseas instrument. */
   onAddStock: (symbol: string, category: StockCategory, pct: number, yahooSymbol: string | null) => Promise<string | null>
   onAddPPF: (pct: number) => Promise<string | null>
 }) {
   const types: AddType[] = hasPPF ? ['equity'] : ['equity', 'debt']
-  const [type, setType] = useState<AddType>('equity')
-  const control = types.length > 1 ? <TypeControl options={types} value={type} onChange={setType} /> : undefined
+  const [type, setType]         = useState<AddType>('equity')
+  const [switched, setSwitched] = useState(false)   // the symbol field only grabs focus when the sheet opens, not on a Type switch
+  const isDebt = type === 'debt'
 
-  return type === 'debt' && !hasPPF
-    ? <AddPPFSheet typeControl={control} debtTotal={debtTotal} debtAmount={debtAmount} invested={spent[PPF_SYMBOL] ?? 0} onClose={onClose} onAdd={onAddPPF} />
-    : <AddStockSheet typeControl={control} totalPct={equityTotal} totalBudget={equityAmount} spent={spent} onClose={onClose} onAdd={onAddStock} />
-}
+  // Equity: a stock
+  const [symbol, setSymbol]     = useState('')
+  const [pct, setPct]           = useState(10)
+  const [category, setCategory] = useState<StockCategory>('Cap-Light Infra')
+  const [market, setMarket]     = useState<'IND' | 'Other'>('IND')
+  const [yahoo, setYahoo]       = useState('')
+  const [lookup, setLookup]     = useState<
+    { status: 'idle' } | { status: 'loading' } | { status: 'ok'; instrument: InstrumentLookup } | { status: 'error'; error: string }
+  >({ status: 'idle' })
+  // Debt: the PPF row
+  const debtMax = round1(Math.min(100, Math.max(0, 100 - debtTotal)))
+  const [ppfPct, setPPFPct]     = useState(Math.min(10, debtMax))
 
-function AddPPFSheet({ typeControl, debtTotal, debtAmount, invested, onClose, onAdd }: {
-  typeControl?: React.ReactNode
-  /** Sum of the Debt rows' % (of the sleeve). */
-  debtTotal: number
-  debtAmount: number
-  /** PPF deposits dated in this FY. */
-  invested: number
-  onClose: () => void
-  onAdd: (pct: number) => Promise<string | null>
-}) {
-  const sliderMax = round1(Math.min(100, Math.max(0, 100 - debtTotal)))
-  const [pct, setPct] = useState(sliderMax)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const budget = rowBudget(pct, debtAmount)
+  const [saving, setSaving]     = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const kh = useKeyboardHeight()
+  const overseas = market === 'Other'
+
+  // Quote-checks the typed Yahoo symbol once typing pauses; a stale answer is dropped.
+  useEffect(() => {
+    if (isDebt || !overseas) return
+    const ys = yahoo.trim()
+    if (!ys) { setLookup({ status: 'idle' }); return }
+    setLookup({ status: 'loading' })
+    let stale = false
+    const timer = setTimeout(async () => {
+      const r = await lookupInstrument(ys)
+      if (stale) return
+      setLookup(r.instrument ? { status: 'ok', instrument: r.instrument } : { status: 'error', error: r.error ?? 'No quote found' })
+    }, 600)
+    return () => { stale = true; clearTimeout(timer) }
+  }, [isDebt, overseas, yahoo])
+
+  // An overseas symbol is the Yahoo ticker's base (VUAA.L -> VUAA), so it is typed once.
+  const shownSymbol = overseas ? yahoo.trim().toUpperCase().split('.')[0] : symbol
+  const equityMax = round1(Math.min(100, 100 - equityTotal))
+
+  // The % control (stepper + slider) and its figures are shared; they read whichever type is showing.
+  const sliderMax = isDebt ? debtMax : equityMax
+  const value     = isDebt ? ppfPct : pct
+  const setValue  = isDebt ? setPPFPct : setPct
+  const step      = pctStep(sliderMax)
+  const budget    = rowBudget(value, isDebt ? debtAmount : equityAmount)
+  const invested  = isDebt ? (spent[PPF_SYMBOL] ?? 0) : (spent[shownSymbol] ?? 0)
+  const nowTotal  = round1((isDebt ? debtTotal : equityTotal) + value)
+  const canAdd    = isDebt ? value > 0 : (!!shownSymbol && pct > 0 && (!overseas || lookup.status === 'ok'))
 
   async function handleAdd() {
-    if (pct <= 0) return
+    if (!canAdd) return
     setSaving(true)
-    setError(null)
-    const err = await onAdd(pct)
-    if (err) setError(err)
+    setAddError(null)
+    const error = isDebt
+      ? await onAddPPF(ppfPct)
+      : await onAddStock(shownSymbol, category, pct, overseas ? yahoo.trim().toUpperCase() : null)
+    if (error) setAddError(error)
     setSaving(false)
   }
 
   return (
-    <BottomSheet onClose={onClose}>
-      <SheetHeader
-        title="PPF"
-        left={<button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>}
-        right={<Button variant="secondary" onClick={handleAdd} loading={saving} style={{ minHeight: 44 }}>Add</Button>}
-      />
-      {typeControl}
-      <div className="px-5 pt-5 pb-2 text-center">
-        <Stepper value={pct} min={0.1} max={sliderMax} step={0.1} onChange={setPct} suffix="%" />
-        <div className="mt-4 px-1">
-          <input
-            type="range" min={0} max={sliderMax} step={0.1}
-            value={pct}
-            onChange={e => setPct(parseFloat(e.target.value))}
-            className="w-full accent-accent"
-            style={{ height: 4 }}
-          />
-          <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
-            <span>0%</span>
-            <span>{trimPct(sliderMax)}% max</span>
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed left-0 right-0 z-50 animate-slide-up rounded-t-3xl sheet-kb"
+           style={{ bottom: kh, background: 'var(--bg-secondary)', paddingBottom: kh > 0 ? '8px' : 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full" style={{ background: 'var(--border)' }} />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-2 pb-4">
+          <button onClick={onClose} className="text-accent text-headline" style={{ minHeight: 44 }}>Cancel</button>
+          <p className="font-semibold text-headline text-center">{isDebt ? 'PPF' : (shownSymbol || 'Add Stock')}</p>
+          <Button variant="secondary" onClick={handleAdd} loading={saving} disabled={!canAdd} style={{ minHeight: 44 }}>
+            Add
+          </Button>
+        </div>
+
+        {types.length > 1 && (
+          <TypeControl options={types} value={type} onChange={t => { setType(t); setSwitched(true); setAddError(null) }} />
+        )}
+
+        {!isDebt && (
+          <>
+            {/* Symbol input (IND only: an overseas symbol comes from its Yahoo ticker) */}
+            {!overseas && <div className="flex items-center justify-between px-5 py-4">
+              <p className="text-body" style={{ color: 'var(--text-2)' }}>Symbol</p>
+              <input
+                placeholder="INFY"
+                value={symbol}
+                onChange={e => {
+                  const s = e.target.value.toUpperCase()
+                  setSymbol(s)
+                  if (DEFAULT_CATEGORY[s]) setCategory(DEFAULT_CATEGORY[s])
+                }}
+                className="text-body font-semibold text-right outline-none uppercase placeholder:font-normal placeholder:normal-case bg-transparent"
+                style={{ color: 'var(--text-primary)', width: 120 }}
+                autoFocus={!switched}
+              />
+            </div>}
+
+            {/* Market: an Indian listing is resolved automatically; anything else needs its Yahoo symbol */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <p className="text-body" style={{ color: 'var(--text-2)' }}>Market</p>
+              <div className="flex rounded-xl p-0.5" style={{ background: 'var(--bg-tertiary)' }}>
+                {(['IND', 'Other'] as const).map(m => (
+                  <button key={m} onClick={() => { setMarket(m); setAddError(null) }}
+                    className="text-body font-semibold rounded-xl px-4"
+                    style={{
+                      minHeight: 36,
+                      background: market === m ? 'var(--bg-secondary)' : 'transparent',
+                      color: market === m ? 'var(--text-primary)' : 'var(--text-2)',
+                    }}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {overseas && (
+              <>
+                <div className="flex items-center justify-between px-5 py-4">
+                  <p className="text-body" style={{ color: 'var(--text-2)' }}>Yahoo symbol</p>
+                  <input
+                    placeholder="VUAA.L"
+                    value={yahoo}
+                    onChange={e => {
+                      const y = e.target.value.toUpperCase()
+                      setYahoo(y)
+                      setAddError(null)
+                      const base = y.split('.')[0]
+                      if (DEFAULT_CATEGORY[base]) setCategory(DEFAULT_CATEGORY[base])
+                    }}
+                    className={`text-body font-semibold text-right outline-none uppercase placeholder:font-normal bg-transparent${lookup.status === 'error' ? ' text-negative' : ''}`}
+                    style={{ color: lookup.status === 'error' ? undefined : 'var(--text-primary)', width: 140 }}
+                  />
+                </div>
+                {lookup.status === 'loading' && (
+                  <div className="px-5 py-3"><p className="text-body" style={{ color: 'var(--text-2)' }}>Checking</p></div>
+                )}
+                {lookup.status === 'error' && (
+                  <div className="px-5 py-3"><p className="text-body text-negative">{lookup.error}</p></div>
+                )}
+                {lookup.status === 'ok' && (
+                  <div className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div className="min-w-0">
+                      <p className="text-headline font-semibold truncate">{lookup.instrument.name || lookup.instrument.yahooSymbol}</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.exchange}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-headline font-semibold tabnum">{formatUsd(lookup.instrument.price)}</p>
+                      <p className="text-subheadline" style={{ color: 'var(--text-2)' }}>{lookup.instrument.currency}</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* % stepper + slider + figures */}
+        <div className="px-5 pt-5 pb-2 text-center">
+          <Stepper value={value} min={0.1} max={sliderMax} step={step} onChange={setValue} suffix="%" />
+          <div className="mt-4 px-1">
+            <input
+              type="range" min={0} max={sliderMax} step={step}
+              value={value}
+              onChange={e => setValue(parseFloat(e.target.value))}
+              className="w-full accent-accent"
+              style={{ height: 4 }}
+            />
+            <div className="flex justify-between text-footnote mt-1" style={{ color: 'var(--text-faint)' }}>
+              <span>0%</span>
+              <span>{trimPct(sliderMax)}% max</span>
+            </div>
           </div>
         </div>
+        <PlanFigures rows={[
+          { label: 'Planned',   now: { amount: budget } },
+          { label: 'Invested',  now: { amount: invested } },
+          { label: 'Left',      now: { amount: budget - invested }, tone: true },
+          { label: isDebt ? 'Debt total' : 'Equity total', now: { pct: nowTotal }, gap: true, tone: true },
+        ]} />
+
+        {/* Category picker (a stock has one; PPF does not) */}
+        {!isDebt && <div className="flex items-center justify-between px-5 py-4">
+          <p className="text-body" style={{ color: 'var(--text-2)' }}>Category</p>
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value as StockCategory)}
+            className="text-body outline-none text-right"
+            style={{ background: 'transparent', color: 'var(--text-2)', maxWidth: 200 }}>
+            {ALL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>}
+
+        {addError && <div className="px-5 py-3"><p className="text-body text-negative">{addError}</p></div>}
       </div>
-      <PlanFigures rows={[
-        { label: 'Planned',    now: { amount: budget } },
-        { label: 'Invested',   now: { amount: invested } },
-        { label: 'Left',       now: { amount: budget - invested }, tone: true },
-        { label: 'Debt total', now: { pct: round1(debtTotal + pct) }, gap: true, tone: true },
-      ]} />
-      {error && <div className="px-5 py-3"><p className="text-body text-negative">{error}</p></div>}
-    </BottomSheet>
+    </>
   )
 }
 
