@@ -7,8 +7,8 @@ import { gatherBucketedGains, computeStockGains, computeMFGains, computeGoldGain
 import type { RealisedGain, UnrealisedPosition } from '@/lib/tax-compute'
 import { bucketGains, applySetOff, computeTax, dividendTDS, sumCarryForward, SURCHARGE_RATE } from '@/lib/tax-liability'
 import type { CarryForwardRow, Bucket, SurchargeBracket } from '@/lib/tax-liability'
-import { advanceTaxMilestones, computeInstalments, allocatePayments, summariseInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
-import type { InstalmentResult, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
+import { advanceTaxMilestones, computeInstalments, buildLedger, summariseInstalments, shouldSuppressInstalments, buildLiabilityAsOf } from '@/lib/advance-tax'
+import type { InstalmentResult, LedgerRow, MilestoneKey, AdvanceTaxPaid } from '@/lib/advance-tax'
 import { planCarryForwardReconciliation } from '@/lib/tax-reconcile'
 import { todayISO, formatINRFine } from '@/lib/formatter'
 import { getSupabaseBrowser } from '@/lib/supabase-browser'
@@ -177,7 +177,7 @@ export default function TaxClient({
   const annualLiability     = taxResult.total - tds
   const suppressInstalments = shouldSuppressInstalments(annualLiability)
   const payable              = annualLiability - advancePaidTotal
-  const shares         = useMemo(() => allocatePayments(instalments, advancePaidTotal, todayISO()), [instalments, advancePaidTotal])
+  const ledger         = useMemo(() => buildLedger(instalments, todayISO()), [instalments])
   const instalmentSum  = useMemo(() => summariseInstalments(instalments, advancePaidTotal), [instalments, advancePaidTotal])
 
   const taxRows: TaxBucketRow[] = useMemo(() => BUCKET_ORDER
@@ -359,7 +359,7 @@ export default function TaxClient({
       {selectedFY && !suppressInstalments && (
         <Section title="Advance Tax" sectionKey="advance" expanded={expanded} onToggle={toggle}
                  value={<><Num amount={instalmentSum.paid} /> of <Num amount={instalmentSum.annual} /></>}>
-          <InstalmentsBody results={instalments} shares={shares} onEdit={setEditingMilestone} />
+          <InstalmentsBody results={instalments} ledger={ledger} onEdit={setEditingMilestone} />
         </Section>
       )}
 
@@ -395,6 +395,7 @@ export default function TaxClient({
       {editingMilestone && selectedFY && (
         <PaidAmountSheet
           result={editingMilestone}
+          row={ledger[instalments.findIndex(r => r.milestone.key === editingMilestone.milestone.key)]}
           onClose={() => setEditingMilestone(null)}
           onSave={amount => savePaid(selectedFY, editingMilestone.milestone.key, amount)}
         />
@@ -405,8 +406,9 @@ export default function TaxClient({
 
 // ── Edit paid-amount sheet ───────────────────────────────────────────────────
 
-function PaidAmountSheet({ result, onClose, onSave }: {
+function PaidAmountSheet({ result, row, onClose, onSave }: {
   result: InstalmentResult
+  row:    LedgerRow
   onClose: () => void
   onSave: (amount: number) => Promise<void>
 }) {
@@ -450,6 +452,12 @@ function PaidAmountSheet({ result, onClose, onSave }: {
           <Button variant="secondary" onClick={handleSave} loading={saving} style={{ minHeight: 44 }}>Save</Button>
         </div>
 
+        <SheetRow label="Share" amount={row.share} />
+        {row.unpaid   >= 0.5 && <SheetRow label="Unpaid"    amount={row.unpaid} />}
+        {row.interest >= 0.5 && <SheetRow label="Interest"  amount={row.interest} />}
+        {row.ahead    >= 0.5 && <SheetRow label="Paid ahead" amount={-row.ahead} />}
+        <SheetRow label="Total Due" amount={row.due} bold />
+
         <div className="flex items-center justify-between px-5 py-4">
           <p className="text-body">Paid</p>
           <input
@@ -462,5 +470,14 @@ function PaidAmountSheet({ result, onClose, onSave }: {
         </div>
       </div>
     </>
+  )
+}
+
+function SheetRow({ label, amount, bold }: { label: string; amount: number; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between px-5" style={{ minHeight: 44 }}>
+      <span className={bold ? 'text-headline font-bold' : 'text-body'}>{label}</span>
+      <span className={`tabnum ${bold ? 'text-headline font-bold' : 'text-body'}`}><Num amount={amount} /></span>
+    </div>
   )
 }

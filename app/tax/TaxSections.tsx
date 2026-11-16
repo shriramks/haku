@@ -1,5 +1,5 @@
 'use client'
-import type { InstalmentResult, InstalmentShare } from '@/lib/advance-tax'
+import type { InstalmentResult, LedgerRow } from '@/lib/advance-tax'
 import type { Bucket } from '@/lib/tax-liability'
 import { LTCG_EXEMPTION } from '@/lib/tax-liability'
 import { Num } from '@/components/Num'
@@ -46,59 +46,50 @@ export function Section({
 }
 
 // ── Advance Tax — one row per due date ───────────────────────────────────────
-// Payments pool and fill quarters oldest-first (`allocatePayments`,
-// lib/advance-tax.ts), so a catch-up logged under Sep still shows Jun as paid.
-// No status colours: a covered quarter is muted, everything else full contrast.
+// Total Due on a date is its own share plus what was left unpaid on earlier
+// dates plus the interest on that (`buildLedger`, lib/advance-tax.ts); tapping
+// the row opens the breakdown and the Paid input (`PaidAmountSheet`).
 
 export function InstalmentsBody({
-  results, shares, onEdit,
+  results, ledger, onEdit,
 }: {
   results: InstalmentResult[]
-  shares:  InstalmentShare[]
+  ledger:  LedgerRow[]
   onEdit:  (r: InstalmentResult) => void
 }) {
   return (
     <div>
       {results.map((r, i) => (
-        <MilestoneRow key={r.milestone.key} result={r} share={shares[i]} onTap={() => onEdit(r)} />
+        <MilestoneRow key={r.milestone.key} result={r} row={ledger[i]} onTap={() => onEdit(r)} />
       ))}
     </div>
   )
 }
 
-// Four fixed columns, same on every row, no column heads (each cell carries its
-// own small word): date | due <this quarter's share> | paid <what was logged on
-// this date> | pay <what to pay now>. A past row is faded whole (colour, never
-// opacity) and has no `pay`: nothing is paid on a date that has gone, and any
-// shortfall is already inside the NEXT upcoming quarter's `pay` (own share +
-// earlier unpaid + interest). Later upcoming quarters show their own remaining
-// share. The date never wraps.
+// Three fixed columns, same on every row, no column heads (each cell carries its
+// own small word): date | due <Total Due> | paid <what was logged on this date>.
+// The due amount is accent: it is the tap cue (the row opens a sheet, so no
+// chevron). A past row fades its date and paid, never the due. The date never wraps.
 const ROW_GRID: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: '48px 1fr 1fr 1fr', columnGap: 6, alignItems: 'baseline',
+  display: 'grid', gridTemplateColumns: '56px 1fr 1fr', columnGap: 8, alignItems: 'baseline',
 }
 
-function Cell({ word, children, strong }: { word: string; children: React.ReactNode; strong?: boolean }) {
-  return (
-    <span className="tabnum text-right whitespace-nowrap">
-      <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>{word}</span>{' '}
-      <span className={strong ? 'text-headline font-bold' : 'text-body'}>{children}</span>
-    </span>
-  )
-}
-
-function MilestoneRow({ result, share, onTap }: {
-  result: InstalmentResult; share: InstalmentShare; onTap: () => void
+function MilestoneRow({ result, row, onTap }: {
+  result: InstalmentResult; row: LedgerRow; onTap: () => void
 }) {
-  const { milestone, ownPaid } = result
-  const { status, slice, payable } = share
-  const past = status !== 'upcoming'
+  const past  = row.status === 'past'
+  const muted = past ? 'var(--text-2)' : 'var(--text-primary)'
   return (
-    <button onClick={onTap} className="w-full px-4 tap-row list-row text-left"
-            style={{ ...ROW_GRID, color: past ? 'var(--text-2)' : 'var(--text-primary)' }}>
-      <span className="text-headline font-semibold whitespace-nowrap">{milestone.label}</span>
-      <Cell word="due"><Num amount={slice} /></Cell>
-      <Cell word="paid"><Num amount={ownPaid} /></Cell>
-      {!past && payable >= 0.5 ? <Cell word="pay" strong><Num amount={payable} /></Cell> : <span />}
+    <button onClick={onTap} className="w-full px-4 tap-row list-row text-left" style={ROW_GRID}>
+      <span className="text-headline font-semibold whitespace-nowrap" style={{ color: muted }}>{result.milestone.label}</span>
+      <span className="tabnum text-right whitespace-nowrap">
+        <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>due</span>{' '}
+        <span className={past ? 'text-body' : 'text-headline font-bold'} style={{ color: 'var(--accent)' }}><Num amount={row.due} /></span>
+      </span>
+      <span className="tabnum text-right whitespace-nowrap">
+        <span className="text-subheadline" style={{ color: 'var(--text-2)' }}>paid</span>{' '}
+        <span className="text-body" style={{ color: muted }}><Num amount={row.paid} /></span>
+      </span>
     </button>
   )
 }

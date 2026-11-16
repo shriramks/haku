@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   advanceTaxMilestones, computeInstalments, shouldSuppressInstalments, buildLiabilityAsOf,
-  allocatePayments, summariseInstalments,
+  buildLedger, summariseInstalments,
 } from '../advance-tax'
 import type { FiscalYear, Transaction, DividendTransaction } from '../types'
 import type { AdvanceTaxPaid } from '../advance-tax'
@@ -95,56 +95,13 @@ describe('computeInstalments', () => {
     expect(sep.interest).toBe(0)
   })
 
-  describe('payableNow — what is actually due at each milestone\'s own date', () => {
-    it('with nothing carried forward, payableNow is just each milestone\'s own fresh slice, not the cumulative total', () => {
-      // asOfToday before Jun 15 — nothing is past yet, so nothing carries.
-      const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
-      const [jun, sep, dec, mar] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-05-01')
-
-      // targets: 750, 9_000, 15_000, 40_000 — payableNow is each gap, not
-      // the running total. Dec's own slice (6_000) is *smaller* than Sep's
-      // (8_250) even though Dec's cumulative % is higher — exactly the
-      // real-world case that was wrong before: Dec never owes 75% of the
-      // whole year, only its own fresh slice since Sep.
-      expect(jun.payableNow).toBe(750)          // 750 - 0
-      expect(sep.payableNow).toBe(8_250)        // 9,000 - 750
-      expect(dec.payableNow).toBe(6_000)        // 15,000 - 9,000
-      expect(mar.payableNow).toBe(25_000)       // 40,000 - 15,000
-    })
-
-    it('carries a missed milestone\'s shortfall + interest into the next one\'s payableNow, on top of its own slice', () => {
-      const paid: AdvanceTaxPaid = { jun: 0, sep: 0, dec: 0, mar: 0 }
-      const [jun, sep] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2025-10-01')
-
-      // Jun (past, unpaid): shortfall 750, interest 22.5 — carried forward.
-      expect(jun.payableNow).toBe(750)
-      // Sep's own slice (8,250) + Jun's carried shortfall+interest (772.5).
-      expect(sep.payableNow).toBeCloseTo(8_250 + 772.5)   // 9,022.5
-    })
-
-    it('waterfalls a combined payment: carried debt first, then this milestone\'s own slice', () => {
-      // Paying exactly Sep's cumulative target (9,000) covers Jun's 750
-      // principal and leaves 8,250 toward Sep's own 8,250 slice — but Jun's
-      // 22.5 interest was never covered by that 9,000, so 22.5 remains due,
-      // even though the cumulative `shortfall` check alone reads as 0.
-      const shortPay = computeInstalments(MILESTONES, liabilityAsOf, { jun: 0, sep: 9_000, dec: 0, mar: 0 }, '2025-10-01')
-      expect(shortPay[1].shortfall).toBe(0)
-      expect(shortPay[1].payableNow).toBeCloseTo(22.5)
-
-      // Paying enough to cover Jun's principal + interest + Sep's own slice
-      // (750 + 22.5 + 8,250 = 9,022.5) zeroes payableNow completely.
-      const fullPay = computeInstalments(MILESTONES, liabilityAsOf, { jun: 0, sep: 9_022.5, dec: 0, mar: 0 }, '2025-10-01')
-      expect(fullPay[1].payableNow).toBeCloseTo(0)
-    })
-
-    it('ownPaid is the raw per-milestone field, not the accumulated running total', () => {
-      const paid: AdvanceTaxPaid = { jun: 0, sep: 5_000, dec: 10_000, mar: 0 }
-      const [jun, sep, dec] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-01-01')
-      expect(jun.ownPaid).toBe(0)
-      expect(sep.ownPaid).toBe(5_000)     // matches `paid` here only because jun contributed 0
-      expect(dec.ownPaid).toBe(10_000)    // diverges from `paid` (15,000, the cumulative field) below
-      expect(dec.paid).toBe(15_000)
-    })
+  it('ownPaid is the raw per-milestone field, not the accumulated running total', () => {
+    const paid: AdvanceTaxPaid = { jun: 0, sep: 5_000, dec: 10_000, mar: 0 }
+    const [jun, sep, dec] = computeInstalments(MILESTONES, liabilityAsOf, paid, '2026-01-01')
+    expect(jun.ownPaid).toBe(0)
+    expect(sep.ownPaid).toBe(5_000)     // matches `paid` here only because jun contributed 0
+    expect(dec.ownPaid).toBe(10_000)    // diverges from `paid` (15,000, the cumulative field) below
+    expect(dec.paid).toBe(15_000)
   })
 
   it('a milestone before its due date never accrues shortfall/interest even if underpaid', () => {
@@ -185,41 +142,71 @@ describe('computeInstalments', () => {
 
 // ── shouldSuppressInstalments ───────────────────────────────────────────────────
 
-describe('allocatePayments / summariseInstalments', () => {
-  // targets 750 / 9,000 / 15,000 / 40,000 -> slices 750 / 8,250 / 6,000 / 25,000
+describe('buildLedger / summariseInstalments', () => {
+  // targets 750 / 9,000 / 15,000 / 40,000 -> shares 750 / 8,250 / 6,000 / 25,000
   const run = (paid: AdvanceTaxPaid, today: string) => {
     const results = computeInstalments(MILESTONES, liabilityAsOf, paid, today)
     const total   = paid.jun + paid.sep + paid.dec + paid.mar
-    return { results, total, shares: allocatePayments(results, total, today), sum: summariseInstalments(results, total) }
+    return { results, ledger: buildLedger(results, today), sum: summariseInstalments(results, total) }
   }
 
-  it('payments fill quarters oldest-first, so a catch-up logged under sep marks jun paid too', () => {
-    const { shares } = run({ jun: 0, sep: 9_000, dec: 0, mar: 0 }, '2025-11-12')
-    expect(shares.map(s => s.status)).toEqual(['paid', 'paid', 'upcoming', 'upcoming'])
-    expect(shares.map(s => s.allocated)).toEqual([750, 8_250, 0, 0])
+  it('nothing paid: a past date owes its share plus everything carried in, interest included', () => {
+    const { ledger } = run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2025-11-12')
+    expect(ledger[0]).toMatchObject({ status: 'past', share: 750, unpaid: 0, interest: 0, due: 750 })
+    // sep: 8,250 share + 750 unpaid + 22.5 jun interest
+    expect(ledger[1]).toMatchObject({ status: 'past', share: 8_250, unpaid: 750, due: 9_022.5 })
+    expect(ledger[1].interest).toBeCloseTo(22.5)
   })
 
-  it('a small underpayment is underpaid with the exact gap; later quarters are untouched', () => {
-    const { shares } = run({ jun: 750, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
-    expect(shares[1]).toMatchObject({ status: 'underpaid', allocated: 7_000, gap: 1_250, slice: 8_250 })
-    expect(shares[2].allocated).toBe(0)
+  it('the next upcoming date carries unpaid principal and all interest so far; later dates show their own share', () => {
+    // jun paid in full, sep 1,250 short. sep interest = 1,250 x 3% = 37.5
+    const { ledger } = run({ jun: 750, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
+    expect(ledger.map(l => l.status)).toEqual(['past', 'past', 'next', 'later'])
+    expect(ledger[2].share).toBe(6_000)
+    expect(ledger[2].unpaid).toBeCloseTo(1_250)
+    expect(ledger[2].interest).toBeCloseTo(37.5)
+    expect(ledger[2].due).toBeCloseTo(6_000 + 1_250 + 37.5)
+    expect(ledger[3]).toMatchObject({ share: 25_000, unpaid: 0, interest: 0, due: 25_000 })
   })
 
-  it('nothing paid: every past quarter is underpaid for its whole slice', () => {
-    const { shares } = run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2025-11-12')
-    expect(shares.slice(0, 2).map(s => [s.status, s.gap])).toEqual([['underpaid', 750], ['underpaid', 8_250]])
+  it('share + unpaid + interest - ahead always equals due', () => {
+    for (const paid of [
+      { jun: 0, sep: 0, dec: 0, mar: 0 }, { jun: 750, sep: 7_000, dec: 0, mar: 0 },
+      { jun: 50_000, sep: 0, dec: 0, mar: 0 }, { jun: 0, sep: 9_022.5, dec: 0, mar: 0 },
+    ]) {
+      for (const l of run(paid, '2025-11-12').ledger)
+        expect(l.share + l.unpaid + l.interest - l.ahead).toBeCloseTo(l.due)
+    }
   })
 
-  it('a quarter is still upcoming on its due date, and underpaid only the day after', () => {
+  it('a catch-up logged under sep clears jun\'s principal and interest from what is carried forward', () => {
+    // 750 + 22.5 + 8,250 = 9,022.5 settles jun and sep completely
+    const { ledger } = run({ jun: 0, sep: 9_022.5, dec: 0, mar: 0 }, '2025-11-12')
+    expect(ledger[2]).toMatchObject({ share: 6_000, unpaid: 0, interest: 0, due: 6_000 })
+  })
+
+  it('paying ahead lowers a later date\'s due and never goes negative', () => {
+    const { ledger } = run({ jun: 50_000, sep: 0, dec: 0, mar: 0 }, '2025-11-12')
+    expect(ledger.every(l => l.due >= 0)).toBe(true)
+    expect(ledger[1].due).toBe(0)
+    expect(ledger[1].ahead).toBe(8_250)
+  })
+
+  it('a date is still upcoming on its due date, and past only the day after', () => {
     const paid = { jun: 0, sep: 0, dec: 0, mar: 0 }
-    expect(run(paid, '2025-06-15').shares[0].status).toBe('upcoming')
-    expect(run(paid, '2025-06-16').shares[0].status).toBe('underpaid')
+    expect(run(paid, '2025-06-15').ledger[0].status).toBe('next')
+    expect(run(paid, '2025-06-16').ledger[0].status).toBe('past')
   })
 
-  it('a falling estimate never produces a negative slice', () => {
+  it('once every date has passed, all rows are past', () => {
+    const { ledger } = run({ jun: 0, sep: 0, dec: 0, mar: 0 }, '2026-04-01')
+    expect(ledger.every(l => l.status === 'past')).toBe(true)
+  })
+
+  it('a falling estimate never produces a negative share', () => {
     const falling = (d: string) => ({ '2025-06-15': 20_000, '2025-09-15': 10_000, '2025-12-15': 10_000, '2026-03-15': 10_000 } as Record<string, number>)[d] ?? 0
     const results = computeInstalments(MILESTONES, falling, { jun: 0, sep: 0, dec: 0, mar: 0 }, '2026-04-01')
-    expect(allocatePayments(results, 0, '2026-04-01').every(s => s.slice >= 0)).toBe(true)
+    expect(buildLedger(results, '2026-04-01').every(l => l.share >= 0)).toBe(true)
   })
 
   it('summary: paid, annual and interest summed over past quarters', () => {
@@ -229,15 +216,6 @@ describe('allocatePayments / summariseInstalments', () => {
     // jun: 750 short x 1% x 3 = 22.5; sep: 2,000 short x 1% x 3 = 60
     expect(sum.interest).toBeCloseTo(82.5)
   })
-
-  it('the next upcoming row carries earlier unpaid gaps and all interest; later rows stay at their own slice', () => {
-    const { shares, sum } = run({ jun: 750, sep: 7_000, dec: 0, mar: 0 }, '2025-11-12')
-    // dec own slice 6,000 + sep gap 1,250 + interest (sep: 1,250 short... see summary) — equals header
-    expect(shares[1].payable).toBe(1_250)                 // past row: its own gap
-    expect(shares[2].payable).toBeCloseTo(6_000 + 1_250 + sum.interest)
-    expect(shares[3].payable).toBe(25_000)                // mar: own slice only
-  })
-
 })
 
 describe('shouldSuppressInstalments', () => {
