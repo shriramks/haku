@@ -208,7 +208,7 @@ export const getSymbolAllocations = userScoped(
   }
 )
 
-/** Every symbol ever given an allocation, across all fiscal years — the Add-transaction
+/** Every stock symbol (`kind = 'stock'` only — never MF, PPF or gold plan rows) ever given an allocation, across all fiscal years — the Add-transaction
  * picker's stock chips (root layout → BottomNav → AddTxnModal, and the /add shortcut page).
  * Not scoped to current holdings: a symbol stays listed until removed from whichever FY plan
  * it was added to, even if fully sold. */
@@ -219,6 +219,7 @@ export const getAllStockSymbols = userScoped(
       .from('stock_allocations')
       .select('symbol')
       .eq('user_id', userId)
+      .eq('kind', 'stock')
     return [...new Set((data ?? []).map(a => a.symbol))].sort()
   }
 )
